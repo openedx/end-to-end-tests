@@ -50,16 +50,34 @@ Test data setup relies on portable mechanisms (documented public APIs or a
 documented, idempotent seeding step) rather than one operator's private fixtures.
 Providers may layer their own private overlays on top of the shared suite.
 
-Installations differ in which optional features are enabled and which
-micro-frontends are deployed, so the suite separates a **mandatory core** - the flows
-every Open edX installation is expected to support (sign in, dashboard, browse,
-enroll, view courseware) - from **optional, capability-gated** coverage. The core
-always runs, and a failure there is a real failure. Everything beyond it is tagged
-with the capability it requires (for example ``@discussions``, ``@teams``,
-``@certificates``) and gated by an **explicit capability declaration in configuration**
-(defaulting to the platform's demo defaults); a provider turns capabilities on or
-off to match their installation, and gated tests are excluded cleanly when their
-capability is off (via ``--grep-invert`` on the disabled tags).
+Installations differ in which features are enabled, which micro-frontends are
+deployed, and how users are provisioned and authenticated, so coverage is split
+into a **default set** and **optional, capability-gated** coverage. The default set
+targets the **Product-defined defaults shipped with the platform** - not any single
+distribution's defaults. In particular it may diverge from Tutor's defaults (an
+alignment we are working toward) and it exercises the **default Open edX theme**,
+not a provider theme such as Indigo. The default set runs unless a provider turns
+part of it off, and a failure there is a real failure.
+
+Everything else is tagged with the capability it needs (for example
+``@discussions``, ``@teams``, ``@certificates``) and gated by an **explicit
+capability declaration in configuration**. A provider turns capabilities on or off
+to match their installation; any section can be turned off and, where needed,
+replaced with a provider-specific test or one that ships in the suite but is off by
+default. Because the declaration is validated at load time, it can also express
+finer-grained toggles than a coarse capability (a capability such as ``discussions``
+versus a feature flag such as sidebar placement) and **mutually-exclusive**
+features, where enabling one automatically skips the tests for the feature it
+replaces.
+
+Authentication is a special case: it is a precondition for almost every test, and
+providers vary widely (custom SSO, non-default provisioning). Rather than assume one
+sign-in flow, the suite defines a small **authentication contract** - a
+provider-swappable auth module that, given a named role (learner, instructor,
+staff), returns a signed-in storage state valid across the LMS, Studio, and MFE
+origins the configuration declares. The default implementation drives the shipped
+sign-in flow; a provider with custom auth supplies their own without touching the
+tests.
 
 TypeScript as the core language
 ================================
@@ -79,7 +97,9 @@ Tests are organized **primarily by platform domain** - the application area they
 exercise (for example ``lms/auth``, ``lms/course-home``, ``studio/outline``) - and
 the page objects mirror that tree.
 This matches how the platform is built and owned, keeps everything for one area in
-one place, and scales to many domains as coverage grows.
+one place, and scales to many domains as coverage grows. It also mirrors how the
+current BTR tests are organized, so the suite makes BTR validation easier rather
+than adding a second mental model.
 
 A concrete layout looks like this (illustrative - the companion docs are
 authoritative on exact names)::
@@ -105,24 +125,22 @@ authoritative on exact names)::
 Domain decides the folder layout; everything else about a test is expressed with
 **tags**, not more folders:
 
-- **Stability tier** - ``@smoke`` for the mandatory critical path,
+- **Stability tier** - ``@smoke`` for the critical path,
   ``@regression`` for broader depth - expressed as tags plus Playwright projects,
   so a domain's tests stay together.
 - **Capability** - ``@discussions``, ``@teams``, ``@certificates``, and so on - gates
   optional coverage on or off per installation (see *Runnable by any provider
   against their own installation*).
+- **MFE / subsystem** - ``@mfe-learning``, ``@mfe-authoring``, and so on - lets the
+  suite be filtered to one micro-frontend (for example to check an MFE branch before
+  it merges, or on a cadence) and surfaces where a failure lives for non-technical
+  readers. It is a tag, not an extra folder layer - the domain tree stays the one
+  organizing axis.
 
-**Every test carries a BTR test ID.** The suite covers exactly the cases in
-the BTR Release Test Plan: each test is annotated with its case's ``test_id`` (of
-the form ``TC-0000X``; see *BTR Release Test Plan cross-linking via test IDs*), and
-a test with no ``test_id``
-does not belong in the suite - annotation coverage is reported on every run, so gaps
-are visible. The ``test_id`` is always **explicit**, never inferred from a test's
-path or title; a domain or capability tag, by contrast, may be derived from the
-folder path for convenience. Shared building blocks (page objects, steps, fixtures,
-factories) exist precisely so that adding a new **Feature** - focused coverage of
-one capability - is just a new ``*.spec.ts`` under the relevant domain, composing
-the page objects, steps, and fixtures that already exist.
+Shared building blocks (page objects, steps, fixtures, factories) exist precisely
+so that adding a new **Feature** - focused coverage of one capability - is just a
+new ``*.spec.ts`` under the relevant domain, composing the page objects, steps, and
+fixtures that already exist.
 
 Accessibility testing
 ======================
@@ -153,7 +171,10 @@ on every run - which tests carry a ``test_id`` and which do not - even when shee
 synchronization itself is turned off, so the completeness of the mapping is always
 visible. This is the mechanism by which the suite progressively replaces manual BTR
 release checks; it requires coordination with the BTR Working Group on a stable
-``test_id`` scheme. Annotations plus a custom reporter are a standard, well-supported
+``test_id`` scheme. Automated results are recorded in the sheet **separately from
+manual results**, each with run metadata (a timestamp and a run id or link to the
+run output), so a reviewer can see when, and by which run, a case was last verified.
+Annotations plus a custom reporter are a standard, well-supported
 way to synchronize results with an external test-management system, so this is a
 low-risk approach.
 
