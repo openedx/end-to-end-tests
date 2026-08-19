@@ -12,6 +12,7 @@ export {
   type Capability,
 } from './capabilities';
 export { registrableDomain } from './domain';
+export { TIMEOUTS, type Timeouts } from './timeouts';
 
 let cached: AppConfig | undefined;
 let dotenvLoaded = false;

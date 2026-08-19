@@ -214,7 +214,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     if (lmsUrl.protocol === 'http:') {
       warnings.push(
         'Origins use http://. The target must serve SameSite=Lax, non-Secure cookies ' +
-          'or the session cookie will be dropped and every request will be anonymous.'
+          'or the session cookie will be dropped and every request will be anonymous.',
       );
     }
   }
