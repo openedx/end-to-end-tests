@@ -1,0 +1,13 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+blob-report/
+.auth/
+package-lock.json
+
+# Project scaffolding / support
+docs/
+.github/
+catalog-info.yaml
+LICENSE

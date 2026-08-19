@@ -1,0 +1,52 @@
+{
+  "name": "openedx-end-to-end-tests",
+  "version": "0.1.0",
+  "description": "End-to-end tests for the Open edX Platform, written in Playwright + TypeScript.",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11"
+  },
+  "packageManager": "npm@11.9.0",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "install:browsers": "playwright install --with-deps",
+    "check": "npm run typecheck && npm run lint && npm run format:check"
+  },
+  "keywords": [
+    "openedx",
+    "e2e",
+    "playwright",
+    "typescript",
+    "testing"
+  ],
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.2.0",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-playwright": "^2.11.0",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "zod": "^4.4.3"
+  }
+}
