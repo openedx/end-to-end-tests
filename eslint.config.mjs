@@ -40,5 +40,13 @@ export default tseslint.config(
     files: ['tests/**/*.ts'],
     ...playwright.configs['flat/recommended'],
   },
+  {
+    // Setup projects legitimately have no assertions and use conditional skips.
+    files: ['**/*.setup.ts'],
+    rules: {
+      'playwright/expect-expect': 'off',
+      'playwright/no-skipped-test': 'off',
+    },
+  },
   prettier,
 );

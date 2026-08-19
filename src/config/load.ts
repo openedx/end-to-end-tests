@@ -103,8 +103,7 @@ function parseCapabilities(raw: string | undefined, issues: string[]): Set<Capab
 /**
  * Validates the multi-origin relationship required for single-sign-in auth:
  * every origin shares one scheme and one registrable parent domain, so
- * Open edX's parent-scoped cookies cover them all. See
- * docs/planning/auth-storage-state-deep-dive.md.
+ * Open edX's parent-scoped cookies cover them all.
  */
 function validateOriginRelationship(
   origins: readonly ConfiguredOrigin[],

@@ -65,6 +65,13 @@ export default defineConfig({
       grep: /@unit/,
     },
     {
+      // Signs in once per role and writes .auth/<role>.json. Authenticated
+      // projects depend on this and consume the state via `use: { storageState }`.
+      // Ships stubbed in Epic 1 (skips cleanly); Epic 2 makes it a live sign-in.
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    {
       // Critical-path stability tier.
       name: 'smoke',
       grep: /@smoke/,
@@ -78,5 +85,15 @@ export default defineConfig({
     },
     // Additional browsers (Firefox, WebKit) can be added as parallel projects
     // once the suite is stable on Chromium.
+    //
+    // Authenticated projects depend on `setup` and load its captured
+    // state, e.g.:
+    //
+    //   {
+    //     name: 'lms-learner',
+    //     grep: /@regression/,
+    //     dependencies: ['setup'],
+    //     use: { ...devices['Desktop Chrome'], storageState: '.auth/learner.json' },
+    //   },
   ],
 });

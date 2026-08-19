@@ -16,8 +16,7 @@ export interface ConfiguredOrigin {
  * Uses the public suffix list, so multi-part suffixes (`example.co.uk`) resolve
  * correctly and non-registrable hosts — bare `localhost`, IP literals — return
  * `null`. Two hosts sharing a registrable domain are same-site, which is what
- * lets a single Open edX sign-in cover every sub-domain origin (see
- * docs/planning/auth-storage-state-deep-dive.md).
+ * lets a single Open edX sign-in cover every sub-domain origin.
  */
 export function registrableDomain(hostname: string): string | null {
   return getDomain(hostname);
