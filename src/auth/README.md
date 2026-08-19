@@ -18,6 +18,6 @@ Contains:
 - `default-provider.ts` — the default provider (an Epic 1 stub; real MFE-era
   sign-in lands in Epic 2).
 
-Key design point: a single sign-in sets parent-scoped cookies that cover every 
-sub-domain origin, so one storage state authenticates LMS, Studio, and all MFEs. 
+Key design point: a single sign-in sets parent-scoped cookies that cover every
+sub-domain origin, so one storage state authenticates LMS, Studio, and all MFEs.
 We never disable browser security.

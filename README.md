@@ -39,7 +39,7 @@ cp .env.example .env
 All installation-specific values are read from environment variables and validated
 at load time — a missing or malformed value fails fast with a clear message
 instead of a confusing test failure. Every variable is documented in
-[`.env.example`](.env.example). 
+[`.env.example`](.env.example).
 
 The essentials:
 
@@ -132,9 +132,10 @@ docs/
 
 The layers have a strict dependency direction —
 `config → api → pages → steps → fixtures → tests` — with each layer's
-responsibility described in its own `README.md` under `src/`. Companion
-`ARCHITECTURE.md` (layer diagram) and `CONVENTIONS.md` (locator priority, tagging,
-test-data rules) documents are being added as part of Epic 1.
+responsibility described in its own `README.md` under `src/`. See
+[`ARCHITECTURE.md`](ARCHITECTURE.md) (layer diagram and responsibilities) and
+[`CONVENTIONS.md`](CONVENTIONS.md) (locator priority, tagging, test-data rules)
+for the full mechanics.
 
 ## Contributing
 
