@@ -42,9 +42,26 @@ export async function registerLearnerAccount(
   });
 
   if (!response.ok()) {
+    const body = await response.text();
+
+    // Open edX rate-limits registration per IP (REGISTRATION_RATELIMIT, default
+    // "60/7d"). Frequent runs exhaust it and every POST then returns
+    // 403 forbidden-request — call that out specifically so it isn't mistaken for
+    // a code or credentials problem.
+    if (response.status() === 403 && body.includes('forbidden-request')) {
+      throw new ApiError(
+        `Registration failed for "${identity.username}" (HTTP 403 ` +
+          `forbidden-request). It may have been rate-limited. We cap registrations per IP via ` +
+          `REGISTRATION_RATELIMIT (default "60/7d"), which repeated test runs exhaust. ` +
+          `Raise it on the target for testing (e.g. "100/m", as the platform's own ` +
+          `test settings do) and restart the LMS, or wait for the window to reset.`,
+        { status: 403, url, body },
+      );
+    }
+
     throw new ApiError(
-      `Registration failed for "${identity.username}" (HTTP ${response.status()}).`,
-      { status: response.status(), url, body: await response.text() },
+      `Registration failed for "${identity.username}" (HTTP ${response.status()}): ${body}`,
+      { status: response.status(), url, body },
     );
   }
 }

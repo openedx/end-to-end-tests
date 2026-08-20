@@ -21,7 +21,7 @@ test.describe('Logout (authn MFE)', () => {
         password: identity.password,
       });
 
-      await signOut(page, accountMenu, identity.name);
+      await signOut(page, accountMenu);
 
       // The login JWT cookie is cleared across the shared parent domain...
       const cookies = await page.context().cookies();

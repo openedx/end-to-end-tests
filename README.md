@@ -77,13 +77,43 @@ same specs run against very different targets (see
 [issue #10](https://github.com/openedx/end-to-end-tests/issues/10) and
 [`src/accounts/README.md`](src/accounts/README.md)).
 
-| `ACCOUNT_BACKEND` | Use when…                                                        | Behaviour                                                                                   |
-| ----------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `automatic`       | Target auto-activates (`SKIP_EMAIL_VALIDATION = True`) — default | Generates a throwaway `@example.com` identity; no activation step needed.                   |
-| `manual`          | Target enforces email activation and can't be reconfigured       | Interactive: prompts you for an email to register with, then for the activation link/token. |
+| `ACCOUNT_BACKEND` | Use when…                                                  | Behaviour                                                                                                                               |
+| ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `automatic`       | "Automatic login on" — the default (incl. Tutor/sandbox)   | Generates a throwaway `@example.com` identity; no email needed. The reusable session is taken from the one registration itself creates. |
+| `manual`          | Target enforces email activation and can't be reconfigured | Interactive: prompts you for an email to register with, then for the activation link/token.                                             |
+
+The `automatic` backend works against the **default** without any email setup:
+registration auto-authenticates the account, so the captured (reusable) session and
+the registration spec pass even on installs that leave accounts inactive until
+activation. Specs that drive a **separate** UI sign-in (`login`, `logout`) still
+need an install where the account can actually log in — i.e.
+`SKIP_EMAIL_VALIDATION = True`, or the `manual` backend to activate the account
+first.
 
 Planned (from the spike, not yet implemented): a 3rd-party mailbox API
 (Mailosaur/MailSlurp/MailHog) and a local-file mail reader.
+
+### Registration rate limit
+
+Open edX caps account registrations per IP with `REGISTRATION_RATELIMIT`, whose
+default is **`60/7d`** (60 per 7 days). Because each run creates several accounts,
+frequent runs exhaust it and registration then fails with `HTTP 403`
+`forbidden-request` — the suite reports this explicitly. For any target you run
+against repeatedly, raise the limit to a short, self-resetting window (the
+platform's own test settings use per-minute values). With Tutor, override the LMS
+setting and restart:
+
+```py
+# a Tutor plugin patch on "openedx-common-settings"
+REGISTRATION_RATELIMIT = "100/m"
+```
+
+```sh
+tutor local restart lms   # or: tutor dev restart lms
+```
+
+If you have already tripped the default limit, either apply the override above and
+restart, or wait for the 7-day window to reset.
 
 ### Running with the `manual` backend
 

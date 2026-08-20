@@ -18,14 +18,20 @@ import { getConfig } from '../src/config';
  * `use: { storageState }`. A single sign-in yields parent-domain cookies that
  * cover every origin, so one state authenticates LMS, Studio, and all MFEs.
  *
- * A role whose credentials are not configured (e.g. `staff`/`instructor` without
- * an admin account) is skipped, not failed, so learner coverage never depends on
- * admin credentials.
+ * Only roles the provider can actually authenticate for the current config get a
+ * setup entry (e.g. `staff` appears only when an admin account is configured;
+ * `instructor` needs a custom provider). This keeps the run free of skipped
+ * "not configured" noise while never letting learner coverage depend on admin
+ * credentials.
  */
-for (const role of ROLES) {
+const rolesToAuthenticate = defaultAuthProvider.availableRoles?.(getConfig()) ?? ROLES;
+
+for (const role of rolesToAuthenticate) {
   setup(`authenticate as ${role}`, async ({ browser, request }) => {
     const config = getConfig();
 
+    // Safety net: a configured-but-unusable role (e.g. wrong admin password) is a
+    // real failure via authenticate(); only an explicit not-configured signal skips.
     let state;
     try {
       state = await defaultAuthProvider.authenticate(role, { config, browser, request });

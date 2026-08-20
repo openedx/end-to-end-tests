@@ -10,11 +10,20 @@ consumer provisions accounts through `provisionLearnerAccount(request, config)` 
 create identity → register → activate — so switching backends changes the whole
 suite without touching the auth provider or the specs.
 
+The learner auth contract captures the session that **registration itself**
+creates (the platform auto-authenticates every successful registration), so the
+reusable storage state needs no separate sign-in — the "Automatic login on"
+behaviour. A separate sign-in is only exercised by the login/logout specs, which
+therefore need an install where the account can actually log in.
+
 ## Backends
 
-- `automatic` (default) — auto-activating targets (`SKIP_EMAIL_VALIDATION = True`,
-  the Tutor/sandbox default). Generates a throwaway `@example.com` identity;
-  activation is a no-op because accounts are active on creation.
+- `automatic` (default) — "Automatic login on". Generates a throwaway
+  `@example.com` identity; activation is a no-op because registration already
+  yields an authenticated session. Works against the default even when accounts
+  stay inactive until activation, since the auth contract uses the registration
+  session (login/logout specs still require a login-able account, e.g.
+  `SKIP_EMAIL_VALIDATION = True`).
 - `manual` — interactive, for targets that enforce email activation and cannot be
   reconfigured. Prompts the operator for an email to register with, then for the
   activation link/token from the email, and visits it to activate the account.

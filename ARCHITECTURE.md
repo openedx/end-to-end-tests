@@ -60,12 +60,15 @@ Everything else about a test — stability tier, capability, MFE — is expresse
 
 A single Open edX sign-in sets cookies scoped to the shared registrable parent
 domain, so one captured storage state authenticates the LMS, Studio, and every
-MFE origin. The default provider (`ApiAuthProvider`) signs in through the LMS APIs
-the authn MFE calls (`GET /csrf/api/v1/token` → `POST .../login_session/`) and
-captures the parent-domain cookie jar. It obtains a sign-in-able account from the
-configured **account backend** (`src/accounts/`, selected by `ACCOUNT_BACKEND`),
-which encapsulates how a new account clears email validation — auto-activating by
-default, or interactive/manual for targets that enforce it. The auth contract captures that state once
+MFE origin. The default provider (`ApiAuthProvider`) captures the parent-domain
+cookie jar into one storage state. For the `learner` role it provisions an account
+via the configured **account backend** (`src/accounts/`, selected by
+`ACCOUNT_BACKEND`) and captures the session that registration itself creates
+("Automatic login on"), so no separate sign-in is needed — which is what lets it
+work against the default even when an install leaves accounts inactive until
+activation. The `staff` role signs in through the login-session API
+(`GET /csrf/api/v1/token` → `POST .../login_session/`) with the configured admin
+account. The auth contract captures that state once
 per role (a Playwright `setup` project → `.auth/<role>.json`); authenticated
 projects consume it via `use: { storageState }`. We never disable browser
 security to paper over cross-origin auth. Full rationale:
