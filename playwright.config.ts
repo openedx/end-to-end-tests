@@ -33,6 +33,10 @@ export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
 
+  // Clears captured auth state (.auth/) once before anything runs, so a stale
+  // session never carries over between runs; the setup project rewrites it.
+  globalSetup: './tests/global-setup.ts',
+
   // Stability rules (ADR-0002): parallel-safe isolation, no `.only` in CI,
   // bounded retries, and centralized timeouts.
   fullyParallel: true,
