@@ -39,13 +39,21 @@ export default tseslint.config(
   {
     files: ['tests/**/*.ts'],
     ...playwright.configs['flat/recommended'],
+    rules: {
+      ...playwright.configs['flat/recommended'].rules,
+      // `checkA11y` is the accessibility gate's assertion; teach the linter that a
+      // test calling it does own an assertion.
+      'playwright/expect-expect': ['warn', { assertFunctionNames: ['checkA11y'] }],
+    },
   },
   {
-    // Setup projects legitimately have no assertions and use conditional skips.
+    // Setup projects legitimately have no assertions and use conditional skips to
+    // skip roles whose credentials are not configured.
     files: ['**/*.setup.ts'],
     rules: {
       'playwright/expect-expect': 'off',
       'playwright/no-skipped-test': 'off',
+      'playwright/no-conditional-in-test': 'off',
     },
   },
   prettier,

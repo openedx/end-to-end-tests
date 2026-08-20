@@ -32,15 +32,16 @@ graph TD
 A layer may depend only on the layers above it in the list below — never sideways
 into a sibling or downward into a consumer.
 
-| Layer             | Directory       | Responsibility                                                                               | May depend on                               |
-| ----------------- | --------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Configuration     | `src/config/`   | Turn env vars into a validated, typed, immutable config; fail fast on bad input.             | —                                           |
-| Auth contract     | `src/auth/`     | Provider-swappable sign-in → one multi-origin storage state per role.                        | `config` (and `api`/`pages` for real flows) |
-| API client / data | `src/api/`      | Typed HTTP clients and deterministic, unique-per-run data factories.                         | `config`                                    |
-| Page objects      | `src/pages/`    | Locators and single-surface actions for one screen. Mirrors the `tests/` tree.               | `config`, `api`                             |
-| Steps             | `src/steps/`    | Compose page objects into reusable business flows (actions/navigation, not assertions).      | `pages`, `api`, `config`                    |
-| Fixtures          | `src/fixtures/` | Composition root: hand specs fully-composed, typed objects (config, pages, api, data, auth). | all of the above                            |
-| Tests             | `tests/`        | Specs that own the assertions deciding pass/fail. Grouped by platform domain.                | `fixtures`                                  |
+| Layer             | Directory       | Responsibility                                                                               | May depend on               |
+| ----------------- | --------------- | -------------------------------------------------------------------------------------------- | --------------------------- |
+| Configuration     | `src/config/`   | Turn env vars into a validated, typed, immutable config; fail fast on bad input.             | —                           |
+| Auth contract     | `src/auth/`     | Provider-swappable sign-in → one multi-origin storage state per role.                        | `config`, `api`, `accounts` |
+| Account backends  | `src/accounts/` | User-choosable account creation/activation (email-validation handling) per target.           | `config`, `api`             |
+| API client / data | `src/api/`      | Typed HTTP clients and deterministic, unique-per-run data factories.                         | `config`                    |
+| Page objects      | `src/pages/`    | Locators and single-surface actions for one screen. Mirrors the `tests/` tree.               | `config`, `api`             |
+| Steps             | `src/steps/`    | Compose page objects into reusable business flows (actions/navigation, not assertions).      | `pages`, `api`, `config`    |
+| Fixtures          | `src/fixtures/` | Composition root: hand specs fully-composed, typed objects (config, pages, api, data, auth). | all of the above            |
+| Tests             | `tests/`        | Specs that own the assertions deciding pass/fail. Grouped by platform domain.                | `fixtures`                  |
 
 ## Domain-oriented organization
 
@@ -59,20 +60,35 @@ Everything else about a test — stability tier, capability, MFE — is expresse
 
 A single Open edX sign-in sets cookies scoped to the shared registrable parent
 domain, so one captured storage state authenticates the LMS, Studio, and every
-MFE origin. The auth contract captures that state once per role (a Playwright
-`setup` project → `.auth/<role>.json`); authenticated projects consume it via
-`use: { storageState }`. We never disable browser security to paper over
-cross-origin auth. Full rationale:
+MFE origin. The default provider (`ApiAuthProvider`) signs in through the LMS APIs
+the authn MFE calls (`GET /csrf/api/v1/token` → `POST .../login_session/`) and
+captures the parent-domain cookie jar. It obtains a sign-in-able account from the
+configured **account backend** (`src/accounts/`, selected by `ACCOUNT_BACKEND`),
+which encapsulates how a new account clears email validation — auto-activating by
+default, or interactive/manual for targets that enforce it. The auth contract captures that state once
+per role (a Playwright `setup` project → `.auth/<role>.json`); authenticated
+projects consume it via `use: { storageState }`. We never disable browser
+security to paper over cross-origin auth. Full rationale:
 [docs/planning/auth-storage-state-deep-dive.md](docs/planning/auth-storage-state-deep-dive.md).
 
 ## Playwright projects
 
-| Project      | Purpose                                                                        |
-| ------------ | ------------------------------------------------------------------------------ |
-| `unit`       | Pure logic tests (e.g. config validation). No browser or target. Tag: `@unit`. |
-| `setup`      | Signs in once per role and writes storage state. Stubbed until Epic 2.         |
-| `smoke`      | Critical-path browser tests. Tag: `@smoke`.                                    |
-| `regression` | Broader-depth browser tests. Tag: `@regression`.                               |
+| Project       | Purpose                                                                                 |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `unit`        | Pure logic tests (e.g. config validation). No browser or target. Tag: `@unit`.          |
+| `setup`       | Signs in once per role via the auth contract and writes `.auth/<role>.json`.            |
+| `smoke`       | Critical-path browser tests, anonymous. Tag: `@smoke` (excludes `@authenticated`).      |
+| `regression`  | Broader-depth browser tests, anonymous. Tag: `@regression` (excludes `@authenticated`). |
+| `lms-learner` | Authenticated tests reusing the captured learner state. Tag: `@authenticated`.          |
+
+## Cross-cutting testing modules
+
+Two `src/` modules support specs across every domain rather than a single layer:
+
+| Module           | Responsibility                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
+| `src/reporting/` | BTR `test_id` annotations and the always-on coverage reporter (`test-results/btr-coverage.json`). |
+| `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline.        |
 
 Configuration lives in [`playwright.config.ts`](playwright.config.ts); timeouts
 are centralized in `src/config/timeouts.ts` (no fixed sleeps).

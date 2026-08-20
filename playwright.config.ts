@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import { authStateFile } from './src/auth';
 import { ConfigError, getConfig, TIMEOUTS } from './src/config';
 
 const isCI = Boolean(process.env.CI);
@@ -42,8 +43,9 @@ export default defineConfig({
   expect: { timeout: TIMEOUTS.expect },
 
   // Reporters generate locally; uploading them as artifacts is CI-only and lives
-  // in the workflow layer.
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // in the workflow layer. The always-on BTR coverage reporter writes a local
+  // `test-results/btr-coverage.json` mapping test_id → outcome.
+  reporter: [['list'], ['html', { open: 'never' }], ['./src/reporting/coverage-reporter.ts']],
 
   use: {
     baseURL: resolveBaseURL(),
@@ -72,28 +74,30 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
     },
     {
-      // Critical-path stability tier.
+      // Critical-path stability tier. Drives the UI from a clean, anonymous
+      // state, so it excludes specs that require captured auth (`@authenticated`).
       name: 'smoke',
       grep: /@smoke/,
+      grepInvert: /@authenticated/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      // Broader-depth stability tier.
+      // Broader-depth stability tier, likewise anonymous by default.
       name: 'regression',
       grep: /@regression/,
+      grepInvert: /@authenticated/,
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Authenticated tier: depends on `setup` and loads the captured learner
+      // state, so `@authenticated` specs reuse a single sign-in without driving
+      // the login UI.
+      name: 'lms-learner',
+      grep: /@authenticated/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'], storageState: authStateFile('learner') },
     },
     // Additional browsers (Firefox, WebKit) can be added as parallel projects
     // once the suite is stable on Chromium.
-    //
-    // Authenticated projects depend on `setup` and load its captured
-    // state, e.g.:
-    //
-    //   {
-    //     name: 'lms-learner',
-    //     grep: /@regression/,
-    //     dependencies: ['setup'],
-    //     use: { ...devices['Desktop Chrome'], storageState: '.auth/learner.json' },
-    //   },
   ],
 });

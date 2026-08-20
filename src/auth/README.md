@@ -12,11 +12,21 @@ Contains:
 
 - `roles.ts` — the `Role` vocabulary (`learner`, `instructor`, `staff`).
 - `types.ts` — the `AuthProvider` contract and `AuthContext`.
-- `preflight.ts` — post-login assertion that the session cookie was captured,
-  with the HTTP cookie-policy diagnostic.
+- `preflight.ts` — post-login assertion that the login JWT cookie was captured
+  (the reliable authenticated-session signal; `sessionid` is present for anonymous
+  users too), plus the `hasAuthenticatedSession` predicate specs use and the HTTP
+  cookie-policy diagnostic.
 - `storage.ts` — where per-role storage state is written (`.auth/<role>.json`).
-- `default-provider.ts` — the default provider (an Epic 1 stub; real MFE-era
-  sign-in lands in Epic 2).
+- `api-provider.ts` — `ApiAuthProvider`, the default provider. Signs in through
+  the LMS APIs the authn MFE calls (`GET /csrf/api/v1/token` →
+  `POST .../login_session/`) and captures the parent-domain cookie jar into one
+  storage state. `learner` self-registers a unique account (portable seeding);
+  `staff` uses the configured `ADMIN_*` account; `instructor` is an extension
+  point (reported not-configured so setup skips it).
+- `default-provider.ts` — exports the default provider instance; swap it for a
+  provider with custom SSO without touching the specs.
+- `errors.ts` — `AuthError` and `AuthNotConfiguredError` (the latter lets the
+  setup project skip an unconfigured role instead of failing the run).
 
 Key design point: a single sign-in sets parent-scoped cookies that cover every
 sub-domain origin, so one storage state authenticates LMS, Studio, and all MFEs.

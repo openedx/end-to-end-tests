@@ -186,6 +186,21 @@ test.describe('loadConfig — capabilities @unit', () => {
   });
 });
 
+test.describe('loadConfig — account backend @unit', () => {
+  test('defaults to the automatic backend', () => {
+    expect(loadConfig(validEnv()).accountBackend).toBe('automatic');
+  });
+
+  test('accepts a known backend', () => {
+    expect(loadConfig(validEnv({ ACCOUNT_BACKEND: 'manual' })).accountBackend).toBe('manual');
+  });
+
+  test('rejects an unknown backend', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ ACCOUNT_BACKEND: 'telepathy' })));
+    expect(issues.join('\n')).toContain('ACCOUNT_BACKEND "telepathy" is not recognized');
+  });
+});
+
 test.describe('loadConfig — credentials @unit', () => {
   test('accepts a paired admin username and password', () => {
     const config = loadConfig(validEnv({ ADMIN_USERNAME: 'edx', ADMIN_PASSWORD: 'secret' }));

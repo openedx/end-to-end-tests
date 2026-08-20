@@ -11,6 +11,12 @@ export {
   isCapability,
   type Capability,
 } from './capabilities';
+export {
+  ACCOUNT_BACKENDS,
+  DEFAULT_ACCOUNT_BACKEND,
+  isAccountBackendName,
+  type AccountBackendName,
+} from './account-backends';
 export { registrableDomain } from './domain';
 export { TIMEOUTS, type Timeouts } from './timeouts';
 

@@ -1,2 +1,2 @@
 // Barrel for reusable business-flow steps.
-export {};
+export { registerLearner, signIn, signOut } from './auth';
