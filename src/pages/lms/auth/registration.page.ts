@@ -27,7 +27,8 @@ export class RegistrationPage {
     this.username = page.locator('input[name="username"]');
     this.email = page.locator('input[name="email"]');
     this.password = page.locator('input[name="password"]');
-    this.submitButton = page.getByRole('button', { name: /create an account/i });
+    // Stable `name` attribute rather than the localized "Create an account" label.
+    this.submitButton = page.locator('button[name="register-user"]');
     this.errorAlert = page.getByRole('alert');
   }
 

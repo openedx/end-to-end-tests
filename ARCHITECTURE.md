@@ -56,6 +56,29 @@ tests/lms/course-home/badges.spec.ts
 Everything else about a test — stability tier, capability, MFE — is expressed with
 **tags**, not more folders. See [CONVENTIONS.md](CONVENTIONS.md).
 
+## Locators never depend on displayed text
+
+Target installations can run in any language, so a locator or assertion that
+matches visible UI copy — a button's label, a heading, an alert's wording —
+breaks the moment the site language changes. The suite therefore **never selects
+or asserts on the platform's localized text**. Locate and verify elements by, in
+order of preference:
+
+1. **Test IDs** — `getByTestId(...)`.
+2. **Stable attributes / roles** — `name` / `id` / `href` attributes, or
+   `getByRole('<role>')` with no localized `name`.
+3. **Structural CSS** — last resort, language-independent structure (e.g. a
+   section `id` plus position).
+
+Matching a value the **test itself supplied** (a generated username, a name we
+typed) is fine — that is our own data, not localized. What's forbidden is
+depending on strings the target renders: `getByText`, `getByLabel`,
+`getByRole(..., { name: '<literal>' })`, `toContainText('<literal>')`, `hasText`,
+`:has-text()`, and the like.
+
+This rule is enforced by `tests/conventions/no-displayed-text.spec.ts`, which
+fails if any page object, step, or spec matches a literal UI string.
+
 ## Authentication and multi-origin sessions
 
 A single Open edX sign-in sets cookies scoped to the shared registrable parent
@@ -88,10 +111,10 @@ security to paper over cross-origin auth. Full rationale:
 
 Two `src/` modules support specs across every domain rather than a single layer:
 
-| Module           | Responsibility                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------- |
-| `src/reporting/` | BTR `test_id` annotations and the always-on coverage reporter (`test-results/btr-coverage.json`). |
-| `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline.        |
+| Module           | Responsibility                                                                                                                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/reporting/` | BTR `test_id` annotations + coverage reporter (`test-results/btr-coverage.json`), and the accessibility reporter that consolidates every scan into `test-results/a11y-violations.json`. |
+| `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline. Per-scan results are attached to each test and aggregated by the reporter above.             |
 
 Configuration lives in [`playwright.config.ts`](playwright.config.ts); timeouts
 are centralized in `src/config/timeouts.ts` (no fixed sleeps).

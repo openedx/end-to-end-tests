@@ -42,9 +42,13 @@ export async function signIn(
 
 /**
  * Signs out via the header account menu and waits for the resulting navigation to
- * settle.
+ * settle. `username` identifies the account-menu trigger.
  */
-export async function signOut(page: Page, accountMenu: AccountMenu): Promise<void> {
-  await accountMenu.signOut();
+export async function signOut(
+  page: Page,
+  accountMenu: AccountMenu,
+  username: string,
+): Promise<void> {
+  await accountMenu.signOut(username);
   await page.waitForLoadState('networkidle');
 }

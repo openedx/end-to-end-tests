@@ -31,6 +31,18 @@ therefore need an install where the account can actually log in.
   test timeout while waiting for input. Plus-addressing (`you+e2e1@example.com`)
   lets one inbox serve several runs.
 
+  **Getting the activation key without email (Tutor).** When you administer the
+  target and don't want to wait on (or configure) email, read the pending
+  registrations' keys straight from the database and paste the one for the email
+  you registered with:
+
+  ```sh
+  tutor local run lms ./manage.py lms shell -c "from common.djangoapps.student.models import Registration; rs = [ (r.user.email, r.activation_key) for r in Registration.objects.select_related('user').all()]; print(rs);"
+  ```
+
+  Use `tutor dev run` on a dev stack. The prompt accepts either the bare
+  `activation_key` or the full `.../activate/<key>` link.
+
 Planned (from the spike, not yet implemented): a 3rd-party mailbox API
 (Mailosaur/MailSlurp/MailHog) and a local-file mail reader — each an
 `AccountBackend` that automates `createIdentity`/`activate` non-interactively.

@@ -49,7 +49,12 @@ export default defineConfig({
   // Reporters generate locally; uploading them as artifacts is CI-only and lives
   // in the workflow layer. The always-on BTR coverage reporter writes a local
   // `test-results/btr-coverage.json` mapping test_id → outcome.
-  reporter: [['list'], ['html', { open: 'never' }], ['./src/reporting/coverage-reporter.ts']],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never' }],
+    ['./src/reporting/coverage-reporter.ts'],
+    ['./src/reporting/a11y-reporter.ts'],
+  ],
 
   use: {
     baseURL: resolveBaseURL(),

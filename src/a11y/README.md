@@ -14,6 +14,20 @@ Contains:
   failing / baselined / below-threshold. Unit-tested without a browser.
 - `baseline.ts` — `A11Y_BASELINE`: rule IDs tolerated as known debt.
 
+## Where violations are collected
+
+Each `checkA11y` scan attaches its full result (`a11y-violations-<label>.json`:
+failing, baselined, below-threshold) to the running test, so it shows up in the
+Playwright HTML report per screen.
+
+The always-on **`A11yReporter`** (`src/reporting/a11y-reporter.ts`, wired in
+`playwright.config.ts`) consolidates every scan in a run into one triage-ready
+list at **`test-results/a11y-violations.json`** — grouped by rule, worst impact
+first, with the pages/tests each appears on, total offending nodes, and whether it
+is currently `failing`, `baselined` (known debt), or `belowThreshold`. Start from
+that file to work through the backlog (e.g. the current `label` and
+`color-contrast` debt). It is written locally only; uploading it is a CI concern.
+
 ## Baseline vs. disabling rules
 
 A baselined rule is **still executed** and its violations are **still reported** —

@@ -15,6 +15,11 @@ export interface CheckA11yOptions {
   readonly include?: string;
   /** Override the known-debt baseline (mainly for testing). */
   readonly baseline?: ReadonlySet<string>;
+  /**
+   * Extra rule IDs to tolerate for this scan only, merged with the baseline.
+   * Use for debt specific to one screen so the rule still fails elsewhere.
+   */
+  readonly additionalBaseline?: readonly string[];
   /** Label used in the attachment name, to tell multiple scans in one test apart. */
   readonly label?: string;
 }
@@ -28,7 +33,10 @@ export interface CheckA11yOptions {
  * This is the intended read for a spec: an explicit gate line the spec owns.
  */
 export async function checkA11y(page: Page, options: CheckA11yOptions = {}): Promise<void> {
-  const baseline = options.baseline ?? A11Y_BASELINE;
+  const base = options.baseline ?? A11Y_BASELINE;
+  const baseline = options.additionalBaseline
+    ? new Set([...base, ...options.additionalBaseline])
+    : base;
 
   let builder = new AxeBuilder({ page }).withTags(WCAG_22_AA_TAGS);
   if (options.include) {

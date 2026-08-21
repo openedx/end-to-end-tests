@@ -24,7 +24,9 @@ export class LoginPage {
   ) {
     this.emailOrUsername = page.locator('input[name="emailOrUsername"]');
     this.password = page.locator('input[name="password"]');
-    this.submitButton = page.getByRole('button', { name: /sign in/i });
+    // The authn MFE gives the submit button a stable `name`, so we avoid its
+    // localized "Sign in" label (see the no-displayed-text rule).
+    this.submitButton = page.locator('button[name="sign-in"]');
     this.errorAlert = page.getByRole('alert');
   }
 

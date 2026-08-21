@@ -137,6 +137,18 @@ the test timeout while it waits, so an interactive run won't time out. Each
 provisioned account needs a unique email, so specs that provision their own
 account (login, logout, and the `setup` sign-in) prompt once each.
 
+**Getting the activation key without email (Tutor).** If you administer the target
+and would rather not wait on (or configure) email, read the pending
+registrations' activation keys straight from the database and paste the one
+matching the email you registered with:
+
+```sh
+tutor local run lms ./manage.py lms shell -c "from common.djangoapps.student.models import Registration; rs = [ (r.user.email, r.activation_key) for r in Registration.objects.select_related('user').all()]; print(rs);"
+```
+
+Use `tutor dev run` on a dev stack. The prompt accepts either the bare key or the
+full `.../activate/<key>` link.
+
 ## Running tests
 
 ```sh

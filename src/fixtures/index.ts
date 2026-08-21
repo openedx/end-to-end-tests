@@ -3,6 +3,8 @@ import { test as base, expect } from '@playwright/test';
 import { newLearnerIdentity, type LearnerIdentity } from '../api';
 import { getConfig, type AppConfig } from '../config';
 import { AccountMenu } from '../pages/lms/auth/account-menu.page';
+import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
+import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
 import { LoginPage } from '../pages/lms/auth/login.page';
 import { RegistrationPage } from '../pages/lms/auth/registration.page';
 
@@ -19,6 +21,10 @@ export interface TestFixtures {
   registrationPage: RegistrationPage;
   /** Header account menu carrying the sign-out affordance. */
   accountMenu: AccountMenu;
+  /** authn MFE `/reset` (forgot-password) page object. */
+  forgotPasswordPage: ForgotPasswordPage;
+  /** Account settings page object (`frontend-app-account`). */
+  accountSettingsPage: AccountSettingsPage;
   /**
    * A fresh, unique-per-run learner identity. Requesting the fixture yields a new
    * identity, so parallel tests never collide (ADR-0002 test-data rules).
@@ -50,6 +56,14 @@ export const test = base.extend<TestFixtures>({
 
   accountMenu: async ({ page, config }, use) => {
     await use(new AccountMenu(page, config));
+  },
+
+  forgotPasswordPage: async ({ page, config }, use) => {
+    await use(new ForgotPasswordPage(page, config));
+  },
+
+  accountSettingsPage: async ({ page, config }, use) => {
+    await use(new AccountSettingsPage(page, config));
   },
 
   // eslint-disable-next-line no-empty-pattern

@@ -13,6 +13,8 @@ export default tseslint.config(
       'playwright-report/',
       'blob-report/',
       '.auth/',
+      // Plain Node utility scripts (CI helpers); Prettier still formats them.
+      'scripts/',
     ],
   },
   eslint.configs.recommended,

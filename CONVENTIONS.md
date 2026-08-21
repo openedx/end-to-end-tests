@@ -15,11 +15,22 @@ tests in this suite.
 
 ## Locators
 
-Prefer stable, user-facing locators. Priority order:
+Prefer stable, user-facing locators. **Never match on the target's displayed
+(localized) text** — installations run in different languages, so text-based
+locators break under a different site language. Priority order:
 
 1. **Test IDs** — `getByTestId(...)` where the app exposes them.
-2. **Role / label / text** — `getByRole`, `getByLabel`, `getByText`.
-3. **CSS containers** — only as a last resort, for structural scoping.
+2. **Stable attributes / roles** — `name` / `id` / `href` attributes, or
+   `getByRole('<role>')` **without** a localized `name`.
+3. **CSS containers** — only as a last resort, for language-independent structural
+   scoping.
+
+Do **not** use `getByText`, `getByLabel`, `getByRole(..., { name: '<literal>' })`,
+`toContainText('<literal>')`, `hasText`, `:has-text()`, etc. against platform copy.
+Matching a value the test itself supplied (a generated username, a name you typed)
+is fine — that is your own, language-independent data. The rule is enforced by
+`tests/conventions/no-displayed-text.spec.ts` and detailed in
+[ARCHITECTURE.md](ARCHITECTURE.md#locators-never-depend-on-displayed-text).
 
 Avoid brittle selectors (deep CSS/XPath chains, nth-child, generated class names).
 
@@ -57,8 +68,8 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 - **Capability:** `@discussions`, `@teams`, `@certificates`, … — gates optional
   coverage on installations that declare the capability (see `CAPABILITIES` in
   `.env.example`). Keep tags in sync with `src/config/capabilities.ts`.
-- **MFE / subsystem:** `@mfe-authn`, `@mfe-learning`, `@mfe-authoring`, … — filters
-  the suite to one micro-frontend.
+- **MFE / subsystem:** `@mfe-authn`, `@mfe-account`, `@mfe-learning`,
+  `@mfe-authoring`, … — filters the suite to one micro-frontend.
 - **Authenticated:** `@authenticated` — the spec reuses captured storage state and
   runs in the `lms-learner` project (which depends on `setup`); the anonymous
   `@smoke`/`@regression` projects exclude it.
@@ -110,6 +121,11 @@ await checkA11y(page, { label: 'login' });
 Baselined rules (`src/a11y/baseline.ts`) are still executed and reported, just not
 failed — unlike disabling a rule, which hides it. New screens should pass the gate
 without adding to the baseline.
+
+Every run consolidates all scans into **`test-results/a11y-violations.json`**
+(grouped by rule; failing / baselined / below-threshold) — the working list for
+fixing the accessibility backlog. Per-screen detail is also attached to each test
+in the HTML report.
 
 ## Quality gates
 
