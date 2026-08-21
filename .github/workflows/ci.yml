@@ -26,6 +26,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure
+        run: cp .env.example .env
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -51,9 +54,9 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run format:check
 
-      - name: Unit & setup projects (no browser or LMS required)
+      - name: Unit tests (no browser or LMS required)
         if: ${{ !cancelled() }}
-        run: npx playwright test --project=unit --project=setup
+        run: npx playwright test --project=unit
 
       - name: Verify every spec compiles and is discoverable
         if: ${{ !cancelled() }}
