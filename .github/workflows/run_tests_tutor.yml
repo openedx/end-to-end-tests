@@ -86,6 +86,26 @@ jobs:
       - name: Tutor launch
         run: tutor local launch --non-interactive
 
+      - name: Configure Tutor
+        run: |
+          set -euo pipefail
+          mkdir -p "$(tutor plugins printroot)"
+          cat > "$(tutor plugins printroot)/e2e_test.py" << 'EOF'
+          from tutor import hooks
+
+          hooks.Filters.ENV_PATCHES.add_item(
+              (
+                  "common-env-features",
+                  """
+          SKIP_EMAIL_VALIDATION: true
+          """
+              )
+          )
+          EOF
+          tutor plugins enable e2e_test
+          tutor config save
+          tutor local restart
+
       - name: Provision demo course and admin user
         run: |
           set -euo pipefail
