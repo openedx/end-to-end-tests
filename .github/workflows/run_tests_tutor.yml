@@ -1,0 +1,169 @@
+name: Tutor E2E Test
+
+# Manually stand up a Tutor "local" Open edX installation and run the end-to-end
+# suite against it. Everything is provisioned from scratch on the runner, so this
+# is a heavier, on-demand job (not part of the fast PR gate in ci.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      openedx_release:
+        description: 'Open edX named release (drives the Tutor + plugin major version).'
+        type: choice
+        default: verawood
+        options:
+          - verawood
+          - ulmo
+          - teak
+          - sumac
+          - redwood
+      test_ref:
+        description: 'Git ref (branch, tag, or commit SHA) of this repo to test.'
+        type: string
+        default: main
+      domains:
+        description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
+        type: string
+        default: ''
+      features:
+        description: 'Feature/capability tags to run, space-separated (e.g. "@smoke @discussions"). Empty = all.'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  TUTOR_ROOT: ./.ci/
+  # Admin account provisioned in the Tutor install and exposed to the suite.
+  ADMIN_USERNAME: admin
+  ADMIN_EMAIL: admin@example.com
+  ADMIN_PASSWORD: e2e-admin-password
+
+jobs:
+  local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout (test ref)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.test_ref }}
+
+      - name: Setup python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.12
+
+      - name: Resolve Tutor version constraint
+        id: versions
+        run: |
+          set -euo pipefail
+          RELEASE="${{ inputs.openedx_release }}"
+          case "$RELEASE" in
+            redwood)  MAJOR=18 ;;
+            sumac)    MAJOR=19 ;;
+            teak)     MAJOR=20 ;;
+            ulmo)     MAJOR=21 ;;
+            verawood) MAJOR=22 ;;
+            *) echo "::error::Unknown Open edX release: $RELEASE"; exit 1 ;;
+          esac
+          NEXT=$((MAJOR + 1))
+          CONSTRAINT=">=${MAJOR}.0.0,<${NEXT}.0.0"
+          echo "constraint=${CONSTRAINT}" >> "$GITHUB_OUTPUT"
+          echo "Open edX '${RELEASE}' -> Tutor ${MAJOR}.x (${CONSTRAINT})"
+
+      - name: Install Tutor and plugins
+        run: |
+          set -euo pipefail
+          C='${{ steps.versions.outputs.constraint }}'
+          pip install \
+            "tutor${C}" \
+            "tutor-mfe${C}" \
+            "tutor-forum${C}" \
+            "tutor-notes${C}"
+
+      - name: Tutor launch
+        run: tutor local launch --non-interactive
+
+      - name: Provision demo course and admin user
+        run: |
+          set -euo pipefail
+          tutor local do importdemocourse
+          tutor local do createuser \
+            --staff --superuser \
+            --password "$ADMIN_PASSWORD" \
+            "$ADMIN_USERNAME" "$ADMIN_EMAIL"
+
+      - name: Wait for the LMS to be healthy
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl -fsS http://local.openedx.io/heartbeat >/dev/null; then
+              echo "LMS is up."
+              exit 0
+            fi
+            echo "Waiting for LMS to respond ($i/30)..."
+            sleep 5
+          done
+          echo "::error::LMS did not become healthy in time."
+          exit 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Write suite configuration (.env)
+        run: |
+          set -euo pipefail
+          cat > .env <<EOF
+          LMS_BASE_URL=http://local.openedx.io
+          CMS_BASE_URL=http://studio.local.openedx.io
+          APPS_BASE_URL=http://apps.local.openedx.io
+          ORG=OpenedX
+          COURSE_KEY=course-v1:OpenedX+DemoX+DemoCourse
+          CAPABILITIES=discussions,notes
+          ADMIN_USERNAME=${ADMIN_USERNAME}
+          ADMIN_PASSWORD=${ADMIN_PASSWORD}
+          EOF
+          echo "Wrote .env:"
+          grep -v PASSWORD .env
+
+      - name: Run tests
+        env:
+          DOMAINS: ${{ inputs.domains }}
+          FEATURES: ${{ inputs.features }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${DOMAINS// /}" ]; then
+            for d in $DOMAINS; do args+=("tests/$d"); done
+          fi
+          grep_expr=""
+          if [ -n "${FEATURES// /}" ]; then
+            grep_expr="$(echo "$FEATURES" | xargs | tr ' ' '|')"
+          fi
+          cmd=(npx playwright test)
+          if [ ${#args[@]} -gt 0 ]; then cmd+=("${args[@]}"); fi
+          if [ -n "$grep_expr" ]; then cmd+=(--grep "$grep_expr"); fi
+          echo "Running: ${cmd[*]}"
+          "${cmd[@]}"
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ inputs.openedx_release }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore
