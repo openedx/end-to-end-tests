@@ -15,11 +15,22 @@ tests in this suite.
 
 ## Locators
 
-Prefer stable, user-facing locators. Priority order:
+Prefer stable, user-facing locators. **Never match on the target's displayed
+(localized) text** — installations run in different languages, so text-based
+locators break under a different site language. Priority order:
 
 1. **Test IDs** — `getByTestId(...)` where the app exposes them.
-2. **Role / label / text** — `getByRole`, `getByLabel`, `getByText`.
-3. **CSS containers** — only as a last resort, for structural scoping.
+2. **Stable attributes / roles** — `name` / `id` / `href` attributes, or
+   `getByRole('<role>')` **without** a localized `name`.
+3. **CSS containers** — only as a last resort, for language-independent structural
+   scoping.
+
+Do **not** use `getByText`, `getByLabel`, `getByRole(..., { name: '<literal>' })`,
+`toContainText('<literal>')`, `hasText`, `:has-text()`, etc. against platform copy.
+Matching a value the test itself supplied (a generated username, a name you typed)
+is fine — that is your own, language-independent data. The rule is enforced by
+`tests/conventions/no-displayed-text.spec.ts` and detailed in
+[ARCHITECTURE.md](ARCHITECTURE.md#locators-never-depend-on-displayed-text).
 
 Avoid brittle selectors (deep CSS/XPath chains, nth-child, generated class names).
 
@@ -42,6 +53,10 @@ Avoid brittle selectors (deep CSS/XPath chains, nth-child, generated class names
   documented, idempotent seeding step — never one operator's private fixtures.
 - Prefer creating data via `src/api/` factories over driving the UI, except when
   the UI flow is the thing under test.
+- Obtain a sign-in-able learner via `provisionLearnerAccount(request, config)`
+  (`src/accounts/`), never by assuming a target auto-activates. The configured
+  `ACCOUNT_BACKEND` decides how the account clears email validation, so specs stay
+  the same across targets.
 
 ## Tags
 
@@ -53,8 +68,11 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 - **Capability:** `@discussions`, `@teams`, `@certificates`, … — gates optional
   coverage on installations that declare the capability (see `CAPABILITIES` in
   `.env.example`). Keep tags in sync with `src/config/capabilities.ts`.
-- **MFE / subsystem:** `@mfe-learning`, `@mfe-authoring`, … — filters the suite to
-  one micro-frontend.
+- **MFE / subsystem:** `@mfe-authn`, `@mfe-account`, `@mfe-learning`,
+  `@mfe-authoring`, … — filters the suite to one micro-frontend.
+- **Authenticated:** `@authenticated` — the spec reuses captured storage state and
+  runs in the `lms-learner` project (which depends on `setup`); the anonymous
+  `@smoke`/`@regression` projects exclude it.
 
 Apply tags with the `tag` option:
 
@@ -68,8 +86,17 @@ test('the LMS landing page loads', { tag: '@smoke' }, async ({ page }) => {
 
 Tests that correspond to a case in the BTR Release Test Plan carry that case's ID
 explicitly — as a `test_id` annotation of the form `TC-0000X`, never inferred from
-the title. This lets a reporter map outcomes back to the release sheet. (The
-annotation convention and reporter land with the auth epic.)
+the title. Build it with the `testId` helper so typos fail fast:
+
+```ts
+import { testId } from '../../../src/reporting';
+
+test('signs in with valid credentials', { tag: '@smoke', annotation: testId('TC-00003') }, ...);
+```
+
+The always-on coverage reporter maps each `test_id` to its outcome and reports
+annotation coverage every run, writing `test-results/btr-coverage.json` (a local
+file only — see `src/reporting/README.md` for the upload/sheet policy).
 
 ## Configuration and secrets
 
@@ -83,8 +110,22 @@ annotation convention and reporter land with the auth epic.)
 
 Accessibility checks (`@axe-core/playwright`) target **WCAG 2.2 Level AA** and
 fail on critical/serious violations, with a known-debt baseline for pre-existing
-issues. The gate is introduced with the auth epic; new screens should be built to
-pass it.
+issues. Call the gate as an explicit assertion line:
+
+```ts
+import { checkA11y } from '../../../src/a11y';
+
+await checkA11y(page, { label: 'login' });
+```
+
+Baselined rules (`src/a11y/baseline.ts`) are still executed and reported, just not
+failed — unlike disabling a rule, which hides it. New screens should pass the gate
+without adding to the baseline.
+
+Every run consolidates all scans into **`test-results/a11y-violations.json`**
+(grouped by rule; failing / baselined / below-threshold) — the working list for
+fixing the accessibility backlog. Per-screen detail is also attached to each test
+in the HTML report.
 
 ## Quality gates
 

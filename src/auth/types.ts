@@ -32,4 +32,12 @@ export interface AuthContext {
  */
 export interface AuthProvider {
   authenticate(role: Role, context: AuthContext): Promise<StorageState>;
+
+  /**
+   * The roles this provider can actually authenticate for the given config, so
+   * the setup project only signs in (and only emits a setup entry) for roles that
+   * are available — no skipped noise for unconfigured roles. When omitted, callers
+   * assume every role in {@link ROLES}.
+   */
+  availableRoles?(config: AppConfig): readonly Role[];
 }

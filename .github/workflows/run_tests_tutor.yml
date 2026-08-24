@@ -157,6 +157,10 @@ jobs:
           echo "Running: ${cmd[*]}"
           "${cmd[@]}"
 
+      - name: Suite reports to job summary
+        if: ${{ !cancelled() }}
+        run: node scripts/job-summary.mjs
+
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -167,3 +171,15 @@ jobs:
             test-results/
           retention-days: 14
           if-no-files-found: ignore
+
+      # Upload BTR and A11y artifacts. Uploaded even when tests fail.
+      - name: Upload suite reports (a11y backlog + BTR coverage)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: suite-reports-${{ inputs.openedx_release }}
+          path: |
+            test-results/a11y-violations.json
+            test-results/btr-coverage.json
+          retention-days: 30
+          if-no-files-found: warn

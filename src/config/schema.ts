@@ -56,6 +56,9 @@ export const rawEnvSchema = z.preprocess(
     // Capability declaration (comma-separated list of capability tags).
     CAPABILITIES: z.string().optional(),
 
+    // Account-creation / activation backend (see src/config/account-backends.ts).
+    ACCOUNT_BACKEND: z.string().optional(),
+
     // Escape hatch for providers whose origins are not same-site.
     ALLOW_CROSS_SITE_ORIGINS: booleanFromEnv.optional(),
   }),

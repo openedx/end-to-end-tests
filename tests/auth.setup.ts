@@ -5,9 +5,9 @@ import { test as setup } from '@playwright/test';
 
 import {
   assertAuthCookiesPresent,
+  AuthNotConfiguredError,
   authStateFile,
   defaultAuthProvider,
-  isStubAuthProvider,
   ROLES,
 } from '../src/auth';
 import { getConfig } from '../src/config';
@@ -18,23 +18,35 @@ import { getConfig } from '../src/config';
  * `use: { storageState }`. A single sign-in yields parent-domain cookies that
  * cover every origin, so one state authenticates LMS, Studio, and all MFEs.
  *
- * Epic 1 ships the stub provider, so this skips cleanly; Epic 2 replaces
- * `defaultAuthProvider` and these become live sign-ins.
+ * Only roles the provider can actually authenticate for the current config get a
+ * setup entry (e.g. `staff` appears only when an admin account is configured;
+ * `instructor` needs a custom provider). This keeps the run free of skipped
+ * "not configured" noise while never letting learner coverage depend on admin
+ * credentials.
  */
-if (isStubAuthProvider(defaultAuthProvider)) {
-  setup('authenticate (stub)', () => {
-    setup.skip(true, 'Auth provider is the Epic 1 stub; the real sign-in flow lands in Epic 2.');
-  });
-} else {
-  for (const role of ROLES) {
-    setup(`authenticate as ${role}`, async ({ browser, request }) => {
-      const config = getConfig();
-      const state = await defaultAuthProvider.authenticate(role, { config, browser, request });
-      assertAuthCookiesPresent(state, config);
+const rolesToAuthenticate = defaultAuthProvider.availableRoles?.(getConfig()) ?? ROLES;
 
-      const file = authStateFile(role);
-      await mkdir(dirname(file), { recursive: true });
-      await writeFile(file, JSON.stringify(state, null, 2), 'utf8');
-    });
-  }
+for (const role of rolesToAuthenticate) {
+  setup(`authenticate as ${role}`, async ({ browser, request }) => {
+    const config = getConfig();
+
+    // Safety net: a configured-but-unusable role (e.g. wrong admin password) is a
+    // real failure via authenticate(); only an explicit not-configured signal skips.
+    let state;
+    try {
+      state = await defaultAuthProvider.authenticate(role, { config, browser, request });
+    } catch (error) {
+      if (error instanceof AuthNotConfiguredError) {
+        setup.skip(true, error.message);
+        return;
+      }
+      throw error;
+    }
+
+    assertAuthCookiesPresent(state, config);
+
+    const file = authStateFile(role);
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, JSON.stringify(state, null, 2), 'utf8');
+  });
 }

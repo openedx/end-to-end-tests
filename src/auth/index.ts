@@ -1,6 +1,12 @@
 export { ROLES, isRole, type Role } from './roles';
-export { AuthError } from './errors';
+export { AuthError, AuthNotConfiguredError } from './errors';
 export type { AuthContext, AuthProvider, StorageState } from './types';
-export { ESSENTIAL_SESSION_COOKIE, assertAuthCookiesPresent } from './preflight';
+export {
+  ESSENTIAL_SESSION_COOKIE,
+  AUTH_JWT_COOKIE,
+  hasAuthenticatedSession,
+  assertAuthCookiesPresent,
+} from './preflight';
 export { AUTH_STATE_DIR, authStateFile } from './storage';
-export { StubAuthProvider, defaultAuthProvider, isStubAuthProvider } from './default-provider';
+export { ApiAuthProvider } from './api-provider';
+export { defaultAuthProvider } from './default-provider';

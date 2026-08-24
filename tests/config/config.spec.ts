@@ -27,7 +27,7 @@ function issuesFrom(fn: () => unknown): string[] {
   throw new Error('expected loadConfig to throw a ConfigError');
 }
 
-test.describe('loadConfig — valid environments @unit', () => {
+test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
   test('accepts a minimal same-site HTTP environment', () => {
     const config = loadConfig(validEnv());
 
@@ -75,7 +75,7 @@ test.describe('loadConfig — valid environments @unit', () => {
   });
 });
 
-test.describe('loadConfig — required variables @unit', () => {
+test.describe('loadConfig — required variables', { tag: '@unit' }, () => {
   test('fails when LMS_BASE_URL is missing', () => {
     expect(() => loadConfig(validEnv({ LMS_BASE_URL: undefined }))).toThrow(ConfigError);
     expect(issuesFrom(() => loadConfig(validEnv({ LMS_BASE_URL: undefined })))).toContain(
@@ -96,7 +96,7 @@ test.describe('loadConfig — required variables @unit', () => {
   });
 });
 
-test.describe('loadConfig — URL and scheme validation @unit', () => {
+test.describe('loadConfig — URL and scheme validation', { tag: '@unit' }, () => {
   test('rejects a malformed URL', () => {
     const issues = issuesFrom(() => loadConfig(validEnv({ LMS_BASE_URL: 'not-a-url' })));
     expect(issues.join('\n')).toContain('LMS_BASE_URL must be a valid absolute URL');
@@ -122,7 +122,7 @@ test.describe('loadConfig — URL and scheme validation @unit', () => {
   });
 });
 
-test.describe('loadConfig — shared parent domain @unit', () => {
+test.describe('loadConfig — shared parent domain', { tag: '@unit' }, () => {
   test('rejects localhost (no registrable domain)', () => {
     const issues = issuesFrom(() =>
       loadConfig(
@@ -169,7 +169,7 @@ test.describe('loadConfig — shared parent domain @unit', () => {
   });
 });
 
-test.describe('loadConfig — capabilities @unit', () => {
+test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('parses a declared capability list', () => {
     const config = loadConfig(validEnv({ CAPABILITIES: 'discussions, certificates' }));
     expect([...config.capabilities].sort()).toEqual(['certificates', 'discussions']);
@@ -186,7 +186,22 @@ test.describe('loadConfig — capabilities @unit', () => {
   });
 });
 
-test.describe('loadConfig — credentials @unit', () => {
+test.describe('loadConfig — account backend', { tag: '@unit' }, () => {
+  test('defaults to the automatic backend', () => {
+    expect(loadConfig(validEnv()).accountBackend).toBe('automatic');
+  });
+
+  test('accepts a known backend', () => {
+    expect(loadConfig(validEnv({ ACCOUNT_BACKEND: 'manual' })).accountBackend).toBe('manual');
+  });
+
+  test('rejects an unknown backend', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ ACCOUNT_BACKEND: 'telepathy' })));
+    expect(issues.join('\n')).toContain('ACCOUNT_BACKEND "telepathy" is not recognized');
+  });
+});
+
+test.describe('loadConfig — credentials', { tag: '@unit' }, () => {
   test('accepts a paired admin username and password', () => {
     const config = loadConfig(validEnv({ ADMIN_USERNAME: 'edx', ADMIN_PASSWORD: 'secret' }));
     expect(config.credentials.admin).toEqual({ username: 'edx', password: 'secret' });
@@ -198,7 +213,7 @@ test.describe('loadConfig — credentials @unit', () => {
   });
 });
 
-test.describe('loadConfig — boolean coercion @unit', () => {
+test.describe('loadConfig — boolean coercion', { tag: '@unit' }, () => {
   for (const value of ['true', '1', 'yes', 'YES']) {
     test(`treats ALLOW_CROSS_SITE_ORIGINS="${value}" as true`, () => {
       const config = loadConfig(

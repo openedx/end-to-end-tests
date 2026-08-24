@@ -53,6 +53,7 @@ The essentials:
 | `COURSE_KEY`                        | —        | Default course for course-completion specs           |
 | `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install |
 | `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments           |
+| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)  |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take
@@ -66,6 +67,87 @@ applies when that variable is not already present in the environment.
 `*.local.openedx.io`), so a single sign-in covers every sub-domain. Do not use
 `localhost` or IP addresses - they have no sub-domain structure for shared cookies.
 Over HTTP, the target must serve `SameSite=Lax`, non-`Secure` cookies.
+
+## Account creation & email activation
+
+Installations differ in how a newly-registered account becomes able to sign in —
+chiefly around email activation. Rather than assume one path, the suite obtains
+accounts through a **user-choosable backend** selected by `ACCOUNT_BACKEND`, so the
+same specs run against very different targets (see
+[issue #10](https://github.com/openedx/end-to-end-tests/issues/10) and
+[`src/accounts/README.md`](src/accounts/README.md)).
+
+| `ACCOUNT_BACKEND` | Use when…                                                  | Behaviour                                                                                                                               |
+| ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `automatic`       | "Automatic login on" — the default (incl. Tutor/sandbox)   | Generates a throwaway `@example.com` identity; no email needed. The reusable session is taken from the one registration itself creates. |
+| `manual`          | Target enforces email activation and can't be reconfigured | Interactive: prompts you for an email to register with, then for the activation link/token.                                             |
+
+The `automatic` backend works against the **default** without any email setup:
+registration auto-authenticates the account, so the captured (reusable) session and
+the registration spec pass even on installs that leave accounts inactive until
+activation. Specs that drive a **separate** UI sign-in (`login`, `logout`) still
+need an install where the account can actually log in — i.e.
+`SKIP_EMAIL_VALIDATION = True`, or the `manual` backend to activate the account
+first.
+
+Planned (from the spike, not yet implemented): a 3rd-party mailbox API
+(Mailosaur/MailSlurp/MailHog) and a local-file mail reader.
+
+### Registration rate limit
+
+Open edX caps account registrations per IP with `REGISTRATION_RATELIMIT`, whose
+default is **`60/7d`** (60 per 7 days). Because each run creates several accounts,
+frequent runs exhaust it and registration then fails with `HTTP 403`
+`forbidden-request` — the suite reports this explicitly. For any target you run
+against repeatedly, raise the limit to a short, self-resetting window (the
+platform's own test settings use per-minute values). With Tutor, override the LMS
+setting and restart:
+
+```py
+# a Tutor plugin patch on "openedx-common-settings"
+REGISTRATION_RATELIMIT = "100/m"
+```
+
+```sh
+tutor local restart lms   # or: tutor dev restart lms
+```
+
+If you have already tripped the default limit, either apply the override above and
+restart, or wait for the 7-day window to reset.
+
+### Running with the `manual` backend
+
+Set `ACCOUNT_BACKEND=manual` and run with a **single worker** so the interactive
+prompts don't interleave:
+
+```sh
+ACCOUNT_BACKEND=manual npx playwright test --project=smoke --workers=1 \
+  -g "signs in with valid credentials"
+```
+
+For each account the suite provisions, it prompts on your terminal to:
+
+1. **enter an email** to register with — use an inbox you can read;
+   plus-addressing (`you+e2e1@example.com`) lets one inbox serve several runs; and
+2. **paste the activation link or token** from the resulting email (either the
+   full `.../activate/<key>` URL or just the key).
+
+The prompt reads your controlling terminal directly (via `/dev/tty`) and disables
+the test timeout while it waits, so an interactive run won't time out. Each
+provisioned account needs a unique email, so specs that provision their own
+account (login, logout, and the `setup` sign-in) prompt once each.
+
+**Getting the activation key without email (Tutor).** If you administer the target
+and would rather not wait on (or configure) email, read the pending
+registrations' activation keys straight from the database and paste the one
+matching the email you registered with:
+
+```sh
+tutor local run lms ./manage.py lms shell -c "from common.djangoapps.student.models import Registration; rs = [ (r.user.email, r.activation_key) for r in Registration.objects.select_related('user').all()]; print(rs);"
+```
+
+Use `tutor dev run` on a dev stack. The prompt accepts either the bare key or the
+full `.../activate/<key>` link.
 
 ## Running tests
 
@@ -82,9 +164,10 @@ npm run report           # open the last HTML report
 Tests are organized into Playwright **projects**:
 
 - `unit` — pure logic tests (e.g. config validation); no browser or target needed.
-- `setup` — signs in once per role and writes reusable auth state (stubbed until
-  Epic 2).
-- `smoke` / `regression` — browser tests tagged `@smoke` / `@regression`.
+- `setup` — signs in once per role and writes reusable auth state to `.auth/`.
+- `smoke` / `regression` — anonymous browser tests tagged `@smoke` / `@regression`.
+- `lms-learner` — authenticated tests (`@authenticated`) that reuse the captured
+  learner session; depends on `setup`.
 
 Run a single project or filter by tag:
 
@@ -118,6 +201,8 @@ npm run format:check  # Prettier check
 ```
 tests/                 # specs, grouped by platform domain (lms/, studio/)
   config/              # config-layer unit tests
+  api/ a11y/ reporting/ # unit tests for the pure logic in those modules
+  lms/auth/            # authn MFE specs: registration, login, logout, session
   auth.setup.ts        # auth setup project
 src/
   config/              # typed, validated environment configuration
@@ -126,6 +211,8 @@ src/
   pages/{lms,studio}/  # page objects (mirror the tests/ tree)
   steps/               # reusable multi-page business flows
   fixtures/            # composition root (config + pages + api + auth)
+  reporting/           # BTR test_id annotations + coverage reporter
+  a11y/                # @axe-core/playwright WCAG 2.2 AA gate
 docs/
   decisions/           # ADRs
 ```

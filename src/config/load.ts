@@ -1,4 +1,10 @@
 import {
+  ACCOUNT_BACKENDS,
+  DEFAULT_ACCOUNT_BACKEND,
+  isAccountBackendName,
+  type AccountBackendName,
+} from './account-backends';
+import {
   CAPABILITIES,
   isCapability,
   MUTUALLY_EXCLUSIVE_CAPABILITIES,
@@ -36,6 +42,8 @@ export interface AppConfig {
   readonly org?: string;
   readonly courseKey?: string;
   readonly capabilities: ReadonlySet<Capability>;
+  /** How newly-registered accounts become able to sign in (email activation). */
+  readonly accountBackend: AccountBackendName;
   readonly allowCrossSiteOrigins: boolean;
   /** Shared scheme of all origins. */
   readonly scheme: Scheme;
@@ -188,6 +196,18 @@ export function loadConfig(env: Env = process.env): AppConfig {
 
   const capabilities = parseCapabilities(raw.CAPABILITIES, issues);
 
+  let accountBackend: AccountBackendName = DEFAULT_ACCOUNT_BACKEND;
+  if (raw.ACCOUNT_BACKEND !== undefined) {
+    if (isAccountBackendName(raw.ACCOUNT_BACKEND)) {
+      accountBackend = raw.ACCOUNT_BACKEND;
+    } else {
+      issues.push(
+        `ACCOUNT_BACKEND "${raw.ACCOUNT_BACKEND}" is not recognized. ` +
+          `Known backends: ${ACCOUNT_BACKENDS.join(', ')}.`,
+      );
+    }
+  }
+
   let admin: AdminCredentials | undefined;
   const username = raw.ADMIN_USERNAME;
   const password = raw.ADMIN_PASSWORD;
@@ -239,6 +259,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     org: raw.ORG,
     courseKey: raw.COURSE_KEY,
     capabilities,
+    accountBackend,
     allowCrossSiteOrigins,
     scheme,
     registrableDomain: registrable,
