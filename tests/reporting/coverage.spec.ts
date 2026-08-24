@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 import { summarizeCoverage, type TestOutcome } from '../../src/reporting';
 
-test.describe('summarizeCoverage @unit', () => {
+test.describe('summarizeCoverage', { tag: '@unit' }, () => {
   test('reports annotation coverage and per-case outcomes', () => {
     const outcomes: TestOutcome[] = [
       { title: 'login valid', status: 'passed', testIds: ['TC-00003'] },

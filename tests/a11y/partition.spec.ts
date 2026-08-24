@@ -16,7 +16,7 @@ function violation(id: string, impact: ImpactValue): Result {
   };
 }
 
-test.describe('partitionViolations @unit', () => {
+test.describe('partitionViolations', { tag: '@unit' }, () => {
   const empty = new Set<string>();
 
   test('fails only on critical/serious violations', () => {

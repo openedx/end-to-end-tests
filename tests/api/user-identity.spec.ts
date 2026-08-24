@@ -6,7 +6,7 @@ import { newLearnerIdentity } from '../../src/api';
  * Pure unit tests for the learner data factory. Verifies the unique-per-run,
  * parallel-safe guarantees the stability rules require. No browser or target.
  */
-test.describe('newLearnerIdentity @unit', () => {
+test.describe('newLearnerIdentity', { tag: '@unit' }, () => {
   test('produces unique usernames and emails across calls', () => {
     const identities = Array.from({ length: 100 }, () => newLearnerIdentity());
     const usernames = new Set(identities.map((i) => i.username));

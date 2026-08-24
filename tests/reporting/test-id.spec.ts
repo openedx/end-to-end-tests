@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 import { TEST_ID_ANNOTATION_TYPE, testId, testIdsFromAnnotations } from '../../src/reporting';
 
-test.describe('testId @unit', () => {
+test.describe('testId', { tag: '@unit' }, () => {
   test('builds a well-formed annotation', () => {
     expect(testId('TC-00003')).toEqual({
       type: TEST_ID_ANNOTATION_TYPE,
@@ -17,7 +17,7 @@ test.describe('testId @unit', () => {
   });
 });
 
-test.describe('testIdsFromAnnotations @unit', () => {
+test.describe('testIdsFromAnnotations', { tag: '@unit' }, () => {
   test('extracts only test_id descriptions', () => {
     const ids = testIdsFromAnnotations([
       { type: 'test_id', description: 'TC-00002' },

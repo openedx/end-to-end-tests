@@ -93,7 +93,7 @@ function scannedFiles(): string[] {
   return files;
 }
 
-test.describe('locators never depend on displayed text @unit', () => {
+test.describe('locators never depend on displayed text', { tag: '@unit' }, () => {
   test('no page object, step, or spec matches localized UI text', () => {
     const violations: string[] = [];
 

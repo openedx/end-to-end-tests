@@ -12,7 +12,7 @@ const baseEnv: Env = {
   APPS_BASE_URL: 'http://apps.local.openedx.io',
 };
 
-test.describe('ApiAuthProvider.availableRoles @unit', () => {
+test.describe('ApiAuthProvider.availableRoles', { tag: '@unit' }, () => {
   test('offers only the learner role when no admin account is configured', () => {
     const config = loadConfig(baseEnv);
     expect(new ApiAuthProvider().availableRoles(config)).toEqual(['learner']);

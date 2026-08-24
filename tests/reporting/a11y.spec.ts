@@ -14,7 +14,7 @@ const occ = (over: Partial<A11yOccurrence>): A11yOccurrence => ({
   ...over,
 });
 
-test.describe('summarizeA11yViolations @unit', () => {
+test.describe('summarizeA11yViolations', { tag: '@unit' }, () => {
   test('rolls occurrences up per rule with totals', () => {
     const summary = summarizeA11yViolations([
       occ({
