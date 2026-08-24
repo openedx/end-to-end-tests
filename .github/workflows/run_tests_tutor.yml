@@ -12,15 +12,16 @@ on:
         type: choice
         default: verawood
         options:
+          - main
           - verawood
           - ulmo
           - teak
           - sumac
           - redwood
       test_ref:
-        description: 'Git ref (branch, tag, or commit SHA) of this repo to test.'
+        description: 'Git ref (branch, tag, or commit SHA) of this repo to test. Defaults to the branch this workflow runs from.'
         type: string
-        default: main
+        default: ''
       domains:
         description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
         type: string
@@ -48,7 +49,7 @@ jobs:
       - name: Checkout (test ref)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.test_ref }}
+          ref: ${{ inputs.test_ref != '' && inputs.test_ref || github.ref_name }}
 
       - name: Setup python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -61,6 +62,7 @@ jobs:
           set -euo pipefail
           RELEASE="${{ inputs.openedx_release }}"
           case "$RELEASE" in
+            main)     CONSTRAINT="" ;;
             redwood)  MAJOR=18 ;;
             sumac)    MAJOR=19 ;;
             teak)     MAJOR=20 ;;
@@ -68,12 +70,17 @@ jobs:
             verawood) MAJOR=22 ;;
             *) echo "::error::Unknown Open edX release: $RELEASE"; exit 1 ;;
           esac
-          NEXT=$((MAJOR + 1))
-          CONSTRAINT=">=${MAJOR}.0.0,<${NEXT}.0.0"
+          if [ "$RELEASE" != "main" ]; then
+            NEXT=$((MAJOR + 1))
+            CONSTRAINT=">=${MAJOR}.0.0,<${NEXT}.0.0"
+            echo "Open edX '${RELEASE}' -> Tutor ${MAJOR}.x (${CONSTRAINT})"
+          else
+            echo "Open edX 'main' -> Tutor from GitHub main branch"
+          fi
           echo "constraint=${CONSTRAINT}" >> "$GITHUB_OUTPUT"
-          echo "Open edX '${RELEASE}' -> Tutor ${MAJOR}.x (${CONSTRAINT})"
 
-      - name: Install Tutor and plugins
+      - name: Install Tutor and plugins (named release)
+        if: inputs.openedx_release != 'main'
         run: |
           set -euo pipefail
           C='${{ steps.versions.outputs.constraint }}'
@@ -83,10 +90,43 @@ jobs:
             "tutor-forum${C}" \
             "tutor-notes${C}"
 
+      - name: Install Tutor and plugins (main branch)
+        if: inputs.openedx_release == 'main'
+        run: |
+          set -euo pipefail
+          git clone --branch=main --depth=1 https://github.com/overhangio/tutor.git /tmp/tutor-main
+          pip install -e /tmp/tutor-main
+          pip install \
+            "tutor-forum@git+https://github.com/overhangio/tutor-forum@main" \
+            "tutor-mfe@git+https://github.com/overhangio/tutor-mfe@main" \
+            "tutor-notes@git+https://github.com/overhangio/tutor-notes@main"
+
       - name: Capture installed Tutor version
         id: tutor_version
         run: echo "version=$(tutor --version | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
 
+      # If we don't load the correct config the database restore will
+      # fail or the dump will create an artifact that can't be restored
+      - name: Assert Tutor config is loaded from .ci/config.yml
+        run: |
+          set -euo pipefail
+          tutor config save
+          tutor config printroot
+          EXPECTED="End-to-end Local CI Test"
+          ACTUAL=$(tutor config printvalue PLATFORM_NAME)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Tutor config not loaded from .ci/config.yml."
+            echo "::error::  PLATFORM_NAME is '$ACTUAL', expected '$EXPECTED'"
+            echo "::error::  Check that TUTOR_ROOT is set correctly (currently: $TUTOR_ROOT)"
+            pwd
+            ls -la
+            exit 1
+          fi
+          echo "Config OK: PLATFORM_NAME='$ACTUAL'"
+
+      # Using cached db saves about 65% run time, or 20 mins
+      # caches can be deleted from the Github actions UI if
+      # a stale cache is causing problems
       - name: Restore MySQL migration cache
         id: mysql_cache
         uses: actions/cache/restore@v4
@@ -102,20 +142,26 @@ jobs:
         if: steps.mysql_cache.outputs.cache-hit == 'true'
         run: |
           set -euo pipefail
+          tutor config save
           MYSQL_ROOT_PASSWORD=$(tutor config printvalue MYSQL_ROOT_PASSWORD)
+          tutor local start permissions mysql -d
+          MYSQL_CONTAINER=$(docker ps -qf "name=tutor_local.*mysql")
           # Wait for MySQL to accept connections
           for i in $(seq 1 30); do
-            if tutor local exec -T mysql mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" &>/dev/null 2>&1; then
+            if docker exec "$MYSQL_CONTAINER" mysql -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" &>/dev/null 2>&1; then
               echo "MySQL is ready."
               break
             fi
             echo "Waiting for MySQL ($i/30)..."
             sleep 3
           done
-          # Restore the pre-migrated dump
-          tutor local exec -T mysql mysql -u root -p"$MYSQL_ROOT_PASSWORD" < .ci/mysql-dump/dump.sql
+          # Restore the pre-migrated dump via docker exec (bypasses tutor wrapper
+          # which pollutes stdout with the docker compose invocation, corrupting the SQL)
+          docker exec -i "$MYSQL_CONTAINER" mysql -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" < .ci/mysql-dump/dump.sql
           # Init is now fast: Django sees all migrations as already applied
+          # ~20 minute savings
           tutor local do init
+          tutor local start -d
 
       - name: Dump MySQL and save migration cache (cache miss only)
         if: steps.mysql_cache.outputs.cache-hit != 'true'
@@ -123,9 +169,20 @@ jobs:
           set -euo pipefail
           mkdir -p .ci/mysql-dump
           MYSQL_ROOT_PASSWORD=$(tutor config printvalue MYSQL_ROOT_PASSWORD)
-          tutor local exec -T mysql mysqldump \
+          # Use docker exec directly — tutor local exec prints the docker compose
+          # invocation to stdout, which would corrupt the dump file
+          MYSQL_CONTAINER=$(docker ps -qf "name=tutor_local.*mysql")
+          # Dump only application databases -- excluding mysql/sys avoids ALTER USER
+          # errors on restore caused by MySQL 8 serialising password changes for
+          # users that do not exist yet in the target instance.
+          APP_DATABASES=$(docker exec "$MYSQL_CONTAINER" mysql \
+            -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" -sN -e \
+            "SELECT schema_name FROM information_schema.schemata \
+             WHERE schema_name NOT IN ('information_schema','performance_schema','mysql','sys')")
+          docker exec "$MYSQL_CONTAINER" mysqldump \
+            -h 127.0.0.1 \
             -u root -p"$MYSQL_ROOT_PASSWORD" \
-            --all-databases \
+            --databases $APP_DATABASES \
             --single-transaction \
             --quick \
             > .ci/mysql-dump/dump.sql
@@ -138,6 +195,10 @@ jobs:
           path: .ci/mysql-dump/
           key: tutor-mysql-${{ inputs.openedx_release }}-${{ steps.tutor_version.outputs.version }}
 
+      # Without this setting Playwright won't be able to complete most auth
+      # tests due to not being able to activate the account via email.
+      # This does mean that some tests around activation can't be completed
+      # here.
       - name: Configure Tutor
         run: |
           set -euo pipefail
