@@ -83,8 +83,60 @@ jobs:
             "tutor-forum${C}" \
             "tutor-notes${C}"
 
-      - name: Tutor launch
+      - name: Capture installed Tutor version
+        id: tutor_version
+        run: echo "version=$(tutor --version | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore MySQL migration cache
+        id: mysql_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ci/mysql-dump/
+          key: tutor-mysql-${{ inputs.openedx_release }}-${{ steps.tutor_version.outputs.version }}
+
+      - name: Tutor launch (cache miss — runs migrations)
+        if: steps.mysql_cache.outputs.cache-hit != 'true'
         run: tutor local launch --non-interactive
+
+      - name: Tutor start + restore database (cache hit — skip migrations)
+        if: steps.mysql_cache.outputs.cache-hit == 'true'
+        run: |
+          set -euo pipefail
+          MYSQL_ROOT_PASSWORD=$(tutor config printvalue MYSQL_ROOT_PASSWORD)
+          # Wait for MySQL to accept connections
+          for i in $(seq 1 30); do
+            if tutor local exec -T mysql mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" &>/dev/null 2>&1; then
+              echo "MySQL is ready."
+              break
+            fi
+            echo "Waiting for MySQL ($i/30)..."
+            sleep 3
+          done
+          # Restore the pre-migrated dump
+          tutor local exec -T mysql mysql -u root -p"$MYSQL_ROOT_PASSWORD" < .ci/mysql-dump/dump.sql
+          # Init is now fast: Django sees all migrations as already applied
+          tutor local do init
+
+      - name: Dump MySQL and save migration cache (cache miss only)
+        if: steps.mysql_cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p .ci/mysql-dump
+          MYSQL_ROOT_PASSWORD=$(tutor config printvalue MYSQL_ROOT_PASSWORD)
+          tutor local exec -T mysql mysqldump \
+            -u root -p"$MYSQL_ROOT_PASSWORD" \
+            --all-databases \
+            --single-transaction \
+            --quick \
+            > .ci/mysql-dump/dump.sql
+          echo "Dump size: $(du -sh .ci/mysql-dump/dump.sql | cut -f1)"
+
+      - name: Save MySQL migration cache
+        if: steps.mysql_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .ci/mysql-dump/
+          key: tutor-mysql-${{ inputs.openedx_release }}-${{ steps.tutor_version.outputs.version }}
 
       - name: Configure Tutor
         run: |
