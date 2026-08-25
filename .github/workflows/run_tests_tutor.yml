@@ -242,99 +242,17 @@ jobs:
           echo "::error::LMS did not become healthy in time."
           exit 1
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Run E2E suite
+        uses: ./.github/actions/run-suite
         with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Get installed Playwright version
-        id: playwright_version
-        run: |
-          set -euo pipefail
-          VERSION=$(node -e "console.log(require('@playwright/test/package.json').version)")
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browser binaries
-        id: playwright_cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ runner.os }}-${{ steps.playwright_version.outputs.version }}
-
-      - name: Install Playwright browsers (cache miss)
-        if: steps.playwright_cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-
-      # Browser binaries were restored from cache, but OS-level shared
-      # libraries (apt packages) live outside ~/.cache/ms-playwright and
-      # are not covered by the cache above.
-      - name: Install Playwright OS dependencies (cache hit)
-        if: steps.playwright_cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
-      - name: Write suite configuration (.env)
-        run: |
-          set -euo pipefail
-          cat > .env <<EOF
-          LMS_BASE_URL=http://local.openedx.io
-          CMS_BASE_URL=http://studio.local.openedx.io
-          APPS_BASE_URL=http://apps.local.openedx.io
-          ORG=OpenedX
-          COURSE_KEY=course-v1:OpenedX+DemoX+DemoCourse
-          CAPABILITIES=discussions,notes
-          ADMIN_USERNAME=${ADMIN_USERNAME}
-          ADMIN_PASSWORD=${ADMIN_PASSWORD}
-          EOF
-          echo "Wrote .env:"
-          grep -v PASSWORD .env
-
-      - name: Run tests
-        env:
-          DOMAINS: ${{ inputs.domains }}
-          FEATURES: ${{ inputs.features }}
-        run: |
-          set -euo pipefail
-          args=()
-          if [ -n "${DOMAINS// /}" ]; then
-            for d in $DOMAINS; do args+=("tests/$d"); done
-          fi
-          grep_expr=""
-          if [ -n "${FEATURES// /}" ]; then
-            grep_expr="$(echo "$FEATURES" | xargs | tr ' ' '|')"
-          fi
-          cmd=(npx playwright test)
-          if [ ${#args[@]} -gt 0 ]; then cmd+=("${args[@]}"); fi
-          if [ -n "$grep_expr" ]; then cmd+=(--grep "$grep_expr"); fi
-          echo "Running: ${cmd[*]}"
-          "${cmd[@]}"
-
-      - name: Suite reports to job summary
-        if: ${{ !cancelled() }}
-        run: node scripts/job-summary.mjs
-
-      - name: Upload Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-${{ inputs.openedx_release }}
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 14
-          if-no-files-found: ignore
-
-      # Upload BTR and A11y artifacts. Uploaded even when tests fail.
-      - name: Upload suite reports (a11y backlog + BTR coverage)
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: suite-reports-${{ inputs.openedx_release }}
-          path: |
-            test-results/a11y-violations.json
-            test-results/btr-coverage.json
-          retention-days: 30
-          if-no-files-found: warn
+          lms_base_url: http://local.openedx.io
+          apps_base_url: http://apps.local.openedx.io
+          cms_base_url: http://studio.local.openedx.io
+          org: OpenedX
+          course_key: course-v1:OpenedX+DemoX+DemoCourse
+          capabilities: discussions,notes
+          admin_username: ${{ env.ADMIN_USERNAME }}
+          admin_password: ${{ env.ADMIN_PASSWORD }}
+          domains: ${{ inputs.domains }}
+          features: ${{ inputs.features }}
+          artifact_suffix: ${{ inputs.openedx_release }}

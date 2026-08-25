@@ -1,0 +1,100 @@
+name: External Target E2E Test
+
+# Run the end-to-end suite against an already-running Open edX installation
+# (e.g. a Tutor dev environment, staging, or any provider-supplied server)
+# instead of provisioning one on the runner. Configuration and credentials are
+# supplied via workflow inputs and a GitHub Environment, so this workflow can
+# be pointed at any target without hard-coding installation-specific values.
+#
+# To run against your own installation, either:
+#   - Trigger this workflow with `workflow_dispatch` and fill in the inputs, or
+#   - Fork/adapt it and store your target's base URLs and credentials in a
+#     GitHub Environment (Settings > Environments), referenced via the
+#     `environment` input below. Environment secrets are only exposed to runs
+#     that select that environment, and can require manual approval.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'GitHub Environment to source secrets (ADMIN_USERNAME/ADMIN_PASSWORD) from.'
+        type: string
+        required: true
+      test_ref:
+        description: 'Git ref (branch, tag, or commit SHA) of this repo to test. Defaults to the branch this workflow runs from.'
+        type: string
+        default: ''
+      lms_base_url:
+        description: 'LMS origin, e.g. https://courses.example.com'
+        type: string
+        required: true
+      apps_base_url:
+        description: 'MFE host origin, e.g. https://apps.example.com'
+        type: string
+        required: true
+      cms_base_url:
+        description: 'Studio (CMS) origin. Leave empty to skip Studio specs.'
+        type: string
+        default: ''
+      org:
+        description: 'Organization short code used when creating/locating content.'
+        type: string
+        default: ''
+      course_key:
+        description: 'Default course to target in course-completion specs.'
+        type: string
+        default: ''
+      capabilities:
+        description: 'Comma-separated capabilities enabled on the target (e.g. discussions,certificates).'
+        type: string
+        default: ''
+      account_backend:
+        description: 'ACCOUNT_BACKEND override. "automatic" requires SKIP_EMAIL_VALIDATION on the target; "manual" is interactive and not usable in CI.'
+        type: choice
+        default: automatic
+        options:
+          - automatic
+          - manual
+      allow_cross_site_origins:
+        description: 'Set true when LMS/Studio/MFE origins are not same-site.'
+        type: boolean
+        default: false
+      domains:
+        description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
+        type: string
+        default: ''
+      features:
+        description: 'Feature/capability tags to run, space-separated (e.g. "@smoke @discussions"). Empty = all.'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  external:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout (test ref)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.test_ref != '' && inputs.test_ref || github.ref_name }}
+
+      - name: Run E2E suite
+        uses: ./.github/actions/run-suite
+        with:
+          lms_base_url: ${{ inputs.lms_base_url }}
+          apps_base_url: ${{ inputs.apps_base_url }}
+          cms_base_url: ${{ inputs.cms_base_url }}
+          org: ${{ inputs.org }}
+          course_key: ${{ inputs.course_key }}
+          capabilities: ${{ inputs.capabilities }}
+          admin_username: ${{ secrets.ADMIN_USERNAME }}
+          admin_password: ${{ secrets.ADMIN_PASSWORD }}
+          account_backend: ${{ inputs.account_backend }}
+          allow_cross_site_origins: ${{ inputs.allow_cross_site_origins }}
+          domains: ${{ inputs.domains }}
+          features: ${{ inputs.features }}
+          artifact_suffix: ${{ inputs.environment }}
