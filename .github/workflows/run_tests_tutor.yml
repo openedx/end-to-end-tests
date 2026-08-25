@@ -3,8 +3,16 @@ name: Tutor E2E Test
 # Manually stand up a Tutor "local" Open edX installation and run the end-to-end
 # suite against it. Everything is provisioned from scratch on the runner, so this
 # is a heavier, on-demand job (not part of the fast PR gate in ci.yml).
+#
+# Also runs on a schedule (5am US Eastern, Mondays and Fridays) against this
+# repo's main branch with the "main" Open edX release, to catch regressions
+# between manual runs. Scheduled runs always use those two defaults; the
+# domains/features inputs only apply to manual `workflow_dispatch` runs.
 
 on:
+  schedule:
+    - cron: '0 5 * * 1,5'
+      timezone: America/New_York
   workflow_dispatch:
     inputs:
       openedx_release:
@@ -45,6 +53,10 @@ jobs:
   local:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      # workflow_dispatch runs use the chosen input (default: verawood);
+      # schedule runs always target the "main" Open edX release.
+      OPENEDX_RELEASE: ${{ (github.event_name == 'schedule' && 'main') || inputs.openedx_release }}
     steps:
       - name: Checkout (test ref)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,7 +72,7 @@ jobs:
         id: versions
         run: |
           set -euo pipefail
-          RELEASE="${{ inputs.openedx_release }}"
+          RELEASE="${OPENEDX_RELEASE}"
           case "$RELEASE" in
             main)     CONSTRAINT="" ;;
             redwood)  MAJOR=18 ;;
@@ -80,7 +92,7 @@ jobs:
           echo "constraint=${CONSTRAINT}" >> "$GITHUB_OUTPUT"
 
       - name: Install Tutor and plugins (named release)
-        if: inputs.openedx_release != 'main'
+        if: env.OPENEDX_RELEASE != 'main'
         run: |
           set -euo pipefail
           C='${{ steps.versions.outputs.constraint }}'
@@ -91,7 +103,7 @@ jobs:
             "tutor-notes${C}"
 
       - name: Install Tutor and plugins (main branch)
-        if: inputs.openedx_release == 'main'
+        if: env.OPENEDX_RELEASE == 'main'
         run: |
           set -euo pipefail
           git clone --branch=main --depth=1 https://github.com/overhangio/tutor.git /tmp/tutor-main
@@ -132,7 +144,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .ci/mysql-dump/
-          key: tutor-mysql-${{ inputs.openedx_release }}-${{ steps.tutor_version.outputs.version }}
+          key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
 
       - name: Tutor launch (cache miss — runs migrations)
         if: steps.mysql_cache.outputs.cache-hit != 'true'
@@ -193,7 +205,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .ci/mysql-dump/
-          key: tutor-mysql-${{ inputs.openedx_release }}-${{ steps.tutor_version.outputs.version }}
+          key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
 
       # Without this setting Playwright won't be able to complete most auth
       # tests due to not being able to activate the account via email.
@@ -255,4 +267,4 @@ jobs:
           admin_password: ${{ env.ADMIN_PASSWORD }}
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}
-          artifact_suffix: ${{ inputs.openedx_release }}
+          artifact_suffix: ${{ env.OPENEDX_RELEASE }}
