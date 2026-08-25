@@ -38,6 +38,10 @@ on:
         description: 'Feature/capability tags to run, space-separated (e.g. "@smoke @discussions"). Empty = all.'
         type: string
         default: ''
+      capabilities:
+        description: 'Override capabilities for this run (comma-separated). Empty = use the release default from .ci/openedx-releases.json.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -68,34 +72,30 @@ jobs:
         with:
           python-version: 3.12
 
-      - name: Resolve Tutor version constraint
-        id: versions
+      - name: Resolve release configuration
+        id: release
         run: |
           set -euo pipefail
           RELEASE="${OPENEDX_RELEASE}"
-          case "$RELEASE" in
-            main)     CONSTRAINT="" ;;
-            redwood)  MAJOR=18 ;;
-            sumac)    MAJOR=19 ;;
-            teak)     MAJOR=20 ;;
-            ulmo)     MAJOR=21 ;;
-            verawood) MAJOR=22 ;;
-            *) echo "::error::Unknown Open edX release: $RELEASE"; exit 1 ;;
-          esac
+          ENTRY=$(jq -e --arg r "$RELEASE" '.[$r]' .ci/openedx-releases.json) || {
+            echo "::error::Unknown Open edX release '$RELEASE' — add it to .ci/openedx-releases.json"
+            exit 1
+          }
+          CONSTRAINT=$(echo "$ENTRY" | jq -r '.tutorConstraint')
+          RELEASE_CAPABILITIES=$(echo "$ENTRY" | jq -r '.capabilities')
           if [ "$RELEASE" != "main" ]; then
-            NEXT=$((MAJOR + 1))
-            CONSTRAINT=">=${MAJOR}.0.0,<${NEXT}.0.0"
-            echo "Open edX '${RELEASE}' -> Tutor ${MAJOR}.x (${CONSTRAINT})"
+            echo "Open edX '${RELEASE}' -> Tutor constraint '${CONSTRAINT}'"
           else
             echo "Open edX 'main' -> Tutor from GitHub main branch"
           fi
-          echo "constraint=${CONSTRAINT}" >> "$GITHUB_OUTPUT"
+          echo "tutor_constraint=${CONSTRAINT}" >> "$GITHUB_OUTPUT"
+          echo "capabilities=${RELEASE_CAPABILITIES}" >> "$GITHUB_OUTPUT"
 
       - name: Install Tutor and plugins (named release)
         if: env.OPENEDX_RELEASE != 'main'
         run: |
           set -euo pipefail
-          C='${{ steps.versions.outputs.constraint }}'
+          C='${{ steps.release.outputs.tutor_constraint }}'
           pip install \
             "tutor${C}" \
             "tutor-mfe${C}" \
@@ -262,7 +262,7 @@ jobs:
           cms_base_url: http://studio.local.openedx.io
           org: OpenedX
           course_key: course-v1:OpenedX+DemoX+DemoCourse
-          capabilities: discussions,notes
+          capabilities: ${{ inputs.capabilities != '' && inputs.capabilities || steps.release.outputs.capabilities }}
           admin_username: ${{ env.ADMIN_USERNAME }}
           admin_password: ${{ env.ADMIN_PASSWORD }}
           domains: ${{ inputs.domains }}

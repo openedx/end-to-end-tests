@@ -216,21 +216,33 @@ Triggers:
 
 - **`workflow_dispatch`** — run on demand with:
 
-  | Input             | Description                                                                                                                            |
-  | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-  | `openedx_release` | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version installed. Default `verawood`. |
-  | `test_ref`        | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                         |
-  | `domains`         | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                       |
-  | `features`        | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                  |
+  | Input             | Description                                                                                                                                   |
+  | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `openedx_release` | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`. |
+  | `test_ref`        | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                |
+  | `domains`         | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                              |
+  | `features`        | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                         |
+  | `capabilities`    | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.              |
 
 - **`schedule`** — automatically at **5am US Eastern, Mondays and Fridays**,
   always against this repo's `main` branch with the `main` Open edX release
-  (`domains`/`features` are dispatch-only and don't apply to scheduled runs, so
-  scheduled runs cover the full suite).
+  (`domains`/`features`/`capabilities` are dispatch-only and don't apply to
+  scheduled runs, so scheduled runs cover the full suite with `main`'s default
+  capabilities).
 
 The MySQL state after migrations is cached per release/Tutor-version so most
 runs skip the ~20-minute migration step; delete the `tutor-mysql-*` cache from
 the Actions UI if it ever needs a clean rebuild.
+
+**Per-release configuration.** [`.ci/openedx-releases.json`](.ci/openedx-releases.json)
+is the single source of truth for what each named release needs: the Tutor
+version constraint (replacing what used to be a hardcoded shell `case`
+statement) and the default `CAPABILITIES` to declare for that release, since
+feature/MFE availability can differ across platform versions. Adding or
+removing a supported release is just an edit to that file (plus the matching
+`openedx_release` dropdown option in the workflow — `ci.yml`'s "Verify
+openedx_release choices match .ci/openedx-releases.json" step fails the build
+if the two ever drift apart).
 
 ### `run_tests_external.yml` — arbitrary, already-running installation
 

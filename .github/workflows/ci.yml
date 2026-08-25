@@ -26,6 +26,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify openedx_release choices match .ci/openedx-releases.json
+        run: |
+          set -euo pipefail
+          WORKFLOW_OPTIONS=$(yq -o=json '.on.workflow_dispatch.inputs.openedx_release.options' .github/workflows/run_tests_tutor.yml | jq -c 'sort')
+          RELEASES_JSON_KEYS=$(jq -c 'keys | sort' .ci/openedx-releases.json)
+          if [ "$WORKFLOW_OPTIONS" != "$RELEASES_JSON_KEYS" ]; then
+            echo "::error::run_tests_tutor.yml's openedx_release choices and .ci/openedx-releases.json have drifted apart."
+            echo "  run_tests_tutor.yml options:     $WORKFLOW_OPTIONS"
+            echo "  .ci/openedx-releases.json keys: $RELEASES_JSON_KEYS"
+            echo "Update whichever one is missing an entry so both list the same releases."
+            exit 1
+          fi
+          echo "OK: both list the same releases ($WORKFLOW_OPTIONS)"
+
       - name: Configure
         run: cp .env.example .env
 
