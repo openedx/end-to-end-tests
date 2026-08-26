@@ -1,0 +1,195 @@
+name: Run E2E suite
+description: >
+  Install dependencies, configure the suite for a target Open edX installation,
+  run the Playwright test suite, and upload the standard set of reports. Shared
+  by every workflow that runs the suite against a target — regardless of how
+  that target was provisioned (ephemeral Tutor, externally supplied URL, etc.).
+
+inputs:
+  lms_base_url:
+    description: 'LMS origin, e.g. http://local.openedx.io'
+    required: true
+  apps_base_url:
+    description: 'MFE host origin, e.g. http://apps.local.openedx.io'
+    required: true
+  cms_base_url:
+    description: 'Studio (CMS) origin. Optional — omit to skip Studio specs.'
+    required: false
+    default: ''
+  org:
+    description: 'Organization short code used when creating/locating content.'
+    required: false
+    default: ''
+  course_key:
+    description: 'Default course to target in course-completion specs.'
+    required: false
+    default: ''
+  capabilities:
+    description: 'Comma-separated capabilities enabled on the target (e.g. discussions,notes).'
+    required: false
+    default: ''
+  admin_username:
+    description: 'Optional admin/staff account username for staff-role coverage.'
+    required: false
+    default: ''
+  admin_password:
+    description: 'Password for admin_username. Pass via secrets in the caller.'
+    required: false
+    default: ''
+  account_backend:
+    description: 'ACCOUNT_BACKEND override: automatic (default) or manual.'
+    required: false
+    default: ''
+  allow_cross_site_origins:
+    description: 'Set true when LMS/Studio/MFE origins are not same-site.'
+    required: false
+    default: ''
+  domains:
+    description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
+    required: false
+    default: ''
+  features:
+    description: 'Feature/capability tags to run, space-separated (e.g. "@smoke @discussions"). Empty = all.'
+    required: false
+    default: ''
+  artifact_suffix:
+    description: 'Suffix distinguishing this run''s uploaded artifacts from other callers (e.g. release or environment name).'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Validate admin credential inputs
+      shell: bash
+      env:
+        ADMIN_USERNAME: ${{ inputs.admin_username }}
+        ADMIN_PASSWORD: ${{ inputs.admin_password }}
+      run: |
+        set -euo pipefail
+        if [ -n "$ADMIN_USERNAME" ] && [ -z "$ADMIN_PASSWORD" ]; then
+          echo "::error::admin_username is set but admin_password is empty. Set both or neither."
+          exit 1
+        fi
+        if [ -z "$ADMIN_USERNAME" ] && [ -n "$ADMIN_PASSWORD" ]; then
+          echo "::error::admin_password is set but admin_username is empty. Set both or neither."
+          exit 1
+        fi
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Get installed Playwright version
+      id: playwright_version
+      shell: bash
+      run: |
+        set -euo pipefail
+        VERSION=$(node -e "console.log(require('@playwright/test/package.json').version)")
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Playwright browser binaries
+      id: playwright_cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-browsers-${{ runner.os }}-${{ steps.playwright_version.outputs.version }}
+
+    - name: Install Playwright browsers (cache miss)
+      if: steps.playwright_cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install --with-deps chromium
+
+    # Browser binaries were restored from cache, but OS-level shared
+    # libraries (apt packages) live outside ~/.cache/ms-playwright and
+    # are not covered by the cache above.
+    - name: Install Playwright OS dependencies (cache hit)
+      if: steps.playwright_cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: npx playwright install-deps chromium
+
+    - name: Write suite configuration (.env)
+      shell: bash
+      env:
+        LMS_BASE_URL: ${{ inputs.lms_base_url }}
+        APPS_BASE_URL: ${{ inputs.apps_base_url }}
+        CMS_BASE_URL: ${{ inputs.cms_base_url }}
+        ORG: ${{ inputs.org }}
+        COURSE_KEY: ${{ inputs.course_key }}
+        CAPABILITIES: ${{ inputs.capabilities }}
+        ACCOUNT_BACKEND: ${{ inputs.account_backend }}
+        ALLOW_CROSS_SITE_ORIGINS: ${{ inputs.allow_cross_site_origins }}
+      run: |
+        set -euo pipefail
+        : > .env
+        echo "LMS_BASE_URL=${LMS_BASE_URL}" >> .env
+        echo "APPS_BASE_URL=${APPS_BASE_URL}" >> .env
+        [ -n "$CMS_BASE_URL" ] && echo "CMS_BASE_URL=${CMS_BASE_URL}" >> .env
+        [ -n "$ORG" ] && echo "ORG=${ORG}" >> .env
+        [ -n "$COURSE_KEY" ] && echo "COURSE_KEY=${COURSE_KEY}" >> .env
+        [ -n "$CAPABILITIES" ] && echo "CAPABILITIES=${CAPABILITIES}" >> .env
+        [ -n "$ACCOUNT_BACKEND" ] && echo "ACCOUNT_BACKEND=${ACCOUNT_BACKEND}" >> .env
+        [ -n "$ALLOW_CROSS_SITE_ORIGINS" ] && echo "ALLOW_CROSS_SITE_ORIGINS=${ALLOW_CROSS_SITE_ORIGINS}" >> .env
+        echo "Wrote .env:"
+        cat .env
+
+    # ADMIN_USERNAME/ADMIN_PASSWORD are intentionally NOT written to .env:
+    # dotenv treats an unquoted "#" as the start of a comment (and no quoting
+    # scheme is fully transparent for arbitrary secret bytes), so a password
+    # containing "#" would be silently truncated. Passing them as real
+    # process env vars below avoids any file-parsing/escaping concerns.
+    - name: Run tests
+      shell: bash
+      env:
+        DOMAINS: ${{ inputs.domains }}
+        FEATURES: ${{ inputs.features }}
+        ADMIN_USERNAME: ${{ inputs.admin_username }}
+        ADMIN_PASSWORD: ${{ inputs.admin_password }}
+      run: |
+        set -euo pipefail
+        args=()
+        if [ -n "${DOMAINS// /}" ]; then
+          for d in $DOMAINS; do args+=("tests/$d"); done
+        fi
+        grep_expr=""
+        if [ -n "${FEATURES// /}" ]; then
+          grep_expr="$(echo "$FEATURES" | xargs | tr ' ' '|')"
+        fi
+        cmd=(npx playwright test)
+        if [ ${#args[@]} -gt 0 ]; then cmd+=("${args[@]}"); fi
+        if [ -n "$grep_expr" ]; then cmd+=(--grep "$grep_expr"); fi
+        echo "Running: ${cmd[*]}"
+        "${cmd[@]}"
+
+    - name: Suite reports to job summary
+      if: ${{ !cancelled() }}
+      shell: bash
+      run: node scripts/job-summary.mjs
+
+    - name: Upload Playwright report
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report-${{ inputs.artifact_suffix }}
+        path: |
+          playwright-report/
+          test-results/
+        retention-days: 14
+        if-no-files-found: ignore
+
+    # Upload BTR and A11y artifacts. Uploaded even when tests fail.
+    - name: Upload suite reports (a11y backlog + BTR coverage)
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: suite-reports-${{ inputs.artifact_suffix }}
+        path: |
+          test-results/a11y-violations.json
+          test-results/btr-coverage.json
+        retention-days: 30
+        if-no-files-found: warn

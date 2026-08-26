@@ -196,6 +196,84 @@ npm run format        # Prettier write
 npm run format:check  # Prettier check
 ```
 
+## CI workflows
+
+Browser specs need a running Open edX installation, so they run in dedicated
+GitHub Actions workflows rather than the fast PR gate (`ci.yml`, which only runs
+static checks and the browser-free `unit` project). Both workflows share the same
+[`run-suite`](.github/actions/run-suite/action.yml) composite action. They differ
+only in how the target installation is provisioned.
+
+### `run_tests_tutor.yml` — ephemeral Tutor installation
+
+Stands up a fresh **Tutor "local"** Open edX install on the runner (installing
+the named release's Tutor/plugin versions, launching it, importing the demo
+course, and creating an admin user), then runs the suite against it. Everything
+is provisioned from scratch, so this is a heavier, self-contained job — nothing
+to configure beforehand beyond triggering it.
+
+Triggers:
+
+- **`workflow_dispatch`** — run on demand with:
+
+  | Input             | Description                                                                                                                                   |
+  | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `openedx_release` | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`. |
+  | `test_ref`        | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                |
+  | `domains`         | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                              |
+  | `features`        | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                         |
+  | `capabilities`    | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.              |
+
+- **`schedule`** — automatically at **5am US Eastern, Mondays and Fridays**,
+  always against this repo's `main` branch with the `main` Open edX release
+  (`domains`/`features`/`capabilities` are dispatch-only and don't apply to
+  scheduled runs, so scheduled runs cover the full suite with `main`'s default
+  capabilities).
+
+The MySQL state after migrations is cached per release/Tutor-version so most
+runs skip the ~20-minute migration step; delete the `tutor-mysql-*` cache from
+the Actions UI if it ever needs a clean rebuild.
+
+**Per-release configuration.** [`.ci/openedx-releases.json`](.ci/openedx-releases.json)
+is the single source of truth for what each named release needs: the Tutor
+version constraint (replacing what used to be a hardcoded shell `case`
+statement) and the default `CAPABILITIES` to declare for that release, since
+feature/MFE availability can differ across platform versions. Adding or
+removing a supported release is just an edit to that file (plus the matching
+`openedx_release` dropdown option in the workflow — `ci.yml`'s "Verify
+openedx_release choices match .ci/openedx-releases.json" step fails the build
+if the two ever drift apart).
+
+### `run_tests_external.yml` — arbitrary, already-running installation
+
+Runs the suite against **any installation you already have running** — a Tutor
+`dev` stack, a staging server, or a provider's own environment — instead of
+provisioning one. This is how providers point the suite at their own
+installation without editing any code.
+
+Credentials are sourced from a **GitHub Environment** (Settings → Environments)
+rather than hard-coded, so different targets (and their approval/protection
+rules) stay isolated from each other:
+
+| Input                      | Description                                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                            |
+| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                        |
+| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                                     |
+| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                                   |
+| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                                    |
+| `org`                      | Organization short code.                                                                                            |
+| `course_key`               | Default course for course-completion specs.                                                                         |
+| `capabilities`             | Comma-separated capabilities enabled on the target.                                                                 |
+| `account_backend`          | `automatic` (default; requires `SKIP_EMAIL_VALIDATION` on the target) or `manual` (interactive — not usable in CI). |
+| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                  |
+| `domains` / `features`     | Same filters as above.                                                                                              |
+
+To run it against your own installation: create a GitHub Environment (e.g.
+`staging`) with `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets (and any required
+approval rule), then trigger the workflow with that environment name and your
+target's base URLs.
+
 ## Project structure
 
 ```

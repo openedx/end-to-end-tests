@@ -1,0 +1,19 @@
+# Ephemeral, CI-only Tutor config for run_tests_tutor.yml. Credentials below
+# are throwaway values scoped to a Docker network that is created fresh per
+# workflow run and torn down immediately after — not reused anywhere else,
+# and never reachable outside the runner. See .github/secret_scanning.yml
+# for why this file is excluded from secret scanning.
+LMS_HOST: local.openedx.io
+CMS_HOST: studio.local.openedx.io
+CMS_OAUTH2_SECRET: V8553RMCO27CBJEx3X4xTh9a
+CONTACT_EMAIL: oscm@axim.org
+ENABLE_HTTPS: false
+LANGUAGE_CODE: en
+MYSQL_ROOT_PASSWORD: 6KFFc2L9
+OPENEDX_MYSQL_PASSWORD: rCZQjHdO
+OPENEDX_SECRET_KEY: 6BxYaHmIkV8R3tFm9aseEWLBMG
+PLATFORM_NAME: End-to-end Local CI Test
+PLUGINS:
+- mfe
+- forum
+- notes
