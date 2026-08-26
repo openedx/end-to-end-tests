@@ -70,6 +70,10 @@ on:
 
 permissions:
   contents: read
+  # Needed to look up whether `inputs.environment` is a real GitHub
+  # Environment (the Environments API lives under the Deployments
+  # permission scope).
+  deployments: read
 
 jobs:
   external:
@@ -81,6 +85,60 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.test_ref != '' && inputs.test_ref || github.ref_name }}
+
+      # `environment:` above silently proceeds with empty secrets if the name
+      # doesn't match a configured Environment, so check it explicitly here.
+      # The other inputs are validated too, since GitHub's `workflow_dispatch`
+      # form only enforces `required`/`type`, not format or content.
+      - name: Validate workflow inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          LMS_BASE_URL: ${{ inputs.lms_base_url }}
+          APPS_BASE_URL: ${{ inputs.apps_base_url }}
+          CMS_BASE_URL: ${{ inputs.cms_base_url }}
+          DOMAINS: ${{ inputs.domains }}
+          FEATURES: ${{ inputs.features }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          if ! gh api "repos/${GITHUB_REPOSITORY}/environments/${ENVIRONMENT}" >/dev/null 2>&1; then
+            fail "environment '${ENVIRONMENT}' does not exist on ${GITHUB_REPOSITORY}. Create it under Settings > Environments."
+          fi
+
+          for pair in "lms_base_url:${LMS_BASE_URL}" "apps_base_url:${APPS_BASE_URL}"; do
+            name="${pair%%:*}"
+            value="${pair#*:}"
+            case "$value" in
+              http://*|https://*) ;;
+              *) fail "${name} must be an http(s) URL, got '${value}'" ;;
+            esac
+          done
+
+          if [ -n "$CMS_BASE_URL" ]; then
+            case "$CMS_BASE_URL" in
+              http://*|https://*) ;;
+              *) fail "cms_base_url must be an http(s) URL, got '${CMS_BASE_URL}'" ;;
+            esac
+          fi
+
+          if [ -n "${DOMAINS// /}" ]; then
+            for d in $DOMAINS; do
+              [ -d "tests/$d" ] || fail "domains entry '$d' has no matching tests/$d directory"
+            done
+          fi
+
+          if [ -n "${FEATURES// /}" ]; then
+            for f in $FEATURES; do
+              case "$f" in
+                @*) ;;
+                *) fail "features entry '$f' should start with '@' (e.g. @smoke)" ;;
+              esac
+            done
+          fi
+
+          echo "All inputs valid."
 
       - name: Run E2E suite
         uses: ./.github/actions/run-suite
