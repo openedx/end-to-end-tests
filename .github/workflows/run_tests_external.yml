@@ -67,6 +67,10 @@ on:
         description: 'Feature/capability tags to run, space-separated (e.g. "@smoke @discussions"). Empty = all.'
         type: string
         default: ''
+      exclude_features:
+        description: 'Feature/tags to exclude, space-separated (e.g. "@unit"). Empty = exclude nothing.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -84,7 +88,7 @@ jobs:
       - name: Checkout (test ref)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.test_ref != '' && inputs.test_ref || github.ref_name }}
+          ref: ${{ inputs.test_ref }}
 
       # `environment:` above silently proceeds with empty secrets if the name
       # doesn't match a configured Environment, so check it explicitly here.
@@ -99,6 +103,7 @@ jobs:
           CMS_BASE_URL: ${{ inputs.cms_base_url }}
           DOMAINS: ${{ inputs.domains }}
           FEATURES: ${{ inputs.features }}
+          EXCLUDE_FEATURES: ${{ inputs.exclude_features }}
         run: |
           set -euo pipefail
           fail() { echo "::error::$1"; exit 1; }
@@ -146,6 +151,15 @@ jobs:
             done
           fi
 
+          if [ -n "${EXCLUDE_FEATURES// /}" ]; then
+            for f in $EXCLUDE_FEATURES; do
+              case "$f" in
+                @*) ;;
+                *) fail "exclude_features entry '$f' should start with '@' (e.g. @unit)" ;;
+              esac
+            done
+          fi
+
           echo "All inputs valid."
 
       - name: Run E2E suite
@@ -163,4 +177,5 @@ jobs:
           allow_cross_site_origins: ${{ inputs.allow_cross_site_origins }}
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}
+          exclude_features: ${{ inputs.exclude_features }}
           artifact_suffix: ${{ inputs.environment }}

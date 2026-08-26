@@ -2,8 +2,9 @@ name: ci-tests
 
 # Static checks and the tests that need neither a browser nor a running Open edX
 # installation: type-check, lint, formatting, unit tests, and a compile/discovery
-# check of every spec. Browser specs (@smoke/@regression) run in a separate
-# workflow against a provisioned target.
+# check of every spec, plus two non-blocking Docker (Tutor) jobs that run the
+# full suite (minus @unit) against ephemeral "main" and last-release
+# installations. Heavier/scheduled regression runs live in separate workflows.
 
 on:
   push:
@@ -84,3 +85,23 @@ jobs:
           path: playwright-report/
           retention-days: 7
           if-no-files-found: ignore
+
+  # Non-blocking Docker (Tutor) checks: provision a real Open edX install and
+  # run everything except @unit against it. These jobs are intentionally left
+  # out of the required status checks list in branch protection. They still report
+  # pass/fail on the PR/commit for visibility, but spurious Tutor/environment
+  # flakiness won't block a merge.
+  docker-main:
+    name: 'Docker: main environment'
+    uses: ./.github/workflows/run_tests_tutor.yml
+    with:
+      openedx_release: main
+      exclude_features: '@unit'
+
+  docker-last-release:
+    name: 'Docker: last release (verawood)'
+    uses: ./.github/workflows/run_tests_tutor.yml
+    with:
+      # Keep in sync with the newest non-"main" entry in .ci/openedx-releases.json.
+      openedx_release: verawood
+      exclude_features: '@unit'

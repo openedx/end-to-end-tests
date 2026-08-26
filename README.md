@@ -199,10 +199,21 @@ npm run format:check  # Prettier check
 ## CI workflows
 
 Browser specs need a running Open edX installation, so they run in dedicated
-GitHub Actions workflows rather than the fast PR gate (`ci.yml`, which only runs
-static checks and the browser-free `unit` project). Both workflows share the same
-[`run-suite`](.github/actions/run-suite/action.yml) composite action. They differ
-only in how the target installation is provisioned.
+GitHub Actions workflows rather than the fast PR gate (`ci.yml`, which runs
+static checks and the browser-free `unit` project as required, blocking checks).
+Both workflows share the same [`run-suite`](.github/actions/run-suite/action.yml)
+composite action. They differ only in how the target installation is provisioned.
+
+`ci.yml` additionally runs `run_tests_tutor.yml` twice as **non-blocking**
+jobs on every PR and push to `main`: once against an ephemeral **`main`**
+Open edX environment, and once against the **last released** environment
+(currently `verawood`), both with `--grep-invert @unit` so they cover
+everything except the unit project. Jobs that call a reusable workflow don't
+support `continue-on-error`, so "non-blocking" here is a branch-protection
+choice: these two jobs are intentionally left out of the required status
+checks list, so they surface real product/Tutor regressions to reviewers
+without their failure (including spurious environment-provisioning flakiness)
+blocking a merge.
 
 ### `run_tests_tutor.yml` — ephemeral Tutor installation
 
@@ -216,19 +227,23 @@ Triggers:
 
 - **`workflow_dispatch`** — run on demand with:
 
-  | Input             | Description                                                                                                                                   |
-  | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `openedx_release` | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`. |
-  | `test_ref`        | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                |
-  | `domains`         | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                              |
-  | `features`        | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                         |
-  | `capabilities`    | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.              |
+  | Input              | Description                                                                                                                                   |
+  | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `openedx_release`  | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`. |
+  | `test_ref`         | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                |
+  | `domains`          | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                              |
+  | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                         |
+  | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                           |
+  | `capabilities`     | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.              |
 
 - **`schedule`** — automatically at **5am US Eastern, Mondays and Fridays**,
   always against this repo's `main` branch with the `main` Open edX release
   (`domains`/`features`/`capabilities` are dispatch-only and don't apply to
   scheduled runs, so scheduled runs cover the full suite with `main`'s default
   capabilities).
+
+- **`workflow_call`** — called by `ci.yml`'s `docker-main` and
+  `docker-last-release` jobs (see above); same inputs as `workflow_dispatch`.
 
 The MySQL state after migrations is cached per release/Tutor-version so most
 runs skip the ~20-minute migration step; delete the `tutor-mysql-*` cache from
@@ -268,6 +283,7 @@ rules) stay isolated from each other:
 | `account_backend`          | `automatic` (default; requires `SKIP_EMAIL_VALIDATION` on the target) or `manual` (interactive — not usable in CI). |
 | `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                  |
 | `domains` / `features`     | Same filters as above.                                                                                              |
+| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                 |
 
 To run it against your own installation: create a GitHub Environment (e.g.
 `staging`) with `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets (and any required

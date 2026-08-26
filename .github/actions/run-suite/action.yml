@@ -52,6 +52,10 @@ inputs:
     description: 'Feature/capability tags to run, space-separated (e.g. "@smoke @discussions"). Empty = all.'
     required: false
     default: ''
+  exclude_features:
+    description: 'Feature/tags to exclude, space-separated (e.g. "@unit"). Mapped to --grep-invert. Empty = exclude nothing.'
+    required: false
+    default: ''
   artifact_suffix:
     description: 'Suffix distinguishing this run''s uploaded artifacts from other callers (e.g. release or environment name).'
     required: true
@@ -148,6 +152,7 @@ runs:
       env:
         DOMAINS: ${{ inputs.domains }}
         FEATURES: ${{ inputs.features }}
+        EXCLUDE_FEATURES: ${{ inputs.exclude_features }}
         ADMIN_USERNAME: ${{ inputs.admin_username }}
         ADMIN_PASSWORD: ${{ inputs.admin_password }}
       run: |
@@ -160,9 +165,14 @@ runs:
         if [ -n "${FEATURES// /}" ]; then
           grep_expr="$(echo "$FEATURES" | xargs | tr ' ' '|')"
         fi
+        grep_invert_expr=""
+        if [ -n "${EXCLUDE_FEATURES// /}" ]; then
+          grep_invert_expr="$(echo "$EXCLUDE_FEATURES" | xargs | tr ' ' '|')"
+        fi
         cmd=(npx playwright test)
         if [ ${#args[@]} -gt 0 ]; then cmd+=("${args[@]}"); fi
         if [ -n "$grep_expr" ]; then cmd+=(--grep "$grep_expr"); fi
+        if [ -n "$grep_invert_expr" ]; then cmd+=(--grep-invert "$grep_invert_expr"); fi
         echo "Running: ${cmd[*]}"
         "${cmd[@]}"
 
