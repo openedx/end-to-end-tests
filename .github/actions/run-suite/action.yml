@@ -59,6 +59,22 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validate admin credential inputs
+      shell: bash
+      env:
+        ADMIN_USERNAME: ${{ inputs.admin_username }}
+        ADMIN_PASSWORD: ${{ inputs.admin_password }}
+      run: |
+        set -euo pipefail
+        if [ -n "$ADMIN_USERNAME" ] && [ -z "$ADMIN_PASSWORD" ]; then
+          echo "::error::admin_username is set but admin_password is empty. Set both or neither."
+          exit 1
+        fi
+        if [ -z "$ADMIN_USERNAME" ] && [ -n "$ADMIN_PASSWORD" ]; then
+          echo "::error::admin_password is set but admin_username is empty. Set both or neither."
+          exit 1
+        fi
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -106,8 +122,6 @@ runs:
         ORG: ${{ inputs.org }}
         COURSE_KEY: ${{ inputs.course_key }}
         CAPABILITIES: ${{ inputs.capabilities }}
-        ADMIN_USERNAME: ${{ inputs.admin_username }}
-        ADMIN_PASSWORD: ${{ inputs.admin_password }}
         ACCOUNT_BACKEND: ${{ inputs.account_backend }}
         ALLOW_CROSS_SITE_ORIGINS: ${{ inputs.allow_cross_site_origins }}
       run: |
@@ -119,18 +133,23 @@ runs:
         [ -n "$ORG" ] && echo "ORG=${ORG}" >> .env
         [ -n "$COURSE_KEY" ] && echo "COURSE_KEY=${COURSE_KEY}" >> .env
         [ -n "$CAPABILITIES" ] && echo "CAPABILITIES=${CAPABILITIES}" >> .env
-        [ -n "$ADMIN_USERNAME" ] && echo "ADMIN_USERNAME=${ADMIN_USERNAME}" >> .env
-        [ -n "$ADMIN_PASSWORD" ] && echo "ADMIN_PASSWORD=${ADMIN_PASSWORD}" >> .env
         [ -n "$ACCOUNT_BACKEND" ] && echo "ACCOUNT_BACKEND=${ACCOUNT_BACKEND}" >> .env
         [ -n "$ALLOW_CROSS_SITE_ORIGINS" ] && echo "ALLOW_CROSS_SITE_ORIGINS=${ALLOW_CROSS_SITE_ORIGINS}" >> .env
         echo "Wrote .env:"
-        grep -v PASSWORD .env
+        cat .env
 
+    # ADMIN_USERNAME/ADMIN_PASSWORD are intentionally NOT written to .env:
+    # dotenv treats an unquoted "#" as the start of a comment (and no quoting
+    # scheme is fully transparent for arbitrary secret bytes), so a password
+    # containing "#" would be silently truncated. Passing them as real
+    # process env vars below avoids any file-parsing/escaping concerns.
     - name: Run tests
       shell: bash
       env:
         DOMAINS: ${{ inputs.domains }}
         FEATURES: ${{ inputs.features }}
+        ADMIN_USERNAME: ${{ inputs.admin_username }}
+        ADMIN_PASSWORD: ${{ inputs.admin_password }}
       run: |
         set -euo pipefail
         args=()
