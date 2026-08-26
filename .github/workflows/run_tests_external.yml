@@ -107,6 +107,14 @@ jobs:
             fail "environment '${ENVIRONMENT}' does not exist on ${GITHUB_REPOSITORY}. Create it under Settings > Environments."
           fi
 
+          # environment also becomes artifact_suffix (part of the uploaded
+          # artifact name in run-suite). Environment names allow characters,
+          # like "/", that actions/upload-artifact rejects, so check for
+          # those explicitly rather than let the upload step fail late.
+          if echo "$ENVIRONMENT" | grep -qE '["/\\:<>|*?[:cntrl:]]'; then
+            fail "environment '${ENVIRONMENT}' contains a character not allowed in an artifact name. Avoid: \" / \\ : < > | * ?"
+          fi
+
           for pair in "lms_base_url:${LMS_BASE_URL}" "apps_base_url:${APPS_BASE_URL}"; do
             name="${pair%%:*}"
             value="${pair#*:}"
