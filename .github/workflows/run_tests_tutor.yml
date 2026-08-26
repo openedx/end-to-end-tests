@@ -115,7 +115,9 @@ jobs:
 
       - name: Capture installed Tutor version
         id: tutor_version
-        run: echo "version=$(tutor --version | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          echo "version=$(tutor --version | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
 
       # If we don't load the correct config the database restore will
       # fail or the dump will create an artifact that can't be restored
