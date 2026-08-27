@@ -74,18 +74,12 @@ export async function initAccountBackends(
   return registry;
 }
 
-/** Clears the process-wide registry. Intended for tests. */
-export function resetAccountBackends(): void {
-  registry = undefined;
-}
-
 /**
  * Returns the account backend selected by configuration (`ACCOUNT_BACKEND`),
  * loading the registry on first use.
  *
- * Prefer this over {@link getAccountBackend}: Playwright runs global setup in the
- * main process but specs in separate worker processes, so each worker has to load
- * its own registry.
+ * Loading is lazy because Playwright runs global setup in the main process but
+ * specs in separate worker processes, so each worker loads its own registry.
  *
  * @throws {Error} when a configured plugin cannot be loaded, or when the
  * configured name is not registered.
@@ -94,21 +88,4 @@ export async function resolveAccountBackend(
   config: AppConfig = getConfig(),
 ): Promise<AccountBackend> {
   return (await initAccountBackends(config)).get(config);
-}
-
-/**
- * Synchronous variant of {@link resolveAccountBackend}, for callers that run
- * after the registry is loaded in the same process.
- *
- * @throws {Error} when {@link initAccountBackends} has not run in this process,
- * or when the configured name is not registered.
- */
-export function getAccountBackend(config: AppConfig = getConfig()): AccountBackend {
-  if (!registry) {
-    throw new Error(
-      'Account backends have not been loaded in this process. Call ' +
-        'initAccountBackends() or resolveAccountBackend() first.',
-    );
-  }
-  return registry.get(config);
 }
