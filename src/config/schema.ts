@@ -56,7 +56,11 @@ export const rawEnvSchema = z.preprocess(
     // Capability declaration (comma-separated list of capability tags).
     CAPABILITIES: z.string().optional(),
 
-    // Account-creation / activation backend (see src/config/account-backends.ts).
+    // Account-creation / activation backends (see src/config/account-backends.ts).
+    // Comma-separated file paths of extra account backend plugin modules to load,
+    // defaults to none.
+    CUSTOM_ACCOUNT_BACKEND_PLUGINS: z.string().optional(),
+    // Name of the actual backend to use (built-in or plugin), defaults to 'automatic'.
     ACCOUNT_BACKEND: z.string().optional(),
 
     // Escape hatch for providers whose origins are not same-site.

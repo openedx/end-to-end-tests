@@ -54,6 +54,7 @@ The essentials:
 | `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install |
 | `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments           |
 | `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)  |
+| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends     |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take
@@ -81,6 +82,7 @@ same specs run against very different targets (see
 | ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `automatic`       | "Automatic login on" — the default (incl. Tutor/sandbox)   | Generates a throwaway `@example.com` identity; no email needed. The reusable session is taken from the one registration itself creates. |
 | `manual`          | Target enforces email activation and can't be reconfigured | Interactive: prompts you for an email to register with, then for the activation link/token.                                             |
+| _plugin name_     | Your install has its own auth/mailbox flow                 | Loaded from `CUSTOM_ACCOUNT_BACKEND_PLUGINS`; see [`src/accounts/README.md`](src/accounts/README.md).                                   |
 
 The `automatic` backend works against the **default** without any email setup:
 registration auto-authenticates the account, so the captured (reusable) session and

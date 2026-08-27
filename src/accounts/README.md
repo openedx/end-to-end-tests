@@ -47,9 +47,45 @@ Planned (from the spike, not yet implemented): a 3rd-party mailbox API
 (Mailosaur/MailSlurp/MailHog) and a local-file mail reader — each an
 `AccountBackend` that automates `createIdentity`/`activate` non-interactively.
 
-## Adding a backend
+## Adding a built-in backend
 
 1. Add its name to `ACCOUNT_BACKENDS` in `src/config/account-backends.ts`.
 2. Implement `AccountBackend` here.
-3. Map it in `registry.ts` (the `switch` is exhaustive, so the compiler flags a
-   missing case).
+3. Register it in `AccountPluginRegistry.registerAll()` in `registry.ts`.
+
+## Custom backend plugins
+
+An installation with its own auth (SSO, SAML, a mailbox API) can supply a backend
+without forking the suite. Point `CUSTOM_ACCOUNT_BACKEND_PLUGINS` at one or more
+module paths (comma-separated, resolved from the working directory) and select one
+by its `name`:
+
+```sh
+CUSTOM_ACCOUNT_BACKEND_PLUGINS=./plugins/saml-enterprise.plugin.ts
+ACCOUNT_BACKEND=saml-enterprise
+```
+
+Each module's **default export** (or a named `accountBackend` export) must be an
+`AccountBackend`, a class implementing it, or a factory returning one:
+
+```ts
+// plugins/saml-enterprise.plugin.ts
+import type { AccountBackend } from 'openedx-end-to-end-tests/src/accounts';
+
+export default class SamlEnterpriseBackend implements AccountBackend {
+  readonly name = 'saml-enterprise';
+  async createIdentity({ config, request }) {
+    /* ... */
+  }
+  async activate({ config, request, identity }) {
+    /* ... */
+  }
+}
+```
+
+The paths are checked for existence at config load; the modules themselves are
+loaded by `plugin-loader.ts` and registered by `AccountPluginRegistry` — in global
+setup (so a broken plugin or an unknown `ACCOUNT_BACKEND` fails the run up front)
+and lazily in each worker via `resolveAccountBackend()`. A plugin whose `name`
+collides with an already-registered backend is an error, so plugins cannot
+silently shadow `automatic` or `manual`.
