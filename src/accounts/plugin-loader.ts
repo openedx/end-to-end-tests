@@ -14,16 +14,26 @@ const requireFrom = createRequire(__filename);
 type PluginExport =
   AccountBackend | (new () => AccountBackend) | (() => AccountBackend | Promise<AccountBackend>);
 
+/** Auth flows a backend may override; anything else falls back to the default. */
+const OPTIONAL_METHODS = ['signIn', 'signInThroughUi', 'signOutThroughUi'] as const;
+
 function isAccountBackend(value: unknown): value is AccountBackend {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
   const candidate = value as Partial<AccountBackend>;
-  return (
-    typeof candidate.name === 'string' &&
-    candidate.name !== '' &&
-    typeof candidate.createIdentity === 'function' &&
-    typeof candidate.activate === 'function'
+  if (
+    typeof candidate.name !== 'string' ||
+    candidate.name === '' ||
+    typeof candidate.createIdentity !== 'function' ||
+    typeof candidate.activate !== 'function'
+  ) {
+    return false;
+  }
+  // A non-function override would silently never run, so reject it here rather
+  // than crash mid-spec.
+  return OPTIONAL_METHODS.every(
+    (method) => candidate[method] === undefined || typeof candidate[method] === 'function',
   );
 }
 

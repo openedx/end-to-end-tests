@@ -56,22 +56,29 @@ export class AccountPluginRegistry {
   }
 }
 
-let registry: AccountPluginRegistry | undefined;
+/**
+ * Loaded registries, keyed by the config they were loaded from. Keying on the
+ * config object (rather than a bare module singleton) means a run reuses one
+ * registry — `getConfig()` is memoized — while a test that builds its own config
+ * gets its own, without leaking plugins between them.
+ */
+const registries = new WeakMap<AppConfig, Promise<AccountPluginRegistry>>();
 
 /**
- * Loads the built-in and configured custom backends into the process-wide
- * registry. Idempotent: repeated calls reuse the already-populated registry, so
- * both global setup and a worker's first lookup can call it safely.
+ * Loads the built-in and configured custom backends. Idempotent per config:
+ * repeated calls reuse the same registry — and the same in-flight load — so
+ * global setup and every later lookup can call it freely.
  */
-export async function initAccountBackends(
+export function initAccountBackends(
   config: AppConfig = getConfig(),
 ): Promise<AccountPluginRegistry> {
-  if (!registry) {
-    const pending = new AccountPluginRegistry();
-    await pending.registerAll(config);
-    registry = pending;
+  let pending = registries.get(config);
+  if (!pending) {
+    const registry = new AccountPluginRegistry();
+    pending = registry.registerAll(config).then(() => registry);
+    registries.set(config, pending);
   }
-  return registry;
+  return pending;
 }
 
 /**

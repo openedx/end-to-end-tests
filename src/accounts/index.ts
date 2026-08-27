@@ -1,4 +1,14 @@
-export type { AccountBackend, AccountContext, ActivationContext } from './types';
+export type {
+  AccountBackend,
+  AccountContext,
+  AccountCredentials,
+  ActivationContext,
+  SignInContext,
+  UiSignInContext,
+  UiSignOutContext,
+} from './types';
+export { accountSignIn, accountSignInThroughUi, accountSignOutThroughUi } from './auth-flows';
+export { defaultSignIn, defaultSignInThroughUi, defaultSignOutThroughUi } from './default-flows';
 export { AutomaticLoginBackend } from './automatic-backend';
 export { ManualActivationBackend } from './manual-backend';
 export { AccountPluginRegistry, initAccountBackends, resolveAccountBackend } from './registry';

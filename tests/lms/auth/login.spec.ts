@@ -14,12 +14,12 @@ test.describe('Login (authn MFE)', () => {
   test(
     'signs in with valid credentials',
     { tag: ['@smoke', '@mfe-authn'], annotation: testId('TC-00003') },
-    async ({ page, request, config, loginPage }) => {
+    async ({ page, request, config }) => {
       // Provision an account that can actually sign in (activates it when the
       // target enforces email validation), via the configured account backend.
       const identity = await provisionLearnerAccount(request, config);
 
-      await signIn(page, loginPage, {
+      await signIn(page, config, {
         emailOrUsername: identity.email,
         password: identity.password,
       });
