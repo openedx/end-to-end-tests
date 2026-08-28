@@ -305,3 +305,28 @@ jobs:
           features: ${{ inputs.features }}
           exclude_features: ${{ inputs.exclude_features }}
           artifact_suffix: ${{ env.OPENEDX_RELEASE }}
+
+      # Collect the LMS/Studio logs whatever the outcome (`always()`, so they
+      # survive a failed or cancelled run). `docker ps -a` catches the case
+      # where a service died and therefore logged nothing.
+      - name: Collect Tutor container logs
+        if: always()
+        run: |
+          set -uo pipefail
+          mkdir -p tutor-logs
+          docker ps -a > tutor-logs/docker-ps.txt 2>&1 || true
+          for service in lms cms lms-worker cms-worker mfe caddy; do
+            echo "Collecting logs for '${service}'..."
+            tutor local logs "$service" > "tutor-logs/${service}.log" 2>&1 || \
+              echo "::warning::Could not collect logs for '${service}'."
+          done
+          ls -la tutor-logs/
+
+      - name: Upload Tutor container logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tutor-logs-${{ env.OPENEDX_RELEASE }}
+          path: tutor-logs/
+          retention-days: 14
+          if-no-files-found: warn
