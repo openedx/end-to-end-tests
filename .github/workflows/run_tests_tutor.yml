@@ -182,6 +182,31 @@ jobs:
           path: .ci/mysql-dump/
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
 
+      # We'll run out of disk building images if we don't clear up some space
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        if: env.OPENEDX_RELEASE == 'main'
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: false
+
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: true
+
+      # The 'main' job installs Tutor from git but would otherwise run a published
+      # openedx image that may be stale, so the LMS ends up older than the settings
+      # Tutor renders for it. Named releases ship matching images and must not pay
+      # this build cost.
+      - name: Build openedx and mfe images (main only)
+        if: env.OPENEDX_RELEASE == 'main'
+        run: tutor images build openedx mfe
+
       - name: Tutor launch (cache miss — runs migrations)
         if: steps.mysql_cache.outputs.cache-hit != 'true'
         run: tutor local launch --non-interactive
