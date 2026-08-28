@@ -362,6 +362,49 @@ To run it against your own installation: create a GitHub Environment (e.g.
 approval rule), then trigger the workflow with that environment name and your
 target's base URLs.
 
+### Consuming the suite from another CI system
+
+The two workflows above are how _this_ repository runs the suite. A deployment
+pipeline that owns an Open edX installation should not reimplement them - it
+should reuse the same runnable unit and supply only the target.
+
+- **GitHub Actions**: use the
+  [`run-suite`](.github/actions/run-suite/action.yml) composite action.
+- **GitLab CI**: include [`ci/gitlab/run-suite.yml`](ci/gitlab/run-suite.yml)
+  and extend the hidden `.openedx-e2e` job it defines. That file's header
+  comment is the reference for the variables it accepts.
+
+Both own the same thing - the image, the install, the Playwright command line,
+and the report artifacts - so the consuming pipeline is left with the target's
+origins, its readiness check, and its credentials. Their inputs correspond:
+`features` / `exclude_features` on the action are `E2E_FEATURES` /
+`E2E_EXCLUDE_FEATURES` in the template, and adding one to either generally means
+adding it to both.
+
+```yaml
+include:
+  - remote: 'https://raw.githubusercontent.com/openedx/end-to-end-tests/<ref>/ci/gitlab/run-suite.yml'
+
+e2e:
+  extends: .openedx-e2e
+  stage: test
+  variables:
+    E2E_SUITE_REF: <commit-sha> # required; keep equal to the include ref
+    LMS_BASE_URL: https://courses.example.com
+    APPS_BASE_URL: https://apps.example.com
+```
+
+The suite itself is configured by its ordinary environment variables, set as
+`variables:` on that job - so `.env.example` stays the single reference for what
+those are, and a new one works in GitLab the day it works locally. Put secrets
+in masked CI variables rather than `variables:` values, which are committed in
+plain text.
+
+Set `PLAYWRIGHT_JUNIT_OUTPUT_FILE` in any CI system to have the suite _append_ a
+JUnit reporter to the ones `playwright.config.ts` declares. Do not pass
+`--reporter=junit`: that replaces the whole list and silently disables the
+BTR-coverage and accessibility reporters.
+
 ## Project structure
 
 ```

@@ -1,0 +1,211 @@
+# GitLab CI template: run this suite against an already-running Open edX installation.
+#
+# The counterpart of `.github/actions/run-suite/action.yml` for GitLab consumers. It owns
+# everything about *how* the suite runs — the image, fetching the suite at a pinned ref,
+# installing, building the Playwright command line, and collecting reports — so that a
+# deployment pipeline consuming it never has to know any of it. What the deployment owns
+# is *when* to run and *against what*: the target's origins, its readiness check, and its
+# credentials.
+#
+# Keep the two in step: an input added to that action generally belongs here too, under
+# the name below.
+#
+# ## Usage
+#
+# Nothing here is a concrete job: the template defines the hidden `.openedx-e2e` job, and
+# the caller extends it and supplies the target. Deliberately no `spec:inputs` — the suite
+# is configured entirely by environment variables, so ordinary `variables:` on the
+# extending job are already the configuration surface, and they can be set from CI
+# variables, a `dotenv` artifact, or a parent pipeline without this file needing an input
+# for each one. It also means this file does not go stale as the suite's configuration
+# grows: a new variable works here the day it works in `.env`.
+#
+#     include:
+#       - remote: 'https://raw.githubusercontent.com/openedx/end-to-end-tests/<ref>/ci/gitlab/run-suite.yml'
+#
+#     e2e:
+#       extends: .openedx-e2e
+#       stage: test
+#       variables:
+#         E2E_SUITE_REF: <commit-sha>          # required
+#         LMS_BASE_URL: https://courses.example.com
+#         APPS_BASE_URL: https://apps.example.com
+#
+# On a self-managed GitLab that mirrors this repository, prefer a project include over
+# `remote:` — it is resolved from the local instance, so pipeline creation does not depend
+# on reaching github.com:
+#
+#     include:
+#       - project: 'your-group/end-to-end-tests'
+#         ref: <ref>
+#         file: '/ci/gitlab/run-suite.yml'
+#
+# ## Configuring the suite
+#
+# Set the suite's own environment variables as `variables:` on the extending job.
+# `.env.example` at E2E_SUITE_REF is the authoritative list and explains every value;
+# only `LMS_BASE_URL` and `APPS_BASE_URL` are required. Three things are specific to
+# running it this way:
+#
+#   - **Secrets are CI variables, not `variables:` values.** A `variables:` entry is
+#     committed in plain text. Define `ADMIN_PASSWORD` (and any plugin's API key) as a
+#     masked, protected CI variable and reference it, e.g. `ADMIN_PASSWORD: $E2E_ADMIN_PASSWORD`.
+#     `ADMIN_USERNAME` and `ADMIN_PASSWORD` are validated as a pair below: set both or
+#     neither.
+#   - **Blank is the same as unset.** The suite's config layer trims values and treats an
+#     empty one as absent, so a caller may pass every variable through unconditionally and
+#     let the unused ones be empty — which is what an unset CI variable expands to.
+#   - **Relative paths resolve against the suite, not your repository.** The job runs from
+#     the clone, so `CUSTOM_ACCOUNT_BACKEND_PLUGINS=./plugins/openinbox.plugin.ts` finds
+#     the plugin the suite ships. A plugin of your own has to be fetched into that
+#     directory first, or given an absolute path.
+#
+# ## Configuring this template
+#
+#   E2E_SUITE_URL       where to fetch the suite from.
+#   E2E_SUITE_REF       required. Branch, tag or commit to run. No default on purpose:
+#                       silently tracking `main` lets an upstream change turn a deployment
+#                       pipeline red without anything in the deployment having changed.
+#                       Pin it to a commit, and keep it equal to the ref this file is
+#                       included from.
+#   E2E_DOMAINS         space-separated domains, e.g. "lms studio". Empty = all.
+#   E2E_FEATURES        space-separated tags to run, e.g. "@smoke". Empty = all.
+#                       (`features` on the composite action.)
+#   E2E_EXCLUDE_FEATURES
+#                       space-separated tags to exclude. Defaults to `@unit`, the suite's
+#                       own framework tests — they check the suite rather than the target
+#                       and are already covered by its own CI. (`exclude_features` there.)
+#   E2E_JUNIT           where to write the JUnit XML that GitLab's Tests tab reads,
+#                       relative to the suite. Overriding it also needs the matching
+#                       `artifacts:reports:junit` path overridden on the extending job.
+
+.openedx-e2e:
+  # Ships the browsers and their system libraries preinstalled. Keep the tag equal to the
+  # `@playwright/test` version at E2E_SUITE_REF, or the preinstalled browsers are the
+  # wrong revision and `playwright install` below re-downloads them.
+  #
+  # Not a plain `node:` image: the browser install would then run inside every job, where
+  # it can never be cached, while an image layer is cached on the runner after the first
+  # pull. Microsoft's registry also has no anonymous pull-rate limit, which Docker Hub
+  # does — and CI runners typically share one egress address.
+  image: mcr.microsoft.com/playwright:v1.62.1-noble
+
+  variables:
+    E2E_SUITE_URL: https://github.com/openedx/end-to-end-tests.git
+    E2E_SUITE_REF: ''
+    E2E_DOMAINS: ''
+    E2E_FEATURES: ''
+    E2E_EXCLUDE_FEATURES: '@unit'
+    E2E_JUNIT: test-results/junit.xml
+
+  script:
+    # Everything the caller could have got wrong is checked here, before the clone and the
+    # install, so a misconfigured job fails in seconds rather than several minutes later
+    # inside the suite's own config validation.
+    - |
+      set -euo pipefail
+      fail() { echo "ERROR: $1" >&2; exit 2; }
+
+      [ -n "${E2E_SUITE_REF:-}" ] || fail "E2E_SUITE_REF is unset. Pin the suite to a branch, tag or commit."
+
+      missing=""
+      [ -n "${LMS_BASE_URL:-}" ] || missing="$missing LMS_BASE_URL"
+      [ -n "${APPS_BASE_URL:-}" ] || missing="$missing APPS_BASE_URL"
+      [ -z "$missing" ] || fail "no target to test:$missing unset. The caller must supply the target's origins."
+
+      # Mirrors the composite action's "Validate admin credential inputs" step. Half a pair
+      # is always a mistake - a typo in one variable name, or a CI variable that is not
+      # exposed to this branch - and guessing which half was meant would either skip staff
+      # coverage the caller asked for or fail every test with a bad password.
+      if [ -n "${ADMIN_USERNAME:-}" ] && [ -z "${ADMIN_PASSWORD:-}" ]; then
+        fail "ADMIN_USERNAME is set but ADMIN_PASSWORD is empty. Set both or neither."
+      fi
+      if [ -z "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
+        fail "ADMIN_PASSWORD is set but ADMIN_USERNAME is empty. Set both or neither."
+      fi
+
+      # A tag without its `@` silently matches nothing, so `--grep-invert smoke` would run
+      # the whole suite and `--grep smoke` none of it, both reporting green.
+      for tag in ${E2E_FEATURES:-} ${E2E_EXCLUDE_FEATURES:-}; do
+        case "$tag" in
+          @*) ;;
+          *) fail "feature tag '$tag' must start with '@' (e.g. @smoke)" ;;
+        esac
+      done
+
+      echo "Target: LMS=$LMS_BASE_URL APPS=$APPS_BASE_URL CMS=${CMS_BASE_URL:-<skipped>}"
+      if [ -n "${ADMIN_USERNAME:-}" ]; then
+        echo "Staff-role coverage: enabled as $ADMIN_USERNAME"
+      else
+        echo "Staff-role coverage: disabled (ADMIN_USERNAME unset)"
+      fi
+
+    - |
+      set -euo pipefail
+      # Removed first so a shell runner reusing its build directory re-clones rather
+      # than failing on a non-empty target. Blob-filtered: every ref's history is still
+      # fetched, so E2E_SUITE_REF may be a commit as well as a branch or tag.
+      rm -rf "$CI_PROJECT_DIR/suite"
+      git clone --filter=blob:none "$E2E_SUITE_URL" "$CI_PROJECT_DIR/suite"
+      cd "$CI_PROJECT_DIR/suite"
+      git checkout --detach "$E2E_SUITE_REF"
+      echo "Suite at $(git rev-parse HEAD)"
+
+    # A Node older than the suite pins is the most likely cause of an otherwise
+    # inexplicable install or transpile failure, and the image's Node moves independently
+    # of its Playwright version. Advisory rather than fatal: the suite's `engines` field
+    # is not enforced, and a newer image usually still works.
+    - |
+      set -euo pipefail
+      want=$(tr -d 'v[:space:]' < .nvmrc)
+      have=$(node -p 'process.versions.node.split(".")[0]')
+      if [ "$have" -lt "$want" ]; then
+        echo "WARNING: image has Node $have, the suite pins Node $want (.nvmrc)."
+        echo "         Override \`image:\` if install or transpilation fails."
+      fi
+
+    - cd "$CI_PROJECT_DIR/suite" && npm ci
+
+    # A no-op when the image tag matches the suite's `@playwright/test` version, and a
+    # plain browser download when it does not — so bumping E2E_SUITE_REF on its own makes
+    # this job slower rather than red. No --with-deps: the image has the system libraries.
+    - cd "$CI_PROJECT_DIR/suite" && npx playwright install chromium
+
+    # PLAYWRIGHT_JUNIT_OUTPUT_FILE makes the suite's own config append a JUnit reporter to
+    # the list it declares. Passing `--reporter=junit` instead would *replace* that list
+    # and silently stop the BTR-coverage and accessibility reporters producing anything.
+    - |
+      set -euo pipefail
+      cd "$CI_PROJECT_DIR/suite"
+      export PLAYWRIGHT_JUNIT_OUTPUT_FILE="$E2E_JUNIT"
+
+      cmd=(npx playwright test)
+      if [ -n "${E2E_DOMAINS// /}" ]; then
+        for domain in $E2E_DOMAINS; do cmd+=("tests/$domain"); done
+      fi
+      if [ -n "${E2E_FEATURES// /}" ]; then
+        cmd+=(--grep "$(echo "$E2E_FEATURES" | xargs | tr ' ' '|')")
+      fi
+      if [ -n "${E2E_EXCLUDE_FEATURES// /}" ]; then
+        cmd+=(--grep-invert "$(echo "$E2E_EXCLUDE_FEATURES" | xargs | tr ' ' '|')")
+      fi
+      echo "Running: ${cmd[*]}"
+      "${cmd[@]}"
+
+  after_script:
+    # Never let the summary's exit status mask the suite's. Runs on failure too, which is
+    # when the BTR-coverage and accessibility numbers are most worth having in the log.
+    - cd "$CI_PROJECT_DIR/suite" && node scripts/job-summary.mjs || true
+
+  artifacts:
+    # A failing run is exactly when the traces and the report are wanted.
+    when: always
+    expire_in: 1 week
+    reports:
+      # Populates GitLab's Tests tab, with history and flaky detection across runs.
+      junit: suite/test-results/junit.xml
+    paths:
+      # Browsable HTML report; traces, screenshots and videos for whatever failed; and the
+      # suite's own BTR-coverage and accessibility JSON.
+      - suite/playwright-report/
+      - suite/test-results/

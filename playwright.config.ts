@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
 
 import { authStateFile } from './src/auth';
 import { getConfigIfValid, TIMEOUTS } from './src/config';
@@ -16,6 +16,26 @@ const isCI = Boolean(process.env.CI);
  */
 function resolveBaseURL(): string | undefined {
   return getConfigIfValid('playwright.config')?.baseUrls.lms;
+}
+
+/**
+ * Appends Playwright's JUnit reporter when `PLAYWRIGHT_JUNIT_OUTPUT_FILE` is set.
+ *
+ * CI systems that read JUnit XML to populate a test tab (GitLab, Jenkins, CircleCI)
+ * need it in the reporter list. `--reporter=junit` on the command line would *replace*
+ * the whole list, silently stopping the BTR-coverage and accessibility reporters from
+ * producing anything, so the choice is made here instead — declaring it means every
+ * consumer gets a machine-readable result by setting one variable, and no consumer has
+ * to know which other reporters this file happens to declare.
+ */
+function junitReporter(reporters: ReporterDescription[]): ReporterDescription[] {
+  const outputFile = process.env.PLAYWRIGHT_JUNIT_OUTPUT_FILE;
+  if (!outputFile) {
+    return reporters;
+  }
+  // Playwright's junit reporter reads the same variable for its path; passing it
+  // explicitly keeps the dependency visible rather than implicit.
+  return [...reporters, ['junit', { outputFile }]];
 }
 
 export default defineConfig({
@@ -38,12 +58,12 @@ export default defineConfig({
   // Reporters generate locally; uploading them as artifacts is CI-only and lives
   // in the workflow layer. The always-on BTR coverage reporter writes a local
   // `test-results/btr-coverage.json` mapping test_id → outcome.
-  reporter: [
+  reporter: junitReporter([
     ['list'],
     ['html', { open: 'never' }],
     ['./src/reporting/coverage-reporter.ts'],
     ['./src/reporting/a11y-reporter.ts'],
-  ],
+  ]),
 
   use: {
     baseURL: resolveBaseURL(),
