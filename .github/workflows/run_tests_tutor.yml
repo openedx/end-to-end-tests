@@ -199,6 +199,10 @@ jobs:
           large-packages: false
           swap-storage: true
 
+      # Necessary to keep github from killing our build process
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
       # The 'main' job installs Tutor from git but would otherwise run a published
       # openedx image that may be stale, so the LMS ends up older than the settings
       # Tutor renders for it. Named releases ship matching images and must not pay
@@ -263,7 +267,7 @@ jobs:
 
       - name: Save MySQL migration cache
         if: steps.mysql_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ci/mysql-dump/
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
@@ -349,7 +353,7 @@ jobs:
 
       - name: Upload Tutor container logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: tutor-logs-${{ env.OPENEDX_RELEASE }}
           path: tutor-logs/
