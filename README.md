@@ -78,11 +78,12 @@ same specs run against very different targets (see
 [issue #10](https://github.com/openedx/end-to-end-tests/issues/10) and
 [`src/accounts/README.md`](src/accounts/README.md)).
 
-| `ACCOUNT_BACKEND` | Use when…                                                  | Behaviour                                                                                                                               |
-| ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `automatic`       | "Automatic login on" — the default (incl. Tutor/sandbox)   | Generates a throwaway `@example.com` identity; no email needed. The reusable session is taken from the one registration itself creates. |
-| `manual`          | Target enforces email activation and can't be reconfigured | Interactive: prompts you for an email to register with, then for the activation link/token.                                             |
-| _plugin name_     | Your install has its own auth/mailbox flow                 | Loaded from `CUSTOM_ACCOUNT_BACKEND_PLUGINS`; see [`src/accounts/README.md`](src/accounts/README.md).                                   |
+| `ACCOUNT_BACKEND` | Use when…                                                  | Behaviour                                                                                                                                  |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `automatic`       | "Automatic login on" — the default (incl. Tutor/sandbox)   | Generates a throwaway `@example.com` identity; no email needed. The reusable session is taken from the one registration itself creates.    |
+| `manual`          | Target enforces email activation and can't be reconfigured | Interactive: prompts you for an email to register with, then for the activation link/token.                                                |
+| `openinbox`       | You want activation email automated, unattended            | Example plugin (`plugins/openinbox.plugin.ts`): registers with a disposable openinbox.io inbox and visits the activation link it receives. |
+| _plugin name_     | Your install has its own auth/mailbox flow                 | Loaded from `CUSTOM_ACCOUNT_BACKEND_PLUGINS`; see [`src/accounts/README.md`](src/accounts/README.md).                                      |
 
 The `automatic` backend works against the **default** without any email setup:
 registration auto-authenticates the account, so the captured (reusable) session and
