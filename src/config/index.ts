@@ -29,6 +29,10 @@ export {
   COURSE_ABOUT_SELECTORS,
   catalogCourseCard,
   courseAboutCoursewareLink,
+  CAPA_SELECTORS,
+  COURSEWARE_SELECTORS,
+  coursewareBlock,
+  sidebarUnitLink,
 } from './selectors';
 
 let cached: AppConfig | undefined;

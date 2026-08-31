@@ -18,6 +18,22 @@ export const TIMEOUTS = {
 
   /** A navigation (`goto`, `waitForURL`) budget - MFEs can be slow to hydrate. */
   navigation: 30_000,
+
+  /**
+   * Budget for one content block to register completion after it is brought into
+   * view. The platform marks an HTML block complete only after it has been
+   * visible for its own dwell delay (`data-mark-completed-on-view-after-delay`,
+   * 5s on a default install), so this must comfortably exceed that delay plus the
+   * round trip of the resulting completion call.
+   */
+  blockCompletion: 20_000,
+
+  /**
+   * Whole-test budget for specs that work through course content. View-based
+   * completion costs the platform's dwell delay per block, so a spec covering a
+   * handful of units takes minutes rather than seconds.
+   */
+  contentTest: 300_000,
 } as const;
 
 export type Timeouts = typeof TIMEOUTS;

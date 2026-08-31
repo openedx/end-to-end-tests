@@ -6,3 +6,11 @@ export {
   enrollThroughCatalog,
   gotoDashboard,
 } from './course';
+export {
+  COMPLETABLE_BLOCK_TYPES,
+  answerProblemsInUnit,
+  canCompleteUnit,
+  completeUnit,
+  viewAllBlocksInUnit,
+  type UnviewedBlock,
+} from './completion';
