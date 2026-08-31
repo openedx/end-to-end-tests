@@ -1,4 +1,6 @@
 import { checkA11y } from '../../../src/a11y';
+import type { CourseProgress } from '../../../src/api';
+import type { ProgressPage } from '../../../src/pages/lms/course-home/progress.page';
 import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
@@ -15,6 +17,40 @@ import { completeUnit } from '../../../src/steps';
  * The passing threshold is read from the course's grading policy, never hard-coded
  * to 0.5: a course sets its own.
  */
+/**
+ * Asserts the grade the Progress page shows is the grade the API reports.
+ *
+ * Both readings are taken together and retried, because grade recomputation is
+ * asynchronous: pinning the API value first and comparing a page rendered later
+ * straddles any update in between and fails on a disagreement the platform never
+ * actually had. (Observed once under a full parallel run.) Retrying converges on
+ * the settled value, and a genuine mismatch still fails once the budget is spent.
+ */
+async function expectDisplayedTotalToMatchApi(
+  progressPage: ProgressPage,
+  courseProgress: () => Promise<CourseProgress>,
+): Promise<void> {
+  let displayed: number | undefined;
+  let reported: number | undefined;
+
+  await expect
+    .poll(
+      async () => {
+        displayed = await progressPage.displayedTotalPercent();
+        reported = Math.round((await courseProgress()).courseGrade.percent * 100);
+        return displayed === reported;
+      },
+      {
+        message: 'the grade shown on the Progress page settles on the grade the API reports',
+        timeout: TIMEOUTS.expect,
+      },
+    )
+    .toBe(true);
+
+  // Restated as an equality so a failure names both numbers rather than "false".
+  expect(displayed, 'grade shown on the Progress page').toBe(reported);
+}
+
 test.describe('Course progress', () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
@@ -37,9 +73,7 @@ test.describe('Course progress', () => {
       expect(await progressPage.rows(0).count()).toBeGreaterThan(0);
 
       // The displayed total agrees with the API, as a number rather than as copy.
-      expect(await progressPage.displayedTotalPercent()).toBe(
-        Math.round(progress.courseGrade.percent * 100),
-      );
+      await expectDisplayedTotalToMatchApi(progressPage, courseProgress);
 
       // The course, not the suite, decides what passing means.
       expect(progress.passingThreshold, 'the grading policy declares a pass mark').toBeDefined();
@@ -73,9 +107,7 @@ test.describe('Course progress', () => {
       // …and the Progress tab renders that same state.
       await progressPage.goto(enrolledCourse.courseKey);
       await expect(progressPage.totalGrade).toBeVisible();
-      expect(await progressPage.displayedTotalPercent()).toBe(
-        Math.round(after.courseGrade.percent * 100),
-      );
+      await expectDisplayedTotalToMatchApi(progressPage, courseProgress);
     },
   );
 

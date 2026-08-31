@@ -15,12 +15,30 @@ export const COURSEWARE_SELECTORS = {
   sidebarToggle: '.outline-sidebar-toggle-btn',
 
   /**
-   * Per-unit completion marker in the sidebar and the course-home outline. The
-   * icon stands in for the sheet's "green checkmark": colour and shape are not
-   * testable semantics, so completion is read from the API and this anchor is only
-   * used to prove the UI rendered something for the unit.
+   * Subsection completion markers in the outline tray. The three states are
+   * **different test IDs**, not one element with a changed class:
+   *
+   * - nothing complete → `completion-solid-icon` (outline circle, `text-gray-300`)
+   * - some units complete → `dashed-circle-icon`
+   * - every unit complete → `check-circle-icon` (`text-success`)
+   *
+   * These stand in for the sheet's "green checkmark". Completion itself is read
+   * from the API; these anchors only prove the UI rendered the right state, and
+   * because each state has its own test ID, no assertion on colour is needed.
+   *
+   * **Unit rows are different**: a unit's own marker is a bare `svg` with no test
+   * ID, distinguished only by `text-gray-300` → `text-success`. That is colour
+   * alone, which ADR-0002 rules out as an assertion, so unit-level state is read
+   * from the API and, in the UI, from its subsection's icon moving to
+   * `dashed-circle-icon`.
    */
-  completionIcon: '[data-testid="completion-solid-icon"]',
+  incompleteIcon: '[data-testid="completion-solid-icon"]',
+  partiallyCompleteIcon: '[data-testid="dashed-circle-icon"]',
+  completedIcon: '[data-testid="check-circle-icon"]',
+
+  /** A subsection row in the outline tray, and the control that expands it. */
+  subsectionRow: 'li',
+  subsectionTrigger: '.collapsible-trigger',
 } as const;
 
 /**
@@ -40,4 +58,15 @@ export function coursewareBlock(blockId: string): string {
  */
 export function sidebarUnitLink(unitId: string): string {
   return `${COURSEWARE_SELECTORS.sidebar} a[href*="${unitId}"]`;
+}
+
+/**
+ * The subsection row in the tray that contains a given unit, anchored by that
+ * unit's link rather than by the subsection's display name.
+ *
+ * Only an expanded subsection renders its unit links, which is what makes this
+ * work for the subsection currently being worked through.
+ */
+export function sidebarSubsectionRowFor(unitId: string): string {
+  return `${COURSEWARE_SELECTORS.sidebar} ${COURSEWARE_SELECTORS.subsectionRow}:has(a[href*="${unitId}"])`;
 }

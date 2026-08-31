@@ -38,9 +38,10 @@ export interface UnviewedBlock {
    * `too-tall` — the block cannot be shown in full, so the platform will never
    * count it as viewed. `timed-out` — it was shown but reported nothing.
    * `unsupported-problem` — its answer controls are a problem type the suite has
-   * no strategy for.
+   * no strategy for. `not-drivable` — its block type has no completion path the
+   * suite can drive at all (video, ORA, LTI, …).
    */
-  readonly reason: 'too-tall' | 'timed-out' | 'unsupported-problem';
+  readonly reason: 'too-tall' | 'timed-out' | 'unsupported-problem' | 'not-drivable';
 }
 
 /** Whether every block in a unit has a completion path this suite can drive. */
@@ -88,6 +89,14 @@ export async function viewAllBlocksInUnit(
     for (const [index, blockId] of unit.childIds.entries()) {
       const blockType = unit.childTypes[index] ?? 'unknown';
       if (completed.has(blockId)) {
+        continue;
+      }
+
+      // A block type with no completion path the suite can drive is reported, not
+      // skipped quietly: a unit completes only when *every* child does, so
+      // staying silent here would report a unit as completed when it cannot be.
+      if (!COMPLETABLE_BLOCK_TYPES.has(blockType)) {
+        skipped.push({ blockId, blockType, reason: 'not-drivable' });
         continue;
       }
 

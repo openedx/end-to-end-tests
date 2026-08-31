@@ -52,12 +52,16 @@ test.describe('Unit completion', () => {
         before.completionSummary.incompleteCount - 1,
       );
 
-      // The UI half of the case: the outline tray renders a completion marker for
-      // the unit. Colour and icon shape are not testable semantics, so this
-      // asserts the marker exists — the API above decides whether it is *right*.
+      // The UI half of the case. A *unit's* own marker is distinguished by colour
+      // alone (`text-gray-300` → `text-success` on an svg with no test ID), which
+      // ADR-0002 rules out as an assertion; its subsection's marker, however, moves
+      // to a different test ID once any unit inside it completes. That is the
+      // non-localized, non-colour signal that the tray reflected the completion —
+      // the API above is what decides whether the state is *right*.
       await unitPage.goto(enrolledCourse.courseKey, unit.sequentialId, unit.id);
       await expect(unitPage.sidebarUnitLink(unit.id)).toBeVisible();
-      await expect(unitPage.completionIcons.first()).toBeVisible();
+      await expect(unitPage.subsectionIncompleteIcon(unit.id)).toHaveCount(0);
+      await expect(unitPage.subsectionProgressIcon(unit.id)).toBeVisible();
 
       await checkA11y(page, { label: 'courseware' });
     },

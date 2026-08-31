@@ -4,6 +4,7 @@ import {
   COURSEWARE_SELECTORS,
   TIMEOUTS,
   coursewareBlock,
+  sidebarSubsectionRowFor,
   sidebarUnitLink,
   type AppConfig,
 } from '../../../config';
@@ -34,7 +35,12 @@ export class UnitPage {
   readonly iframe: Locator;
   readonly sidebar: Locator;
   readonly sidebarToggle: Locator;
-  readonly completionIcons: Locator;
+  /** Units the tray marks as not yet complete. */
+  readonly incompleteIcons: Locator;
+  /** Subsections the tray marks as partly complete. */
+  readonly partiallyCompleteIcons: Locator;
+  /** Subsections the tray marks as complete. */
+  readonly completedIcons: Locator;
 
   constructor(
     private readonly page: Page,
@@ -44,7 +50,9 @@ export class UnitPage {
     this.contentFrame = page.frameLocator(COURSEWARE_SELECTORS.unitIframe);
     this.sidebar = page.locator(COURSEWARE_SELECTORS.sidebar);
     this.sidebarToggle = page.locator(COURSEWARE_SELECTORS.sidebarToggle);
-    this.completionIcons = page.locator(COURSEWARE_SELECTORS.completionIcon);
+    this.incompleteIcons = page.locator(COURSEWARE_SELECTORS.incompleteIcon);
+    this.partiallyCompleteIcons = page.locator(COURSEWARE_SELECTORS.partiallyCompleteIcon);
+    this.completedIcons = page.locator(COURSEWARE_SELECTORS.completedIcon);
   }
 
   url(courseKey: string, sequentialId: string, unitId: string): string {
@@ -65,6 +73,42 @@ export class UnitPage {
   /** The sidebar's link to a unit, anchored by the unit's block ID. */
   sidebarUnitLink(unitId: string): Locator {
     return this.page.locator(sidebarUnitLink(unitId));
+  }
+
+  /** The tray's subsection row holding a given unit. */
+  subsectionRow(unitId: string): Locator {
+    return this.page.locator(sidebarSubsectionRowFor(unitId));
+  }
+
+  /** The "every unit complete" marker on the subsection row holding a given unit. */
+  subsectionCompletedIcon(unitId: string): Locator {
+    return this.subsectionIcon(unitId, COURSEWARE_SELECTORS.completedIcon);
+  }
+
+  /** The "some units complete" marker on the subsection row holding a given unit. */
+  subsectionPartiallyCompleteIcon(unitId: string): Locator {
+    return this.subsectionIcon(unitId, COURSEWARE_SELECTORS.partiallyCompleteIcon);
+  }
+
+  /** The "nothing complete yet" marker on the subsection row holding a given unit. */
+  subsectionIncompleteIcon(unitId: string): Locator {
+    return this.subsectionIcon(unitId, COURSEWARE_SELECTORS.incompleteIcon);
+  }
+
+  /**
+   * The marker showing a subsection has been worked on at all — partly or fully
+   * complete. Completing one unit of several shows the partial state; completing
+   * the only unit in a subsection shows the complete one, so coverage about a
+   * single unit asserts on either.
+   */
+  subsectionProgressIcon(unitId: string): Locator {
+    return this.subsectionPartiallyCompleteIcon(unitId).or(this.subsectionCompletedIcon(unitId));
+  }
+
+  private subsectionIcon(unitId: string, iconSelector: string): Locator {
+    return this.subsectionRow(unitId)
+      .locator(COURSEWARE_SELECTORS.subsectionTrigger)
+      .locator(iconSelector);
   }
 
   /** Opens a unit by clicking its sidebar entry, as a learner navigating the tray. */
