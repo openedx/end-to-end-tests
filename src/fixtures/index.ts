@@ -16,11 +16,12 @@ import {
   type CourseUnit,
   type LearnerIdentity,
 } from '../api';
-import { getConfig, type AppConfig } from '../config';
+import { getConfig, isCapability, type AppConfig } from '../config';
 import { AccountMenu } from '../pages/lms/auth/account-menu.page';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
+import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
 import { canCompleteUnit } from '../steps/completion';
 import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
@@ -34,6 +35,16 @@ import { RegistrationPage } from '../pages/lms/auth/registration.page';
 export interface TestFixtures {
   /** Validated suite configuration for the current run. */
   config: AppConfig;
+  /**
+   * Automatic gate for capability-tagged coverage: a test tagged with a
+   * capability (`@certificates`, `@discussions`, …) is skipped unless the
+   * installation declares it in `CAPABILITIES`.
+   *
+   * Applies to every test without being requested, so a capability tag is the
+   * whole of the contract — there is no second place to keep in sync, and no way
+   * to tag a spec and forget to gate it (ADR-0002, capability gating).
+   */
+  capabilityGate: void;
   /** authn MFE `/login` page object. */
   loginPage: LoginPage;
   /** authn MFE `/register` page object. */
@@ -55,6 +66,8 @@ export interface TestFixtures {
   courseAboutPage: CourseAboutPage;
   /** Courseware unit page object (`frontend-app-learning`). */
   unitPage: UnitPage;
+  /** Course Progress tab page object. */
+  progressPage: ProgressPage;
   /**
    * The course the course-completion specs work through, from `COURSE_KEY`.
    *
@@ -128,6 +141,24 @@ export const test = base.extend<TestFixtures>({
     await use(getConfig());
   },
 
+  capabilityGate: [
+    async ({ config }, use, testInfo) => {
+      const required = testInfo.tags
+        .map((tag) => tag.replace(/^@/, ''))
+        .filter((tag) => isCapability(tag));
+      const undeclared = required.filter((capability) => !config.capabilities.has(capability));
+
+      base.skip(
+        undeclared.length > 0,
+        `This coverage needs ${undeclared.join(', ')}, which the installation does not ` +
+          `declare. Add it to CAPABILITIES to enable it.`,
+      );
+
+      await use(undefined);
+    },
+    { auto: true },
+  ],
+
   loginPage: async ({ page, config }, use) => {
     await use(new LoginPage(page, config));
   },
@@ -163,6 +194,10 @@ export const test = base.extend<TestFixtures>({
 
   unitPage: async ({ page, config }, use) => {
     await use(new UnitPage(page, config));
+  },
+
+  progressPage: async ({ page, config }, use) => {
+    await use(new ProgressPage(page, config));
   },
 
   courseKey: async ({ request, config }, use) => {

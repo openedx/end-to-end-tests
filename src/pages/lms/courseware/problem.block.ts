@@ -15,6 +15,11 @@ export class ProblemBlock {
   readonly radioOptions: Locator;
   readonly checkboxOptions: Locator;
   readonly textInputs: Locator;
+  readonly dropdowns: Locator;
+  readonly hintButton: Locator;
+  readonly hintPanels: Locator;
+  readonly showAnswerButton: Locator;
+  readonly revealedAnswers: Locator;
   readonly status: Locator;
   readonly correctStatus: Locator;
   readonly incorrectStatus: Locator;
@@ -30,6 +35,11 @@ export class ProblemBlock {
     this.radioOptions = this.root.locator(CAPA_SELECTORS.radioOption);
     this.checkboxOptions = this.root.locator(CAPA_SELECTORS.checkboxOption);
     this.textInputs = this.root.locator(CAPA_SELECTORS.textInput);
+    this.dropdowns = this.root.locator(CAPA_SELECTORS.dropdown);
+    this.hintButton = this.root.locator(CAPA_SELECTORS.hintButton);
+    this.hintPanels = this.root.locator(CAPA_SELECTORS.hintPanel);
+    this.showAnswerButton = this.root.locator(CAPA_SELECTORS.showAnswerButton);
+    this.revealedAnswers = this.root.locator(CAPA_SELECTORS.revealedAnswer);
     this.status = this.root.locator(CAPA_SELECTORS.status);
     this.correctStatus = this.root.locator(CAPA_SELECTORS.statusCorrect);
     this.incorrectStatus = this.root.locator(CAPA_SELECTORS.statusIncorrect);
@@ -44,6 +54,58 @@ export class ProblemBlock {
   /** Ticks one multi-select option by index. */
   async selectCheckbox(index: number): Promise<void> {
     await this.checkboxOptions.nth(index).check();
+  }
+
+  /**
+   * Picks a real answer from a dropdown by position.
+   *
+   * Two placeholders have to be stepped over, and neither is matched by label
+   * (that is course copy): a genuinely empty value, and the platform's own
+   * pre-selected placeholder, whose value ends in `_dummy_default`. Selecting the
+   * latter looks like an answer but changes nothing, so no `change` event fires and
+   * the submit control stays disabled — which is exactly how this bit once.
+   */
+  async selectDropdownOption(index: number, optionPosition = 1): Promise<void> {
+    const dropdown = this.dropdowns.nth(index);
+    const current = await dropdown.inputValue();
+    const values = await dropdown
+      .locator('option')
+      .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+
+    const value = values.filter(
+      (candidate) =>
+        candidate !== '' && candidate !== current && !candidate.endsWith('_dummy_default'),
+    )[optionPosition - 1];
+
+    if (value === undefined) {
+      throw new Error('The dropdown offers no option other than its placeholder.');
+    }
+    await dropdown.selectOption(value);
+  }
+
+  /**
+   * Reveals the correct answer, for problems whose `showanswer` setting allows it,
+   * and waits for the platform to have supplied it.
+   *
+   * Waits on the `problem_show` call rather than on rendered text: the response is
+   * what puts the answer in the page.
+   */
+  async revealAnswer(): Promise<void> {
+    const shown = this.page.waitForResponse(
+      (response) => response.url().includes('problem_show') && response.ok(),
+    );
+    await this.showAnswerButton.click();
+    await shown;
+  }
+
+  /** Whether the submit control has become usable, i.e. something was answered. */
+  async submitIsEnabled(timeout: number): Promise<boolean> {
+    try {
+      await this.submitButton.waitFor({ state: 'visible', timeout });
+      return await this.submitButton.isEnabled({ timeout });
+    } catch {
+      return false;
+    }
   }
 
   /**

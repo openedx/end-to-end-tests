@@ -67,20 +67,32 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 - **Pure logic:** `@unit` (no browser/target; runs in the `unit` project).
 - **Capability:** `@discussions`, `@teams`, `@certificates`, … — gates optional
   coverage on installations that declare the capability (see `CAPABILITIES` in
-  `.env.example`). Keep tags in sync with `src/config/capabilities.ts`.
+  `.env.example`). Keep tags in sync with `src/config/capabilities.ts`. **The gate
+  is automatic**: the `capabilityGate` fixture reads each test's own tags and skips
+  it when the installation does not declare one of them, so the tag is the whole of
+  the contract — there is nothing else to keep in sync.
 - **MFE / subsystem:** `@mfe-authn`, `@mfe-account`, `@mfe-learning`,
   `@mfe-authoring`, … — filters the suite to one micro-frontend.
 - **Authenticated:** `@authenticated` — the spec reuses captured storage state and
   runs in the `lms-learner` project (which depends on `setup`); the anonymous
   `@smoke`/`@regression` projects exclude it.
 
-Apply tags with the `tag` option:
+Apply tags with the `tag` option, **one string per tag**:
 
 ```ts
 test('the LMS landing page loads', { tag: '@smoke' }, async ({ page }) => {
   /* ... */
 });
+
+test('outline renders', { tag: ['@regression', '@authenticated'] }, async ({ page }) => {
+  /* ... */
+});
 ```
+
+A space-separated string (`tag: '@regression @authenticated'`) is **one** tag as
+far as Playwright is concerned. `--grep` still appears to work, because it matches
+on substrings, but anything reading `testInfo.tags` — the capability gate above —
+sees a single unrecognized tag and silently does nothing.
 
 ## BTR test-case IDs
 

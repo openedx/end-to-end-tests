@@ -30,7 +30,7 @@ test.describe('Unit completion', () => {
   test(
     'completes a unit by viewing its content',
     {
-      tag: '@smoke @authenticated @mfe-learning',
+      tag: ['@smoke', '@authenticated', '@mfe-learning'],
       annotation: testId('TC-00022'),
     },
     async ({ page, unitPage, completionUnits, courseProgress, enrolledCourse }) => {
@@ -66,7 +66,7 @@ test.describe('Unit completion', () => {
   test(
     'completes a unit containing a problem by answering it',
     {
-      tag: '@smoke @authenticated @mfe-learning',
+      tag: ['@smoke', '@authenticated', '@mfe-learning'],
       annotation: testId('TC-00022'),
     },
     async ({
@@ -102,7 +102,7 @@ test.describe('Unit completion', () => {
   test(
     'completes a unit containing a video by watching it',
     {
-      tag: '@smoke @authenticated @mfe-learning',
+      tag: ['@smoke', '@authenticated', '@mfe-learning'],
       annotation: testId('TC-00022'),
     },
     ({ courseOutline }) => {

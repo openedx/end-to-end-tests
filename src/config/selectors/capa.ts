@@ -30,6 +30,20 @@ export const CAPA_SELECTORS = {
   /** Free-text and numerical answer inputs. */
   textInput: 'input.entry, input[type="text"], textarea.short-form-response',
 
+  /** Dropdown (option-response) answer control. */
+  dropdown: 'select',
+
+  /**
+   * Demand-hint controls. The button's label alternates between "Hint" and "Next
+   * Hint" as hints are consumed, which is exactly why it is anchored by class:
+   * one anchor covers both states in any language. The revealed hint lives in
+   * `.problem-hint`, whose `.notification-hint` panel carries `.is-hidden` until
+   * shown.
+   */
+  hintButton: 'button.hint-button',
+  hintContainer: '.problem-hint',
+  hintPanel: '.notification-hint',
+
   /**
    * Answer-status region. The **class** is the non-localized correctness signal:
    * `.status.correct` / `.status.incorrect` / `.status.unanswered`. Its
@@ -40,6 +54,18 @@ export const CAPA_SELECTORS = {
   statusIncorrect: '.status.incorrect',
   statusUnanswered: '.status.unanswered',
 
-  /** Show-answer control, where the problem offers one. */
-  showAnswerButton: 'button.show-answer',
+  /**
+   * Show-answer control, where the problem's `showanswer` setting offers one.
+   *
+   * The class is `show`, **not** `show-answer`: `button.show-answer` matches
+   * nothing on this platform version, the same trap as `button.check` (§2.3 of the
+   * plan). Its label lives in `.show-label`.
+   */
+  showAnswerButton: 'button.show',
+
+  /** Where a revealed answer is written, once Show Answer is used. */
+  revealedAnswer: 'p.answer',
+
+  /** Panel the platform shows alongside a revealed answer. */
+  showAnswerNotification: '.notification-show-answer',
 } as const;

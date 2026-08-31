@@ -16,7 +16,7 @@ import { catalogSearchTermFor } from '../../../src/steps';
 test.describe('Course enrollment', () => {
   test(
     'enrolls a learner from the course About page',
-    { tag: '@smoke @authenticated', annotation: testId('TC-00008') },
+    { tag: ['@smoke', '@authenticated'], annotation: testId('TC-00008') },
     async ({ request, config, catalogPage, courseAboutPage, courseDetail, courseLearner }) => {
       const { courseKey } = courseLearner;
 

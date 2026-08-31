@@ -28,6 +28,8 @@ export {
   COURSEWARE_SELECTORS,
   coursewareBlock,
   sidebarUnitLink,
+  PROGRESS_SELECTORS,
+  progressTabLink,
 } from './selectors';
 
 let cached: AppConfig | undefined;
