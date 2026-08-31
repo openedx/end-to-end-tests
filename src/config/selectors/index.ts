@@ -10,3 +10,4 @@ export {
 export { CAPA_SELECTORS } from './capa';
 export { PROGRESS_SELECTORS, progressTabLink } from './progress';
 export { DASHBOARD_SELECTORS, dashboardCourseCardCta } from './dashboard';
+export { COURSE_HOME_SELECTORS } from './course-home';
