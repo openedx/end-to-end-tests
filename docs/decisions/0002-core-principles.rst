@@ -46,6 +46,7 @@ This follows directly from the previous principle: any operator can point the su
 at their own Open edX installation through configuration alone, without editing
 test code. The suite does not depend on infrastructure, seed data, or CI unique
 to any one provider.
+
 Test data setup relies on portable mechanisms (documented public APIs or a
 documented, idempotent seeding step) rather than one operator's private fixtures.
 Providers may layer their own private overlays on top of the shared suite.
@@ -58,6 +59,11 @@ distribution's defaults. In particular it may diverge from Tutor's defaults (an
 alignment we are working toward) and it exercises the **default Open edX theme**,
 not a provider theme such as Indigo. The default set runs unless a provider turns
 part of it off, and a failure there is a real failure.
+
+Installations differ on which languages they use, and so tests must not key
+success or failure to literal strings on a page, but should rather use page structure
+and non-localized semantic data to determine success or failure. Exceptions can be
+made for course content such as problems, which generally doesn't localize.
 
 Everything else is tagged with the capability it needs (for example
 ``@discussions``, ``@teams``, ``@certificates``) and gated by an **explicit
