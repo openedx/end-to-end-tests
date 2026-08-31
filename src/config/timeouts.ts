@@ -29,6 +29,13 @@ export const TIMEOUTS = {
   blockCompletion: 20_000,
 
   /**
+   * Whole-test budget for the spec that works through an entire course. Every
+   * HTML block costs the platform's dwell delay, so this scales with the course:
+   * the demo course's 264 HTML blocks alone account for around 22 minutes.
+   */
+  courseCrawlTest: 2_700_000,
+
+  /**
    * Whole-test budget for specs that work through course content. View-based
    * completion costs the platform's dwell delay per block, so a spec covering a
    * handful of units takes minutes rather than seconds.

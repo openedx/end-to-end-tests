@@ -81,9 +81,11 @@ export default class CoverageReporter implements Reporter {
     );
 
     const pct = Math.round(summary.coverageRatio * 100);
+    const { verified, partial, unverified, failed } = summary.verdicts;
     console.log(
       `\n[btr-coverage] ${summary.annotated}/${summary.total} tests carry a test_id ` +
-        `(${pct}% annotated); ${summary.byTestId.length} BTR case(s) exercised. ` +
+        `(${pct}% annotated); ${summary.byTestId.length} BTR case(s) exercised — ` +
+        `${verified} verified, ${partial} partial, ${unverified} unverified, ${failed} failed. ` +
         `Wrote ${this.outputFile}.`,
     );
   }

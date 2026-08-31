@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import type { CourseUnit } from '../api';
+import { TIMEOUTS } from '../config';
 import { ProblemBlock } from '../pages/lms/courseware/problem.block';
 import type { UnitPage } from '../pages/lms/courseware/unit.page';
 
@@ -153,11 +154,27 @@ export async function answerProblemsInUnit(
       await problem.selectChoice(0);
     } else if ((await problem.checkboxOptions.count()) > 0) {
       await problem.selectCheckbox(0);
+    } else if ((await problem.dropdowns.count()) > 0) {
+      for (let index = 0; index < (await problem.dropdowns.count()); index += 1) {
+        await problem.selectDropdownOption(index);
+      }
     } else if ((await problem.textInputs.count()) > 0) {
-      await problem.fillTextAnswer(0, '1');
+      // Every input, not just the first: a multi-part problem keeps its submit
+      // control disabled until each part has something in it.
+      for (let index = 0; index < (await problem.textInputs.count()); index += 1) {
+        await problem.fillTextAnswer(index, '1');
+      }
     } else {
       // Custom-JS problems (circuit simulators, protein builders, …) expose no
       // controls we can drive; the caller decides whether that matters.
+      unsupported.push({ blockId, blockType: 'problem', reason: 'unsupported-problem' });
+      continue;
+    }
+
+    // The submit control unlocks once the problem considers itself answered. If it
+    // does not, this problem needs a strategy we do not have — report it and move
+    // on, rather than throwing and abandoning the rest of the course.
+    if (!(await problem.submitIsEnabled(TIMEOUTS.expect))) {
       unsupported.push({ blockId, blockType: 'problem', reason: 'unsupported-problem' });
       continue;
     }

@@ -21,6 +21,7 @@ import { AccountMenu } from '../pages/lms/auth/account-menu.page';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
+import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
 import { canCompleteUnit } from '../steps/completion';
 import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
@@ -60,6 +61,8 @@ export interface TestFixtures {
   courseAboutPage: CourseAboutPage;
   /** Courseware unit page object (`frontend-app-learning`). */
   unitPage: UnitPage;
+  /** Course Progress tab page object. */
+  progressPage: ProgressPage;
   /**
    * The course the course-completion specs work through, from `COURSE_KEY`.
    *
@@ -186,6 +189,10 @@ export const test = base.extend<TestFixtures>({
 
   unitPage: async ({ page, config }, use) => {
     await use(new UnitPage(page, config));
+  },
+
+  progressPage: async ({ page, config }, use) => {
+    await use(new ProgressPage(page, config));
   },
 
   courseKey: async ({ request, config }, use) => {

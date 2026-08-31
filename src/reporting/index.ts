@@ -6,10 +6,13 @@ export {
 } from './test-id';
 export {
   summarizeCoverage,
+  verdictFor,
   type CoverageSummary,
+  type CoverageVerdict,
   type TestOutcome,
   type TestIdOutcome,
   type TestStatus,
+  type VerdictTotals,
 } from './coverage';
 export { default as CoverageReporter, type CoverageReporterOptions } from './coverage-reporter';
 export {

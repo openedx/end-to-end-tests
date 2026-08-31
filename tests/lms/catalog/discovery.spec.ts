@@ -40,7 +40,7 @@ test.describe('Course catalog discovery', () => {
 
   test(
     'is reachable from the header for a signed-in learner',
-    { tag: '@regression @authenticated', annotation: testId('TC-00015') },
+    { tag: ['@regression', '@authenticated'], annotation: testId('TC-00015') },
     async ({ page, config, catalogPage, courseLearner }) => {
       // Start on the dashboard and use the header's catalog link — the journey the
       // test case describes, rather than a direct navigation.
@@ -56,7 +56,7 @@ test.describe('Course catalog discovery', () => {
 
   test(
     'filters results by search term and restores them when cleared',
-    { tag: '@regression @authenticated', annotation: testId('TC-00016') },
+    { tag: ['@regression', '@authenticated'], annotation: testId('TC-00016') },
     async ({ catalogPage, courseDetail, courseKey }) => {
       await catalogPage.goto();
       const unfilteredCount = await catalogPage.courseCards.count();
@@ -78,7 +78,7 @@ test.describe('Course catalog discovery', () => {
 
   test(
     'reports an empty state when nothing matches',
-    { tag: '@regression @authenticated', annotation: testId('TC-00016') },
+    { tag: ['@regression', '@authenticated'], annotation: testId('TC-00016') },
     async ({ catalogPage, courseLearner }) => {
       await catalogPage.gotoWithSearch(unmatchableTerm(courseLearner.identity.username));
 
@@ -93,7 +93,7 @@ test.describe('Course catalog discovery', () => {
   test(
     'clears stale results when an in-page search matches nothing',
     {
-      tag: '@regression @authenticated',
+      tag: ['@regression', '@authenticated'],
       annotation: [
         testId('TC-00016'),
         issue('https://github.com/openedx/frontend-app-catalog/issues/161'),
@@ -124,7 +124,7 @@ test.describe('Course catalog discovery', () => {
   test(
     'keeps the search field usable when a search matches nothing',
     {
-      tag: '@regression @authenticated',
+      tag: ['@regression', '@authenticated'],
       annotation: [
         testId('TC-00016'),
         issue('https://github.com/openedx/frontend-app-catalog/issues/161'),
@@ -155,7 +155,7 @@ test.describe('Course catalog discovery', () => {
 
   test(
     "the About page's course content distinguishes links without colour",
-    { tag: '@regression @authenticated', annotation: testId('TC-00018') },
+    { tag: ['@regression', '@authenticated'], annotation: testId('TC-00018') },
     async ({ page, catalogPage, courseAboutPage, courseDetail, courseKey }) => {
       // The seeded course's authored overview HTML carries a link distinguished by
       // colour alone — 1.72:1 contrast against the surrounding text and no
@@ -177,7 +177,7 @@ test.describe('Course catalog discovery', () => {
   test(
     'clears the search in a single click of its reset control',
     {
-      tag: '@regression @authenticated',
+      tag: ['@regression', '@authenticated'],
       annotation: [
         testId('TC-00016'),
         issue('https://github.com/openedx/frontend-app-catalog/issues/160'),
@@ -205,7 +205,7 @@ test.describe('Course catalog discovery', () => {
 
   test(
     "opens a course's About page from its search result",
-    { tag: '@regression @authenticated', annotation: testId('TC-00018') },
+    { tag: ['@regression', '@authenticated'], annotation: testId('TC-00018') },
     async ({ page, catalogPage, courseAboutPage, courseDetail, courseKey }) => {
       await catalogPage.goto();
       await catalogPage.search(catalogSearchTermFor(courseDetail));

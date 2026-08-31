@@ -9,9 +9,23 @@ Contains:
   a validated annotation for a test's options; IDs are `TC-` + digits and are
   never inferred from the title. `testIdsFromAnnotations` reads them back.
 - `coverage.ts` — pure aggregation (`summarizeCoverage`): annotated vs.
-  unannotated counts, the outcome per BTR case ID (worst wins if several tests
-  share one), and the titles of still-unannotated tests. No Playwright types, so
-  it is unit-tested directly.
+  unannotated counts, the outcome per BTR case ID, and the titles of
+  still-unannotated tests. No Playwright types, so it is unit-tested directly.
+
+  A case is usually covered by **several** tests, and often by passing coverage
+  plus a `test.fixme` holding the part blocked on an upstream defect, so each case
+  carries three things rather than one status:
+
+  | Field     | Meaning                                                                                                                                      |
+  | --------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `status`  | worst status across the case's tests (unchanged; a single-value summary)                                                                     |
+  | `counts`  | how many of the case's tests ended in each status                                                                                            |
+  | `verdict` | `verified` (all passed) / `partial` (some passed, some did not run) / `unverified` (nothing ran) / `failed` (something ran and did not pass) |
+
+  `verdict` is the field to read: `status` alone reports a case as _skipped_ when
+  one `fixme` sibling exists, which hides coverage that does exist. `verdicts`
+  totals them for the run's headline.
+
 - `coverage-reporter.ts` — the always-on Playwright reporter that adapts run
   events onto `summarizeCoverage` and writes `test-results/btr-coverage.json`.
 - `a11y.ts` — pure aggregation (`summarizeA11yViolations`) that rolls per-scan
