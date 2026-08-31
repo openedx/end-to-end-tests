@@ -22,6 +22,7 @@ import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
 import { ProgressPage } from '../pages/lms/course-home/progress.page';
+import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
 import { canCompleteUnit } from '../steps/completion';
 import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
@@ -68,6 +69,8 @@ export interface TestFixtures {
   unitPage: UnitPage;
   /** Course Progress tab page object. */
   progressPage: ProgressPage;
+  /** Learner dashboard page object (`frontend-app-learner-dashboard`). */
+  dashboardPage: DashboardPage;
   /**
    * The course the course-completion specs work through, from `COURSE_KEY`.
    *
@@ -122,6 +125,15 @@ export interface CompletionUnits {
   readonly viewOnly: CourseUnit;
   /** A unit containing a problem, and nothing the suite cannot drive. */
   readonly withProblem: CourseUnit;
+  /**
+   * A whole subsection the suite can complete — every one of its units is
+   * drivable — for coverage about subsection-level state. The smallest such
+   * subsection, since each unit costs the platform's dwell delay per block.
+   */
+  readonly drivableSubsection: {
+    readonly sequentialId: string;
+    readonly units: readonly CourseUnit[];
+  };
 }
 
 /** What {@link TestFixtures.enrolledCourse} hands a spec. */
@@ -200,6 +212,10 @@ export const test = base.extend<TestFixtures>({
     await use(new ProgressPage(page, config));
   },
 
+  dashboardPage: async ({ page, config }, use) => {
+    await use(new DashboardPage(page, config));
+  },
+
   courseKey: async ({ request, config }, use) => {
     const skipReason = courseKeySkipReason(config);
     base.skip(skipReason !== undefined, skipReason);
@@ -267,14 +283,29 @@ export const test = base.extend<TestFixtures>({
     );
     const withProblem = unitsContaining(courseOutline, 'problem').find(canCompleteUnit);
 
+    // Group units by subsection and keep those the suite can complete end to end.
+    const bySubsection = new Map<string, CourseUnit[]>();
+    for (const unit of courseOutline.units) {
+      bySubsection.set(unit.sequentialId, [...(bySubsection.get(unit.sequentialId) ?? []), unit]);
+    }
+    const drivableSubsection = [...bySubsection.entries()]
+      .filter(([, units]) => units.length > 0 && units.every(canCompleteUnit))
+      .sort((left, right) => left[1].length - right[1].length)
+      .map(([sequentialId, units]) => ({ sequentialId, units }))[0];
+
     base.skip(
-      viewOnly === undefined || withProblem === undefined,
+      viewOnly === undefined || withProblem === undefined || drivableSubsection === undefined,
       `The configured course offers no unit for every completion mechanism ` +
         `(view-only: ${viewOnly ? 'found' : 'missing'}, ` +
-        `problem: ${withProblem ? 'found' : 'missing'}).`,
+        `problem: ${withProblem ? 'found' : 'missing'}, ` +
+        `fully drivable subsection: ${drivableSubsection ? 'found' : 'missing'}).`,
     );
 
-    await use({ viewOnly: viewOnly as CourseUnit, withProblem: withProblem as CourseUnit });
+    await use({
+      viewOnly: viewOnly as CourseUnit,
+      withProblem: withProblem as CourseUnit,
+      drivableSubsection: drivableSubsection as CompletionUnits['drivableSubsection'],
+    });
   },
 });
 

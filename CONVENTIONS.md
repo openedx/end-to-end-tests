@@ -38,6 +38,11 @@ Avoid brittle selectors (deep CSS/XPath chains, nth-child, generated class names
 
 - Use **web-first, auto-retrying** assertions (`await expect(locator).toBeVisible()`),
   not manual polling.
+- **Never compare a value read from the UI against a value fetched separately
+  beforehand.** Platform state (grades, completion) is recomputed asynchronously,
+  so two readings taken at different moments can straddle an update and disagree
+  when nothing is wrong. Take both readings together inside `expect.poll(...)`,
+  then restate the comparison as an equality so a real failure names both values.
 - **No fixed sleeps.** Never use `waitForTimeout`. Wait for a condition, and take
   timeout budgets from `src/config/timeouts.ts`.
 - Specs **own the assertions** that decide pass/fail. Page objects and steps

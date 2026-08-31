@@ -27,9 +27,12 @@ export {
   CAPA_SELECTORS,
   COURSEWARE_SELECTORS,
   coursewareBlock,
+  sidebarSubsectionRowFor,
   sidebarUnitLink,
   PROGRESS_SELECTORS,
   progressTabLink,
+  DASHBOARD_SELECTORS,
+  dashboardCourseCardCta,
 } from './selectors';
 
 let cached: AppConfig | undefined;

@@ -24,6 +24,11 @@ export const CAPABILITIES = [
   'credly-badges',
   'cohorts',
   'content-libraries',
+  // The learning MFE's in-course outline sidebar, behind the
+  // `courseware.enable_navigation_sidebar` waffle flag. Its counterpart covers the
+  // installations that keep the older in-course navigation instead.
+  'courseware-navigation-sidebar',
+  'courseware-legacy-navigation',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -40,6 +45,11 @@ export type Capability = (typeof CAPABILITIES)[number];
 export const MUTUALLY_EXCLUSIVE_CAPABILITIES: ReadonlyArray<readonly Capability[]> = [
   // Only one badging backend can be active on an installation at a time.
   ['badges', 'credly-badges'],
+  // In-course navigation is one surface with two implementations, chosen by the
+  // `courseware.enable_navigation_sidebar` waffle flag: with it enabled the
+  // outline sidebar renders (BTR TC-00048/51/55), with it disabled the older
+  // navigation does (TC-00047). An installation has one or the other, never both.
+  ['courseware-navigation-sidebar', 'courseware-legacy-navigation'],
 ];
 
 export function isCapability(value: string): value is Capability {
