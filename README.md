@@ -132,6 +132,46 @@ tutor local restart lms   # or: tutor dev restart lms
 If you have already tripped the default limit, either apply the override above and
 restart, or wait for the 7-day window to reset.
 
+### Password reset rate limit
+
+The password-reset request is throttled twice over, per IP **and** per email
+address:
+
+| Setting                     | Default | Scope                           |
+| --------------------------- | ------- | ------------------------------- |
+| `PASSWORD_RESET_IP_RATE`    | `1/m`   | one request per minute per IP   |
+| `PASSWORD_RESET_EMAIL_RATE` | `2/h`   | two requests per hour per email |
+
+The per-IP limit is the one that bites: **one request per minute** covers every
+worker on the machine, so a second reset request within the same minute — a
+re-run, a Playwright retry, or another spec — is rejected. `POST /account/password`
+then answers `HTTP 403` with:
+
+```json
+{
+  "success": false,
+  "value": "Your previous request is in progress, please try again in a few moments."
+}
+```
+
+Note that message is misleading: nothing is in progress, the request was
+throttled. The authn MFE renders it as a generic error alert, so the symptom is a
+password-reset spec that passes alone and fails when re-run within the minute.
+
+Only the reset-request test posts (an invalid address is rejected in the browser
+without a request), so a single run is fine; back-to-back runs and CI retries are
+not. Raise the limit on any target you run against repeatedly:
+
+```py
+# a Tutor plugin patch on "openedx-common-settings"
+PASSWORD_RESET_IP_RATE = "100/m"
+PASSWORD_RESET_EMAIL_RATE = "100/m"
+```
+
+```sh
+tutor local restart lms   # or: tutor dev restart lms
+```
+
 ### Running with the `manual` backend
 
 Set `ACCOUNT_BACKEND=manual` and run with a **single worker** so the interactive

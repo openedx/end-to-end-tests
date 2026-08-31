@@ -2,6 +2,7 @@ import { test as base, expect } from '@playwright/test';
 
 import { accountSignIn, provisionLearnerAccount } from '../accounts';
 import {
+  unitsContaining,
   assertCourseAccessible,
   courseKeySkipReason,
   enrollInCourseViaApi,
@@ -12,6 +13,7 @@ import {
   type CourseDetail,
   type CourseOutline,
   type CourseProgress,
+  type CourseUnit,
   type LearnerIdentity,
 } from '../api';
 import { getConfig, type AppConfig } from '../config';
@@ -19,6 +21,8 @@ import { AccountMenu } from '../pages/lms/auth/account-menu.page';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
+import { UnitPage } from '../pages/lms/courseware/unit.page';
+import { canCompleteUnit } from '../steps/completion';
 import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
 import { LoginPage } from '../pages/lms/auth/login.page';
 import { RegistrationPage } from '../pages/lms/auth/registration.page';
@@ -49,6 +53,8 @@ export interface TestFixtures {
   catalogPage: CatalogPage;
   /** Course About page object. */
   courseAboutPage: CourseAboutPage;
+  /** Courseware unit page object (`frontend-app-learning`). */
+  unitPage: UnitPage;
   /**
    * The course the course-completion specs work through, from `COURSE_KEY`.
    *
@@ -73,14 +79,36 @@ export interface TestFixtures {
   enrolledCourse: EnrolledCourse;
   /** Course structure (units keyed by block ID) as seen by the enrolled learner. */
   courseOutline: CourseOutline;
+  /**
+   * Re-reads the course structure, picking up per-block `completion` values that
+   * have changed since {@link courseOutline} was taken.
+   */
+  refreshCourseOutline: () => Promise<CourseOutline>;
   /** Reads the authoritative completion/grade state for the enrolled course. */
   courseProgress: () => Promise<CourseProgress>;
+  /**
+   * One unit per completion mechanism the suite can drive, chosen from the
+   * configured course rather than hard-coded — unit order and content differ per
+   * installation.
+   *
+   * Skips the test when the course offers no such unit, so the selection never
+   * becomes a conditional inside a spec.
+   */
+  completionUnits: CompletionUnits;
 }
 
 /** What {@link TestFixtures.courseLearner} hands a spec. */
 export interface CourseLearner {
   readonly courseKey: string;
   readonly identity: LearnerIdentity;
+}
+
+/** Units chosen for {@link TestFixtures.completionUnits}. */
+export interface CompletionUnits {
+  /** A unit whose blocks all complete by being viewed (no problem, no video). */
+  readonly viewOnly: CourseUnit;
+  /** A unit containing a problem, and nothing the suite cannot drive. */
+  readonly withProblem: CourseUnit;
 }
 
 /** What {@link TestFixtures.enrolledCourse} hands a spec. */
@@ -133,6 +161,10 @@ export const test = base.extend<TestFixtures>({
     await use(new CourseAboutPage(page, config));
   },
 
+  unitPage: async ({ page, config }, use) => {
+    await use(new UnitPage(page, config));
+  },
+
   courseKey: async ({ request, config }, use) => {
     const skipReason = courseKeySkipReason(config);
     base.skip(skipReason !== undefined, skipReason);
@@ -179,8 +211,35 @@ export const test = base.extend<TestFixtures>({
     );
   },
 
+  refreshCourseOutline: async ({ request, config, enrolledCourse }, use) => {
+    await use(() =>
+      fetchCourseOutline(
+        request,
+        config,
+        enrolledCourse.courseKey,
+        enrolledCourse.identity.username,
+      ),
+    );
+  },
+
   courseProgress: async ({ request, config, enrolledCourse }, use) => {
     await use(() => fetchCourseProgress(request, config, enrolledCourse.courseKey));
+  },
+
+  completionUnits: async ({ courseOutline }, use) => {
+    const viewOnly = courseOutline.units.find(
+      (unit) => unit.childTypes.length > 0 && unit.childTypes.every((type) => type === 'html'),
+    );
+    const withProblem = unitsContaining(courseOutline, 'problem').find(canCompleteUnit);
+
+    base.skip(
+      viewOnly === undefined || withProblem === undefined,
+      `The configured course offers no unit for every completion mechanism ` +
+        `(view-only: ${viewOnly ? 'found' : 'missing'}, ` +
+        `problem: ${withProblem ? 'found' : 'missing'}).`,
+    );
+
+    await use({ viewOnly: viewOnly as CourseUnit, withProblem: withProblem as CourseUnit });
   },
 });
 
