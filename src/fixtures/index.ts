@@ -21,6 +21,7 @@ import { AccountMenu } from '../pages/lms/auth/account-menu.page';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
+import { CourseOutlinePage } from '../pages/lms/course-home/course-outline.page';
 import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
@@ -67,6 +68,8 @@ export interface TestFixtures {
   courseAboutPage: CourseAboutPage;
   /** Courseware unit page object (`frontend-app-learning`). */
   unitPage: UnitPage;
+  /** Course home (outline tab) page object. */
+  courseOutlinePage: CourseOutlinePage;
   /** Course Progress tab page object. */
   progressPage: ProgressPage;
   /** Learner dashboard page object (`frontend-app-learner-dashboard`). */
@@ -206,6 +209,10 @@ export const test = base.extend<TestFixtures>({
 
   unitPage: async ({ page, config }, use) => {
     await use(new UnitPage(page, config));
+  },
+
+  courseOutlinePage: async ({ page, config }, use) => {
+    await use(new CourseOutlinePage(page, config));
   },
 
   progressPage: async ({ page, config }, use) => {

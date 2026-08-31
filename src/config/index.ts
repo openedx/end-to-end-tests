@@ -33,6 +33,7 @@ export {
   progressTabLink,
   DASHBOARD_SELECTORS,
   dashboardCourseCardCta,
+  COURSE_HOME_SELECTORS,
 } from './selectors';
 
 let cached: AppConfig | undefined;

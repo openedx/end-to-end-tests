@@ -13,6 +13,70 @@ tests in this suite.
   To extend the suite, add a new spec under the relevant domain composing existing
   page objects, steps, and fixtures.
 
+## Adding a Feature spec
+
+The layers exist so a spec reads as a sequence of intentions, not of selectors.
+Build outwards in this order, and stop as soon as the layer you need already
+exists — most new coverage adds only the last two steps.
+
+**1. Anchors → `src/config/selectors/<surface>.ts`.** One module per surface. Give
+every anchor a comment naming the localized string it stands in for, so a reader
+can trace the spec back to its test case without the suite depending on copy.
+
+```ts
+export const CATALOG_SELECTORS = {
+  /** Header link to the catalog — the sheet's "Discover New" link. */
+  navCatalogLink: 'a.nav-link[href$="/courses"]',
+} as const;
+```
+
+**2. State → `src/api/<resource>.ts`.** A typed client for whatever the platform
+knows about the thing under test. This is what the spec will _assert_ on: an API
+answer is numeric or an enum, so it survives both translation and MFE re-skinning.
+Throw `ApiError` with an actionable message on an unexpected response.
+
+**3. Behaviour → `src/pages/<domain>/<feature>.page.ts`.** Locators and
+single-surface actions. Page objects **never assert** — they navigate, click and
+fill, and wait for the state change their action causes (a response, a URL change),
+never for a fixed time.
+
+**4. Multi-surface flows → `src/steps/<flow>.ts`.** Only when a journey crosses
+page objects (enrol through the catalog; complete a unit). A step that cannot do
+its job **reports why** — returning the blockers, as `completeUnit` does — rather
+than throwing or, worse, quietly succeeding.
+
+**5. Composition → `src/fixtures/index.ts`.** Add a fixture so the spec receives a
+finished object. Put any `skip` here too: a course without the content a spec needs
+is a fixture concern, and it keeps conditionals out of the test body.
+
+**6. The spec → `tests/<domain>/<feature>.spec.ts`.** One Feature per file. Each
+test carries its stability tier, any capability tag, `@authenticated` if it reuses
+the captured session, and a `testId(...)` annotation when it maps to a BTR case.
+
+```ts
+test(
+  'enrols a learner from the course About page',
+  { tag: ['@smoke', '@authenticated'], annotation: testId('TC-00008') },
+  async ({ request, config, courseAboutPage, courseLearner }) => {
+    await courseAboutPage.goto(courseLearner.courseKey);
+    await courseAboutPage.enroll(courseLearner.courseKey);
+
+    // The UI drove the action; the API decides whether it worked.
+    expect(await isEnrolled(request, config, courseLearner.courseKey)).toBe(true);
+  },
+);
+```
+
+Then add the accessibility gate for any surface the spec visits
+(`await checkA11y(page, { label: 'course-about' })`) and run `npm run check`.
+
+### The division that matters
+
+**The UI drives the action; the API decides the outcome.** Reserve UI assertions
+for cases where the rendering _is_ the thing under test — a completion marker
+appearing, a form's error state — and keep them structural. Everything else, ask
+the platform.
+
 ## Locators
 
 Prefer stable, user-facing locators. **Never match on the target's displayed
