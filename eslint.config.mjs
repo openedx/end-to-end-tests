@@ -13,8 +13,9 @@ export default tseslint.config(
       'playwright-report/',
       'blob-report/',
       '.auth/',
-      // Local scratch notes/probes, never part of the suite (see CONVENTIONS.md).
-      '.private/',
+      // Tooling and local-only dot-directories (including `.private/` scratch
+      // notes, see CONVENTIONS.md) are not project sources.
+      '**/.*/',
       // Plain Node utility scripts (CI helpers); Prettier still formats them.
       'scripts/',
     ],
