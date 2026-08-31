@@ -12,3 +12,6 @@ docs/
 .ci/
 catalog-info.yaml
 LICENSE
+
+# Tooling and local-only dot-directories are not project sources.
+.*/

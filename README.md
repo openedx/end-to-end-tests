@@ -19,6 +19,20 @@ guiding development.
   ```
 - **npm 11+** (ships with Node 24).
 - A reachable Open edX installation to test against (see [Configuration](#configuration)).
+- **The Open edX Demo Course imported on the target** for the course-completion
+  specs.** Those specs need real content to work through, and importing content
+  differs per installation. So the course is a prerequisite of the environment
+  rather than something the suite creates. Import one with whatever mechanism
+  your installation uses — on Tutor:
+
+  ```sh
+  tutor local do importdemocourse
+  ```
+
+  then point [`COURSE_KEY`](#configuration) at the imported key (the demo course's
+  key differs between installs, e.g. `course-v1:OpenedX+DemoX+DemoCourse`). Leave
+  `COURSE_KEY` unset and the course-completion specs skip cleanly; set it to a
+  course that doesn't exist on the server and pre-test checks will fail at startup.
 
 ## Setup
 
@@ -43,18 +57,18 @@ instead of a confusing test failure. Every variable is documented in
 
 The essentials:
 
-| Variable                            | Required | Description                                          |
-| ----------------------------------- | -------- | ---------------------------------------------------- |
-| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`           |
-| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io` |
-| `CMS_BASE_URL`                      | —        | Studio origin (only needed for Studio specs)         |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither)            |
-| `ORG`                               | —        | Organization short code, e.g. `OpenedX`              |
-| `COURSE_KEY`                        | —        | Default course for course-completion specs           |
-| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install |
-| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments           |
-| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)  |
-| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends     |
+| Variable                            | Required | Description                                                        |
+| ----------------------------------- | -------- | ------------------------------------------------------------------ |
+| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                         |
+| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`               |
+| `CMS_BASE_URL`                      | —        | Studio origin (only needed for Studio specs)                       |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither)                          |
+| `ORG`                               | —        | Organization short code, e.g. `OpenedX`                            |
+| `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip |
+| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install               |
+| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments                         |
+| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)                |
+| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                   |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take

@@ -13,6 +13,8 @@ export default tseslint.config(
       'playwright-report/',
       'blob-report/',
       '.auth/',
+      // Tooling and local-only dot-directories are not project sources.
+      '**/.*/',
       // Plain Node utility scripts (CI helpers); Prettier still formats them.
       'scripts/',
     ],

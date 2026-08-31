@@ -98,6 +98,33 @@ The always-on coverage reporter maps each `test_id` to its outcome and reports
 annotation coverage every run, writing `test-results/btr-coverage.json` (a local
 file only — see `src/reporting/README.md` for the upload/sheet policy).
 
+## Known upstream defects
+
+When a test case describes behaviour the platform does not yet deliver, write the
+spec against the **intended** behaviour, mark it `test.fixme()` with the issue URL
+in the reason, and add an `issue(...)` annotation next to its `test_id`:
+
+```ts
+test(
+  'clears the search in a single click',
+  {
+    tag: '@regression',
+    annotation: [testId('TC-00016'), issue('https://github.com/openedx/…/issues/160')],
+  },
+  async ({ catalogPage }) => {
+    test.fixme(true, 'The clear-search button needs two clicks: https://github.com/…/160');
+    /* ... */
+  },
+);
+```
+
+This keeps the report honest: the coverage gap is visible and attributed, and the
+test starts failing the day the fix lands, which is the signal to drop the
+`fixme`. Do **not** instead soften the assertion to match the buggy behaviour, and
+do not work around a defect with `force`. Where a workaround is genuinely needed
+to reach _other_ coverage, put it in the page object with a comment naming the issue,
+and keep a separate `fixme` test on the broken path itself.
+
 ## Configuration and secrets
 
 - Read configuration through `getConfig()` / the `config` fixture. **Never read

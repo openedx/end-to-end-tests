@@ -18,6 +18,13 @@ export {
 } from './account-backends';
 export { registrableDomain } from './domain';
 export { TIMEOUTS, type Timeouts } from './timeouts';
+export {
+  CATALOG_SEARCH_PATH,
+  CATALOG_SELECTORS,
+  COURSE_ABOUT_SELECTORS,
+  catalogCourseCard,
+  courseAboutCoursewareLink,
+} from './selectors';
 
 let cached: AppConfig | undefined;
 let dotenvLoaded = false;
