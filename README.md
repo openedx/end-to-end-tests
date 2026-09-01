@@ -261,16 +261,9 @@ static checks and the browser-free `unit` project as required, blocking checks).
 Both workflows share the same [`run-suite`](.github/actions/run-suite/action.yml)
 composite action. They differ only in how the target installation is provisioned.
 
-`ci.yml` additionally runs `run_tests_tutor.yml` twice as **non-blocking**
-jobs on every PR and push to `main`: once against an ephemeral **`main`**
-Open edX environment, and once against the **last released** environment
-(currently `verawood`), both with `--grep-invert @unit` so they cover
-everything except the unit project. Jobs that call a reusable workflow don't
-support `continue-on-error`, so "non-blocking" here is a branch-protection
-choice: these two jobs are intentionally left out of the required status
-checks list, so they surface real product/Tutor regressions to reviewers
-without their failure (including spurious environment-provisioning flakiness)
-blocking a merge.
+`ci.yml` additionally runs `run_tests_tutor.yml` twice every PR and push to
+`main`: once against an ephemeral **`Tutor main`**, and once against the **last
+named release** environment (currently `verawood`).
 
 ### `run_tests_tutor.yml` — ephemeral Tutor installation
 
