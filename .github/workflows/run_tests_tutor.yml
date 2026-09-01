@@ -8,6 +8,10 @@ name: Tutor E2E Test
 # repo's main branch with the "main" Open edX release, to catch regressions
 # between manual runs. Scheduled runs always use those two defaults; the
 # domains/features inputs only apply to manual `workflow_dispatch` runs.
+#
+# Also callable (`workflow_call`) so `ci.yml` can run it as a non-blocking,
+# Docker-based check against the "main" and last-released environments on
+# every PR/push, without duplicating the Tutor provisioning steps.
 
 on:
   schedule:
@@ -38,6 +42,36 @@ on:
         description: 'Feature/capability tags to run, space-separated (e.g. "@smoke @discussions"). Empty = all.'
         type: string
         default: ''
+      exclude_features:
+        description: 'Feature/tags to exclude, space-separated (e.g. "@unit"). Empty = exclude nothing.'
+        type: string
+        default: ''
+      capabilities:
+        description: 'Override capabilities for this run (comma-separated). Empty = use the release default from .ci/openedx-releases.json.'
+        type: string
+        default: ''
+  workflow_call:
+    inputs:
+      openedx_release:
+        description: 'Open edX named release (drives the Tutor + plugin major version).'
+        type: string
+        default: verawood
+      test_ref:
+        description: 'Git ref (branch, tag, or commit SHA) of this repo to test. Defaults to the branch this workflow runs from.'
+        type: string
+        default: ''
+      domains:
+        description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
+        type: string
+        default: ''
+      features:
+        description: 'Feature/capability tags to run, space-separated (e.g. "@smoke @discussions"). Empty = all.'
+        type: string
+        default: ''
+      exclude_features:
+        description: 'Feature/tags to exclude, space-separated (e.g. "@unit"). Empty = exclude nothing.'
+        type: string
+        default: ''
       capabilities:
         description: 'Override capabilities for this run (comma-separated). Empty = use the release default from .ci/openedx-releases.json.'
         type: string
@@ -65,7 +99,7 @@ jobs:
       - name: Checkout (test ref)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.test_ref != '' && inputs.test_ref || github.ref_name }}
+          ref: ${{ inputs.test_ref }}
 
       - name: Setup python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -269,4 +303,5 @@ jobs:
           admin_password: ${{ env.ADMIN_PASSWORD }}
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}
+          exclude_features: ${{ inputs.exclude_features }}
           artifact_suffix: ${{ env.OPENEDX_RELEASE }}
