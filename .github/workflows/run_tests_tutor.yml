@@ -182,8 +182,15 @@ jobs:
           path: .ci/mysql-dump/
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
 
+      ##################
+      # The Free Disk Space, BuildX, and image build steps are only necessary
+      # if we're not getting consistent main images built by Tutor for all
+      # plugins we're installing. We can comment them during periods when we
+      # don't need them, but should keep them in case of future issues since
+      # it took quite a bit of work to get right.
+
       # We'll run out of disk building images if we don't clear up some space
-      - name: Free Disk Space (Ubuntu)
+      - name: Free Disk Space (main only)
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
         if: env.OPENEDX_RELEASE == 'main'
         with:
@@ -200,25 +207,22 @@ jobs:
           swap-storage: true
 
       # Necessary to keep github from killing our build process
-      - name: Setup Docker Buildx
+      - name: Setup Docker Buildx (main only)
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        if: env.OPENEDX_RELEASE == 'main'
         with:
           buildkitd-config-inline: |
             # Keeps Github from killing MFE builds for CPU usage
             [worker.oci]
               max-parallelism = 2
 
-      # The 'main' job installs Tutor from git but would otherwise run a published
-      # openedx image that may be stale, so the LMS ends up older than the settings
-      # Tutor renders for it. Named releases ship matching images and must not pay
-      # this build cost.
-      - name: Build openedx and mfe images (main only)
+      - name: Build all images (main only)
         if: env.OPENEDX_RELEASE == 'main'
-        run: tutor images build openedx mfe
+        run: tutor images build all
 
       - name: Tutor launch (cache miss — runs migrations)
         if: steps.mysql_cache.outputs.cache-hit != 'true'
-        run: tutor local launch --non-interactive
+        run: tutor local launch --non-interactive --skip-build
 
       - name: Tutor start + restore database (cache hit — skip migrations)
         if: steps.mysql_cache.outputs.cache-hit == 'true'
@@ -227,7 +231,8 @@ jobs:
           tutor config save
           MYSQL_ROOT_PASSWORD=$(tutor config printvalue MYSQL_ROOT_PASSWORD)
           tutor local start permissions mysql -d
-          MYSQL_CONTAINER=$(docker ps -qf "name=tutor_local.*mysql")
+          docker ps
+          MYSQL_CONTAINER=$(docker ps -qf "name=tutor*.*mysql*")
           # Wait for MySQL to accept connections
           for i in $(seq 1 30); do
             if docker exec "$MYSQL_CONTAINER" mysql -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" &>/dev/null 2>&1; then
@@ -243,6 +248,7 @@ jobs:
           # Init is now fast: Django sees all migrations as already applied
           # ~20 minute savings
           tutor local do init
+          tutor local stop
           tutor local start -d
 
       - name: Dump MySQL and save migration cache (cache miss only)
@@ -253,7 +259,8 @@ jobs:
           MYSQL_ROOT_PASSWORD=$(tutor config printvalue MYSQL_ROOT_PASSWORD)
           # Use docker exec directly — tutor local exec prints the docker compose
           # invocation to stdout, which would corrupt the dump file
-          MYSQL_CONTAINER=$(docker ps -qf "name=tutor_local.*mysql")
+          docker ps
+          MYSQL_CONTAINER=$(docker ps -qf "name=tutor*.*mysql*")
           # Dump only application databases -- excluding mysql/sys avoids ALTER USER
           # errors on restore caused by MySQL 8 serialising password changes for
           # users that do not exist yet in the target instance.
@@ -299,7 +306,8 @@ jobs:
           EOF
           tutor plugins enable e2e_test
           tutor config save
-          tutor local restart
+          tutor local stop
+          tutor local start -d
 
       - name: Provision demo course and admin user
         run: |
@@ -309,6 +317,7 @@ jobs:
             --staff --superuser \
             --password "$ADMIN_PASSWORD" \
             "$ADMIN_USERNAME" "$ADMIN_EMAIL"
+          tutor local exec cms ./manage.py cms reindex_course --all --setup
 
       - name: Wait for the LMS to be healthy
         run: |
