@@ -13,9 +13,13 @@ export const REGISTRATION_PATH = '/api/user/v1/account/registration/';
  * it needs no admin credentials, private fixtures, or Tutor-shell coupling.
  *
  * On success the platform also logs the user in (`set_logged_in_cookies`), so the
- * request context's cookie jar is left authenticated. The auth contract still
- * performs an explicit login afterwards to exercise the login path and obtain a
- * clean session; seeding and sign-in stay separable.
+ * request context's cookie jar is left authenticated — and that session is what
+ * the suite uses. Do **not** follow this with a `login_session` call on the same
+ * context: the LMS rejects a sign-in on a context that already holds a session
+ * with a bare HTML 400, and the session on offer here is already the one you
+ * wanted. See `provisionLearnerSession` in `src/accounts/provision.ts`.
+ * Driving a sign-in through the *UI* is unaffected — the browser context is
+ * anonymous — which is what the login/logout specs exercise.
  *
  * `honor_code` is sent because the default install marks it required; the view
  * derives `terms_of_service` from it. Accounts may be created inactive (pending

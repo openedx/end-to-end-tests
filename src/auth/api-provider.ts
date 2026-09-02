@@ -1,7 +1,6 @@
-import { accountSignIn, provisionLearnerAccount } from '../accounts';
+import { accountSignIn, provisionLearnerSession } from '../accounts';
 import type { AppConfig } from '../config';
 import { AuthNotConfiguredError } from './errors';
-import { hasAuthenticatedSession } from './preflight';
 import type { Role } from './roles';
 import type { AuthContext, AuthProvider, StorageState } from './types';
 
@@ -48,21 +47,11 @@ export class ApiAuthProvider implements AuthProvider {
 
     switch (role) {
       case 'learner': {
-        const identity = await provisionLearnerAccount(request, config);
-        // On a stock install registration authenticates the request context
-        // itself, so capturing its storage state is all that's needed. A backend
-        // whose accounts originate elsewhere separates account creation from
-        // session establishment, and leaves the jar anonymous — sign in
-        // explicitly in that case only, so the stock path still makes no extra
-        // call and never depends on the account being able to log in.
-        const { cookies } = await request.storageState();
-        if (!hasAuthenticatedSession(cookies)) {
-          await accountSignIn({
-            config,
-            request,
-            credentials: { emailOrUsername: identity.email, password: identity.password },
-          });
-        }
+        // Leaves the request context authenticated, so capturing its storage
+        // state below is all that's needed. Shared with the `courseLearner`
+        // fixture so the two cannot drift — see `provisionLearnerSession` for
+        // when it does and does not sign in.
+        await provisionLearnerSession(request, config);
         break;
       }
 

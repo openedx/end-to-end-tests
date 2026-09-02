@@ -137,10 +137,21 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 - **Capability:** `@discussions`, `@teams`, `@certificates`, `@mfe-authn`, … —
   gates coverage on what the installation has (see `CAPABILITIES` in
   `.env.example`). Keep tags in sync with `src/config/capabilities.ts`: a tag
-  that names a capability is **enforced** — `src/fixtures/` skips the test where
-  that capability is not enabled — while any other tag is only a filter. Most
-  capabilities are off until declared; the `DEFAULT_ON_CAPABILITIES` (stock
-  surfaces, currently `mfe-authn`) are on unless turned off with `-mfe-authn`.
+  that names a capability is **enforced** — the `capabilityGate` fixture in
+  `src/fixtures/` reads each test's own tags and skips it where that capability
+  is not enabled — while any other tag is only a filter. Most capabilities are
+  off until declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces, currently
+  `mfe-authn`) are on unless turned off with `-mfe-authn`.
+
+  A capability gates the coverage that is _about_ the optional feature, not every
+  spec that happens to pass through it. Where the feature is one of two routes to
+  the same place, give the journey a step that takes whichever route the target
+  offers and leave those specs ungated — `locateCourseInCatalog` does this for
+  catalog search (`@catalog-search`), so discovery and enrollment coverage runs on
+  an install with no search field while the search specs themselves skip. A gated
+  spec should assert the feature's surface is really present, so a target that
+  declares a capability it does not have fails rather than passing vacuously.
+
 - **MFE / subsystem:** `@mfe-account`, `@mfe-learning`, `@mfe-authoring`, … —
   filters the suite to one micro-frontend. `@mfe-authn` is also a capability, so
   apply it only to coverage that genuinely needs the authn MFE — not to specs

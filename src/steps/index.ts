@@ -5,6 +5,7 @@ export {
   enrollFromAboutPage,
   enrollThroughCatalog,
   gotoDashboard,
+  locateCourseInCatalog,
 } from './course';
 export {
   COMPLETABLE_BLOCK_TYPES,
