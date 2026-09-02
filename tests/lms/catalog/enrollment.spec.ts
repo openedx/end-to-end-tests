@@ -1,7 +1,7 @@
 import { isEnrolled } from '../../../src/api';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
-import { catalogSearchTermFor } from '../../../src/steps';
+import { catalogSearchTermFor, locateCourseInCatalog } from '../../../src/steps';
 
 /**
  * Enrollment through the course About page — the journey a learner takes from
@@ -21,9 +21,15 @@ test.describe('Course enrollment', () => {
       const { courseKey } = courseLearner;
 
       // Not enrolled yet: the About page offers the enroll call to action and no
-      // route into the courseware.
-      await catalogPage.goto();
-      await catalogPage.search(catalogSearchTermFor(courseDetail));
+      // route into the courseware. Reached through the catalog, by search where the
+      // installation enables it and by paging the list where it does not — see
+      // `locateCourseInCatalog`.
+      await locateCourseInCatalog(
+        catalogPage,
+        config,
+        courseKey,
+        catalogSearchTermFor(courseDetail),
+      );
       await catalogPage.openCourseAbout(courseKey);
 
       await expect(courseAboutPage.enrollButton).toBeEnabled();

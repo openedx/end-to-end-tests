@@ -29,6 +29,15 @@ export const CAPABILITIES = [
   // installations that keep the older in-course navigation instead.
   'courseware-navigation-sidebar',
   'courseware-legacy-navigation',
+  // Search and filtering in the catalog MFE, gated on the LMS's top-level
+  // `settings.ENABLE_COURSE_DISCOVERY`, which the MFE reads from
+  // `GET /api/mfe_config/v1`. With it off the catalog renders no search field at
+  // all — just a paginated course list — so paging is the only route to a given
+  // course. Declared for every release in `.ci/openedx-releases.json`: search is
+  // meant to be on, and an install that lacks it should fail this coverage
+  // loudly rather than skip it.
+  // See `src/steps/course.ts` for the two routes to a course.
+  'catalog-search',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];

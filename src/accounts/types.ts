@@ -41,7 +41,12 @@ export interface UiSignInContext {
 export interface UiSignOutContext {
   readonly config: AppConfig;
   readonly page: Page;
-  /** Username of the signed-in account, which identifies the menu trigger. */
+  /**
+   * Username of the signed-in account. The default flow no longer needs it — the
+   * account menu is anchored structurally, not by the name it displays — but it
+   * stays in the context because a backend's own sign-out may need to identify
+   * the session it is ending.
+   */
   readonly username: string;
 }
 

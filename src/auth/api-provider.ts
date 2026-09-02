@@ -1,4 +1,4 @@
-import { accountSignIn, provisionLearnerAccount } from '../accounts';
+import { accountSignIn, provisionLearnerSession } from '../accounts';
 import type { AppConfig } from '../config';
 import { AuthNotConfiguredError } from './errors';
 import type { Role } from './roles';
@@ -46,7 +46,8 @@ export class ApiAuthProvider implements AuthProvider {
       case 'learner': {
         // Registration leaves the request context authenticated, so capturing its
         // storage state below is all that's needed — no separate login_session.
-        await provisionLearnerAccount(request, config);
+        // Shared with the `courseLearner` fixture so the two cannot drift.
+        await provisionLearnerSession(request, config);
         break;
       }
 

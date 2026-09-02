@@ -13,5 +13,5 @@ export { AutomaticLoginBackend } from './automatic-backend';
 export { ManualActivationBackend } from './manual-backend';
 export { AccountPluginRegistry, initAccountBackends, resolveAccountBackend } from './registry';
 export { loadAccountBackendPlugin } from './plugin-loader';
-export { provisionLearnerAccount } from './provision';
+export { provisionLearnerAccount, provisionLearnerSession } from './provision';
 export { promptOperator } from './prompt';

@@ -44,13 +44,13 @@ export async function defaultSignInThroughUi({
 /**
  * Signs out via the header account menu and waits for the resulting navigation to
  * settle.
+ *
+ * Takes no `username`: the menu is anchored structurally now, so the signed-in
+ * learner's name is not needed to find it. The context still carries one for
+ * backends whose own sign-out needs it.
  */
-export async function defaultSignOutThroughUi({
-  config,
-  page,
-  username,
-}: UiSignOutContext): Promise<void> {
+export async function defaultSignOutThroughUi({ config, page }: UiSignOutContext): Promise<void> {
   const accountMenu = new AccountMenu(page, config);
-  await accountMenu.signOut(username);
+  await accountMenu.signOut();
   await page.waitForLoadState('networkidle');
 }

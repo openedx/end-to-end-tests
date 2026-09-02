@@ -19,6 +19,7 @@ export {
 export { registrableDomain } from './domain';
 export { TIMEOUTS, type Timeouts } from './timeouts';
 export {
+  ACCOUNT_MENU_SELECTORS,
   CATALOG_SEARCH_PATH,
   CATALOG_SELECTORS,
   COURSE_ABOUT_SELECTORS,

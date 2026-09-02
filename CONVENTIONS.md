@@ -140,6 +140,16 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   is automatic**: the `capabilityGate` fixture reads each test's own tags and skips
   it when the installation does not declare one of them, so the tag is the whole of
   the contract — there is nothing else to keep in sync.
+
+  A capability gates the coverage that is _about_ the optional feature, not every
+  spec that happens to pass through it. Where the feature is one of two routes to
+  the same place, give the journey a step that takes whichever route the target
+  offers and leave those specs ungated — `locateCourseInCatalog` does this for
+  catalog search (`@catalog-search`), so discovery and enrollment coverage runs on
+  an install with no search field while the search specs themselves skip. A gated
+  spec should assert the feature's surface is really present, so a target that
+  declares a capability it does not have fails rather than passing vacuously.
+
 - **MFE / subsystem:** `@mfe-authn`, `@mfe-account`, `@mfe-learning`,
   `@mfe-authoring`, … — filters the suite to one micro-frontend.
 - **Authenticated:** `@authenticated` — the spec reuses captured storage state and

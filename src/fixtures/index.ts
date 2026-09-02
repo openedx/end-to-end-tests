@@ -1,6 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 
-import { accountSignIn, provisionLearnerAccount } from '../accounts';
+import { provisionLearnerSession } from '../accounts';
 import {
   unitsContaining,
   assertCourseAccessible,
@@ -238,12 +238,10 @@ export const test = base.extend<TestFixtures>({
   },
 
   courseLearner: async ({ page, request, config, courseKey }, use) => {
-    const identity = await provisionLearnerAccount(request, config);
-    await accountSignIn({
-      config,
-      request,
-      credentials: { emailOrUsername: identity.email, password: identity.password },
-    });
+    // One seam for "a learner whose session `request` holds", shared with the auth
+    // provider — see `provisionLearnerSession` for why this must not sign in on
+    // top of the session registration already created.
+    const identity = await provisionLearnerSession(request, config);
 
     // Hand the API session to the browser, replacing whatever storage state the
     // project loaded, so the page drives the course as this test's own learner.
