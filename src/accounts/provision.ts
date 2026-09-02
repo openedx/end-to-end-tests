@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { registerLearnerAccount, type LearnerIdentity } from '../api';
 import type { AppConfig } from '../config';
-import { getAccountBackend } from './registry';
+import { resolveAccountBackend } from './registry';
 
 /**
  * Provisions a learner account that can sign in, using the configured backend:
@@ -17,7 +17,7 @@ export async function provisionLearnerAccount(
   request: APIRequestContext,
   config: AppConfig,
 ): Promise<LearnerIdentity> {
-  const backend = getAccountBackend(config);
+  const backend = await resolveAccountBackend(config);
   const identity = await backend.createIdentity({ config, request });
   await registerLearnerAccount(request, config, identity);
   await backend.activate({ config, request, identity });
