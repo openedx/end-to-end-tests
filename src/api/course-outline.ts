@@ -64,11 +64,6 @@ export function unitsContaining(outline: CourseOutline, blockType: string): read
   return outline.units.filter((unit) => unit.childTypes.includes(blockType));
 }
 
-/** Count of blocks of a given type across the whole course. */
-export function countBlocksOfType(outline: CourseOutline, blockType: string): number {
-  return Object.values(outline.blocks).filter((block) => block.type === blockType).length;
-}
-
 /**
  * Fetches the course structure for `username` and flattens it to an ordered unit
  * list.

@@ -22,7 +22,7 @@ export {
   isAccountBackendName,
 } from './account-backends';
 export { registrableDomain } from './domain';
-export { TIMEOUTS, type Timeouts } from './timeouts';
+export { TIMEOUTS } from './timeouts';
 export {
   ACCOUNT_MENU_SELECTORS,
   CATALOG_SEARCH_PATH,
@@ -38,7 +38,6 @@ export {
   PROGRESS_SELECTORS,
   progressTabLink,
   DASHBOARD_SELECTORS,
-  dashboardCourseCardCta,
   COURSE_HOME_SELECTORS,
 } from './selectors';
 

@@ -20,9 +20,6 @@ export const COURSE_HOME_SELECTORS = {
   /** Begin/Resume card — one affordance whose label changes with progress. */
   startResumeCard: '[data-testid="start-resume-card"]',
 
-  /** Welcome message alert. */
-  welcomeAlert: '[data-testid="alert-container-welcome"]',
-
   /**
    * First-visit tour modal. Its `aria-label` ("New user course home prompt") is
    * localized, so the dialog is anchored by its own class instead. Its backdrop

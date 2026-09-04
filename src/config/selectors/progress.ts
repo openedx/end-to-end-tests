@@ -10,17 +10,9 @@ export const PROGRESS_SELECTORS = {
   totalGrade: '[data-testid="gradeSummaryFooterTotalWeightedGrade"]',
 
   /** Grade tables (assignment-type summary and per-subsection scores). */
-  tableContainer: '[data-testid="data-table-container"]',
   tableFooter: '[data-testid="table-footer"]',
   table: 'table[role="table"]',
   tableRow: 'tbody tr[role="row"]',
-
-  /**
-   * The passing-threshold marker on the grade bar. Presentational (its width
-   * encodes the threshold), so the threshold itself is read from the grading
-   * policy API instead; this only shows the bar rendered.
-   */
-  passingMarker: '.grade-bar--passing',
 } as const;
 
 /** Course tab link to the Progress page, anchored by href rather than label. */

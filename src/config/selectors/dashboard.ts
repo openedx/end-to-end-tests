@@ -12,12 +12,6 @@ export const DASHBOARD_SELECTORS = {
   /** The card's course-name link — the sheet's "course name is a link". */
   courseCardTitle: '[data-testid="CourseCardTitle"]',
 
-  /** Status banners on a card (enrollment, audit access, and similar). */
-  courseCardBanners: '[data-testid="CourseCardBanners"]',
-
-  /** Run dates and enrollment detail on a card. */
-  courseCardDetails: '[data-testid="CourseCardDetails"]',
-
   /**
    * The card's primary call to action — the sheet's "Begin Course" / "Resume
    * Course" / "View Course" button, which are one affordance in three states.
@@ -35,18 +29,10 @@ export const DASHBOARD_SELECTORS = {
    * supported release has this affordance.
    *
    * Written with `:is()` rather than a comma so it stays one compound selector:
-   * {@link dashboardCourseCardCta} concatenates it after a card selector, and a
-   * comma list would silently drop that scoping from the second branch.
+   * it is always used scoped under a card locator, and a comma list would
+   * silently drop that scoping from the second branch.
    *
    * Still no test ID on it, so an upstream request remains warranted.
-   *
-   * Relative to a card, so it must be scoped to one — see
-   * {@link dashboardCourseCardCta} for the standalone form.
    */
   courseCardCta: 'a.btn-primary:is([role="button"], [href*="/course/"])',
 } as const;
-
-/** The card call to action, scoped to the cards region rather than to one card. */
-export function dashboardCourseCardCta(): string {
-  return `${DASHBOARD_SELECTORS.courseCard} ${DASHBOARD_SELECTORS.courseCardCta}`;
-}

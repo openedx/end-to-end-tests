@@ -10,7 +10,6 @@ export class ProgressPage {
   readonly totalGrade: Locator;
   readonly tables: Locator;
   readonly tableFooter: Locator;
-  readonly passingMarker: Locator;
 
   constructor(
     private readonly page: Page,
@@ -19,7 +18,6 @@ export class ProgressPage {
     this.totalGrade = page.locator(PROGRESS_SELECTORS.totalGrade);
     this.tables = page.locator(PROGRESS_SELECTORS.table);
     this.tableFooter = page.locator(PROGRESS_SELECTORS.tableFooter);
-    this.passingMarker = page.locator(PROGRESS_SELECTORS.passingMarker);
   }
 
   url(courseKey: string): string {

@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { DASHBOARD_SELECTORS, dashboardCourseCardCta, type AppConfig } from '../../../config';
+import { DASHBOARD_SELECTORS, type AppConfig } from '../../../config';
 
 /**
  * The learner dashboard (`frontend-app-learner-dashboard`). Locators and
@@ -12,9 +12,6 @@ import { DASHBOARD_SELECTORS, dashboardCourseCardCta, type AppConfig } from '../
 export class DashboardPage {
   readonly content: Locator;
   readonly courseCards: Locator;
-  readonly courseCardTitles: Locator;
-  readonly courseCardBanners: Locator;
-  readonly courseCardCta: Locator;
 
   constructor(
     private readonly page: Page,
@@ -22,9 +19,6 @@ export class DashboardPage {
   ) {
     this.content = page.locator(DASHBOARD_SELECTORS.content);
     this.courseCards = page.locator(DASHBOARD_SELECTORS.courseCard);
-    this.courseCardTitles = page.locator(DASHBOARD_SELECTORS.courseCardTitle);
-    this.courseCardBanners = page.locator(DASHBOARD_SELECTORS.courseCardBanners);
-    this.courseCardCta = page.locator(dashboardCourseCardCta());
   }
 
   get url(): string {

@@ -17,7 +17,6 @@ import {
   type LearnerIdentity,
 } from '../api';
 import { getConfig, missingCapabilities, type AppConfig } from '../config';
-import { AccountMenu } from '../pages/lms/auth/account-menu.page';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
@@ -41,8 +40,6 @@ export interface TestFixtures {
   loginPage: LoginPage;
   /** authn MFE `/register` page object. */
   registrationPage: RegistrationPage;
-  /** Header account menu carrying the sign-out affordance. */
-  accountMenu: AccountMenu;
   /** authn MFE `/reset` (forgot-password) page object. */
   forgotPasswordPage: ForgotPasswordPage;
   /** Account settings page object (`frontend-app-account`). */
@@ -157,10 +154,6 @@ export const test = base.extend<TestFixtures>({
 
   registrationPage: async ({ page, config }, use) => {
     await use(new RegistrationPage(page, config));
-  },
-
-  accountMenu: async ({ page, config }, use) => {
-    await use(new AccountMenu(page, config));
   },
 
   forgotPasswordPage: async ({ page, config }, use) => {

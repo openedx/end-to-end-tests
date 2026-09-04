@@ -28,7 +28,6 @@ export class CatalogPage {
    */
   readonly resultsStatusBar: Locator;
   readonly nextPageButton: Locator;
-  readonly previousPageButton: Locator;
   /**
    * The region the MFE renders when a search matches nothing. Its copy is
    * localized, so specs assert on its presence together with a zero card count,
@@ -47,7 +46,6 @@ export class CatalogPage {
     this.navDashboardLink = page.locator(CATALOG_SELECTORS.navDashboardLink);
     this.resultsStatusBar = page.locator(CATALOG_SELECTORS.resultsStatusBar);
     this.nextPageButton = page.locator(CATALOG_SELECTORS.nextPageButton);
-    this.previousPageButton = page.locator(CATALOG_SELECTORS.previousPageButton);
     this.noResultsAlert = page.getByRole('alert');
   }
 
