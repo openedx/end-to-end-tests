@@ -15,6 +15,30 @@ export interface TestOutcome {
 }
 
 /**
+ * A single run of a test, tagged with a key that is stable across its retries
+ * (Playwright's `TestCase.id`). Several attempts share one key when a test is
+ * retried.
+ */
+export interface TestAttempt extends TestOutcome {
+  readonly testKey: string;
+}
+
+/**
+ * Collapses per-attempt results to one outcome per test: the **last** attempt
+ * wins, because that is the result Playwright itself reports for the test. A test
+ * that fails and then passes on retry is flaky, not failed, and must count once —
+ * otherwise a retried test inflates `total` and pulls its case's verdict to
+ * `failed`. Order of first appearance is preserved so titles stay deterministic.
+ */
+export function finalAttempts(attempts: readonly TestAttempt[]): TestOutcome[] {
+  const latest = new Map<string, TestOutcome>();
+  for (const { testKey, ...outcome } of attempts) {
+    latest.set(testKey, outcome);
+  }
+  return [...latest.values()];
+}
+
+/**
  * How a case's coverage came out once every test mapped to it is taken together.
  *
  * A single status is not enough once a case is covered by several tests, which is

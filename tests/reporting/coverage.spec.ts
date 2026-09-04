@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-import { summarizeCoverage, type TestOutcome } from '../../src/reporting';
+import { finalAttempts, summarizeCoverage, type TestOutcome } from '../../src/reporting';
 
 test.describe('summarizeCoverage', { tag: '@unit' }, () => {
   test('reports annotation coverage and per-case outcomes', () => {
@@ -106,5 +106,36 @@ test.describe('summarizeCoverage', { tag: '@unit' }, () => {
     expect(summary.coverageRatio).toBe(1);
     expect(summary.byTestId).toEqual([]);
     expect(summary.verdicts).toEqual({ verified: 0, partial: 0, unverified: 0, failed: 0 });
+  });
+});
+
+test.describe('finalAttempts', { tag: '@unit' }, () => {
+  test('keeps only the last attempt of a retried test', () => {
+    // Playwright's onTestEnd fires once per attempt; a test that fails and then
+    // passes on retry is flaky, not failed, and must count exactly once.
+    const outcomes = finalAttempts([
+      { testKey: 't1', title: 'flaky', status: 'failed', testIds: ['TC-00003'] },
+      { testKey: 't2', title: 'steady', status: 'passed', testIds: ['TC-00002'] },
+      { testKey: 't1', title: 'flaky', status: 'passed', testIds: ['TC-00003'] },
+    ]);
+
+    expect(outcomes).toEqual([
+      { title: 'flaky', status: 'passed', testIds: ['TC-00003'] },
+      { title: 'steady', status: 'passed', testIds: ['TC-00002'] },
+    ]);
+
+    const summary = summarizeCoverage(outcomes);
+    expect(summary.total).toBe(2);
+    expect(summary.byTestId.find((entry) => entry.testId === 'TC-00003')?.verdict).toBe('verified');
+  });
+
+  test('reports a test that fails on every attempt as failed once', () => {
+    const outcomes = finalAttempts([
+      { testKey: 't1', title: 'broken', status: 'failed', testIds: ['TC-00003'] },
+      { testKey: 't1', title: 'broken', status: 'timedOut', testIds: ['TC-00003'] },
+    ]);
+
+    expect(outcomes).toHaveLength(1);
+    expect(summarizeCoverage(outcomes).byTestId[0]?.counts).toEqual({ timedOut: 1 });
   });
 });
