@@ -4,7 +4,7 @@ name: Tutor E2E Test
 # suite against it. Everything is provisioned from scratch on the runner, so this
 # is a heavier, on-demand job (not part of the fast PR gate in ci.yml).
 #
-# Also runs on a schedule (5am US Eastern, Mondays and Fridays) against this
+# Also runs on a schedule (09:00 UTC, Mondays and Fridays) against this
 # repo's main branch with the "main" Open edX release, to catch regressions
 # between manual runs. Scheduled runs always use those two defaults; the
 # domains/features inputs only apply to manual `workflow_dispatch` runs.
@@ -15,8 +15,9 @@ name: Tutor E2E Test
 
 on:
   schedule:
-    - cron: '0 5 * * 1,5'
-      timezone: America/New_York
+    # GitHub Actions schedules run in UTC only (there is no timezone option):
+    # 09:00 UTC is 5am US Eastern during daylight time, 4am in winter.
+    - cron: '0 9 * * 1,5'
   workflow_dispatch:
     inputs:
       openedx_release:
@@ -177,7 +178,7 @@ jobs:
       # a stale cache is causing problems
       - name: Restore MySQL migration cache
         id: mysql_cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ci/mysql-dump/
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
