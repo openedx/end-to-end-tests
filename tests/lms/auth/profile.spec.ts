@@ -16,7 +16,7 @@ import { expect, test } from '../../../src/fixtures';
 test.describe('Account settings (profile)', () => {
   test(
     'updates the full name',
-    { tag: ['@authenticated', '@mfe-account'], annotation: testId('TC-00001') },
+    { tag: ['@regression', '@authenticated', '@mfe-account'], annotation: testId('TC-00001') },
     async ({ page, accountSettingsPage, learnerIdentity }) => {
       await accountSettingsPage.goto();
 
@@ -30,7 +30,7 @@ test.describe('Account settings (profile)', () => {
 
   test(
     'the account settings screen meets WCAG 2.2 AA',
-    { tag: ['@authenticated', '@mfe-account'] },
+    { tag: ['@regression', '@authenticated', '@mfe-account'] },
     async ({ page, accountSettingsPage }) => {
       await accountSettingsPage.goto();
       // The account MFE ships with unlabeled form controls (the `label` rule, 14
