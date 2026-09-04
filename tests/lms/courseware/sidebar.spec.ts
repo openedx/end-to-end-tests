@@ -51,6 +51,35 @@ test.describe('Courseware outline sidebar', () => {
   );
 
   test(
+    'reflects a completed unit in the tray',
+    {
+      tag: ['@smoke', '@authenticated', '@mfe-learning', '@courseware-navigation-sidebar'],
+      annotation: testId('TC-00022'),
+    },
+    async ({ page, unitPage, completionUnits, courseProgress, enrolledCourse }) => {
+      // The UI half of TC-00022; the API half (the platform's own completion
+      // record) is `unit-completion.spec.ts`, which runs on every installation.
+      const unit = completionUnits.viewOnly;
+
+      const unfinished = await completeUnit(page, unitPage, enrolledCourse.courseKey, unit);
+      expect(unfinished, 'every block in the unit registered completion').toEqual([]);
+      const after = await courseProgress();
+      expect(after.completionSummary.completeCount).toBe(1);
+
+      // A *unit's* own marker is distinguished by colour alone (`text-gray-300` →
+      // `text-success` on an svg with no test ID), which ADR-0002 rules out as an
+      // assertion; its subsection's marker, however, moves to a different test ID
+      // once any unit inside it completes. That is the non-localized, non-colour
+      // signal that the tray reflected the completion — the API above is what
+      // decides whether the state is *right*.
+      await unitPage.goto(enrolledCourse.courseKey, unit.sequentialId, unit.id);
+      await expect(unitPage.sidebarUnitLink(unit.id)).toBeVisible();
+      await expect(unitPage.subsectionIncompleteIcon(unit.id)).toHaveCount(0);
+      await expect(unitPage.subsectionProgressIcon(unit.id)).toBeVisible();
+    },
+  );
+
+  test(
     'marks a subsection complete once every unit in it is complete',
     {
       tag: ['@regression', '@authenticated', '@mfe-learning', '@courseware-navigation-sidebar'],
