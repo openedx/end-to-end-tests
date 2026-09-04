@@ -141,24 +141,4 @@ test.describe('Course progress', () => {
       expect(progress.courseGrade.percent).toBeGreaterThanOrEqual(progress.passingThreshold ?? 1);
     },
   );
-
-  test(
-    'reports certificate status',
-    {
-      tag: ['@regression', '@authenticated', '@mfe-learning', '@certificates'],
-      annotation: testId('TC-00032'),
-    },
-    async ({ courseProgress }) => {
-      const progress = await courseProgress();
-
-      // An enum the platform defines (`audit_passing`, `downloadable`, …), not
-      // rendered copy — so this reads the same in any language.
-      expect(progress.certificateStatus, 'the progress API reports a certificate status').toEqual(
-        expect.any(String),
-      );
-      // Before the course is passed there is nothing to download; the URL appears
-      // with the certificate itself.
-      expect(progress.certificateDownloadUrl ?? null).toBeNull();
-    },
-  );
 });

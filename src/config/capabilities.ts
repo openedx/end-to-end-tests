@@ -18,7 +18,6 @@ export const CAPABILITIES = [
   'mfe-authn',
   'discussions',
   'teams',
-  'certificates',
   'notes',
   'wiki',
   'badges',

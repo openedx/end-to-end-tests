@@ -178,8 +178,8 @@ test.describe('loadConfig — shared parent domain', { tag: '@unit' }, () => {
 
 test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('parses a declared capability list', () => {
-    const config = loadConfig(validEnv({ CAPABILITIES: 'discussions, certificates' }));
-    expect([...config.capabilities].sort()).toEqual(['certificates', 'discussions', 'mfe-authn']);
+    const config = loadConfig(validEnv({ CAPABILITIES: 'discussions, notes' }));
+    expect([...config.capabilities].sort()).toEqual(['discussions', 'mfe-authn', 'notes']);
   });
 
   test('turns off a default-on capability with the "-" prefix', () => {
