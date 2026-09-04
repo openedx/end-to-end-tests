@@ -1,3 +1,4 @@
+import { checkA11y } from '../../src/a11y';
 import { test, expect } from '../../src/fixtures';
 
 /**
@@ -18,5 +19,7 @@ test.describe('LMS landing page', () => {
 
     await expect(page.locator('body')).toBeVisible();
     await expect(page).toHaveTitle(/\S/);
+
+    await checkA11y(page, { label: 'landing' });
   });
 });
