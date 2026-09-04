@@ -49,7 +49,7 @@ on:
         type: string
         default: ''
       account_backend:
-        description: 'ACCOUNT_BACKEND override. "automatic" requires SKIP_EMAIL_VALIDATION on the target; "manual" is interactive and not usable in CI.'
+        description: 'ACCOUNT_BACKEND override. "automatic" (default) reuses the registration session and works on a default install; "manual" is interactive and not usable in CI.'
         type: choice
         default: automatic
         options:

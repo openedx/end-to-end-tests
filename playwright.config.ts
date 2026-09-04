@@ -78,7 +78,8 @@ export default defineConfig({
     {
       // Signs in once per role and writes .auth/<role>.json. Authenticated
       // projects depend on this and consume the state via `use: { storageState }`.
-      // Ships stubbed in Epic 1 (skips cleanly); Epic 2 makes it a live sign-in.
+      // A role the target has no credentials for (instructor) skips rather than
+      // fails, so a partially configured install still runs the rest.
       name: 'setup',
       testMatch: /.*\.setup\.ts/,
     },

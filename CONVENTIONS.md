@@ -7,7 +7,11 @@ tests in this suite.
 ## Files and naming
 
 - Specs: `tests/<domain>/<feature>.spec.ts` (e.g. `tests/lms/auth/login.spec.ts`).
-- Page objects mirror the spec tree: `src/pages/<domain>/<feature>.page.ts`.
+- Page objects live in the matching domain folder, **one per surface** the
+  platform renders, not one per spec: `src/pages/<domain>/<surface>.page.ts`
+  (`catalog.page.ts` serves both `discovery.spec.ts` and `enrollment.spec.ts`).
+- Component objects for something rendered _inside_ a surface — an XBlock in a
+  unit — use `*.block.ts` beside their page (`courseware/problem.block.ts`).
 - Setup projects: `*.setup.ts`.
 - One `*.spec.ts` covers one Feature — focused coverage of a single capability.
   To extend the suite, add a new spec under the relevant domain composing existing
@@ -47,7 +51,10 @@ than throwing or, worse, quietly succeeding.
 
 **5. Composition → `src/fixtures/index.ts`.** Add a fixture so the spec receives a
 finished object. Put any `skip` here too: a course without the content a spec needs
-is a fixture concern, and it keeps conditionals out of the test body.
+is a fixture concern, and it keeps conditionals out of the test body. Distinguish
+"not configured" from "misconfigured": `courseKey` skips when `COURSE_KEY` is
+unset but **fails** (via `assertCourseAccessible`) when it names a course the
+target does not have, because that is an operator error, not optional coverage.
 
 **6. The spec → `tests/<domain>/<feature>.spec.ts`.** One Feature per file. Each
 test carries its stability tier, any capability tag, `@authenticated` if it reuses
@@ -109,6 +116,10 @@ Avoid brittle selectors (deep CSS/XPath chains, nth-child, generated class names
   then restate the comparison as an equality so a real failure names both values.
 - **No fixed sleeps.** Never use `waitForTimeout`. Wait for a condition, and take
   timeout budgets from `src/config/timeouts.ts`.
+- **`count()` does not retry.** In a spec, prefer `toHaveCount` or `expect.poll`.
+  In a page object or step, branching on `count()` is acceptable only after an
+  explicit wait for the container it is counted in (`waitFor({ state: 'attached' })`
+  on the block, a response the content follows), never straight after navigation.
 - Specs **own the assertions** that decide pass/fail. Page objects and steps
   perform actions and navigation; they don't assert outcomes.
 - Tests must be **parallel-safe**: each test owns its context and identity and
@@ -136,8 +147,8 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 - **Pure logic:** `@unit` (no browser/target; runs in the `unit` project).
 - **Capability:** `@discussions`, `@teams`, `@notes`, … — gates optional
   coverage on installations that declare the capability (see `CAPABILITIES` in
-  `.env.example`). Keep tags in sync with `src/config/capabilities.ts`. **The gate
-  is automatic**: the `capabilityGate` fixture reads each test's own tags and skips
+  `.env.example`). `src/config/capabilities.ts` is the authoritative vocabulary; a
+  tag must match an entry there. **The gate is automatic**: the `capabilityGate` fixture reads each test's own tags and skips
   it when the installation does not declare one of them, so the tag is the whole of
   the contract — there is nothing else to keep in sync.
 
@@ -152,9 +163,14 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 
 - **MFE / subsystem:** `@mfe-authn`, `@mfe-account`, `@mfe-learning`,
   `@mfe-authoring`, … — filters the suite to one micro-frontend.
-- **Authenticated:** `@authenticated` — the spec reuses captured storage state and
-  runs in the `lms-learner` project (which depends on `setup`); the anonymous
-  `@smoke`/`@regression` projects exclude it.
+- **Authenticated:** `@authenticated` — the spec runs in the `lms-learner` project
+  (which depends on `setup`); the anonymous `@smoke`/`@regression` projects exclude
+  it. The project loads the captured learner storage state, and specs that only
+  read (`session`, `profile`) use it as is. Specs that **change course state**
+  (enroll, complete, grade) request `courseLearner`, which provisions a fresh
+  learner for that test and installs its session in place of the shared one, so
+  parallel tests never share an enrollment. That costs one registration per test —
+  see the README's rate-limit section.
 
 Apply tags with the `tag` option, **one string per tag**:
 
@@ -246,6 +262,11 @@ issue, and keep a separate `test.fail` test on the broken path itself.
 - Read configuration through `getConfig()` / the `config` fixture. **Never read
   `process.env` directly in specs, pages, or steps** — that is the anti-pattern
   the typed config layer exists to prevent.
+- **Plugins are the one exception.** An account-backend plugin under `plugins/`
+  (or an operator's own) has no hook into the config schema, so it reads and
+  validates its own `PLUGIN_*` variables at load time and fails with a clear
+  message before any account is registered. Its polling budgets are its own too,
+  since `TIMEOUTS` is tuned for browser actions; keep them named and documented.
 - Only `.env.example` is committed. Never commit a real `.env` or captured auth
   state (`.auth/`); both are gitignored.
 

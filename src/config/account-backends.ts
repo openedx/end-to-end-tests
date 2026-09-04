@@ -6,9 +6,10 @@
  * chiefly around email activation. Rather than assume one path, the suite picks a
  * backend by configuration so the same specs run against very different targets.
  *
- * - `automatic` — the Tutor/sandbox default (`SKIP_EMAIL_VALIDATION = True`): new
- *   accounts are active on creation and can sign in immediately. No activation
- *   step is needed.
+ * - `automatic` — the default. Registers a throwaway identity and reuses the
+ *   session registration itself creates ("Automatic login on"), so no activation
+ *   step is needed even when the install leaves accounts inactive. Only the
+ *   login/logout specs, which sign in separately, need a login-able account.
  * - `manual` — for interactive sessions against a target that enforces email
  *   activation and whose config cannot be changed: the suite prompts the operator
  *   for an email to register with, then for the activation link/token to paste.

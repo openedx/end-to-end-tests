@@ -10,9 +10,9 @@
 
 /**
  * Coarse capabilities that gate optional spec coverage. Each corresponds to a
- * Playwright tag (e.g. `@discussions`). Extend this list as new capability-gated
- * coverage is added; the companion `CONVENTIONS.md` is authoritative on the tag
- * vocabulary.
+ * Playwright tag (e.g. `@discussions`). This list **is** the tag vocabulary:
+ * extend it when new capability-gated coverage is added, and mirror the change in
+ * the "Known capabilities" comment of `.env.example`.
  */
 export const CAPABILITIES = [
   'discussions',

@@ -107,8 +107,10 @@ need an install where the account can actually log in — i.e.
 `SKIP_EMAIL_VALIDATION = True`, or the `manual` backend to activate the account
 first.
 
-Planned (from the spike, not yet implemented): a 3rd-party mailbox API
-(Mailosaur/MailSlurp/MailHog) and a local-file mail reader.
+A 3rd-party mailbox API is covered by the `openinbox` example plugin rather than
+a built-in backend; a plugin for any other mailbox service follows the same
+contract. Plugins are currently local-only: the CI workflows expose no input for
+`CUSTOM_ACCOUNT_BACKEND_PLUGINS`.
 
 ### Registration rate limit
 
@@ -223,8 +225,10 @@ Tests are organized into Playwright **projects**:
 - `unit` — pure logic tests (e.g. config validation); no browser or target needed.
 - `setup` — signs in once per role and writes reusable auth state to `.auth/`.
 - `smoke` / `regression` — anonymous browser tests tagged `@smoke` / `@regression`.
-- `lms-learner` — authenticated tests (`@authenticated`) that reuse the captured
-  learner session; depends on `setup`.
+- `lms-learner` — authenticated tests (`@authenticated`); depends on `setup`. The
+  project loads the captured learner session; specs that change course state use
+  the `courseLearner` fixture instead, which provisions a fresh learner per test
+  (one registration each — see the rate limit below).
 
 Run a single project or filter by tag:
 
@@ -263,7 +267,8 @@ composite action. They differ only in how the target installation is provisioned
 
 `ci.yml` additionally runs `run_tests_tutor.yml` twice every PR and push to
 `main`: once against an ephemeral **`Tutor main`**, and once against the **last
-named release** environment (currently `verawood`).
+named release** environment (currently `verawood`). Both PR runs are filtered to
+`@smoke`; the full suite runs on the schedule below and on manual dispatch.
 
 ### `run_tests_tutor.yml` — ephemeral Tutor installation
 
@@ -321,20 +326,20 @@ Credentials are sourced from a **GitHub Environment** (Settings → Environments
 rather than hard-coded, so different targets (and their approval/protection
 rules) stay isolated from each other:
 
-| Input                      | Description                                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                            |
-| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                        |
-| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                                     |
-| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                                   |
-| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                                    |
-| `org`                      | Organization short code.                                                                                            |
-| `course_key`               | Default course for course-completion specs.                                                                         |
-| `capabilities`             | Comma-separated capabilities enabled on the target.                                                                 |
-| `account_backend`          | `automatic` (default; requires `SKIP_EMAIL_VALIDATION` on the target) or `manual` (interactive — not usable in CI). |
-| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                  |
-| `domains` / `features`     | Same filters as above.                                                                                              |
-| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                 |
+| Input                      | Description                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                     |
+| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                 |
+| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                              |
+| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                            |
+| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                             |
+| `org`                      | Organization short code.                                                                                     |
+| `course_key`               | Default course for course-completion specs.                                                                  |
+| `capabilities`             | Comma-separated capabilities enabled on the target.                                                          |
+| `account_backend`          | `automatic` (default; works on the default install, see above) or `manual` (interactive — not usable in CI). |
+| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                           |
+| `domains` / `features`     | Same filters as above.                                                                                       |
+| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.          |
 
 To run it against your own installation: create a GitHub Environment (e.g.
 `staging`) with `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets (and any required
@@ -345,26 +350,37 @@ target's base URLs.
 
 ```
 tests/                 # specs, grouped by platform domain (lms/, studio/)
-  config/              # config-layer unit tests
-  api/ a11y/ reporting/ # unit tests for the pure logic in those modules
-  lms/auth/            # authn MFE specs: registration, login, logout, session
+  lms/auth/            # authn + account MFEs: registration, login, logout, session,
+                       #   password reset, profile
+  lms/catalog/         # catalog MFE: discovery, enrollment
+  lms/course-home/     # learning MFE: outline, progress, unit/course completion
+  lms/courseware/      # learning MFE: outline sidebar
+  lms/dashboard/       # learner dashboard
+  lms/landing.spec.ts  # proof-of-life smoke test
+  conventions/         # suite-wide rules enforced as tests (no displayed text)
+  config/ api/ auth/ accounts/ a11y/ reporting/   # unit tests (@unit) per module
   auth.setup.ts        # auth setup project
+  global-setup.ts      # clears .auth/, preloads account backends
 src/
   config/              # typed, validated environment configuration
+    selectors/         # structural anchors per surface, one module each
+  api/                 # typed API clients + data factories
+  accounts/            # user-choosable account backends (+ plugin loader)
   auth/                # provider-swappable authentication contract
-  api/                 # typed API client + data factories
-  pages/{lms,studio}/  # page objects (mirror the tests/ tree)
+  pages/{lms,studio}/  # page objects, one per surface, in the spec's domain folder
   steps/               # reusable multi-page business flows
-  fixtures/            # composition root (config + pages + api + auth)
-  reporting/           # BTR test_id annotations + coverage reporter
+  fixtures/            # composition root (config + pages + api + auth + skips)
+  reporting/           # BTR test_id annotations, coverage + a11y reporters
   a11y/                # @axe-core/playwright WCAG 2.2 AA gate
+plugins/               # example account-backend plugin (openinbox)
+.ci/                   # per-release CI configuration (openedx-releases.json)
 docs/
   decisions/           # ADRs
 ```
 
 The layers have a strict dependency direction —
-`config → api → pages → steps → fixtures → tests` — with each layer's
-responsibility described in its own `README.md` under `src/`. See
+`config → api → pages → accounts → {auth, steps} → fixtures → tests` — with each
+layer's responsibility described in its own `README.md` under `src/`. See
 [`ARCHITECTURE.md`](ARCHITECTURE.md) (layer diagram and responsibilities) and
 [`CONVENTIONS.md`](CONVENTIONS.md) (locator priority, tagging, test-data rules)
 for the full mechanics.
