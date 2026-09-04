@@ -136,20 +136,19 @@ test.describe('Course completion', () => {
     },
   );
 
-  test(
+  // The definition of done for course completion — `complete_count == unit count`
+  // — and currently unreachable for any learner, let alone a test: the course
+  // contains videos (no drivable completion path), ORA, LTI launches and custom-JS
+  // problems. Kept as written so the criterion stays documented; declared `fixme`
+  // so no fixtures (a learner, an enrollment, the outline) are set up for a body
+  // that cannot run. Promote to a real test as those paths become drivable.
+  test.fixme(
     'completes every unit in the course',
     {
       tag: ['@regression', '@authenticated', '@mfe-learning'],
       annotation: testId('TC-00022'),
     },
     async ({ page, unitPage, courseOutline, courseProgress, enrolledCourse }) => {
-      // The epic's own definition of done — `complete_count == unit count` — and
-      // currently unreachable for any learner, let alone a test: the course
-      // contains videos (no drivable completion path), ORA, LTI launches and
-      // custom-JS problems. Kept as written so it starts passing the day those
-      // have paths, rather than leaving the criterion undocumented.
-      test.fixme(true, 'Units containing video, ORA, LTI or custom-JS problems cannot be driven.');
-
       const report = await crawl(
         (unit) => completeUnit(page, unitPage, enrolledCourse.courseKey, unit),
         courseOutline.units,

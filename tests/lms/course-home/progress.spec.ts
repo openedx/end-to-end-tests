@@ -111,27 +111,23 @@ test.describe('Course progress', () => {
     },
   );
 
-  test(
+  // A passing grade needs *correct* answers, and this course puts them out of
+  // reach. Three of its 29 problems set `showanswer: always`, so their answers
+  // can be revealed (`ProblemBlock.revealAnswer()`) — but all three sit in the
+  // Basic Assessment Tools subsection, weighted 0.30. Scoring it in full still
+  // falls short of the 0.5 pass mark, and the subsections that would close the
+  // gap have no discoverable answers: Intermediate inherits the course default
+  // (`finished`, unreachable with unlimited attempts) and Advanced is ORA and
+  // LTI content that cannot be driven at all. Hard-coding an answer key would
+  // tie the suite to one course. Nothing in the platform will flip this, so it is
+  // declared `fixme` and no fixtures (including a learner registration) are set up.
+  test.fixme(
     'reaches a passing grade',
     {
       tag: ['@regression', '@authenticated', '@mfe-learning'],
       annotation: testId('TC-00031'),
     },
     async ({ courseProgress }) => {
-      // A passing grade needs *correct* answers, and this course puts them out of
-      // reach. Three of its 29 problems set `showanswer: always`, so their answers
-      // can be revealed (`ProblemBlock.revealAnswer()`) — but all three sit in the
-      // Basic Assessment Tools subsection, weighted 0.30. Scoring it in full still
-      // falls short of the 0.5 pass mark, and the subsections that would close the
-      // gap have no discoverable answers: Intermediate inherits the course default
-      // (`finished`, unreachable with unlimited attempts) and Advanced is ORA and
-      // LTI content that cannot be driven at all. Hard-coding an answer key would
-      // tie the suite to one course.
-      test.fixme(
-        true,
-        'Discoverable answers cover only the 0.30-weighted subsection; the pass mark is 0.50.',
-      );
-
       const progress = await courseProgress();
       expect(progress.courseGrade.isPassing).toBe(true);
       expect(progress.courseGrade.percent).toBeGreaterThanOrEqual(progress.passingThreshold ?? 1);

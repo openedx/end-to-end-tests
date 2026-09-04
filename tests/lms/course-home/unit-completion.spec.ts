@@ -103,21 +103,20 @@ test.describe('Unit completion', () => {
     },
   );
 
-  test(
+  // The third mechanism the test case names has no automatable path here: the
+  // demo course's videos are YouTube-hosted, so the player lives in a
+  // cross-origin iframe, and the page exposes no player handle to seek with
+  // (`window.VideoState[blockId]` is an empty object on this version). Watching
+  // in real time is not a test, and depending on youtube.com would break any
+  // installation without external network access. Declared `fixme` so no fixtures
+  // are set up; revisit when a drivable video path exists.
+  test.fixme(
     'completes a unit containing a video by watching it',
     {
       tag: ['@smoke', '@authenticated', '@mfe-learning'],
       annotation: testId('TC-00022'),
     },
     ({ courseOutline }) => {
-      // The third mechanism the test case names has no automatable path here: the
-      // demo course's videos are YouTube-hosted, so the player lives in a
-      // cross-origin iframe, and the page exposes no player handle to seek with
-      // (`window.VideoState[blockId]` is an empty object on this version). Watching
-      // in real time is not a test, and depending on youtube.com would break any
-      // installation without external network access.
-      test.fixme(true, 'Video completion cannot be driven: no player handle, third-party host.');
-
       expect(unitsContaining(courseOutline, 'video').length).toBeGreaterThan(0);
     },
   );

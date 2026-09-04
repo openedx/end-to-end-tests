@@ -192,29 +192,54 @@ file only — see `src/reporting/README.md` for the upload/sheet policy).
 ## Known upstream defects
 
 When a test case describes behaviour the platform does not yet deliver, write the
-spec against the **intended** behaviour, mark it `test.fixme()` with the issue URL
-in the reason, and add an `issue(...)` annotation next to its `test_id`:
+spec against the **intended** behaviour and mark it so the report stays honest.
+Two markers exist and they do different jobs:
 
-```ts
-test(
-  'clears the search in a single click',
-  {
-    tag: '@regression',
-    annotation: [testId('TC-00016'), issue('https://github.com/openedx/…/issues/160')],
-  },
-  async ({ catalogPage }) => {
-    test.fixme(true, 'The clear-search button needs two clicks: https://github.com/…/160');
-    /* ... */
-  },
-);
-```
+- **`test.fail()` — a defect we expect to be fixed.** The body runs on every run
+  and is expected to fail. The day the fix lands the body passes, Playwright
+  reports an _unexpected pass_ and fails the run, and that is the signal to drop
+  the marker. Put the issue URL in the reason and add an `issue(...)` annotation
+  next to the `test_id`:
 
-This keeps the report honest: the coverage gap is visible and attributed, and the
-test starts failing the day the fix lands, which is the signal to drop the
-`fixme`. Do **not** instead soften the assertion to match the buggy behaviour, and
+  ```ts
+  test(
+    'clears the search in a single click',
+    {
+      tag: '@regression',
+      annotation: [testId('TC-00016'), issue('https://github.com/openedx/…/issues/160')],
+    },
+    async ({ catalogPage }) => {
+      test.fail(true, 'The clear-search button needs two clicks: https://github.com/…/160');
+      /* ... */
+    },
+  );
+  ```
+
+- **`test.fixme()` — a body that cannot run yet.** Nothing in the platform will
+  flip it: the course content lacks what it needs, or the mechanism has no
+  automatable path (a third-party video player). Use the **declaration form** so
+  Playwright skips it before any fixture runs — an in-body `test.fixme(true, …)`
+  still provisions a learner, enrolls and fetches the outline, then skips, which
+  spends the registration rate limit for nothing. Say why in a comment above it:
+
+  ```ts
+  // The demo course's videos are YouTube-hosted; there is no player handle to drive.
+  test.fixme(
+    'completes a unit containing a video by watching it',
+    { tag: ['@smoke', '@authenticated'], annotation: testId('TC-00022') },
+    async ({ courseOutline }) => {
+      /* ... */
+    },
+  );
+  ```
+
+The coverage reporter reads both the same way — an expected failure or a `fixme`
+counts as `skipped` for its BTR case, so a case with passing siblings shows as
+`partial` — and treats an unexpected pass as a failure so a stale marker is
+visible. Do **not** instead soften the assertion to match the buggy behaviour, and
 do not work around a defect with `force`. Where a workaround is genuinely needed
-to reach _other_ coverage, put it in the page object with a comment naming the issue,
-and keep a separate `fixme` test on the broken path itself.
+to reach _other_ coverage, put it in the page object with a comment naming the
+issue, and keep a separate `test.fail` test on the broken path itself.
 
 ## Configuration and secrets
 
