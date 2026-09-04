@@ -59,8 +59,9 @@ test.describe('Course home outline', () => {
       // keyboard or screen-reader user meets a control whose inner controls cannot
       // be reached predictably. An MFE fix, so it is tracked outside this repo; the
       // test above tolerates the rule for this screen only, and this one asserts the
-      // state we want.
-      test.fixme(true, 'Course-home section headers nest focusable content in a role="button".');
+      // state we want. Expected to fail until the MFE is fixed; an unexpected pass
+      // is the signal to drop the marker and the tolerance above.
+      test.fail(true, 'Course-home section headers nest focusable content in a role="button".');
 
       await courseOutlinePage.goto(enrolledCourse.courseKey);
       await courseOutlinePage.dismissTourDialog();

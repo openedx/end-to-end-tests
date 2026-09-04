@@ -63,9 +63,11 @@ test.describe('Course catalog discovery', () => {
       // `image-alt` (critical) and `link-name` (serious) — the catalog is simply
       // where the suite meets it first. Both rules are in the global known-debt
       // baseline, so the scans above pass; this scan opts out of the baseline
-      // entirely to assert the state we actually want, and passing here is the
-      // signal to drop those two entries from `src/a11y/baseline.ts`.
-      test.fixme(
+      // entirely to assert the state we actually want. `test.fail` runs the body
+      // and expects it to fail, so the day the shell is fixed this reports an
+      // unexpected pass — the signal to drop the marker and those two baseline
+      // entries from `src/a11y/baseline.ts`.
+      test.fail(
         true,
         "BASE-001: the shell's header and footer brand links wrap an unlabelled logo image.",
       );
@@ -169,8 +171,9 @@ test.describe('Course catalog discovery', () => {
       // the empty-state message but leaves the previous result cards rendered, so
       // the page shows courses and "no results" at once. That stale list is step 3
       // of catalog#161's repro. Deep-linking the same query clears the cards
-      // correctly, which the test above covers.
-      test.fixme(
+      // correctly, which the test above covers. Expected to fail until the fix
+      // lands; an unexpected pass is the signal to drop the marker.
+      test.fail(
         true,
         'Stale result cards survive an in-page empty search: ' +
           'https://github.com/openedx/frontend-app-catalog/issues/161',
@@ -200,8 +203,8 @@ test.describe('Course catalog discovery', () => {
       // "no courses available in the catalog" block — wrong, since the catalog is
       // not empty, and a dead end, since the learner has no field left to correct
       // the term in. TC-00016 requires the search remain usable, so this asserts
-      // the intended behaviour and stays fixme until catalog#161 lands.
-      test.fixme(
+      // the intended behaviour and is expected to fail until catalog#161 lands.
+      test.fail(
         true,
         'The empty search state removes the search UI and reports the wrong error: ' +
           'https://github.com/openedx/frontend-app-catalog/issues/161',
@@ -218,18 +221,17 @@ test.describe('Course catalog discovery', () => {
     },
   );
 
-  test(
+  // The seeded course's authored overview HTML carries a link distinguished by
+  // colour alone — 1.72:1 contrast against the surrounding text and no underline —
+  // failing axe `link-in-text-block` (serious, WCAG 1.4.1). That is a fix to the
+  // course content rather than to the MFE, so nothing in the platform will flip it;
+  // declared as `fixme` so no fixtures are set up for it. The TC-00018 test below
+  // tolerates the rule for this one screen; this asserts the state we actually
+  // want, and should be re-enabled alongside a course that passes it.
+  test.fixme(
     "the About page's course content distinguishes links without colour",
     { tag: ['@regression', '@authenticated'], annotation: testId('TC-00018') },
     async ({ page, config, catalogPage, courseAboutPage, courseDetail, courseKey }) => {
-      // The seeded course's authored overview HTML carries a link distinguished by
-      // colour alone — 1.72:1 contrast against the surrounding text and no
-      // underline — failing axe `link-in-text-block` (serious, WCAG 1.4.1). That is
-      // a fix to the course content rather than to the MFE, so it is tracked
-      // outside this repo. The TC-00018 test below tolerates the rule for this one
-      // screen; this asserts the state we actually want.
-      test.fixme(true, 'Seeded course overview links are distinguished by colour alone.');
-
       await locateCourseInCatalog(
         catalogPage,
         config,
@@ -256,8 +258,9 @@ test.describe('Course catalog discovery', () => {
       // The search field's wrapper paints above the reset button, so a mouse user
       // needs two clicks — one to move focus, one to activate. `clearSearch()`
       // uses the keyboard and passes today (see the filtering test above); this
-      // covers the pointer path the defect breaks.
-      test.fixme(
+      // covers the pointer path the defect breaks, and is expected to fail until
+      // catalog#160 lands.
+      test.fail(
         true,
         'The clear-search button needs two clicks: ' +
           'https://github.com/openedx/frontend-app-catalog/issues/160',

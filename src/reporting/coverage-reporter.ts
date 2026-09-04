@@ -3,7 +3,7 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 
 import type { FullConfig, Reporter, Suite, TestCase, TestResult } from '@playwright/test/reporter';
 
-import { finalAttempts, summarizeCoverage, type TestAttempt } from './coverage';
+import { finalAttempts, summarizeCoverage, type TestAttempt, type TestStatus } from './coverage';
 import { testIdsFromAnnotations } from './test-id';
 
 export interface CoverageReporterOptions {
@@ -30,6 +30,24 @@ function projectNameOf(test: TestCase): string {
     suite = suite.parent;
   }
   return '';
+}
+
+/**
+ * Reads one attempt's status the way the BTR sheet should see it, honouring
+ * `test.fail()`. A test marked as an expected failure (a known upstream defect,
+ * see CONVENTIONS "Known upstream defects") that duly fails is a *known gap*, not
+ * a regression, so it counts as `skipped` — the same reading a `test.fixme` gets.
+ * If it unexpectedly passes, the defect has been fixed and the marker is stale;
+ * Playwright fails the run for that, and so does this report.
+ */
+function statusOf(test: TestCase, result: TestResult): TestStatus {
+  if (result.status === 'skipped') {
+    return 'skipped';
+  }
+  if (test.expectedStatus === 'failed') {
+    return result.status === 'passed' ? 'failed' : 'skipped';
+  }
+  return result.status;
 }
 
 /**
@@ -67,7 +85,7 @@ export default class CoverageReporter implements Reporter {
     this.attempts.push({
       testKey: test.id,
       title: test.titlePath().slice(1).join(' › '),
-      status: result.status,
+      status: statusOf(test, result),
       testIds: testIdsFromAnnotations(test.annotations),
     });
   }

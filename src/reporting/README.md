@@ -13,8 +13,8 @@ Contains:
   still-unannotated tests. No Playwright types, so it is unit-tested directly.
 
   A case is usually covered by **several** tests, and often by passing coverage
-  plus a `test.fixme` holding the part blocked on an upstream defect, so each case
-  carries three things rather than one status:
+  plus a `test.fail` or `test.fixme` holding the part blocked on an upstream
+  defect, so each case carries three things rather than one status:
 
   | Field     | Meaning                                                                                                                                      |
   | --------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,6 +28,10 @@ Contains:
 
 - `coverage-reporter.ts` — the always-on Playwright reporter that adapts run
   events onto `summarizeCoverage` and writes `test-results/btr-coverage.json`.
+  Two normalisations happen here: a retried test counts **once**, by its final
+  attempt (`finalAttempts`); and a `test.fail()` expected failure counts as
+  `skipped` (a known gap, like a `fixme`) while an _unexpected pass_ counts as
+  `failed`, so a stale marker shows up in the report as well as in the run.
 - `a11y.ts` — pure aggregation (`summarizeA11yViolations`) that rolls per-scan
   violations up per rule (worst impact first; de-duplicated across retries).
 - `a11y-reporter.ts` — the always-on reporter that reads each test's
