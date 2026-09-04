@@ -43,14 +43,18 @@ Contains:
 ## Policy
 
 Both reporters write **local files only**. Uploading them is a CI-only concern:
-the `run_tests_tutor.yml` workflow publishes `btr-coverage.json` and
-`a11y-violations.json` as the `suite-reports-<release>` build artifact (in
-addition to the full report bundle). Writing results to the `VERAWOOD TESTS` sheet
-is a separate, manual, `workflow_dispatch`-gated step — never on PR/push/schedule
-and never from a local machine.
+the shared `run-suite` composite action (used by both `run_tests_tutor.yml` and
+`run_tests_external.yml`) publishes `btr-coverage.json` and
+`a11y-violations.json` as a `suite-reports-*` build artifact alongside the full
+report bundle. Writing results to the BTR Release Test Plan sheet is not
+implemented; when it is, it will be a separate, manual, opt-in step — never on
+PR/push/schedule and never from a local machine.
 
 Infrastructure projects (`setup`, `unit`) are excluded from coverage so the
-numbers reflect the user-facing scenarios the BTR plan tracks.
+numbers reflect the user-facing scenarios the BTR plan tracks. Note this relies
+on the suite's own tests (`tests/conventions`, `tests/accounts`, …) being tagged
+`@unit` so they land in the `unit` project; an untagged infrastructure test would
+count as unannotated coverage.
 
 ## Usage
 
