@@ -49,29 +49,26 @@ export function canCompleteUnit(unit: CourseUnit): boolean {
   return unit.childTypes.every((type) => COMPLETABLE_BLOCK_TYPES.has(type));
 }
 
-/**
- * Views every block in the open unit, waiting for each to register completion.
- *
- * This is what "completing a unit" actually costs: a vertical completes only when
- * **all** of its children do, and an HTML block completes by being fully visible
- * for the platform's dwell delay. Answering the unit's problem is not enough — a
- * measured fact that shapes the whole suite's runtime.
- *
- * Returns the blocks that could not be completed, so a spec can fail with
- * something specific rather than on a bare timeout.
- */
-export async function viewAllBlocksInUnit(
-  page: Page,
-  unitPage: UnitPage,
-  unit: CourseUnit,
-): Promise<readonly UnviewedBlock[]> {
-  const skipped: UnviewedBlock[] = [];
-  const completed = new Set<string>();
+/** Records which of a unit's blocks have reported completion so far. */
+export interface CompletionRecorder {
+  /** Block IDs whose `publish_completion` call has been observed. */
+  readonly completed: ReadonlySet<string>;
+  /** Stops listening. */
+  stop(): void;
+}
 
-  // Several blocks are usually on screen at once, so one scroll can complete
-  // several — and their reports arrive while we are waiting on a different block.
-  // Recording every completion for the whole unit means those are not missed and
-  // each block is only waited for once.
+/**
+ * Starts listening for the unit's `publish_completion` calls.
+ *
+ * Several blocks are usually on screen at once, so one scroll can complete
+ * several — and their reports arrive while something else is being waited on. An
+ * HTML block that sat in view while a neighbouring problem was being answered has
+ * often completed **before** the viewing pass even starts. Recording every
+ * completion for the whole unit, from the moment it opens, means none of those
+ * are missed and no block is waited for twice.
+ */
+export function recordCompletions(page: Page, unit: CourseUnit): CompletionRecorder {
+  const completed = new Set<string>();
   const record = (response: { url: () => string }): void => {
     const url = response.url();
     if (!url.includes('publish_completion')) {
@@ -84,6 +81,31 @@ export async function viewAllBlocksInUnit(
     }
   };
   page.on('response', record);
+  return { completed, stop: () => page.off('response', record) };
+}
+
+/**
+ * Views every block in the open unit, waiting for each to register completion.
+ *
+ * This is what "completing a unit" actually costs: a vertical completes only when
+ * **all** of its children do, and an HTML block completes by being fully visible
+ * for the platform's dwell delay.
+ *
+ * Pass a {@link recordCompletions} recorder started when the unit was opened so
+ * completions that landed before this pass are credited; without one, listening
+ * starts here.
+ *
+ * Returns the blocks that could not be completed, so a spec can fail with
+ * something specific rather than on a bare timeout.
+ */
+export async function viewAllBlocksInUnit(
+  page: Page,
+  unitPage: UnitPage,
+  unit: CourseUnit,
+  recorder: CompletionRecorder = recordCompletions(page, unit),
+): Promise<readonly UnviewedBlock[]> {
+  const skipped: UnviewedBlock[] = [];
+  const { completed } = recorder;
 
   try {
     for (const [index, blockId] of unit.childIds.entries()) {
@@ -121,13 +143,27 @@ export async function viewAllBlocksInUnit(
       try {
         await completion;
       } catch {
-        if (!completed.has(blockId)) {
-          skipped.push({ blockId, blockType, reason: 'timed-out' });
+        if (completed.has(blockId)) {
+          continue;
+        }
+        // One more scroll before giving up. The platform starts its "viewed" timer
+        // from a scroll event with the block fully in view; if layout was still
+        // settling when the first scroll happened the block can have moved out of
+        // view and the timer never started. A second nudge, on a settled layout,
+        // is cheap; a block that still reports nothing is genuinely stuck.
+        const retry = unitPage.waitForBlockCompletion(blockId);
+        await unitPage.showBlock(blockId);
+        try {
+          await retry;
+        } catch {
+          if (!completed.has(blockId)) {
+            skipped.push({ blockId, blockType, reason: 'timed-out' });
+          }
         }
       }
     }
   } finally {
-    page.off('response', record);
+    recorder.stop();
   }
 
   return skipped;
@@ -135,8 +171,9 @@ export async function viewAllBlocksInUnit(
 
 /**
  * How many times an answer is entered before the problem is given up on as
- * unsupported. Two: the first attempt can land on an iframe document the MFE is
- * about to replace (see {@link fillInAnswer}), the second lands on the settled one.
+ * unsupported. Two is a guard against a control that renders late and is read as
+ * absent on the first pass; {@link ProblemBlock.waitForControls} makes that rare,
+ * but not impossible.
  */
 const ANSWER_ATTEMPTS = 2;
 
@@ -144,17 +181,19 @@ const ANSWER_ATTEMPTS = 2;
  * Enters an answer into one problem, choosing the strategy by the controls it
  * renders, and reports whether that unlocked its submit control.
  *
- * `false` means either the problem is a type the suite has no strategy for, or the
- * answer did not stick. The latter happens when the learning MFE re-renders the
- * unit iframe shortly after first paint (it re-issues the frame once sequence
- * metadata arrives): a choice made on the first document is wiped with it, and
- * the fresh document shows an unanswered problem with a disabled submit button.
- * `check()` verifies the click landed, so the loss is only visible afterwards —
- * which is why the caller retries rather than trusting the first pass.
+ * The strategy is chosen by counting controls, and `count()` does not retry, so
+ * the problem's markup is waited for first: read too early, an empty wrapper looks
+ * exactly like a problem with no drivable controls, and the problem is wrongly
+ * written off as unsupported.
  *
- * Returns `null` when the problem exposes no controls the suite can drive at all.
+ * Returns `null` when the problem exposes no controls the suite can drive at all,
+ * `false` when it does but the answer did not unlock its submit control.
  */
 async function fillInAnswer(problem: ProblemBlock): Promise<boolean | null> {
+  if (!(await problem.waitForControls(TIMEOUTS.expect))) {
+    return null;
+  }
+
   // Strategy by the controls the problem actually renders, rather than by a
   // hard-coded answer map: the demo course's problem set differs per
   // installation, and completion only needs a submission, not a right answer.
@@ -239,7 +278,10 @@ export async function completeUnit(
   unit: CourseUnit,
 ): Promise<readonly UnviewedBlock[]> {
   await unitPage.goto(courseKey, unit.sequentialId, unit.id);
+  // Listen from the start: HTML blocks in view while problems are answered
+  // complete during that phase, and the viewing pass must know.
+  const recorder = recordCompletions(page, unit);
   const unsupported = await answerProblemsInUnit(page, unitPage, unit);
-  const unviewed = await viewAllBlocksInUnit(page, unitPage, unit);
+  const unviewed = await viewAllBlocksInUnit(page, unitPage, unit, recorder);
   return [...unsupported, ...unviewed];
 }

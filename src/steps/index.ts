@@ -6,6 +6,8 @@ export {
   answerProblemsInUnit,
   canCompleteUnit,
   completeUnit,
+  recordCompletions,
   viewAllBlocksInUnit,
+  type CompletionRecorder,
   type UnviewedBlock,
 } from './completion';
