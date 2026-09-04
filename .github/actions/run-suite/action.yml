@@ -80,7 +80,7 @@ runs:
         fi
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version-file: .nvmrc
         cache: npm
@@ -99,7 +99,7 @@ runs:
 
     - name: Cache Playwright browser binaries
       id: playwright_cache
-      uses: actions/cache@v4
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
         key: playwright-browsers-${{ runner.os }}-${{ steps.playwright_version.outputs.version }}
@@ -183,7 +183,7 @@ runs:
 
     - name: Upload Playwright report
       if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: playwright-report-${{ inputs.artifact_suffix }}
         path: |
@@ -195,7 +195,7 @@ runs:
     # Upload BTR and A11y artifacts. Uploaded even when tests fail.
     - name: Upload suite reports (a11y backlog + BTR coverage)
       if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: suite-reports-${{ inputs.artifact_suffix }}
         path: |

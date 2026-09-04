@@ -286,7 +286,8 @@ Triggers:
   | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                           |
   | `capabilities`     | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.              |
 
-- **`schedule`** — automatically at **5am US Eastern, Mondays and Fridays**,
+- **`schedule`** — automatically at **09:00 UTC (5am US Eastern in daylight
+  time), Mondays and Fridays**,
   always against this repo's `main` branch with the `main` Open edX release
   (`domains`/`features`/`capabilities` are dispatch-only and don't apply to
   scheduled runs, so scheduled runs cover the full suite with `main`'s default
