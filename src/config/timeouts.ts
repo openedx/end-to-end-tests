@@ -42,5 +42,3 @@ export const TIMEOUTS = {
    */
   contentTest: 300_000,
 } as const;
-
-export type Timeouts = typeof TIMEOUTS;

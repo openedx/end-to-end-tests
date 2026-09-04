@@ -16,14 +16,7 @@ export class ProblemBlock {
   readonly checkboxOptions: Locator;
   readonly textInputs: Locator;
   readonly dropdowns: Locator;
-  readonly hintButton: Locator;
-  readonly hintPanels: Locator;
   readonly showAnswerButton: Locator;
-  readonly revealedAnswers: Locator;
-  readonly status: Locator;
-  readonly correctStatus: Locator;
-  readonly incorrectStatus: Locator;
-  readonly unansweredStatus: Locator;
 
   constructor(
     private readonly page: Page,
@@ -36,14 +29,7 @@ export class ProblemBlock {
     this.checkboxOptions = this.root.locator(CAPA_SELECTORS.checkboxOption);
     this.textInputs = this.root.locator(CAPA_SELECTORS.textInput);
     this.dropdowns = this.root.locator(CAPA_SELECTORS.dropdown);
-    this.hintButton = this.root.locator(CAPA_SELECTORS.hintButton);
-    this.hintPanels = this.root.locator(CAPA_SELECTORS.hintPanel);
     this.showAnswerButton = this.root.locator(CAPA_SELECTORS.showAnswerButton);
-    this.revealedAnswers = this.root.locator(CAPA_SELECTORS.revealedAnswer);
-    this.status = this.root.locator(CAPA_SELECTORS.status);
-    this.correctStatus = this.root.locator(CAPA_SELECTORS.statusCorrect);
-    this.incorrectStatus = this.root.locator(CAPA_SELECTORS.statusIncorrect);
-    this.unansweredStatus = this.root.locator(CAPA_SELECTORS.statusUnanswered);
   }
 
   /** Selects one multiple-choice option by index. */

@@ -34,13 +34,6 @@ export class UnitPage {
   readonly contentFrame: FrameLocator;
   readonly iframe: Locator;
   readonly sidebar: Locator;
-  readonly sidebarToggle: Locator;
-  /** Units the tray marks as not yet complete. */
-  readonly incompleteIcons: Locator;
-  /** Subsections the tray marks as partly complete. */
-  readonly partiallyCompleteIcons: Locator;
-  /** Subsections the tray marks as complete. */
-  readonly completedIcons: Locator;
 
   constructor(
     private readonly page: Page,
@@ -49,10 +42,6 @@ export class UnitPage {
     this.iframe = page.locator(COURSEWARE_SELECTORS.unitIframe);
     this.contentFrame = page.frameLocator(COURSEWARE_SELECTORS.unitIframe);
     this.sidebar = page.locator(COURSEWARE_SELECTORS.sidebar);
-    this.sidebarToggle = page.locator(COURSEWARE_SELECTORS.sidebarToggle);
-    this.incompleteIcons = page.locator(COURSEWARE_SELECTORS.incompleteIcon);
-    this.partiallyCompleteIcons = page.locator(COURSEWARE_SELECTORS.partiallyCompleteIcon);
-    this.completedIcons = page.locator(COURSEWARE_SELECTORS.completedIcon);
   }
 
   url(courseKey: string, sequentialId: string, unitId: string): string {
@@ -159,11 +148,6 @@ export class UnitPage {
     await block.scrollIntoViewIfNeeded();
     await this.page.mouse.wheel(0, 1);
     return fits;
-  }
-
-  /** Restores the viewport {@link showBlock} may have grown. */
-  async resetViewport(width: number, height: number): Promise<void> {
-    await this.page.setViewportSize({ width, height });
   }
 
   /**

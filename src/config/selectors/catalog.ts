@@ -21,9 +21,6 @@ export const CATALOG_SELECTORS = {
    */
   searchInput: 'input[name="searchfield-input"]',
 
-  /** The search landmark wrapping the input and its reset control. */
-  searchForm: 'form[role="search"]',
-
   /**
    * Clears the search. Stands in for the sheet's "clear the search icon"; its
    * `aria-label` ("clear search") is localized, `type="reset"` is not.
@@ -46,9 +43,6 @@ export const CATALOG_SELECTORS = {
    */
   resultsStatusBar: '[data-testid="table-control-bar"]',
 
-  /** The footer below the result grid, carrying the pagination control. */
-  resultsFooter: '[data-testid="table-footer"]',
-
   /**
    * Next / previous page — the sheet's ">" and "<" arrows.
    *
@@ -60,13 +54,12 @@ export const CATALOG_SELECTORS = {
    * `ul.pagination` matches both and the dropdown's toggle would be taken for
    * the next-page button.
    *
-   * Within that control the arrows are anchored by position, because nothing on
-   * the buttons themselves distinguishes them: the `aria-label`s ("Next",
+   * Within that control the next arrow is anchored by position, because nothing
+   * on the buttons themselves distinguishes them: the `aria-label`s ("Next",
    * "Previous") are localized, and Paragon gives *both* buttons the same
    * `previous` class. The list is always `[previous, next]`.
    */
   nextPageButton: PAGINATION_ARROWS + ' > li:last-child button',
-  previousPageButton: PAGINATION_ARROWS + ' > li:first-child button',
 } as const;
 
 /**

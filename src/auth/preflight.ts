@@ -3,19 +3,11 @@ import { AuthError } from './errors';
 import type { StorageState } from './types';
 
 /**
- * The Django session cookie. Present for **anonymous** visitors too (Django sets
- * it whenever the session is touched) and deliberately preserved across logout,
- * so its presence does **not** prove an authenticated session — use
- * {@link AUTH_JWT_COOKIE} for that.
- */
-export const ESSENTIAL_SESSION_COOKIE = 'sessionid';
-
-/**
  * The JS-readable header/payload half of the login JWT
  * (`edx-jwt-cookie-header-payload`). Open edX sets it via `set_logged_in_cookies`
  * only on a successful sign-in and deletes it on logout, so it is the reliable
- * signal that a session is authenticated (unlike {@link ESSENTIAL_SESSION_COOKIE},
- * which anonymous users also carry).
+ * signal that a session is authenticated. Django's `sessionid` cookie is **not**:
+ * anonymous visitors carry it too, and it is deliberately preserved across logout.
  */
 export const AUTH_JWT_COOKIE = 'edx-jwt-cookie-header-payload';
 

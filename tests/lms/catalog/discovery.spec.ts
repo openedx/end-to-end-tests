@@ -1,7 +1,7 @@
 import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { issue, testId } from '../../../src/reporting';
-import { catalogSearchTermFor, gotoDashboard, locateCourseInCatalog } from '../../../src/steps';
+import { catalogSearchTermFor, locateCourseInCatalog } from '../../../src/steps';
 
 /**
  * Course discovery in the catalog MFE: reaching the catalog signed out and signed
@@ -94,12 +94,12 @@ test.describe('Course catalog discovery', () => {
   test(
     'is reachable from the header for a signed-in learner',
     { tag: ['@regression', '@authenticated'], annotation: testId('TC-00015') },
-    async ({ page, config, catalogPage, courseDetail, courseLearner }) => {
+    async ({ page, config, catalogPage, dashboardPage, courseDetail, courseLearner }) => {
       const { courseKey } = courseLearner;
 
       // Start on the dashboard and use the header's catalog link — the journey the
       // test case describes, rather than a direct navigation.
-      await gotoDashboard(page, config.baseUrls.lms);
+      await dashboardPage.goto();
       await catalogPage.gotoViaNavLink();
 
       await expect(catalogPage.resultsStatusBar).toBeVisible();

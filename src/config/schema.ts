@@ -67,5 +67,3 @@ export const rawEnvSchema = z.preprocess(
     ALLOW_CROSS_SITE_ORIGINS: booleanFromEnv.optional(),
   }),
 );
-
-export type RawEnv = z.infer<typeof rawEnvSchema>;

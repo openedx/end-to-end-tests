@@ -11,7 +11,6 @@ export class CourseOutlinePage {
   readonly expandedSectionTriggers: Locator;
   readonly expandAllToggle: Locator;
   readonly startResumeCard: Locator;
-  readonly welcomeAlert: Locator;
   readonly tourDialog: Locator;
   readonly modalBackdrop: Locator;
 
@@ -23,7 +22,6 @@ export class CourseOutlinePage {
     this.expandedSectionTriggers = page.locator(COURSE_HOME_SELECTORS.expandedSectionTrigger);
     this.expandAllToggle = page.locator(COURSE_HOME_SELECTORS.expandAllToggle);
     this.startResumeCard = page.locator(COURSE_HOME_SELECTORS.startResumeCard);
-    this.welcomeAlert = page.locator(COURSE_HOME_SELECTORS.welcomeAlert);
     this.tourDialog = page.locator(COURSE_HOME_SELECTORS.tourDialog);
     this.modalBackdrop = page.locator(COURSE_HOME_SELECTORS.modalBackdrop);
   }

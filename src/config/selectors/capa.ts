@@ -12,9 +12,6 @@
  * oversight.
  */
 export const CAPA_SELECTORS = {
-  /** A CAPA problem block. */
-  problem: '.problem',
-
   /**
    * Submit control — the sheet's "Submit" button. Note this platform version
    * renders `button.submit`; the older `button.check` does not exist, so a
@@ -22,8 +19,7 @@ export const CAPA_SELECTORS = {
    */
   submitButton: 'button.submit',
 
-  /** Multiple-choice group and its options. */
-  choiceGroup: '.choicegroup',
+  /** Multiple-choice and multi-select options. */
   radioOption: 'input[type="radio"]',
   checkboxOption: 'input[type="checkbox"]',
 
@@ -34,27 +30,6 @@ export const CAPA_SELECTORS = {
   dropdown: 'select',
 
   /**
-   * Demand-hint controls. The button's label alternates between "Hint" and "Next
-   * Hint" as hints are consumed, which is exactly why it is anchored by class:
-   * one anchor covers both states in any language. The revealed hint lives in
-   * `.problem-hint`, whose `.notification-hint` panel carries `.is-hidden` until
-   * shown.
-   */
-  hintButton: 'button.hint-button',
-  hintContainer: '.problem-hint',
-  hintPanel: '.notification-hint',
-
-  /**
-   * Answer-status region. The **class** is the non-localized correctness signal:
-   * `.status.correct` / `.status.incorrect` / `.status.unanswered`. Its
-   * `data-tooltip` attribute and inner `.sr` text are both localized.
-   */
-  status: '.status',
-  statusCorrect: '.status.correct',
-  statusIncorrect: '.status.incorrect',
-  statusUnanswered: '.status.unanswered',
-
-  /**
    * Show-answer control, where the problem's `showanswer` setting offers one.
    *
    * The class is `show`, **not** `show-answer`: `button.show-answer` matches
@@ -62,10 +37,4 @@ export const CAPA_SELECTORS = {
    * plan). Its label lives in `.show-label`.
    */
   showAnswerButton: 'button.show',
-
-  /** Where a revealed answer is written, once Show Answer is used. */
-  revealedAnswer: 'p.answer',
-
-  /** Panel the platform shows alongside a revealed answer. */
-  showAnswerNotification: '.notification-show-answer',
 } as const;

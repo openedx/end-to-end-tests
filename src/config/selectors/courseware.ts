@@ -11,9 +11,6 @@ export const COURSEWARE_SELECTORS = {
   /** The course outline tray beside the unit. */
   sidebar: '.outline-sidebar',
 
-  /** Show/hide control for the outline tray. */
-  sidebarToggle: '.outline-sidebar-toggle-btn',
-
   /**
    * Subsection completion markers in the outline tray. The three states are
    * **different test IDs**, not one element with a changed class:

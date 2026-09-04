@@ -35,12 +35,4 @@ export class AccountMenu {
     await this.open();
     await this.signOutLink.click();
   }
-
-  /**
-   * Direct sign-out via the LMS logout URL — a resilient fallback for flows that
-   * only need the session cleared, not the menu exercised.
-   */
-  async signOutDirect(): Promise<void> {
-    await this.page.goto(`${this.config.baseUrls.lms}/logout`);
-  }
 }

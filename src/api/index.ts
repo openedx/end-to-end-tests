@@ -8,7 +8,6 @@ export { newLearnerIdentity, type LearnerIdentity } from './user-identity';
 export {
   COURSE_BLOCKS_PATH,
   buildOutline,
-  countBlocksOfType,
   fetchCourseOutline,
   unitsContaining,
   type CourseBlock,
