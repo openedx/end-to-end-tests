@@ -19,6 +19,20 @@ guiding development.
   ```
 - **npm 11+** (ships with Node 24).
 - A reachable Open edX installation to test against (see [Configuration](#configuration)).
+- **The Open edX Demo Course imported on the target** for the course-completion
+  specs.** Those specs need real content to work through, and importing content
+  differs per installation. So the course is a prerequisite of the environment
+  rather than something the suite creates. Import one with whatever mechanism
+  your installation uses — on Tutor:
+
+  ```sh
+  tutor local do importdemocourse
+  ```
+
+  then point [`COURSE_KEY`](#configuration) at the imported key (the demo course's
+  key differs between installs, e.g. `course-v1:OpenedX+DemoX+DemoCourse`). Leave
+  `COURSE_KEY` unset and the course-completion specs skip cleanly; set it to a
+  course that doesn't exist on the server and pre-test checks will fail at startup.
 
 ## Setup
 
@@ -43,17 +57,18 @@ instead of a confusing test failure. Every variable is documented in
 
 The essentials:
 
-| Variable                            | Required | Description                                          |
-| ----------------------------------- | -------- | ---------------------------------------------------- |
-| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`           |
-| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io` |
-| `CMS_BASE_URL`                      | —        | Studio origin (only needed for Studio specs)         |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither)            |
-| `ORG`                               | —        | Organization short code, e.g. `OpenedX`              |
-| `COURSE_KEY`                        | —        | Default course for course-completion specs           |
-| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install |
-| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments           |
-| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)  |
+| Variable                            | Required | Description                                                        |
+| ----------------------------------- | -------- | ------------------------------------------------------------------ |
+| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                         |
+| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`               |
+| `CMS_BASE_URL`                      | —        | Studio origin (only needed for Studio specs)                       |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither)                          |
+| `ORG`                               | —        | Organization short code, e.g. `OpenedX`                            |
+| `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip |
+| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install               |
+| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments                         |
+| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)                |
+| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                   |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take
@@ -77,10 +92,12 @@ same specs run against very different targets (see
 [issue #10](https://github.com/openedx/end-to-end-tests/issues/10) and
 [`src/accounts/README.md`](src/accounts/README.md)).
 
-| `ACCOUNT_BACKEND` | Use when…                                                  | Behaviour                                                                                                                               |
-| ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `automatic`       | "Automatic login on" — the default (incl. Tutor/sandbox)   | Generates a throwaway `@example.com` identity; no email needed. The reusable session is taken from the one registration itself creates. |
-| `manual`          | Target enforces email activation and can't be reconfigured | Interactive: prompts you for an email to register with, then for the activation link/token.                                             |
+| `ACCOUNT_BACKEND` | Use when…                                                  | Behaviour                                                                                                                                  |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `automatic`       | "Automatic login on" — the default (incl. Tutor/sandbox)   | Generates a throwaway `@example.com` identity; no email needed. The reusable session is taken from the one registration itself creates.    |
+| `manual`          | Target enforces email activation and can't be reconfigured | Interactive: prompts you for an email to register with, then for the activation link/token.                                                |
+| `openinbox`       | You want activation email automated, unattended            | Example plugin (`plugins/openinbox.plugin.ts`): registers with a disposable openinbox.io inbox and visits the activation link it receives. |
+| _plugin name_     | Your install has its own auth/mailbox flow                 | Loaded from `CUSTOM_ACCOUNT_BACKEND_PLUGINS`; see [`src/accounts/README.md`](src/accounts/README.md).                                      |
 
 The `automatic` backend works against the **default** without any email setup:
 registration auto-authenticates the account, so the captured (reusable) session and
@@ -90,8 +107,10 @@ need an install where the account can actually log in — i.e.
 `SKIP_EMAIL_VALIDATION = True`, or the `manual` backend to activate the account
 first.
 
-Planned (from the spike, not yet implemented): a 3rd-party mailbox API
-(Mailosaur/MailSlurp/MailHog) and a local-file mail reader.
+A 3rd-party mailbox API is covered by the `openinbox` example plugin rather than
+a built-in backend; a plugin for any other mailbox service follows the same
+contract. Plugins are currently local-only: the CI workflows expose no input for
+`CUSTOM_ACCOUNT_BACKEND_PLUGINS`.
 
 ### Registration rate limit
 
@@ -114,6 +133,46 @@ tutor local restart lms   # or: tutor dev restart lms
 
 If you have already tripped the default limit, either apply the override above and
 restart, or wait for the 7-day window to reset.
+
+### Password reset rate limit
+
+The password-reset request is throttled twice over, per IP **and** per email
+address:
+
+| Setting                     | Default | Scope                           |
+| --------------------------- | ------- | ------------------------------- |
+| `PASSWORD_RESET_IP_RATE`    | `1/m`   | one request per minute per IP   |
+| `PASSWORD_RESET_EMAIL_RATE` | `2/h`   | two requests per hour per email |
+
+The per-IP limit is the one that bites: **one request per minute** covers every
+worker on the machine, so a second reset request within the same minute — a
+re-run, a Playwright retry, or another spec — is rejected. `POST /account/password`
+then answers `HTTP 403` with:
+
+```json
+{
+  "success": false,
+  "value": "Your previous request is in progress, please try again in a few moments."
+}
+```
+
+Note that message is misleading: nothing is in progress, the request was
+throttled. The authn MFE renders it as a generic error alert, so the symptom is a
+password-reset spec that passes alone and fails when re-run within the minute.
+
+Only the reset-request test posts (an invalid address is rejected in the browser
+without a request), so a single run is fine; back-to-back runs and CI retries are
+not. Raise the limit on any target you run against repeatedly:
+
+```py
+# a Tutor plugin patch on "openedx-common-settings"
+PASSWORD_RESET_IP_RATE = "100/m"
+PASSWORD_RESET_EMAIL_RATE = "100/m"
+```
+
+```sh
+tutor local restart lms   # or: tutor dev restart lms
+```
 
 ### Running with the `manual` backend
 
@@ -166,8 +225,10 @@ Tests are organized into Playwright **projects**:
 - `unit` — pure logic tests (e.g. config validation); no browser or target needed.
 - `setup` — signs in once per role and writes reusable auth state to `.auth/`.
 - `smoke` / `regression` — anonymous browser tests tagged `@smoke` / `@regression`.
-- `lms-learner` — authenticated tests (`@authenticated`) that reuse the captured
-  learner session; depends on `setup`.
+- `lms-learner` — authenticated tests (`@authenticated`); depends on `setup`. The
+  project loads the captured learner session; specs that change course state use
+  the `courseLearner` fixture instead, which provisions a fresh learner per test
+  (one registration each — see the rate limit below).
 
 Run a single project or filter by tag:
 
@@ -204,16 +265,10 @@ static checks and the browser-free `unit` project as required, blocking checks).
 Both workflows share the same [`run-suite`](.github/actions/run-suite/action.yml)
 composite action. They differ only in how the target installation is provisioned.
 
-`ci.yml` additionally runs `run_tests_tutor.yml` twice as **non-blocking**
-jobs on every PR and push to `main`: once against an ephemeral **`main`**
-Open edX environment, and once against the **last released** environment
-(currently `verawood`), both with `--grep-invert @unit` so they cover
-everything except the unit project. Jobs that call a reusable workflow don't
-support `continue-on-error`, so "non-blocking" here is a branch-protection
-choice: these two jobs are intentionally left out of the required status
-checks list, so they surface real product/Tutor regressions to reviewers
-without their failure (including spurious environment-provisioning flakiness)
-blocking a merge.
+`ci.yml` additionally runs `run_tests_tutor.yml` twice every PR and push to
+`main`: once against an ephemeral **`Tutor main`**, and once against the **last
+named release** environment (currently `verawood`). Both PR runs are filtered to
+`@smoke`; the full suite runs on the schedule below and on manual dispatch.
 
 ### `run_tests_tutor.yml` — ephemeral Tutor installation
 
@@ -236,7 +291,8 @@ Triggers:
   | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                           |
   | `capabilities`     | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.              |
 
-- **`schedule`** — automatically at **5am US Eastern, Mondays and Fridays**,
+- **`schedule`** — automatically at **09:00 UTC (5am US Eastern in daylight
+  time), Mondays and Fridays**,
   always against this repo's `main` branch with the `main` Open edX release
   (`domains`/`features`/`capabilities` are dispatch-only and don't apply to
   scheduled runs, so scheduled runs cover the full suite with `main`'s default
@@ -270,20 +326,20 @@ Credentials are sourced from a **GitHub Environment** (Settings → Environments
 rather than hard-coded, so different targets (and their approval/protection
 rules) stay isolated from each other:
 
-| Input                      | Description                                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                            |
-| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                        |
-| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                                     |
-| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                                   |
-| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                                    |
-| `org`                      | Organization short code.                                                                                            |
-| `course_key`               | Default course for course-completion specs.                                                                         |
-| `capabilities`             | Comma-separated capabilities enabled on the target.                                                                 |
-| `account_backend`          | `automatic` (default; requires `SKIP_EMAIL_VALIDATION` on the target) or `manual` (interactive — not usable in CI). |
-| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                  |
-| `domains` / `features`     | Same filters as above.                                                                                              |
-| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                 |
+| Input                      | Description                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                     |
+| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                 |
+| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                              |
+| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                            |
+| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                             |
+| `org`                      | Organization short code.                                                                                     |
+| `course_key`               | Default course for course-completion specs.                                                                  |
+| `capabilities`             | Comma-separated capabilities enabled on the target.                                                          |
+| `account_backend`          | `automatic` (default; works on the default install, see above) or `manual` (interactive — not usable in CI). |
+| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                           |
+| `domains` / `features`     | Same filters as above.                                                                                       |
+| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.          |
 
 To run it against your own installation: create a GitHub Environment (e.g.
 `staging`) with `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets (and any required
@@ -294,26 +350,37 @@ target's base URLs.
 
 ```
 tests/                 # specs, grouped by platform domain (lms/, studio/)
-  config/              # config-layer unit tests
-  api/ a11y/ reporting/ # unit tests for the pure logic in those modules
-  lms/auth/            # authn MFE specs: registration, login, logout, session
+  lms/auth/            # authn + account MFEs: registration, login, logout, session,
+                       #   password reset, profile
+  lms/catalog/         # catalog MFE: discovery, enrollment
+  lms/course-home/     # learning MFE: outline, progress, unit/course completion
+  lms/courseware/      # learning MFE: outline sidebar
+  lms/dashboard/       # learner dashboard
+  lms/landing.spec.ts  # proof-of-life smoke test
+  conventions/         # suite-wide rules enforced as tests (no displayed text)
+  config/ api/ auth/ accounts/ a11y/ reporting/   # unit tests (@unit) per module
   auth.setup.ts        # auth setup project
+  global-setup.ts      # clears .auth/, preloads account backends
 src/
   config/              # typed, validated environment configuration
+    selectors/         # structural anchors per surface, one module each
+  api/                 # typed API clients + data factories
+  accounts/            # user-choosable account backends (+ plugin loader)
   auth/                # provider-swappable authentication contract
-  api/                 # typed API client + data factories
-  pages/{lms,studio}/  # page objects (mirror the tests/ tree)
+  pages/{lms,studio}/  # page objects, one per surface, in the spec's domain folder
   steps/               # reusable multi-page business flows
-  fixtures/            # composition root (config + pages + api + auth)
-  reporting/           # BTR test_id annotations + coverage reporter
+  fixtures/            # composition root (config + pages + api + auth + skips)
+  reporting/           # BTR test_id annotations, coverage + a11y reporters
   a11y/                # @axe-core/playwright WCAG 2.2 AA gate
+plugins/               # example account-backend plugin (openinbox)
+.ci/                   # per-release CI configuration (openedx-releases.json)
 docs/
   decisions/           # ADRs
 ```
 
 The layers have a strict dependency direction —
-`config → api → pages → steps → fixtures → tests` — with each layer's
-responsibility described in its own `README.md` under `src/`. See
+`config → api → pages → accounts → {auth, steps} → fixtures → tests` — with each
+layer's responsibility described in its own `README.md` under `src/`. See
 [`ARCHITECTURE.md`](ARCHITECTURE.md) (layer diagram and responsibilities) and
 [`CONVENTIONS.md`](CONVENTIONS.md) (locator priority, tagging, test-data rules)
 for the full mechanics.

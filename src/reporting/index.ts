@@ -5,11 +5,16 @@ export {
   type TestIdAnnotation,
 } from './test-id';
 export {
+  finalAttempts,
   summarizeCoverage,
+  verdictFor,
   type CoverageSummary,
+  type CoverageVerdict,
+  type TestAttempt,
   type TestOutcome,
   type TestIdOutcome,
   type TestStatus,
+  type VerdictTotals,
 } from './coverage';
 export { default as CoverageReporter, type CoverageReporterOptions } from './coverage-reporter';
 export {
@@ -20,3 +25,4 @@ export {
   type A11yStatus,
 } from './a11y';
 export { default as A11yReporter, type A11yReporterOptions } from './a11y-reporter';
+export { ISSUE_ANNOTATION_TYPE, issue, type IssueAnnotation } from './issue';

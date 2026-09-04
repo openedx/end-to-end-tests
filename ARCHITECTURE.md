@@ -18,6 +18,7 @@ graph TD
     steps[steps: reusable multi-page flows]
     fixtures[fixtures: composition root]
     tests[tests: specs own the assertions]
+    accounts[accounts: user-choosable account backends]
     auth[auth: provider-swappable contract]
 
     config --> api
@@ -25,33 +26,44 @@ graph TD
     pages --> steps
     steps --> fixtures
     fixtures --> tests
-    config --> auth
+    api --> accounts
+    pages --> accounts
+    accounts --> auth
+    accounts --> steps
     auth --> fixtures
 ```
 
 A layer may depend only on the layers above it in the list below — never sideways
 into a sibling or downward into a consumer.
 
-| Layer             | Directory       | Responsibility                                                                               | May depend on               |
-| ----------------- | --------------- | -------------------------------------------------------------------------------------------- | --------------------------- |
-| Configuration     | `src/config/`   | Turn env vars into a validated, typed, immutable config; fail fast on bad input.             | —                           |
-| Auth contract     | `src/auth/`     | Provider-swappable sign-in → one multi-origin storage state per role.                        | `config`, `api`, `accounts` |
-| Account backends  | `src/accounts/` | User-choosable account creation/activation (email-validation handling) per target.           | `config`, `api`             |
-| API client / data | `src/api/`      | Typed HTTP clients and deterministic, unique-per-run data factories.                         | `config`                    |
-| Page objects      | `src/pages/`    | Locators and single-surface actions for one screen. Mirrors the `tests/` tree.               | `config`, `api`             |
-| Steps             | `src/steps/`    | Compose page objects into reusable business flows (actions/navigation, not assertions).      | `pages`, `api`, `config`    |
-| Fixtures          | `src/fixtures/` | Composition root: hand specs fully-composed, typed objects (config, pages, api, data, auth). | all of the above            |
-| Tests             | `tests/`        | Specs that own the assertions deciding pass/fail. Grouped by platform domain.                | `fixtures`                  |
+| Layer             | Directory       | Responsibility                                                                               | May depend on                        |
+| ----------------- | --------------- | -------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Configuration     | `src/config/`   | Turn env vars into a validated, typed, immutable config; fail fast on bad input.             | —                                    |
+| Auth contract     | `src/auth/`     | Provider-swappable sign-in → one multi-origin storage state per role.                        | `config`, `accounts`                 |
+| Account backends  | `src/accounts/` | User-choosable account creation/activation and the default sign-in/sign-out flows.           | `config`, `api`, `pages`             |
+| API client / data | `src/api/`      | Typed HTTP clients and deterministic, unique-per-run data factories.                         | `config`                             |
+| Page objects      | `src/pages/`    | Locators and single-surface actions for one screen. One per surface, in its domain folder.   | `config`, `api`                      |
+| Steps             | `src/steps/`    | Compose page objects into reusable business flows (actions/navigation, not assertions).      | `pages`, `api`, `accounts`, `config` |
+| Fixtures          | `src/fixtures/` | Composition root: hand specs fully-composed, typed objects (config, pages, api, data, auth). | all of the above                     |
+| Tests             | `tests/`        | Specs that own the assertions deciding pass/fail. Grouped by platform domain.                | `fixtures`                           |
 
 ## Domain-oriented organization
 
 Tests are organized **primarily by platform domain** (`lms/`, `studio/`, and
-sub-areas like `lms/auth`, `lms/course-home`), and page objects mirror that tree:
+sub-areas like `lms/auth`, `lms/course-home`), and page objects live in the same
+domain folder. Specs are one per **Feature**; page objects are one per
+**surface** the platform renders, so the two trees share folders but not file
+names — several specs compose one page object, and a spec that spans surfaces
+uses several:
 
 ```
-tests/lms/course-home/badges.spec.ts
-  -> src/pages/lms/course-home/badges.page.ts
+tests/lms/catalog/discovery.spec.ts     ┐   src/pages/lms/catalog/catalog.page.ts
+tests/lms/catalog/enrollment.spec.ts    ┘   src/pages/lms/catalog/course-about.page.ts
+tests/lms/course-home/outline.spec.ts   →   src/pages/lms/course-home/course-outline.page.ts
 ```
+
+A component that lives _inside_ a surface — an XBlock rendered in a unit — gets a
+`*.block.ts` object beside the page it belongs to (`courseware/problem.block.ts`).
 
 Everything else about a test — stability tier, capability, MFE — is expressed with
 **tags**, not more folders. See [CONVENTIONS.md](CONVENTIONS.md).
@@ -79,6 +91,12 @@ depending on strings the target renders: `getByText`, `getByLabel`,
 This rule is enforced by `tests/conventions/no-displayed-text.spec.ts`, which
 fails if any page object, step, or spec matches a literal UI string.
 
+One deliberate use of the last tier: legacy CAPA problems expose no test IDs and
+no useful roles, only server-rendered structural classes (`.problem`,
+`button.submit`, `.status.correct`) that the platform's own scripts key off. Those
+are the anchors in `src/config/selectors/capa.ts`, and ADR-0002 already exempts
+course content from the text rule because problem copy does not localize.
+
 ## Authentication and multi-origin sessions
 
 A single Open edX sign-in sets cookies scoped to the shared registrable parent
@@ -89,13 +107,24 @@ via the configured **account backend** (`src/accounts/`, selected by
 `ACCOUNT_BACKEND`) and captures the session that registration itself creates
 ("Automatic login on"), so no separate sign-in is needed — which is what lets it
 work against the default even when an install leaves accounts inactive until
-activation. The `staff` role signs in through the login-session API
-(`GET /csrf/api/v1/token` → `POST .../login_session/`) with the configured admin
-account. The auth contract captures that state once
-per role (a Playwright `setup` project → `.auth/<role>.json`); authenticated
-projects consume it via `use: { storageState }`. We never disable browser
-security to paper over cross-origin auth. Full rationale:
-[docs/planning/auth-storage-state-deep-dive.md](docs/planning/auth-storage-state-deep-dive.md).
+activation. The `staff` role signs in with the configured admin account through
+the backend's `signIn` hook, which by default is the login-session API
+(`GET /csrf/api/v1/token` → `POST .../login_session/`).
+
+The account backend is therefore the seam for an install with custom auth: it
+supplies `createIdentity` and `activate`, and may override `signIn` (headless,
+used by `setup`), `signInThroughUi` and `signOutThroughUi` (what the login and
+logout specs drive). A backend ships as a plugin module listed in
+`CUSTOM_ACCOUNT_BACKEND_PLUGINS`; see [`src/accounts/README.md`](src/accounts/README.md).
+
+`tests/global-setup.ts` runs once before any project: it clears `.auth/` so a
+stale session never carries over, and loads the account backends so a bad plugin
+path fails the run up front. The `setup` project then captures state once per
+role (`.auth/<role>.json`); authenticated projects consume it via
+`use: { storageState }`. Course-state specs additionally use the `courseLearner`
+fixture, which provisions a fresh learner per test and installs that session in
+place of the shared one, so tests that mutate enrollment or completion never
+collide. We never disable browser security to paper over cross-origin auth.
 
 ## Playwright projects
 

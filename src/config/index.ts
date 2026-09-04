@@ -15,10 +15,26 @@ export {
   ACCOUNT_BACKENDS,
   DEFAULT_ACCOUNT_BACKEND,
   isAccountBackendName,
-  type AccountBackendName,
 } from './account-backends';
 export { registrableDomain } from './domain';
-export { TIMEOUTS, type Timeouts } from './timeouts';
+export { TIMEOUTS } from './timeouts';
+export {
+  ACCOUNT_MENU_SELECTORS,
+  CATALOG_SEARCH_PATH,
+  CATALOG_SELECTORS,
+  COURSE_ABOUT_SELECTORS,
+  catalogCourseCard,
+  courseAboutCoursewareLink,
+  CAPA_SELECTORS,
+  COURSEWARE_SELECTORS,
+  coursewareBlock,
+  sidebarSubsectionRowFor,
+  sidebarUnitLink,
+  PROGRESS_SELECTORS,
+  progressTabLink,
+  DASHBOARD_SELECTORS,
+  COURSE_HOME_SELECTORS,
+} from './selectors';
 
 let cached: AppConfig | undefined;
 let dotenvLoaded = false;
@@ -68,14 +84,4 @@ export function getConfig(): AppConfig {
     printRuntimeWarningsOnce(cached);
   }
   return cached;
-}
-
-/**
- * Clears the memoized configuration. Intended for tests that manipulate the
- * environment, not used by the suite at runtime.
- */
-export function resetConfigCache(): void {
-  cached = undefined;
-  dotenvLoaded = false;
-  delete process.env[WARNINGS_SHOWN_ENV];
 }

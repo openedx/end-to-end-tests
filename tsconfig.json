@@ -19,16 +19,14 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
 
-    "noEmit": true,
-    "paths": {
-      "@config/*": ["./src/config/*"],
-      "@auth/*": ["./src/auth/*"],
-      "@pages/*": ["./src/pages/*"],
-      "@steps/*": ["./src/steps/*"],
-      "@fixtures/*": ["./src/fixtures/*"],
-      "@api/*": ["./src/api/*"]
-    }
+    "noEmit": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "playwright.config.ts", "eslint.config.mjs"],
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "plugins/**/*.ts",
+    "playwright.config.ts",
+    "eslint.config.mjs"
+  ],
   "exclude": ["node_modules", "dist", "test-results", "playwright-report"]
 }

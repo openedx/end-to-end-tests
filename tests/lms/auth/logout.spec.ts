@@ -14,14 +14,14 @@ test.describe('Logout (authn MFE)', () => {
   test(
     'signing out clears the session across declared origins',
     { tag: ['@regression', '@mfe-authn'], annotation: testId('TC-00003') },
-    async ({ page, request, config, loginPage, accountMenu }) => {
+    async ({ page, request, config }) => {
       const identity = await provisionLearnerAccount(request, config);
-      await signIn(page, loginPage, {
+      await signIn(page, config, {
         emailOrUsername: identity.email,
         password: identity.password,
       });
 
-      await signOut(page, accountMenu, identity.username);
+      await signOut(page, config, identity.username);
 
       // The login JWT cookie is cleared across the shared parent domain...
       const cookies = await page.context().cookies();

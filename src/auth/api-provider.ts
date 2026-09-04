@@ -1,5 +1,4 @@
-import { provisionLearnerAccount } from '../accounts';
-import { loginSession } from '../api';
+import { accountSignIn, provisionLearnerSession } from '../accounts';
 import type { AppConfig } from '../config';
 import { AuthNotConfiguredError } from './errors';
 import type { Role } from './roles';
@@ -17,8 +16,10 @@ import type { AuthContext, AuthProvider, StorageState } from './types';
  *   creates. Registration auto-authenticates the request context ("Automatic
  *   login on"), so we do not perform a separate sign-in — which some installs
  *   block until the account's email is activated. Needs no configured credentials.
- * - `staff` — signs in with the configured `ADMIN_*` account via the login-session
- *   API (`GET /csrf/api/v1/token` → `POST .../login_session/`).
+ * - `staff` — signs in with the pre-existing, configured `ADMIN_*` account through
+ *   the account backend's sign-in flow (the LMS login-session API by default).
+ *   Admin accounts are never provisioned: they exist on the target already, and
+ *   an install with custom auth overrides `signIn` to reach them its own way.
  * - `instructor` — no default account exists; an installation supplies one by
  *   subclassing or swapping this provider. Reported as not-configured so the
  *   setup project skips it instead of failing the run.
@@ -45,7 +46,8 @@ export class ApiAuthProvider implements AuthProvider {
       case 'learner': {
         // Registration leaves the request context authenticated, so capturing its
         // storage state below is all that's needed — no separate login_session.
-        await provisionLearnerAccount(request, config);
+        // Shared with the `courseLearner` fixture so the two cannot drift.
+        await provisionLearnerSession(request, config);
         break;
       }
 
@@ -57,9 +59,10 @@ export class ApiAuthProvider implements AuthProvider {
               'ADMIN_PASSWORD to enable staff-role coverage.',
           );
         }
-        await loginSession(request, config, {
-          emailOrUsername: admin.username,
-          password: admin.password,
+        await accountSignIn({
+          config,
+          request,
+          credentials: { emailOrUsername: admin.username, password: admin.password },
         });
         break;
       }

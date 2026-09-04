@@ -4,7 +4,7 @@ name: Tutor E2E Test
 # suite against it. Everything is provisioned from scratch on the runner, so this
 # is a heavier, on-demand job (not part of the fast PR gate in ci.yml).
 #
-# Also runs on a schedule (5am US Eastern, Mondays and Fridays) against this
+# Also runs on a schedule (09:00 UTC, Mondays and Fridays) against this
 # repo's main branch with the "main" Open edX release, to catch regressions
 # between manual runs. Scheduled runs always use those two defaults; the
 # domains/features inputs only apply to manual `workflow_dispatch` runs.
@@ -15,8 +15,9 @@ name: Tutor E2E Test
 
 on:
   schedule:
-    - cron: '0 5 * * 1,5'
-      timezone: America/New_York
+    # GitHub Actions schedules run in UTC only (there is no timezone option):
+    # 09:00 UTC is 5am US Eastern during daylight time, 4am in winter.
+    - cron: '0 9 * * 1,5'
   workflow_dispatch:
     inputs:
       openedx_release:
@@ -177,14 +178,52 @@ jobs:
       # a stale cache is causing problems
       - name: Restore MySQL migration cache
         id: mysql_cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ci/mysql-dump/
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
 
+      ##################
+      # The Free Disk Space, BuildX, and image build steps are only necessary
+      # if we're not getting consistent main images built by Tutor for all
+      # plugins we're installing. We can comment them during periods when we
+      # don't need them, but should keep them in case of future issues since
+      # it took quite a bit of work to get right.
+
+      # We'll run out of disk building images if we don't clear up some space
+      - name: Free Disk Space (main only)
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        if: env.OPENEDX_RELEASE == 'main'
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: false
+
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: true
+
+      # Necessary to keep github from killing our build process
+      - name: Setup Docker Buildx (main only)
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        if: env.OPENEDX_RELEASE == 'main'
+        with:
+          buildkitd-config-inline: |
+            # Keeps Github from killing MFE builds for CPU usage
+            [worker.oci]
+              max-parallelism = 2
+
+      - name: Build all images (main only)
+        if: env.OPENEDX_RELEASE == 'main'
+        run: tutor images build all
+
       - name: Tutor launch (cache miss — runs migrations)
         if: steps.mysql_cache.outputs.cache-hit != 'true'
-        run: tutor local launch --non-interactive
+        run: tutor local launch --non-interactive --skip-build
 
       - name: Tutor start + restore database (cache hit — skip migrations)
         if: steps.mysql_cache.outputs.cache-hit == 'true'
@@ -193,7 +232,8 @@ jobs:
           tutor config save
           MYSQL_ROOT_PASSWORD=$(tutor config printvalue MYSQL_ROOT_PASSWORD)
           tutor local start permissions mysql -d
-          MYSQL_CONTAINER=$(docker ps -qf "name=tutor_local.*mysql")
+          docker ps
+          MYSQL_CONTAINER=$(docker ps -qf "name=tutor*.*mysql*")
           # Wait for MySQL to accept connections
           for i in $(seq 1 30); do
             if docker exec "$MYSQL_CONTAINER" mysql -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" &>/dev/null 2>&1; then
@@ -209,6 +249,7 @@ jobs:
           # Init is now fast: Django sees all migrations as already applied
           # ~20 minute savings
           tutor local do init
+          tutor local stop
           tutor local start -d
 
       - name: Dump MySQL and save migration cache (cache miss only)
@@ -219,7 +260,8 @@ jobs:
           MYSQL_ROOT_PASSWORD=$(tutor config printvalue MYSQL_ROOT_PASSWORD)
           # Use docker exec directly — tutor local exec prints the docker compose
           # invocation to stdout, which would corrupt the dump file
-          MYSQL_CONTAINER=$(docker ps -qf "name=tutor_local.*mysql")
+          docker ps
+          MYSQL_CONTAINER=$(docker ps -qf "name=tutor*.*mysql*")
           # Dump only application databases -- excluding mysql/sys avoids ALTER USER
           # errors on restore caused by MySQL 8 serialising password changes for
           # users that do not exist yet in the target instance.
@@ -238,7 +280,7 @@ jobs:
 
       - name: Save MySQL migration cache
         if: steps.mysql_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ci/mysql-dump/
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
@@ -265,7 +307,8 @@ jobs:
           EOF
           tutor plugins enable e2e_test
           tutor config save
-          tutor local restart
+          tutor local stop
+          tutor local start -d
 
       - name: Provision demo course and admin user
         run: |
@@ -275,6 +318,7 @@ jobs:
             --staff --superuser \
             --password "$ADMIN_PASSWORD" \
             "$ADMIN_USERNAME" "$ADMIN_EMAIL"
+          tutor local exec cms ./manage.py cms reindex_course --all --setup
 
       - name: Wait for the LMS to be healthy
         run: |
@@ -305,3 +349,28 @@ jobs:
           features: ${{ inputs.features }}
           exclude_features: ${{ inputs.exclude_features }}
           artifact_suffix: ${{ env.OPENEDX_RELEASE }}
+
+      # Collect the LMS/Studio logs whatever the outcome (`always()`, so they
+      # survive a failed or cancelled run). `docker ps -a` catches the case
+      # where a service died and therefore logged nothing.
+      - name: Collect Tutor container logs
+        if: always()
+        run: |
+          set -uo pipefail
+          mkdir -p tutor-logs
+          docker ps -a > tutor-logs/docker-ps.txt 2>&1 || true
+          for service in lms cms lms-worker cms-worker mfe caddy; do
+            echo "Collecting logs for '${service}'..."
+            tutor local logs "$service" > "tutor-logs/${service}.log" 2>&1 || \
+              echo "::warning::Could not collect logs for '${service}'."
+          done
+          ls -la tutor-logs/
+
+      - name: Upload Tutor container logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tutor-logs-${{ env.OPENEDX_RELEASE }}
+          path: tutor-logs/
+          retention-days: 14
+          if-no-files-found: warn
