@@ -8,6 +8,7 @@ import {
   enrollInCourseViaApi,
   fetchCourseDetail,
   fetchCourseOutline,
+  primeCoursewareForLearner,
   fetchCourseProgress,
   newLearnerIdentity,
   type CourseDetail,
@@ -250,14 +251,20 @@ export const test = base.extend<TestFixtures>({
   },
 
   courseOutline: async ({ request, config, enrolledCourse }, use) => {
-    await use(
-      await fetchCourseOutline(
-        request,
-        config,
-        enrolledCourse.courseKey,
-        enrolledCourse.identity.username,
-      ),
+    const outline = await fetchCourseOutline(
+      request,
+      config,
+      enrolledCourse.courseKey,
+      enrolledCourse.identity.username,
     );
+    // Every courseware spec passes through here with a fresh learner, so this is
+    // where the learner's first block render is serialized ahead of the browser
+    // (see `primeCoursewareForLearner` for the platform race it sidesteps).
+    const firstSequential = outline.units[0]?.sequentialId;
+    if (firstSequential !== undefined) {
+      await primeCoursewareForLearner(request, config, firstSequential);
+    }
+    await use(outline);
   },
 
   refreshCourseOutline: async ({ request, config, enrolledCourse }, use) => {

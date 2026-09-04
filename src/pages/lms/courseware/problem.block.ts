@@ -32,6 +32,22 @@ export class ProblemBlock {
     this.showAnswerButton = this.root.locator(CAPA_SELECTORS.showAnswerButton);
   }
 
+  /**
+   * Waits for the problem's markup to be present, so the control `count()`s a
+   * caller branches on are taken against a rendered problem rather than an empty
+   * wrapper. Every CAPA problem renders a submit control, whatever its input
+   * type, so that is the marker; a problem that never shows one within the budget
+   * has nothing the suite can drive, and the caller is told so.
+   */
+  async waitForControls(timeout: number): Promise<boolean> {
+    try {
+      await this.submitButton.waitFor({ state: 'attached', timeout });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Selects one multiple-choice option by index. */
   async selectChoice(index: number): Promise<void> {
     await this.radioOptions.nth(index).check();

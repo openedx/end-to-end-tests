@@ -6,6 +6,9 @@ import { ApiError } from './errors';
 /** Public Blocks API — the portable way to enumerate course structure. */
 export const COURSE_BLOCKS_PATH = '/api/courses/v1/blocks/';
 
+/** Sequence metadata the learning MFE loads for every subsection it opens. */
+export const COURSEWARE_SEQUENCE_PATH = '/api/courseware/sequence/';
+
 /**
  * Fields we ask the Blocks API for. `completion` is the numeric per-block
  * completion signal (0..1); it is the non-localized counterpart to the course
@@ -62,6 +65,32 @@ export interface CourseOutline {
 /** Units containing at least one block of the given type. */
 export function unitsContaining(outline: CourseOutline, blockType: string): readonly CourseUnit[] {
   return outline.units.filter((unit) => unit.childTypes.includes(blockType));
+}
+
+/**
+ * Renders one subsection for the learner through the API before the browser does.
+ *
+ * Workaround for an upstream race. The first time a block is rendered for a
+ * (user, course) pair the LMS inserts the learner's `AnonymousUserId` row with a
+ * plain `create()` inside an atomic request; when the learning MFE opens a unit
+ * it fires several block-rendering requests at once for a brand-new learner, two
+ * of them race the insert, and the loser turns its `IntegrityError` into a 500
+ * (`TransactionManagementError`, since the atomic block is already broken). The
+ * MFE then shows "There was an error loading this course" and every unit
+ * navigation in the test fails. One serialized render here creates the row, so
+ * the browser's parallel requests only ever read it.
+ *
+ * The response is not inspected: any answer means the render ran. A failure here
+ * would surface again, with a better message, on the outline fetch that follows.
+ */
+export async function primeCoursewareForLearner(
+  request: APIRequestContext,
+  config: AppConfig,
+  sequentialId: string,
+): Promise<void> {
+  await request.get(
+    `${config.baseUrls.lms}${COURSEWARE_SEQUENCE_PATH}${encodeURIComponent(sequentialId)}`,
+  );
 }
 
 /**

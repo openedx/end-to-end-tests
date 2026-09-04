@@ -48,10 +48,27 @@ export class UnitPage {
     return `${this.config.baseUrls.apps}/learning/course/${courseKey}/${sequentialId}/${unitId}`;
   }
 
-  /** Opens a unit by ID and waits for its content iframe to attach. */
+  /** Opens a unit by ID and waits for its content to finish loading. */
   async goto(courseKey: string, sequentialId: string, unitId: string): Promise<void> {
     await this.page.goto(this.url(courseKey, sequentialId, unitId));
+    await this.waitForContent();
+  }
+
+  /**
+   * Waits until the unit iframe's **document** has loaded, not merely attached.
+   *
+   * The iframe element attaches long before the LMS has finished serving the
+   * vertical into it. That gap can make the completion steps flaky under load.
+   * The frame's `load` event is the pre-condition we need to reliably test. It
+   * fires once the document and its subresources are in, which is when block
+   * geometry is stable.
+   */
+  async waitForContent(): Promise<void> {
     await this.iframe.waitFor();
+    const handle = await this.iframe.elementHandle();
+    const frame = await handle?.contentFrame();
+    await handle?.dispose();
+    await frame?.waitForLoadState('load', { timeout: TIMEOUTS.navigation });
   }
 
   /** One block inside the unit, anchored by its usage ID from the Blocks API. */
@@ -104,7 +121,7 @@ export class UnitPage {
   async openUnitFromSidebar(unitId: string): Promise<void> {
     await this.sidebarUnitLink(unitId).click();
     await this.page.waitForURL((url) => url.pathname.includes(unitId));
-    await this.iframe.waitFor();
+    await this.waitForContent();
   }
 
   /**

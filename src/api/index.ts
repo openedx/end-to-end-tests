@@ -8,7 +8,9 @@ export { newLearnerIdentity, type LearnerIdentity } from './user-identity';
 export {
   COURSE_BLOCKS_PATH,
   buildOutline,
+  COURSEWARE_SEQUENCE_PATH,
   fetchCourseOutline,
+  primeCoursewareForLearner,
   unitsContaining,
   type CourseBlock,
   type CourseOutline,
