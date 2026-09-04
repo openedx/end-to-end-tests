@@ -3,7 +3,7 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 
 import type { FullConfig, Reporter, Suite, TestCase, TestResult } from '@playwright/test/reporter';
 
-import { summarizeCoverage, type TestOutcome } from './coverage';
+import { finalAttempts, summarizeCoverage, type TestAttempt } from './coverage';
 import { testIdsFromAnnotations } from './test-id';
 
 export interface CoverageReporterOptions {
@@ -44,7 +44,7 @@ function projectNameOf(test: TestCase): string {
 export default class CoverageReporter implements Reporter {
   private readonly outputFile: string;
   private readonly excluded: ReadonlySet<string>;
-  private readonly outcomes: TestOutcome[] = [];
+  private readonly attempts: TestAttempt[] = [];
   private configDir = process.cwd();
 
   constructor(options: CoverageReporterOptions = {}) {
@@ -56,11 +56,16 @@ export default class CoverageReporter implements Reporter {
     this.configDir = dirname(config.configFile ?? process.cwd());
   }
 
+  /**
+   * Fires once per **attempt**, so a retried test arrives here several times.
+   * Attempts are keyed by `test.id` and collapsed to the final one in `onEnd`.
+   */
   onTestEnd(test: TestCase, result: TestResult): void {
     if (this.excluded.has(projectNameOf(test))) {
       return;
     }
-    this.outcomes.push({
+    this.attempts.push({
+      testKey: test.id,
       title: test.titlePath().slice(1).join(' › '),
       status: result.status,
       testIds: testIdsFromAnnotations(test.annotations),
@@ -68,7 +73,7 @@ export default class CoverageReporter implements Reporter {
   }
 
   async onEnd(): Promise<void> {
-    const summary = summarizeCoverage(this.outcomes);
+    const summary = summarizeCoverage(finalAttempts(this.attempts));
 
     const path = isAbsolute(this.outputFile)
       ? this.outputFile
