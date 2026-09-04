@@ -134,6 +134,55 @@ export async function viewAllBlocksInUnit(
 }
 
 /**
+ * How many times an answer is entered before the problem is given up on as
+ * unsupported. Two: the first attempt can land on an iframe document the MFE is
+ * about to replace (see {@link fillInAnswer}), the second lands on the settled one.
+ */
+const ANSWER_ATTEMPTS = 2;
+
+/**
+ * Enters an answer into one problem, choosing the strategy by the controls it
+ * renders, and reports whether that unlocked its submit control.
+ *
+ * `false` means either the problem is a type the suite has no strategy for, or the
+ * answer did not stick. The latter happens when the learning MFE re-renders the
+ * unit iframe shortly after first paint (it re-issues the frame once sequence
+ * metadata arrives): a choice made on the first document is wiped with it, and
+ * the fresh document shows an unanswered problem with a disabled submit button.
+ * `check()` verifies the click landed, so the loss is only visible afterwards —
+ * which is why the caller retries rather than trusting the first pass.
+ *
+ * Returns `null` when the problem exposes no controls the suite can drive at all.
+ */
+async function fillInAnswer(problem: ProblemBlock): Promise<boolean | null> {
+  // Strategy by the controls the problem actually renders, rather than by a
+  // hard-coded answer map: the demo course's problem set differs per
+  // installation, and completion only needs a submission, not a right answer.
+  if ((await problem.radioOptions.count()) > 0) {
+    await problem.selectChoice(0);
+  } else if ((await problem.checkboxOptions.count()) > 0) {
+    await problem.selectCheckbox(0);
+  } else if ((await problem.dropdowns.count()) > 0) {
+    for (let index = 0; index < (await problem.dropdowns.count()); index += 1) {
+      await problem.selectDropdownOption(index);
+    }
+  } else if ((await problem.textInputs.count()) > 0) {
+    // Every input, not just the first: a multi-part problem keeps its submit
+    // control disabled until each part has something in it.
+    for (let index = 0; index < (await problem.textInputs.count()); index += 1) {
+      await problem.fillTextAnswer(index, '1');
+    }
+  } else {
+    // Custom-JS problems (circuit simulators, protein builders, …) expose no
+    // controls we can drive; the caller decides whether that matters.
+    return null;
+  }
+
+  // The submit control unlocks once the problem considers itself answered.
+  return problem.submitIsEnabled(TIMEOUTS.expect);
+}
+
+/**
  * Answers every CAPA problem in the open unit by picking its first choice and
  * submitting.
  *
@@ -154,36 +203,17 @@ export async function answerProblemsInUnit(
     }
 
     const problem = new ProblemBlock(page, unitPage.contentFrame, blockId);
-    await unitPage.showBlock(blockId);
 
-    // Strategy by the controls the problem actually renders, rather than by a
-    // hard-coded answer map: the demo course's problem set differs per
-    // installation, and completion only needs a submission, not a right answer.
-    if ((await problem.radioOptions.count()) > 0) {
-      await problem.selectChoice(0);
-    } else if ((await problem.checkboxOptions.count()) > 0) {
-      await problem.selectCheckbox(0);
-    } else if ((await problem.dropdowns.count()) > 0) {
-      for (let index = 0; index < (await problem.dropdowns.count()); index += 1) {
-        await problem.selectDropdownOption(index);
-      }
-    } else if ((await problem.textInputs.count()) > 0) {
-      // Every input, not just the first: a multi-part problem keeps its submit
-      // control disabled until each part has something in it.
-      for (let index = 0; index < (await problem.textInputs.count()); index += 1) {
-        await problem.fillTextAnswer(index, '1');
-      }
-    } else {
-      // Custom-JS problems (circuit simulators, protein builders, …) expose no
-      // controls we can drive; the caller decides whether that matters.
-      unsupported.push({ blockId, blockType: 'problem', reason: 'unsupported-problem' });
-      continue;
+    let answered: boolean | null = false;
+    for (let attempt = 0; attempt < ANSWER_ATTEMPTS && answered === false; attempt += 1) {
+      await unitPage.showBlock(blockId);
+      answered = await fillInAnswer(problem);
     }
 
-    // The submit control unlocks once the problem considers itself answered. If it
-    // does not, this problem needs a strategy we do not have — report it and move
-    // on, rather than throwing and abandoning the rest of the course.
-    if (!(await problem.submitIsEnabled(TIMEOUTS.expect))) {
+    // Still not answerable after a retry: this problem needs a strategy we do not
+    // have — report it and move on, rather than throwing and abandoning the rest
+    // of the course.
+    if (answered !== true) {
       unsupported.push({ blockId, blockType: 'problem', reason: 'unsupported-problem' });
       continue;
     }

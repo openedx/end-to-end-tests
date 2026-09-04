@@ -95,7 +95,15 @@ test.describe('Course progress', () => {
     async ({ page, unitPage, progressPage, completionUnits, courseProgress, enrolledCourse }) => {
       const before = await courseProgress();
 
-      await completeUnit(page, unitPage, enrolledCourse.courseKey, completionUnits.withProblem);
+      const unfinished = await completeUnit(
+        page,
+        unitPage,
+        enrolledCourse.courseKey,
+        completionUnits.withProblem,
+      );
+      // Name the block and reason if the unit could not be driven, rather than
+      // letting it surface later as an unexplained completion count.
+      expect(unfinished, 'every block in the unit registered completion').toEqual([]);
 
       // Submitting a problem moves the platform's own record of what was attempted,
       // whether or not the answer was right.
