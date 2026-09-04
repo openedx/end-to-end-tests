@@ -17,7 +17,6 @@
 export const CAPABILITIES = [
   'discussions',
   'teams',
-  'certificates',
   'notes',
   'wiki',
   'badges',

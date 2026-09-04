@@ -39,7 +39,7 @@ export interface TestFixtures {
   config: AppConfig;
   /**
    * Automatic gate for capability-tagged coverage: a test tagged with a
-   * capability (`@certificates`, `@discussions`, …) is skipped unless the
+   * capability (`@notes`, `@discussions`, …) is skipped unless the
    * installation declares it in `CAPABILITIES`.
    *
    * Applies to every test without being requested, so a capability tag is the

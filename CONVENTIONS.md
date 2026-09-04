@@ -134,7 +134,7 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 
 - **Stability tier:** `@smoke` (critical path), `@regression` (broader depth).
 - **Pure logic:** `@unit` (no browser/target; runs in the `unit` project).
-- **Capability:** `@discussions`, `@teams`, `@certificates`, … — gates optional
+- **Capability:** `@discussions`, `@teams`, `@notes`, … — gates optional
   coverage on installations that declare the capability (see `CAPABILITIES` in
   `.env.example`). Keep tags in sync with `src/config/capabilities.ts`. **The gate
   is automatic**: the `capabilityGate` fixture reads each test's own tags and skips

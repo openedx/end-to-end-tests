@@ -12,7 +12,7 @@ Contains:
 - Env parsing and load-time validation (Zod schemas), including scheme /
   shared-parent-domain checks for multi-origin auth.
 - Base URLs (LMS, Studio, each MFE), credentials, tenant/org identifiers.
-- The capability-declaration schema (`discussions`, `teams`, `certificates`, …).
+- The capability-declaration schema (`discussions`, `teams`, `notes`, …).
 - Centralized route and timeout constants.
 
 Rules:

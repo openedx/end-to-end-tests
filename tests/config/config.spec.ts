@@ -171,8 +171,8 @@ test.describe('loadConfig — shared parent domain', { tag: '@unit' }, () => {
 
 test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('parses a declared capability list', () => {
-    const config = loadConfig(validEnv({ CAPABILITIES: 'discussions, certificates' }));
-    expect([...config.capabilities].sort()).toEqual(['certificates', 'discussions']);
+    const config = loadConfig(validEnv({ CAPABILITIES: 'discussions, notes' }));
+    expect([...config.capabilities].sort()).toEqual(['discussions', 'notes']);
   });
 
   test('rejects an unknown capability', () => {

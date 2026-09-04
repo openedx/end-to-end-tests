@@ -45,7 +45,7 @@ on:
         type: string
         default: ''
       capabilities:
-        description: 'Comma-separated capabilities enabled on the target (e.g. discussions,certificates).'
+        description: 'Comma-separated capabilities enabled on the target (e.g. discussions,notes).'
         type: string
         default: ''
       account_backend:
