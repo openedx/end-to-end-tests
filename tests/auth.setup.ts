@@ -10,7 +10,7 @@ import {
   defaultAuthProvider,
   ROLES,
 } from '../src/auth';
-import { getConfig } from '../src/config';
+import { getConfig, getConfigIfValid } from '../src/config';
 
 /**
  * Authentication setup project. Signs in once per role and writes the storage
@@ -23,8 +23,17 @@ import { getConfig } from '../src/config';
  * `instructor` needs a custom provider). This keeps the run free of skipped
  * "not configured" noise while never letting learner coverage depend on admin
  * credentials.
+ *
+ * That narrowing needs configuration, and this runs at collection time — which
+ * happens for every project and for `--list`, including on a fresh clone with no
+ * `.env`. So an invalid environment is reported rather than thrown here and the
+ * full role list is assumed; each setup body then calls `getConfig()`, so
+ * actually running this project still fails fast with the same clear error.
  */
-const rolesToAuthenticate = defaultAuthProvider.availableRoles?.(getConfig()) ?? ROLES;
+const configForRoles = getConfigIfValid('auth.setup');
+const rolesToAuthenticate = configForRoles
+  ? (defaultAuthProvider.availableRoles?.(configForRoles) ?? ROLES)
+  : ROLES;
 
 for (const role of rolesToAuthenticate) {
   setup(`authenticate as ${role}`, async ({ browser, request }) => {

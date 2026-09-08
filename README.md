@@ -41,6 +41,11 @@ at load time — a missing or malformed value fails fast with a clear message
 instead of a confusing test failure. Every variable is documented in
 [`.env.example`](.env.example).
 
+Configuration is only required by what actually drives an installation. Test
+collection, `--list` and the node-only `unit` project report an invalid
+environment as a warning and carry on, so a fresh clone with no `.env` can still
+run the unit tests and the quality gates; browser projects fail on it fatally.
+
 The essentials:
 
 | Variable                            | Required | Description                                          |

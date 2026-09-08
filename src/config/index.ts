@@ -1,10 +1,11 @@
 import * as dotenv from 'dotenv';
 
+import { ConfigError } from './errors';
 import { loadConfig, type AppConfig } from './load';
 
 export type { AppConfig, AdminCredentials, BaseUrls, Env, Scheme } from './load';
 export { loadConfig } from './load';
-export { ConfigError } from './errors';
+export { ConfigError };
 export {
   CAPABILITIES,
   MUTUALLY_EXCLUSIVE_CAPABILITIES,
@@ -29,6 +30,14 @@ let dotenvLoaded = false;
  * this before spawning workers, which inherit it and stay quiet.
  */
 const WARNINGS_SHOWN_ENV = 'OPENEDX_E2E_WARNINGS_SHOWN';
+
+/**
+ * Env var used to report an invalid configuration only once per run. Both
+ * `playwright.config.ts` and global setup tolerate a {@link ConfigError} so the
+ * node-only `unit` project stays runnable on a fresh clone, and each of them —
+ * plus every worker — would otherwise re-print the same block.
+ */
+const CONFIG_ERROR_SHOWN_ENV = 'OPENEDX_E2E_CONFIG_ERROR_SHOWN';
 
 /** Prints config/setup advisories a single time across the whole run. */
 function printRuntimeWarningsOnce(config: AppConfig): void {
@@ -70,6 +79,42 @@ export function getConfig(): AppConfig {
 }
 
 /**
+ * Returns the validated configuration, or `undefined` when the environment
+ * cannot produce one — reporting the {@link ConfigError} once per run instead of
+ * throwing.
+ *
+ * This is for the two places that run before (and regardless of) any spec:
+ * `playwright.config.ts` and global setup. Configuration is only needed by
+ * projects that talk to an installation, so a fresh clone with no `.env` must
+ * still be able to run `--project=unit`; throwing there would block the unit
+ * tests over settings they never read. Everything that does need configuration
+ * still fails fast through {@link getConfig} — the config fixture, the API layer
+ * and account provisioning — so a misconfigured browser run cannot slip past.
+ *
+ * @param source Label for the warning, e.g. `playwright.config`.
+ * @throws Anything that is not a {@link ConfigError}; those are real faults.
+ */
+export function getConfigIfValid(source: string): AppConfig | undefined {
+  try {
+    return getConfig();
+  } catch (error) {
+    if (!(error instanceof ConfigError)) {
+      throw error;
+    }
+    if (!process.env[CONFIG_ERROR_SHOWN_ENV]) {
+      process.env[CONFIG_ERROR_SHOWN_ENV] = '1';
+      console.warn(
+        `[${source}] Configuration is incomplete or invalid. Projects that drive ` +
+          'an installation (smoke, regression, setup, …) will fail until it is ' +
+          'fixed; the node-only `unit` project needs no configuration and runs ' +
+          `anyway.\n${error.message}`,
+      );
+    }
+    return undefined;
+  }
+}
+
+/**
  * Clears the memoized configuration. Intended for tests that manipulate the
  * environment, not used by the suite at runtime.
  */
@@ -77,4 +122,5 @@ export function resetConfigCache(): void {
   cached = undefined;
   dotenvLoaded = false;
   delete process.env[WARNINGS_SHOWN_ENV];
+  delete process.env[CONFIG_ERROR_SHOWN_ENV];
 }

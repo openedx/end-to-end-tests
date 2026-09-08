@@ -21,3 +21,6 @@ dist/
 # Editor / OS
 .DS_Store
 *.log
+
+# Local scratch notes and probes, never committed.
+.private/
