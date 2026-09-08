@@ -3,18 +3,23 @@
  * `/home/` route which redirects to the MFE's `home` route — the MFE mount path
  * differs by release, so nothing here or in the page object depends on it).
  *
- * Measured on Tutor `main` and `redwood` (2026-09-08). The MFE places test IDs on
- * its list controls and on the create-course form, but not on the "New course"
- * button, the course cards or the org dropdown, which are anchored structurally.
+ * Measured on Tutor `main`, `redwood` and `verawood` (2026-09-08). The MFE places
+ * test IDs on its list controls and on the create-course form, but not on the
+ * "New course" button, the course cards or the org dropdown, which are anchored
+ * structurally.
  */
 export const STUDIO_HOME_SELECTORS = {
   /** The page header ("Studio home") — marks the MFE route as rendered. */
   header: '.studio-home-sub-header header.sub-header',
 
   /**
-   * The header's "New course" button. It is the only `<button>` in the header's
-   * action row ("New library" is an `<a>`), and it is **absent** — not disabled —
-   * while the session has no course-creator status (TC-00310).
+   * The header's "New course" and "New library" action buttons. Both actions are
+   * **absent** — not disabled — while the session has no course-creator status,
+   * so the row is empty then (TC-00310). "New course" is always the first action;
+   * the page object takes `.first()` to get it. It is not the *only* button: on
+   * `main` "New library" is an `<a>` (so `button.btn` matched only "New course"),
+   * but on `verawood` "New library" is a `<button>` with the same classes and
+   * icon and no distinguishing attribute, so only its position sets it apart.
    */
   newCourseButton: '.studio-home-sub-header .sub-header-actions button.btn',
 

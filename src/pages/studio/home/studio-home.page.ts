@@ -36,7 +36,9 @@ export class StudioHomePage {
   ) {
     const s = STUDIO_HOME_SELECTORS;
     this.header = page.locator(s.header);
-    this.newCourseButton = page.locator(s.newCourseButton);
+    // "New course" is the first action button; on some releases "New library" is
+    // a second, structurally identical button (see the selector's comment).
+    this.newCourseButton = page.locator(s.newCourseButton).first();
     this.createCourseForm = page.locator(s.createCourseForm);
     this.courseNameInput = page.locator(s.courseNameInput);
     this.orgDropdownToggle = page.locator(s.orgDropdownToggle);
