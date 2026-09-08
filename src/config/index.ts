@@ -41,6 +41,10 @@ export {
   progressTabLink,
   DASHBOARD_SELECTORS,
   COURSE_HOME_SELECTORS,
+  STUDIO_HOME_SELECTORS,
+  STUDIO_OUTLINE_SELECTORS,
+  STUDIO_SHELL_SELECTORS,
+  COURSE_CREATOR_ADMIN_SELECTORS,
 } from './selectors';
 
 let cached: AppConfig | undefined;

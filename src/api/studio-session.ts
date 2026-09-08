@@ -64,6 +64,37 @@ export async function establishStudioSession(
  * Whether the request context already has a Studio session. Cheap probe for
  * callers that want to skip the handshake when it has been done.
  */
+/**
+ * The username of the session `request` holds, read from Studio's `me` endpoint.
+ * A plain read (no SSO handshake), so it does not create or rotate a session — use
+ * it when you only need the identity of an already-authenticated context.
+ *
+ * @throws {ApiError} when the endpoint does not answer 200 (no live session).
+ */
+export async function fetchStudioUsername(
+  request: APIRequestContext,
+  config: AppConfig,
+): Promise<string> {
+  const url = `${studioOrigin(config)}${STUDIO_ME_PATH}`;
+  const response = await request.get(url);
+  if (!response.ok()) {
+    throw new ApiError('Could not read the current user from Studio.', {
+      status: response.status(),
+      url,
+      body: await response.text(),
+    });
+  }
+  const body = (await response.json()) as { username?: string };
+  if (typeof body.username !== 'string') {
+    throw new ApiError('Studio user endpoint returned no username.', {
+      status: response.status(),
+      url,
+      body: JSON.stringify(body),
+    });
+  }
+  return body.username;
+}
+
 export async function hasStudioSession(
   request: APIRequestContext,
   config: AppConfig,

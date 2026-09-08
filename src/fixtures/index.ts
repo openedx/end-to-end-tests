@@ -1,8 +1,11 @@
 import { existsSync } from 'node:fs';
 
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
 
 import { provisionLearnerSession } from '../accounts';
+import { StudioHomePage } from '../pages/studio/home/studio-home.page';
+import { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
+import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
 import { authStateFile } from '../auth';
 import {
   ensureCourse,
@@ -11,6 +14,10 @@ import {
   type CourseIdentity,
   unitsContaining,
   assertCourseAccessible,
+  establishStudioSession,
+  fetchStudioUsername,
+  DEFAULT_PASSWORD,
+  fetchStudioHome,
   courseKeySkipReason,
   enrollInCourseViaApi,
   fetchCourseDetail,
@@ -33,6 +40,7 @@ import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
 import { canCompleteUnit } from '../steps/completion';
+import { signInToStudioThroughUi } from '../steps/studio';
 import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
 import { LoginPage } from '../pages/lms/auth/login.page';
 import { RegistrationPage } from '../pages/lms/auth/registration.page';
@@ -123,6 +131,70 @@ export interface TestFixtures {
    * that forgets the tag still cannot run against a target without Studio.
    */
   studio: string;
+  /**
+   * Ensures the browser page holds a **fresh, interactive** Studio session as the
+   * worker's author, and returns nothing.
+   *
+   * The studio-author project loads the author's captured state, which keeps its
+   * API session alive through the JWT — but the Django session behind Studio's
+   * interactive SSO decays within minutes, so a page that only replays the stored
+   * cookies is bounced to the login screen once a few other specs have run. This
+   * signs the page in through the UI (the author's username, read from the live
+   * API session, plus the suite's fixed account password), which is reliable
+   * regardless of how long the run has been going. Author-driven browser specs
+   * request it before touching Studio; the API `request` fixture stays valid
+   * alongside it (a re-login does not invalidate the other session on this
+   * platform).
+   */
+  studioAuthorSession: void;
+  /** Studio Home page object (`frontend-app-course-authoring`). */
+  studioHomePage: StudioHomePage;
+  /** A course's outline in the authoring MFE — where creating a course lands. */
+  studioCourseOutlinePage: StudioCourseOutlinePage;
+  /**
+   * The identity for a course **this test creates** — for the specs whose subject
+   * is course creation (§2.4 course budget: nothing else makes a course). Identity
+   * only; the spec drives the creation. Unique per test and per retry, in the
+   * worker course's organization so the org exists on the target.
+   */
+  lifecycleCourse: CourseIdentity;
+  /**
+   * A freshly registered account with a Studio session but **no** course-creator
+   * status yet, installed in the browser context — the subject of TC-00310.
+   *
+   * Skips where the installation grants course creation to every account
+   * (`ENABLE_CREATOR_GROUP` off): there is no request-and-grant flow to test.
+   */
+  studioNewcomer: StudioNewcomer;
+  /**
+   * A second browser page signed in as the configured admin (`staff` state), for
+   * the administrator's half of a case. Skips when no admin account is configured.
+   */
+  adminPage: Page;
+  /** Studio Django admin for course-creator rows, on {@link adminPage}. */
+  courseCreatorAdminPage: CourseCreatorAdminPage;
+  /**
+   * A session allowed to create a course under a **new** organization
+   * (`allow_to_create_new_org`), installed in the browser context: the author when
+   * the target lets authors do that, otherwise the configured admin. Skips when
+   * neither can. What TC-00248 needs.
+   */
+  newOrgCreator: NewOrgCreator;
+}
+
+/** What {@link TestFixtures.studioNewcomer} hands a spec. */
+export interface StudioNewcomer {
+  readonly identity: LearnerIdentity;
+  /** Request context holding the newcomer's LMS + Studio session. */
+  readonly request: APIRequestContext;
+}
+
+/** What {@link TestFixtures.newOrgCreator} hands a spec. */
+export interface NewOrgCreator {
+  /** Request context holding the creator's session (author or admin). */
+  readonly request: APIRequestContext;
+  /** Which role the session belongs to. */
+  readonly role: 'author' | 'staff';
 }
 
 /**
@@ -361,6 +433,122 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     },
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
+
+  studioAuthorSession: async ({ page, request, config, studio }, use) => {
+    void studio;
+    // A plain read of the identity — not a second SSO handshake. Establishing a
+    // fresh session on the API context here as well would race the browser login
+    // (the same user), and the platform's concurrent-login handling can leave the
+    // browser's Studio SSO bounced back to sign-in.
+    const username = await fetchStudioUsername(request, config);
+    await signInToStudioThroughUi(page, config, {
+      emailOrUsername: username,
+      password: DEFAULT_PASSWORD,
+    });
+    await use();
+  },
+
+  studioHomePage: async ({ page, config }, use) => {
+    await use(new StudioHomePage(page, config));
+  },
+
+  studioCourseOutlinePage: async ({ page, config }, use) => {
+    await use(new StudioCourseOutlinePage(page, config));
+  },
+
+  lifecycleCourse: async ({ config, authoredCourse }, use, testInfo) => {
+    // Stable per test (the test id hashes file + title), distinct per retry so a
+    // retried creation is never refused as a duplicate of its own first attempt.
+    const slot = `L${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}R${testInfo.retry}`;
+    const identity = newCourseIdentity(
+      { ...config, org: authoredCourse.org },
+      getRunId(),
+      slot,
+      'lifecycle',
+    );
+    await use(identity);
+  },
+
+  studioNewcomer: async ({ page, playwright, config, studio }, use) => {
+    void studio;
+    const request = await playwright.request.newContext();
+    try {
+      const identity = await provisionLearnerSession(request, config);
+      await establishStudioSession(request, config);
+      const home = await fetchStudioHome(request, config);
+      base.skip(
+        home.courseCreatorStatus === 'granted',
+        'This installation grants course creation to every account (ENABLE_CREATOR_GROUP ' +
+          'off), so there is no course-creator request to make or grant.',
+      );
+      base.skip(
+        home.courseCreatorStatus === 'disallowed_for_this_site',
+        'Course creation is disallowed for this site, so no request can be made.',
+      );
+      await page.context().clearCookies();
+      await page.context().addCookies((await request.storageState()).cookies);
+      await use({ identity, request });
+    } finally {
+      await request.dispose();
+    }
+  },
+
+  adminPage: async ({ browser, config }, use) => {
+    const admin = config.credentials.admin;
+    base.skip(
+      admin === undefined,
+      'This case needs the administrator: set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
+    );
+    // A fresh context signed in through the UI: the admin's captured API session
+    // does not drive the interactive Studio SSO (see signInToStudioThroughUi).
+    const context = await browser.newContext();
+    try {
+      const page = await context.newPage();
+      await signInToStudioThroughUi(page, config, {
+        emailOrUsername: (admin as NonNullable<typeof admin>).username,
+        password: (admin as NonNullable<typeof admin>).password,
+      });
+      await use(page);
+    } finally {
+      await context.close();
+    }
+  },
+
+  courseCreatorAdminPage: async ({ adminPage, config }, use) => {
+    await use(new CourseCreatorAdminPage(adminPage, config));
+  },
+
+  newOrgCreator: async ({ page, playwright, request, config, studio }, use) => {
+    void studio;
+    // When the author's own session may create organizations, the project page is
+    // already the right session — the free-text org field is on screen.
+    const authorHome = await fetchStudioHome(request, config);
+    if (authorHome.allowToCreateNewOrg) {
+      await use({ request, role: 'author' });
+      return;
+    }
+    // Otherwise only a superuser's UI offers it. Sign the project page in as the
+    // admin through the UI (a captured admin session does not drive Studio SSO in
+    // the browser), and hand the spec an admin API context for its assertions.
+    const admin = config.credentials.admin;
+    const state = authStateFile('staff');
+    base.skip(
+      admin === undefined || !existsSync(state),
+      'Authors may not create organizations on this installation (allow_to_create_new_org ' +
+        'is off) and no admin account is configured to do it instead. Set ADMIN_USERNAME ' +
+        'and ADMIN_PASSWORD, or allow authors to create organizations.',
+    );
+    await signInToStudioThroughUi(page, config, {
+      emailOrUsername: (admin as NonNullable<typeof admin>).username,
+      password: (admin as NonNullable<typeof admin>).password,
+    });
+    const staff = await playwright.request.newContext({ storageState: state });
+    try {
+      await use({ request: staff, role: 'staff' });
+    } finally {
+      await staff.dispose();
+    }
+  },
 
   completionUnits: async ({ courseOutline }, use) => {
     const viewOnly = courseOutline.units.find(
