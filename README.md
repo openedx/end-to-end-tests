@@ -86,12 +86,15 @@ applies when that variable is not already present in the environment.
 tagged `@discussions` runs only where `CAPABILITIES` names `discussions`. Stock
 surfaces a default installation ships invert that — they are on unless you turn
 them off with a `-` prefix, so a missing declaration never silently drops
-coverage you have. Today that is `mfe-authn`: the authn MFE owning accounts
-(native registration, password reset, its own screens). An install whose
-identity lives in an external service sets `CAPABILITIES=-mfe-authn`, and those
-specs skip with a reason instead of failing. Sign-in and sign-out coverage is
-not gated — it runs through the account backend's own UI flows, whatever those
-are.
+coverage you have. Today those are `mfe-authn` — the authn MFE owning accounts
+(native registration, password reset, its own screens) — and `frontend-base`,
+the shell that bundles the MFEs into one application with a shared header and
+footer (`main` onward). An install whose identity lives in an external service
+sets `CAPABILITIES=-mfe-authn`, and those specs skip with a reason instead of
+failing; a named release still on the separate-MFE model (verawood and earlier)
+sets `-frontend-base`, which skips the coverage about the shell's own chrome.
+Sign-in and sign-out coverage is not gated — it runs through the account
+backend's own UI flows, whatever those are.
 
 **Origin requirements.** All origins (LMS, Studio, MFEs) must share **one scheme**
 (all `http://` or all `https://`) and **one registrable parent domain** (e.g.
