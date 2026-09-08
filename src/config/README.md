@@ -12,7 +12,10 @@ Contains:
 - Env parsing and load-time validation (Zod schemas), including scheme /
   shared-parent-domain checks for multi-origin auth.
 - Base URLs (LMS, Studio, each MFE), credentials, tenant/org identifiers.
-- The capability-declaration schema (`discussions`, `teams`, `certificates`, …).
+- The capability-declaration schema (`mfe-authn`, `discussions`, `teams`, …),
+  including which capabilities are on by default (`DEFAULT_ON_CAPABILITIES`) and
+  the `-name` opt-out syntax. `missingCapabilities()` is the decision the gate in
+  `src/fixtures/` applies to every spec's tags.
 - Centralized route and timeout constants.
 
 Rules:

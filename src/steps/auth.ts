@@ -1,8 +1,9 @@
 import type { Page } from '@playwright/test';
 
+import { accountSignInThroughUi, accountSignOutThroughUi } from '../accounts';
+import type { AccountCredentials } from '../accounts';
 import type { LearnerIdentity } from '../api';
-import type { AccountMenu } from '../pages/lms/auth/account-menu.page';
-import type { LoginPage } from '../pages/lms/auth/login.page';
+import type { AppConfig } from '../config';
 import type { RegistrationPage } from '../pages/lms/auth/registration.page';
 
 /** True while the browser is still on an authn MFE route (`/authn/...`). */
@@ -14,6 +15,10 @@ const onAuthnRoute = (url: URL): boolean => url.pathname.includes('/authn/');
  * learner, so we wait for the URL to leave `/authn/` before returning — the
  * web-first alternative to a fixed sleep, ensuring the session cookie is set
  * before any caller navigates on.
+ *
+ * Unlike {@link signIn}, this drives the authn MFE form directly: the registration
+ * spec asserts on that form itself. Specs that only need an account should use
+ * `provisionLearnerAccount`, which goes through the configured backend.
  */
 export async function registerLearner(
   page: Page,
@@ -26,29 +31,22 @@ export async function registerLearner(
 }
 
 /**
- * Signs in through the authn MFE UI and waits for the auth redirect to finish
- * (URL leaves `/authn/`), so the session cookie is set before subsequent
- * navigation. Does not assert success — the spec owns that.
+ * Signs in through the UI of the configured account backend — the authn MFE
+ * `/login` form by default, or the install's own flow when the backend overrides
+ * `signInThroughUi`. Does not assert success; the spec owns that.
  */
 export async function signIn(
   page: Page,
-  loginPage: LoginPage,
-  credentials: { emailOrUsername: string; password: string },
+  config: AppConfig,
+  credentials: AccountCredentials,
 ): Promise<void> {
-  await loginPage.goto();
-  await loginPage.signIn(credentials.emailOrUsername, credentials.password);
-  await page.waitForURL((url) => !onAuthnRoute(url));
+  await accountSignInThroughUi({ config, page, credentials });
 }
 
 /**
- * Signs out via the header account menu and waits for the resulting navigation to
- * settle. `username` identifies the account-menu trigger.
+ * Signs out through the UI of the configured account backend — the header account
+ * menu by default. `username` identifies the account-menu trigger.
  */
-export async function signOut(
-  page: Page,
-  accountMenu: AccountMenu,
-  username: string,
-): Promise<void> {
-  await accountMenu.signOut(username);
-  await page.waitForLoadState('networkidle');
+export async function signOut(page: Page, config: AppConfig, username: string): Promise<void> {
+  await accountSignOutThroughUi({ config, page, username });
 }

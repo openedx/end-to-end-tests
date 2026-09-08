@@ -6,20 +6,26 @@ import { testId } from '../../../src/reporting';
 import { expect, test } from '../../../src/fixtures';
 
 /**
- * Sign-in through the authn MFE `/login` route (BTR TC-00003). The critical
- * valid-credentials path is `@smoke`. Each test seeds its own unique account via
- * the portable registration API, then drives the UI — the thing under test.
+ * Sign-in through the UI (BTR TC-00003). The critical valid-credentials path is
+ * `@smoke`. Each test seeds its own unique account via the portable registration
+ * API, then drives the UI — the thing under test.
+ *
+ * The valid-credentials case goes through the configured account backend's
+ * sign-in flow, so it exercises whatever screens the install actually has and is
+ * not gated on `mfe-authn`. The other two assert on the authn MFE's own form
+ * (its error alert, its a11y), so they carry the tag and skip where that MFE
+ * does not own sign-in.
  */
 test.describe('Login (authn MFE)', () => {
   test(
     'signs in with valid credentials',
-    { tag: ['@smoke', '@mfe-authn'], annotation: testId('TC-00003') },
-    async ({ page, request, config, loginPage }) => {
+    { tag: '@smoke', annotation: testId('TC-00003') },
+    async ({ page, request, config }) => {
       // Provision an account that can actually sign in (activates it when the
       // target enforces email validation), via the configured account backend.
       const identity = await provisionLearnerAccount(request, config);
 
-      await signIn(page, loginPage, {
+      await signIn(page, config, {
         emailOrUsername: identity.email,
         password: identity.password,
       });

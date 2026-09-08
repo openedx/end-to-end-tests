@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 import { authStateFile } from './src/auth';
-import { ConfigError, getConfig, TIMEOUTS } from './src/config';
+import { getConfigIfValid, TIMEOUTS } from './src/config';
 
 const isCI = Boolean(process.env.CI);
 
@@ -10,23 +10,12 @@ const isCI = Boolean(process.env.CI);
  *
  * Browser specs need it; the node-only `unit` project does not. If configuration
  * is missing or invalid we don't throw here — that would block the unit tests
- * too — but we print the clear {@link ConfigError} so a misconfigured browser run
- * is never mysterious. Browser specs surface the same error fatally via the
- * config fixture / getConfig().
+ * too — but `getConfigIfValid` prints the clear configuration error so a
+ * misconfigured browser run is never mysterious. Browser specs surface the same
+ * error fatally via the config fixture / `getConfig()`.
  */
 function resolveBaseURL(): string | undefined {
-  try {
-    return getConfig().baseUrls.lms;
-  } catch (error) {
-    if (error instanceof ConfigError) {
-      console.warn(
-        `[playwright.config] Configuration is incomplete; browser specs will fail ` +
-          `until it is fixed.\n${error.message}`,
-      );
-      return undefined;
-    }
-    throw error;
-  }
+  return getConfigIfValid('playwright.config')?.baseUrls.lms;
 }
 
 export default defineConfig({

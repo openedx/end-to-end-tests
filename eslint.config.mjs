@@ -13,6 +13,8 @@ export default tseslint.config(
       'playwright-report/',
       'blob-report/',
       '.auth/',
+      // Local scratch notes/probes, never part of the suite (see CONVENTIONS.md).
+      '.private/',
       // Plain Node utility scripts (CI helpers); Prettier still formats them.
       'scripts/',
     ],

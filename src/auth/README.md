@@ -18,11 +18,14 @@ Contains:
   cookie-policy diagnostic.
 - `storage.ts` — where per-role storage state is written (`.auth/<role>.json`).
 - `api-provider.ts` — `ApiAuthProvider`, the default provider. Signs in through
-  the LMS APIs the authn MFE calls (`GET /csrf/api/v1/token` →
-  `POST .../login_session/`) and captures the parent-domain cookie jar into one
-  storage state. `learner` self-registers a unique account (portable seeding);
-  `staff` uses the configured `ADMIN_*` account; `instructor` is an extension
-  point (reported not-configured so setup skips it).
+  the configured account backend's `signIn` flow — by default the LMS APIs the
+  authn MFE calls (`GET /csrf/api/v1/token` → `POST .../login_session/`) — and
+  captures the parent-domain cookie jar into one storage state. `learner`
+  self-registers a unique account (portable seeding); `staff` signs in with the
+  pre-existing `ADMIN_*` account and is never provisioned; `instructor` is an
+  extension point (reported not-configured so setup skips it). Because sign-in
+  goes through the backend, an install with custom auth can redirect every role
+  by setting `ACCOUNT_BACKEND` — see [`../accounts/README.md`](../accounts/README.md).
 - `default-provider.ts` — exports the default provider instance; swap it for a
   provider with custom SSO without touching the specs.
 - `errors.ts` — `AuthError` and `AuthNotConfiguredError` (the latter lets the

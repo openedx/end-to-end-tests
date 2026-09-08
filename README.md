@@ -41,6 +41,11 @@ at load time — a missing or malformed value fails fast with a clear message
 instead of a confusing test failure. Every variable is documented in
 [`.env.example`](.env.example).
 
+Configuration is only required by what actually drives an installation. Test
+collection, `--list` and the node-only `unit` project report an invalid
+environment as a warning and carry on, so a fresh clone with no `.env` can still
+run the unit tests and the quality gates; browser projects fail on it fatally.
+
 The essentials:
 
 | Variable                            | Required | Description                                          |
@@ -54,6 +59,7 @@ The essentials:
 | `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install |
 | `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments           |
 | `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)  |
+| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends     |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take
@@ -61,6 +67,17 @@ precedence** - a variable already set in your shell or CI environment is _not_
 overridden by `.env`. In practice: use `.env` for local development, and set
 environment variables directly in CI (no `.env` needed there). A `.env` value only
 applies when that variable is not already present in the environment.
+
+**Capabilities.** Optional coverage is gated on an explicit declaration: a spec
+tagged `@discussions` runs only where `CAPABILITIES` names `discussions`. Stock
+surfaces a default installation ships invert that — they are on unless you turn
+them off with a `-` prefix, so a missing declaration never silently drops
+coverage you have. Today that is `mfe-authn`: the authn MFE owning accounts
+(native registration, password reset, its own screens). An install whose
+identity lives in an external service sets `CAPABILITIES=-mfe-authn`, and those
+specs skip with a reason instead of failing. Sign-in and sign-out coverage is
+not gated — it runs through the account backend's own UI flows, whatever those
+are.
 
 **Origin requirements.** All origins (LMS, Studio, MFEs) must share **one scheme**
 (all `http://` or all `https://`) and **one registrable parent domain** (e.g.
@@ -77,10 +94,12 @@ same specs run against very different targets (see
 [issue #10](https://github.com/openedx/end-to-end-tests/issues/10) and
 [`src/accounts/README.md`](src/accounts/README.md)).
 
-| `ACCOUNT_BACKEND` | Use when…                                                  | Behaviour                                                                                                                               |
-| ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `automatic`       | "Automatic login on" — the default (incl. Tutor/sandbox)   | Generates a throwaway `@example.com` identity; no email needed. The reusable session is taken from the one registration itself creates. |
-| `manual`          | Target enforces email activation and can't be reconfigured | Interactive: prompts you for an email to register with, then for the activation link/token.                                             |
+| `ACCOUNT_BACKEND` | Use when…                                                  | Behaviour                                                                                                                                  |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `automatic`       | "Automatic login on" — the default (incl. Tutor/sandbox)   | Generates a throwaway `@example.com` identity; no email needed. The reusable session is taken from the one registration itself creates.    |
+| `manual`          | Target enforces email activation and can't be reconfigured | Interactive: prompts you for an email to register with, then for the activation link/token.                                                |
+| `openinbox`       | You want activation email automated, unattended            | Example plugin (`plugins/openinbox.plugin.ts`): registers with a disposable openinbox.io inbox and visits the activation link it receives. |
+| _plugin name_     | Your install has its own auth/mailbox flow                 | Loaded from `CUSTOM_ACCOUNT_BACKEND_PLUGINS`; see [`src/accounts/README.md`](src/accounts/README.md).                                      |
 
 The `automatic` backend works against the **default** without any email setup:
 registration auto-authenticates the account, so the captured (reusable) session and

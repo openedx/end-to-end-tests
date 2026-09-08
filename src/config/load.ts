@@ -1,12 +1,15 @@
+import fs from 'fs';
 import {
   ACCOUNT_BACKENDS,
   DEFAULT_ACCOUNT_BACKEND,
   isAccountBackendName,
-  type AccountBackendName,
 } from './account-backends';
 import {
   CAPABILITIES,
+  CAPABILITY_OPT_OUT_PREFIX,
+  DEFAULT_ON_CAPABILITIES,
   isCapability,
+  isDefaultOnCapability,
   MUTUALLY_EXCLUSIVE_CAPABILITIES,
   type Capability,
 } from './capabilities';
@@ -42,8 +45,13 @@ export interface AppConfig {
   readonly org?: string;
   readonly courseKey?: string;
   readonly capabilities: ReadonlySet<Capability>;
-  /** How newly-registered accounts become able to sign in (email activation). */
-  readonly accountBackend: AccountBackendName;
+  /** Extra account backend plugin modules to load (existing file paths). */
+  readonly customAccountBackendPlugins: ReadonlySet<string>;
+  /**
+   * Name of the account backend that makes newly-registered accounts able to
+   * sign in — a built-in name (see `account-backends.ts`) or a custom plugin's.
+   */
+  readonly accountBackend: string;
   readonly allowCrossSiteOrigins: boolean;
   /** Shared scheme of all origins. */
   readonly scheme: Scheme;
@@ -51,6 +59,35 @@ export interface AppConfig {
   readonly registrableDomain: string | null;
   /** Non-fatal advisories surfaced at load time (e.g. HTTP cookie policy). */
   readonly warnings: readonly string[];
+}
+
+/**
+ * Parses `CUSTOM_ACCOUNT_BACKEND_PLUGINS` (comma-separated file paths) and checks
+ * each file exists, so a typo is reported at load time rather than as an import
+ * failure mid-run. The modules themselves are loaded by
+ * `src/accounts/plugin-loader.ts`.
+ */
+function parseCustomAccountBackendPlugins(raw: string | undefined, issues: string[]): Set<string> {
+  const paths = new Set<string>();
+  if (raw === undefined) {
+    return paths;
+  }
+
+  for (const entry of raw.split(',').map((value) => value.trim())) {
+    if (entry === '') {
+      continue;
+    }
+    if (fs.existsSync(entry)) {
+      paths.add(entry);
+    } else {
+      issues.push(
+        `CUSTOM_ACCOUNT_BACKEND_PLUGINS refers to "${entry}", which does not exist ` +
+          '(paths are resolved relative to the working directory).',
+      );
+    }
+  }
+
+  return paths;
 }
 
 function parseUrl(source: string, value: string, issues: string[]): URL | undefined {
@@ -70,29 +107,69 @@ function parseUrl(source: string, value: string, issues: string[]): URL | undefi
   return url;
 }
 
+/**
+ * Parses `CAPABILITIES`: a comma-separated list of capability names, each
+ * optionally prefixed with `-` to turn off one of the
+ * {@link DEFAULT_ON_CAPABILITIES} a stock installation is assumed to have (e.g.
+ * `CAPABILITIES=discussions,-mfe-authn`).
+ *
+ * Every problem is reported rather than guessed at, including an opt-out of a
+ * capability that is off anyway — silently accepting it would leave an operator
+ * believing they had disabled coverage that was never enabled.
+ */
 function parseCapabilities(raw: string | undefined, issues: string[]): Set<Capability> {
-  const enabled = new Set<Capability>();
+  const enabled = new Set<Capability>(DEFAULT_ON_CAPABILITIES);
   if (raw === undefined) {
     return enabled;
   }
 
   const unknown: string[] = [];
+  const optedOut = new Set<Capability>();
+  const declared = new Set<Capability>();
+
   for (const token of raw.split(',').map((t) => t.trim())) {
     if (token === '') {
       continue;
     }
-    if (isCapability(token)) {
-      enabled.add(token);
-    } else {
+    const isOptOut = token.startsWith(CAPABILITY_OPT_OUT_PREFIX);
+    const name = isOptOut ? token.slice(CAPABILITY_OPT_OUT_PREFIX.length).trim() : token;
+
+    if (!isCapability(name)) {
       unknown.push(token);
+      continue;
     }
+    if (!isOptOut) {
+      declared.add(name);
+      enabled.add(name);
+      continue;
+    }
+    if (!isDefaultOnCapability(name)) {
+      issues.push(
+        `CAPABILITIES opts out of "${name}" with "${token}", but ${name} is off ` +
+          'unless declared, so there is nothing to turn off. Remove it. ' +
+          `Capabilities that are on by default: ${DEFAULT_ON_CAPABILITIES.join(', ')}.`,
+      );
+      continue;
+    }
+    optedOut.add(name);
+    enabled.delete(name);
   }
 
   if (unknown.length > 0) {
     issues.push(
       `CAPABILITIES contains unknown ${unknown.length === 1 ? 'capability' : 'capabilities'}: ` +
-        `${unknown.join(', ')}. Known capabilities: ${CAPABILITIES.join(', ')}.`,
+        `${unknown.join(', ')}. Known capabilities: ${CAPABILITIES.join(', ')} ` +
+        `(prefix with "${CAPABILITY_OPT_OUT_PREFIX}" to turn off a default-on one).`,
     );
+  }
+
+  for (const capability of optedOut) {
+    if (declared.has(capability)) {
+      issues.push(
+        `CAPABILITIES both declares and opts out of "${capability}". Keep whichever ` +
+          'matches your installation.',
+      );
+    }
   }
 
   for (const group of MUTUALLY_EXCLUSIVE_CAPABILITIES) {
@@ -168,7 +245,8 @@ function validateOriginRelationship(
 
 /**
  * Parses and validates configuration from the given environment (defaults to
- * `process.env`). Pure and side-effect-free: it does not read files or log.
+ * `process.env`). Does not log; the only filesystem access is an existence check
+ * of the configured account backend plugin paths.
  *
  * @throws {ConfigError} when the environment is missing or malformed, with every
  * problem reported at once where possible.
@@ -196,14 +274,21 @@ export function loadConfig(env: Env = process.env): AppConfig {
 
   const capabilities = parseCapabilities(raw.CAPABILITIES, issues);
 
-  let accountBackend: AccountBackendName = DEFAULT_ACCOUNT_BACKEND;
+  const customAccountBackendPlugins = parseCustomAccountBackendPlugins(
+    raw.CUSTOM_ACCOUNT_BACKEND_PLUGINS,
+    issues,
+  );
+
+  // A custom plugin contributes its own name, which only the account registry
+  // knows, so the name can only be checked here when no plugins are configured.
+  let accountBackend: string = DEFAULT_ACCOUNT_BACKEND;
   if (raw.ACCOUNT_BACKEND !== undefined) {
-    if (isAccountBackendName(raw.ACCOUNT_BACKEND)) {
-      accountBackend = raw.ACCOUNT_BACKEND;
-    } else {
+    accountBackend = raw.ACCOUNT_BACKEND;
+    if (customAccountBackendPlugins.size === 0 && !isAccountBackendName(accountBackend)) {
       issues.push(
         `ACCOUNT_BACKEND "${raw.ACCOUNT_BACKEND}" is not recognized. ` +
-          `Known backends: ${ACCOUNT_BACKENDS.join(', ')}.`,
+          `Known backends: ${ACCOUNT_BACKENDS.join(', ')}. ` +
+          'Custom backends must be listed in CUSTOM_ACCOUNT_BACKEND_PLUGINS.',
       );
     }
   }
@@ -259,6 +344,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     org: raw.ORG,
     courseKey: raw.COURSE_KEY,
     capabilities,
+    customAccountBackendPlugins,
     accountBackend,
     allowCrossSiteOrigins,
     scheme,

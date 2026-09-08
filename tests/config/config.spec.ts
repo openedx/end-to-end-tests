@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 
-import { loadConfig, ConfigError, type Env } from '../../src/config';
+import {
+  loadConfig,
+  getConfigIfValid,
+  resetConfigCache,
+  ConfigError,
+  type Env,
+} from '../../src/config';
 
 /**
  * Pure unit tests for the typed configuration layer. These exercise validation
@@ -37,7 +43,8 @@ test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
     expect(config.scheme).toBe('http');
     expect(config.registrableDomain).toBe('openedx.io');
     expect(config.allowCrossSiteOrigins).toBe(false);
-    expect([...config.capabilities]).toEqual([]);
+    // Default-on capabilities (stock surfaces) need no declaration.
+    expect([...config.capabilities]).toEqual(['mfe-authn']);
   });
 
   test('accepts an HTTPS environment including Studio', () => {
@@ -172,7 +179,25 @@ test.describe('loadConfig — shared parent domain', { tag: '@unit' }, () => {
 test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('parses a declared capability list', () => {
     const config = loadConfig(validEnv({ CAPABILITIES: 'discussions, certificates' }));
-    expect([...config.capabilities].sort()).toEqual(['certificates', 'discussions']);
+    expect([...config.capabilities].sort()).toEqual(['certificates', 'discussions', 'mfe-authn']);
+  });
+
+  test('turns off a default-on capability with the "-" prefix', () => {
+    const config = loadConfig(validEnv({ CAPABILITIES: 'discussions,-mfe-authn' }));
+
+    expect([...config.capabilities]).toEqual(['discussions']);
+  });
+
+  test('rejects opting out of a capability that is off unless declared', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: '-discussions' })));
+
+    expect(issues.join('\n')).toContain('nothing to turn off');
+  });
+
+  test('rejects declaring and opting out of the same capability', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'mfe-authn,-mfe-authn' })));
+
+    expect(issues.join('\n')).toContain('both declares and opts out of "mfe-authn"');
   });
 
   test('rejects an unknown capability', () => {
@@ -229,5 +254,65 @@ test.describe('loadConfig — boolean coercion', { tag: '@unit' }, () => {
 
   test('rejects an unrecognized boolean value', () => {
     expect(() => loadConfig(validEnv({ ALLOW_CROSS_SITE_ORIGINS: 'maybe' }))).toThrow(ConfigError);
+  });
+});
+
+/**
+ * `getConfigIfValid` is what keeps a fresh clone with no `.env` able to run this
+ * very project: `playwright.config.ts` and global setup call it instead of
+ * `getConfig()`, so an invalid environment is reported rather than thrown.
+ *
+ * These tests drive `process.env` directly (real values always win over `.env`,
+ * so they behave the same on a configured machine) and reset the memoized
+ * config around each one.
+ */
+test.describe('getConfigIfValid', { tag: '@unit' }, () => {
+  // Every variable the assertions depend on is pinned here, so a machine whose
+  // own `.env` sets (or misconfigures) one of them cannot change the outcome.
+  const OVERRIDDEN = ['LMS_BASE_URL', 'APPS_BASE_URL', 'CAPABILITIES'] as const;
+  let saved: Record<string, string | undefined> = {};
+  let warnings: string[] = [];
+  const realWarn = console.warn;
+
+  test.beforeEach(() => {
+    saved = Object.fromEntries(OVERRIDDEN.map((key) => [key, process.env[key]]));
+    warnings = [];
+    console.warn = (...args: unknown[]) => warnings.push(args.map(String).join(' '));
+    resetConfigCache();
+  });
+
+  test.afterEach(() => {
+    console.warn = realWarn;
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    resetConfigCache();
+  });
+
+  test('returns the configuration when the environment is valid', () => {
+    process.env.LMS_BASE_URL = 'http://local.openedx.io';
+    process.env.APPS_BASE_URL = 'http://apps.local.openedx.io';
+    process.env.CAPABILITIES = 'discussions';
+
+    expect(getConfigIfValid('spec')?.baseUrls.lms).toBe('http://local.openedx.io');
+  });
+
+  test('reports an invalid environment once instead of throwing', () => {
+    process.env.LMS_BASE_URL = 'not-a-url';
+    process.env.APPS_BASE_URL = 'http://apps.local.openedx.io';
+    process.env.CAPABILITIES = 'discussions';
+
+    expect(getConfigIfValid('spec')).toBeUndefined();
+    expect(getConfigIfValid('spec')).toBeUndefined();
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('[spec]');
+    expect(warnings[0]).toContain('LMS_BASE_URL');
+    // Names the escape hatch the message exists for.
+    expect(warnings[0]).toContain('unit');
   });
 });
