@@ -68,6 +68,17 @@ overridden by `.env`. In practice: use `.env` for local development, and set
 environment variables directly in CI (no `.env` needed there). A `.env` value only
 applies when that variable is not already present in the environment.
 
+**Capabilities.** Optional coverage is gated on an explicit declaration: a spec
+tagged `@discussions` runs only where `CAPABILITIES` names `discussions`. Stock
+surfaces a default installation ships invert that — they are on unless you turn
+them off with a `-` prefix, so a missing declaration never silently drops
+coverage you have. Today that is `mfe-authn`: the authn MFE owning accounts
+(native registration, password reset, its own screens). An install whose
+identity lives in an external service sets `CAPABILITIES=-mfe-authn`, and those
+specs skip with a reason instead of failing. Sign-in and sign-out coverage is
+not gated — it runs through the account backend's own UI flows, whatever those
+are.
+
 **Origin requirements.** All origins (LMS, Studio, MFEs) must share **one scheme**
 (all `http://` or all `https://`) and **one registrable parent domain** (e.g.
 `*.local.openedx.io`), so a single sign-in covers every sub-domain. Do not use

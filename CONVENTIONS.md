@@ -65,11 +65,17 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 
 - **Stability tier:** `@smoke` (critical path), `@regression` (broader depth).
 - **Pure logic:** `@unit` (no browser/target; runs in the `unit` project).
-- **Capability:** `@discussions`, `@teams`, `@certificates`, … — gates optional
-  coverage on installations that declare the capability (see `CAPABILITIES` in
-  `.env.example`). Keep tags in sync with `src/config/capabilities.ts`.
-- **MFE / subsystem:** `@mfe-authn`, `@mfe-account`, `@mfe-learning`,
-  `@mfe-authoring`, … — filters the suite to one micro-frontend.
+- **Capability:** `@discussions`, `@teams`, `@certificates`, `@mfe-authn`, … —
+  gates coverage on what the installation has (see `CAPABILITIES` in
+  `.env.example`). Keep tags in sync with `src/config/capabilities.ts`: a tag
+  that names a capability is **enforced** — `src/fixtures/` skips the test where
+  that capability is not enabled — while any other tag is only a filter. Most
+  capabilities are off until declared; the `DEFAULT_ON_CAPABILITIES` (stock
+  surfaces, currently `mfe-authn`) are on unless turned off with `-mfe-authn`.
+- **MFE / subsystem:** `@mfe-account`, `@mfe-learning`, `@mfe-authoring`, … —
+  filters the suite to one micro-frontend. `@mfe-authn` is also a capability, so
+  apply it only to coverage that genuinely needs the authn MFE — not to specs
+  that drive sign-in through the account backend's flows.
 - **Authenticated:** `@authenticated` — the spec reuses captured storage state and
   runs in the `lms-learner` project (which depends on `setup`); the anonymous
   `@smoke`/`@regression` projects exclude it.

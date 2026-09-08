@@ -43,7 +43,8 @@ test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
     expect(config.scheme).toBe('http');
     expect(config.registrableDomain).toBe('openedx.io');
     expect(config.allowCrossSiteOrigins).toBe(false);
-    expect([...config.capabilities]).toEqual([]);
+    // Default-on capabilities (stock surfaces) need no declaration.
+    expect([...config.capabilities]).toEqual(['mfe-authn']);
   });
 
   test('accepts an HTTPS environment including Studio', () => {
@@ -178,7 +179,25 @@ test.describe('loadConfig — shared parent domain', { tag: '@unit' }, () => {
 test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('parses a declared capability list', () => {
     const config = loadConfig(validEnv({ CAPABILITIES: 'discussions, certificates' }));
-    expect([...config.capabilities].sort()).toEqual(['certificates', 'discussions']);
+    expect([...config.capabilities].sort()).toEqual(['certificates', 'discussions', 'mfe-authn']);
+  });
+
+  test('turns off a default-on capability with the "-" prefix', () => {
+    const config = loadConfig(validEnv({ CAPABILITIES: 'discussions,-mfe-authn' }));
+
+    expect([...config.capabilities]).toEqual(['discussions']);
+  });
+
+  test('rejects opting out of a capability that is off unless declared', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: '-discussions' })));
+
+    expect(issues.join('\n')).toContain('nothing to turn off');
+  });
+
+  test('rejects declaring and opting out of the same capability', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'mfe-authn,-mfe-authn' })));
+
+    expect(issues.join('\n')).toContain('both declares and opts out of "mfe-authn"');
   });
 
   test('rejects an unknown capability', () => {

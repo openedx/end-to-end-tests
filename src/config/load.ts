@@ -6,7 +6,10 @@ import {
 } from './account-backends';
 import {
   CAPABILITIES,
+  CAPABILITY_OPT_OUT_PREFIX,
+  DEFAULT_ON_CAPABILITIES,
   isCapability,
+  isDefaultOnCapability,
   MUTUALLY_EXCLUSIVE_CAPABILITIES,
   type Capability,
 } from './capabilities';
@@ -104,29 +107,69 @@ function parseUrl(source: string, value: string, issues: string[]): URL | undefi
   return url;
 }
 
+/**
+ * Parses `CAPABILITIES`: a comma-separated list of capability names, each
+ * optionally prefixed with `-` to turn off one of the
+ * {@link DEFAULT_ON_CAPABILITIES} a stock installation is assumed to have (e.g.
+ * `CAPABILITIES=discussions,-mfe-authn`).
+ *
+ * Every problem is reported rather than guessed at, including an opt-out of a
+ * capability that is off anyway — silently accepting it would leave an operator
+ * believing they had disabled coverage that was never enabled.
+ */
 function parseCapabilities(raw: string | undefined, issues: string[]): Set<Capability> {
-  const enabled = new Set<Capability>();
+  const enabled = new Set<Capability>(DEFAULT_ON_CAPABILITIES);
   if (raw === undefined) {
     return enabled;
   }
 
   const unknown: string[] = [];
+  const optedOut = new Set<Capability>();
+  const declared = new Set<Capability>();
+
   for (const token of raw.split(',').map((t) => t.trim())) {
     if (token === '') {
       continue;
     }
-    if (isCapability(token)) {
-      enabled.add(token);
-    } else {
+    const isOptOut = token.startsWith(CAPABILITY_OPT_OUT_PREFIX);
+    const name = isOptOut ? token.slice(CAPABILITY_OPT_OUT_PREFIX.length).trim() : token;
+
+    if (!isCapability(name)) {
       unknown.push(token);
+      continue;
     }
+    if (!isOptOut) {
+      declared.add(name);
+      enabled.add(name);
+      continue;
+    }
+    if (!isDefaultOnCapability(name)) {
+      issues.push(
+        `CAPABILITIES opts out of "${name}" with "${token}", but ${name} is off ` +
+          'unless declared, so there is nothing to turn off. Remove it. ' +
+          `Capabilities that are on by default: ${DEFAULT_ON_CAPABILITIES.join(', ')}.`,
+      );
+      continue;
+    }
+    optedOut.add(name);
+    enabled.delete(name);
   }
 
   if (unknown.length > 0) {
     issues.push(
       `CAPABILITIES contains unknown ${unknown.length === 1 ? 'capability' : 'capabilities'}: ` +
-        `${unknown.join(', ')}. Known capabilities: ${CAPABILITIES.join(', ')}.`,
+        `${unknown.join(', ')}. Known capabilities: ${CAPABILITIES.join(', ')} ` +
+        `(prefix with "${CAPABILITY_OPT_OUT_PREFIX}" to turn off a default-on one).`,
     );
+  }
+
+  for (const capability of optedOut) {
+    if (declared.has(capability)) {
+      issues.push(
+        `CAPABILITIES both declares and opts out of "${capability}". Keep whichever ` +
+          'matches your installation.',
+      );
+    }
   }
 
   for (const group of MUTUALLY_EXCLUSIVE_CAPABILITIES) {

@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 
 import { newLearnerIdentity, type LearnerIdentity } from '../api';
-import { getConfig, type AppConfig } from '../config';
+import { getConfig, missingCapabilities, type AppConfig } from '../config';
 import { AccountMenu } from '../pages/lms/auth/account-menu.page';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
@@ -30,6 +30,11 @@ export interface TestFixtures {
    * identity, so parallel tests never collide (ADR-0002 test-data rules).
    */
   learnerIdentity: LearnerIdentity;
+  /**
+   * Applied to every spec automatically: skips the test when its tags name a
+   * capability the installation has not enabled. Specs never request it.
+   */
+  capabilityGate: void;
 }
 
 /**
@@ -70,6 +75,25 @@ export const test = base.extend<TestFixtures>({
   learnerIdentity: async ({}, use) => {
     await use(newLearnerIdentity());
   },
+
+  /**
+   * Capability gate (ADR-0002, "Runnable by any provider against their own
+   * installation"). A spec tagged `@discussions` runs only where discussions are
+   * declared; one tagged `@mfe-authn` runs unless the installation has opted out
+   * of the authn MFE. Skipping here — rather than in each test body — is what
+   * keeps the gate uniform and the specs free of configuration logic.
+   */
+  capabilityGate: [
+    async ({ config }, use, testInfo) => {
+      const missing = missingCapabilities(testInfo.tags, config.capabilities);
+      testInfo.skip(
+        missing.length > 0,
+        `Installation does not have: ${missing.join(', ')}. Declare ${missing.length === 1 ? 'it' : 'them'} in CAPABILITIES to run this spec.`,
+      );
+      await use();
+    },
+    { auto: true },
+  ],
 });
 
 export { expect };

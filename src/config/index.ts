@@ -8,8 +8,12 @@ export { loadConfig } from './load';
 export { ConfigError };
 export {
   CAPABILITIES,
+  CAPABILITY_OPT_OUT_PREFIX,
+  DEFAULT_ON_CAPABILITIES,
   MUTUALLY_EXCLUSIVE_CAPABILITIES,
   isCapability,
+  isDefaultOnCapability,
+  missingCapabilities,
   type Capability,
 } from './capabilities';
 export {

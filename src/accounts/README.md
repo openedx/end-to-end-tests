@@ -116,6 +116,14 @@ context (the LMS API does; a separate identity service generally does not), the
 learner auth contract signs in through `signIn` afterwards rather than storing an
 anonymous session.
 
+**An install whose identity lives elsewhere should also set
+`CAPABILITIES=-mfe-authn`.** Implementing a backend replaces sign-in, sign-out
+and (with `register`) account creation, but the suite also covers the authn MFE
+itself — native registration and password reset. Those specs have nothing to
+drive on such a target, and on a tenant with native registration disabled they
+fail rather than skip; the opt-out skips them with a reason. Sign-in and sign-out
+coverage is never gated: it runs through the backend's own UI flows.
+
 The optional flows are what make an SSO install viable: `signIn` is what the
 `setup` project uses to capture `.auth/<role>.json` for **every** role including
 `staff` (admin accounts are never provisioned — they must already exist on the

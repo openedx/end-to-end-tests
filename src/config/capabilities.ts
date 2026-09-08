@@ -15,6 +15,7 @@
  * vocabulary.
  */
 export const CAPABILITIES = [
+  'mfe-authn',
   'discussions',
   'teams',
   'certificates',
@@ -27,6 +28,28 @@ export const CAPABILITIES = [
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
+
+/**
+ * Capabilities that are **on unless explicitly turned off** — stock surfaces a
+ * default installation ships, rather than optional features it may add.
+ *
+ * The declare-to-enable default is right for optional coverage: forgetting to
+ * declare `discussions` costs you discussions tests you never had. It is wrong
+ * for a stock surface, where forgetting the declaration would silently drop
+ * coverage every install is expected to have. So these invert: an installation
+ * that has *replaced* the surface opts out with a `-` prefix
+ * (`CAPABILITIES=-mfe-authn`).
+ *
+ * `mfe-authn` gates coverage that can only exist where the authn MFE owns
+ * accounts — native LMS registration and password reset, and the MFE's own
+ * screens. An install whose identity lives in an external service (a custom
+ * `ACCOUNT_BACKEND`; see `src/accounts/README.md`) has nothing for those specs to
+ * drive, and on a locked-down tenant they fail rather than skip.
+ */
+export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = ['mfe-authn'];
+
+/** Marks an opt-out in `CAPABILITIES`, e.g. `-mfe-authn`. */
+export const CAPABILITY_OPT_OUT_PREFIX = '-';
 
 /**
  * Groups of capabilities that must not be enabled together: each group is a
@@ -44,4 +67,27 @@ export const MUTUALLY_EXCLUSIVE_CAPABILITIES: ReadonlyArray<readonly Capability[
 
 export function isCapability(value: string): value is Capability {
   return (CAPABILITIES as readonly string[]).includes(value);
+}
+
+/** True when `capability` is on unless the installation opts out of it. */
+export function isDefaultOnCapability(value: Capability): boolean {
+  return DEFAULT_ON_CAPABILITIES.includes(value);
+}
+
+/**
+ * Capabilities a test's tags require that the installation has not enabled — the
+ * reason to skip it. Tags that are not capabilities (`@smoke`, `@mfe-account`, …)
+ * are ignored, so a spec opts into gating simply by carrying a capability tag.
+ *
+ * Pure so the gate is unit-testable without a browser; `src/fixtures/` applies
+ * it to every spec.
+ */
+export function missingCapabilities(
+  tags: readonly string[],
+  enabled: ReadonlySet<Capability>,
+): Capability[] {
+  const required = tags
+    .map((tag) => (tag.startsWith('@') ? tag.slice(1) : tag))
+    .filter((tag): tag is Capability => isCapability(tag));
+  return [...new Set(required)].filter((capability) => !enabled.has(capability));
 }
