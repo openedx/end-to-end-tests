@@ -86,24 +86,29 @@ export default class SamlEnterpriseBackend implements AccountBackend {
 
 ### Plugin API
 
-`AccountBackend` (`types.ts`) has two required methods and four optional ones:
+`AccountBackend` (`types.ts`) has two required methods and five optional ones:
 
-| Method             | Required | Runs when                                             | Default when omitted              |
-| ------------------ | -------- | ----------------------------------------------------- | --------------------------------- |
-| `createIdentity`   | yes      | An account is about to be registered                  | —                                 |
-| `activate`         | yes      | Just after registration, to make sign-in possible     | —                                 |
-| `register`         | no       | To create the account itself                          | LMS registration API              |
-| `signIn`           | no       | Headless sign-in that captures reusable storage state | LMS login-session API             |
-| `signInThroughUi`  | no       | A spec signs in through the browser                   | authn MFE `/login` form           |
-| `signOutThroughUi` | no       | A spec signs out through the browser                  | header account-menu sign-out link |
+| Method               | Required | Runs when                                             | Default when omitted                                                  |
+| -------------------- | -------- | ----------------------------------------------------- | --------------------------------------------------------------------- |
+| `createIdentity`     | yes      | An account is about to be registered                  | —                                                                     |
+| `activate`           | yes      | Just after registration, to make sign-in possible     | —                                                                     |
+| `register`           | no       | To create the account itself                          | LMS registration API                                                  |
+| `signIn`             | no       | Headless sign-in that captures reusable storage state | LMS login-session API                                                 |
+| `signInThroughUi`    | no       | A spec signs in through the browser                   | authn MFE `/login` form                                               |
+| `signOutThroughUi`   | no       | A spec signs out through the browser                  | header account-menu sign-out link                                     |
+| `grantCourseCreator` | no       | The `author` role needs course-creator status         | request access, then approve it in Studio's Django admin as `ADMIN_*` |
 
 Each receives a single context object: `config` and `request` for the account
-methods, plus `identity` (`register`, `activate` — `RegistrationContext` and
-`ActivationContext`), `credentials` (`signIn`,
-`signInThroughUi`), or `page` and `username` (the UI flows). The defaults are
-exported as `defaultSignIn`, `defaultSignInThroughUi`, and
-`defaultSignOutThroughUi`, so a plugin that replaces only one flow can delegate
-the rest.
+methods, plus `identity` (`register`, `activate`, `grantCourseCreator` —
+`RegistrationContext`, `ActivationContext`, `GrantCourseCreatorContext`),
+`credentials` (`signIn`, `signInThroughUi`), or `page` and `username` (the UI
+flows). The defaults are exported as `defaultSignIn`, `defaultSignInThroughUi`,
+`defaultSignOutThroughUi` and `defaultGrantCourseCreator`, so a plugin that
+replaces only one flow can delegate the rest. `grantCourseCreator` runs only when
+Studio does not already report the account as `granted`, and throws
+`AccountNotConfiguredError` when the install offers no way to grant with the
+current configuration (no admin account, by default) — the auth layer turns that
+into a skipped `author` role.
 
 `register` is what makes an install viable when the LMS is not the source of
 identity. The default provisioning path posts to the LMS registration API, which

@@ -24,6 +24,7 @@ export {
 export { registrableDomain } from './domain';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
+export { RUN_ID_ENV, getRunId } from './run-id';
 export {
   ACCOUNT_MENU_SELECTORS,
   CATALOG_SEARCH_PATH,

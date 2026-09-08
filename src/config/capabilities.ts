@@ -38,6 +38,14 @@ export const CAPABILITIES = [
   // loudly rather than skip it.
   // See `src/steps/course.ts` for the two routes to a course.
   'catalog-search',
+  // Studio (the CMS) and the course-authoring MFE are present and the suite may
+  // author against them. Declaring it makes `CMS_BASE_URL` required (see
+  // `load.ts`) and enables the `author` role; leaving it undeclared skips the
+  // whole `tests/studio/` tree so an LMS-only target runs cleanly.
+  'studio',
+  // Content tagging: the taxonomy list in the authoring MFE and the tag drawers
+  // on outline items. Reported by Studio's home API as `taxonomies_enabled`.
+  'taxonomies',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];

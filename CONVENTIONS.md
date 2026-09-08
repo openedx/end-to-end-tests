@@ -177,6 +177,14 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   parallel tests never share an enrollment. That costs one registration per test —
   see the README's rate-limit section.
 
+- **Author:** `@author` — the spec runs in the `studio-author` project (depends on
+  `setup`) with the captured author session, valid on Studio and the LMS; the
+  anonymous projects exclude it. Every Studio spec also carries `@studio`, the
+  capability that gates the tree, and `@mfe-authoring`. Studio specs act on the
+  worker-scoped `authoredCourse` unless creating a course is the thing under test:
+  **there is no course-deletion API, so a Studio spec never creates a course it
+  does not have to.**
+
 Apply tags with the `tag` option:
 
 ```ts

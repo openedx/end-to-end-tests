@@ -1,6 +1,16 @@
-import { defaultSignIn, defaultSignInThroughUi, defaultSignOutThroughUi } from './default-flows';
+import {
+  defaultGrantCourseCreator,
+  defaultSignIn,
+  defaultSignInThroughUi,
+  defaultSignOutThroughUi,
+} from './default-flows';
 import { resolveAccountBackend } from './registry';
-import type { SignInContext, UiSignInContext, UiSignOutContext } from './types';
+import type {
+  GrantCourseCreatorContext,
+  SignInContext,
+  UiSignInContext,
+  UiSignOutContext,
+} from './types';
 
 /**
  * Backend-aware entry points for the auth flows: each resolves the configured
@@ -35,4 +45,12 @@ export async function accountSignOutThroughUi(context: UiSignOutContext): Promis
   await (backend.signOutThroughUi
     ? backend.signOutThroughUi(context)
     : defaultSignOutThroughUi(context));
+}
+
+/** Grants course-creator status to the account whose session `context.request` holds. */
+export async function accountGrantCourseCreator(context: GrantCourseCreatorContext): Promise<void> {
+  const backend = await resolveAccountBackend(context.config);
+  await (backend.grantCourseCreator
+    ? backend.grantCourseCreator(context)
+    : defaultGrantCourseCreator(context));
 }

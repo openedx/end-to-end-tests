@@ -14,13 +14,17 @@ interface CsrfTokenResponse {
 }
 
 /**
- * Fetches a CSRF token from the LMS, the same call the authn MFE makes before
- * posting to the login-session API.
+ * Fetches a CSRF token from an Open edX origin — the LMS by default, the same
+ * call the authn MFE makes before posting to the login-session API. Studio
+ * exposes the identical endpoint, so Studio writes pass `config.baseUrls.studio`
+ * as `origin`.
  *
  * The `GET` also lands a `csrftoken` cookie in the request context's cookie jar;
  * Django's CSRF protection then checks the returned header value against that
  * cookie, so the caller must reuse the *same* {@link APIRequestContext} for the
- * subsequent credentialed POST.
+ * subsequent credentialed POST. The cookie is scoped to the host that set it, so
+ * an LMS token does not authorize a Studio write or vice versa — fetch from the
+ * origin you are about to post to, and send that origin as the `Referer`.
  *
  * @returns the token to send in the {@link CSRF_HEADER} header.
  * @throws {ApiError} when the endpoint does not return a token.
@@ -28,8 +32,9 @@ interface CsrfTokenResponse {
 export async function fetchCsrfToken(
   request: APIRequestContext,
   config: AppConfig,
+  origin: string = config.baseUrls.lms,
 ): Promise<string> {
-  const url = `${config.baseUrls.lms}${CSRF_TOKEN_PATH}`;
+  const url = `${origin}${CSRF_TOKEN_PATH}`;
   const response = await request.get(url);
 
   if (!response.ok()) {

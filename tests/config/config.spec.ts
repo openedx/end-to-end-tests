@@ -210,6 +210,23 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
     const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'badges,credly-badges' })));
     expect(issues.join('\n')).toContain('mutually-exclusive');
   });
+
+  test('requires CMS_BASE_URL when studio is declared', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'studio' })));
+    expect(issues.join('\n')).toContain('declares "studio" but CMS_BASE_URL is not set');
+  });
+
+  test('accepts studio with a Studio origin', () => {
+    const config = loadConfig(
+      validEnv({ CAPABILITIES: 'studio', CMS_BASE_URL: 'http://studio.local.openedx.io' }),
+    );
+    expect(config.capabilities.has('studio')).toBe(true);
+    expect(config.baseUrls.studio).toBe('http://studio.local.openedx.io');
+  });
+
+  test('leaves CMS_BASE_URL optional without studio', () => {
+    expect(loadConfig(validEnv({ CAPABILITIES: 'notes' })).baseUrls.studio).toBeUndefined();
+  });
 });
 
 test.describe('loadConfig — account backend', { tag: '@unit' }, () => {

@@ -74,17 +74,18 @@ export default defineConfig({
     },
     {
       // Critical-path stability tier. Drives the UI from a clean, anonymous
-      // state, so it excludes specs that require captured auth (`@authenticated`).
+      // state, so it excludes specs that require captured auth (`@authenticated`,
+      // `@author`).
       name: 'smoke',
       grep: /@smoke/,
-      grepInvert: /@authenticated/,
+      grepInvert: /@authenticated|@author/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
       // Broader-depth stability tier, likewise anonymous by default.
       name: 'regression',
       grep: /@regression/,
-      grepInvert: /@authenticated/,
+      grepInvert: /@authenticated|@author/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
@@ -95,6 +96,15 @@ export default defineConfig({
       grep: /@authenticated/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], storageState: authStateFile('learner') },
+    },
+    {
+      // Authoring tier: `@author` specs (the tests/studio/ tree) run with the
+      // captured author state, which holds both the LMS and the Studio session.
+      // The worker-scoped `authoredCourse` fixture reads the same state file.
+      name: 'studio-author',
+      grep: /@author/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'], storageState: authStateFile('author') },
     },
     // Additional browsers (Firefox, WebKit) can be added as parallel projects
     // once the suite is stable on Chromium.

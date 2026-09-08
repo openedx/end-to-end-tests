@@ -43,6 +43,15 @@ export interface UiSignInContext {
   readonly credentials: AccountCredentials;
 }
 
+/**
+ * Context for granting course-creator status to a freshly provisioned account.
+ * `request` holds that account's session (LMS and Studio); the account has
+ * already asked for access, so the platform knows it as `pending`.
+ */
+export interface GrantCourseCreatorContext extends AccountContext {
+  readonly identity: LearnerIdentity;
+}
+
 /** Context for a sign-out driven through the install's UI. */
 export interface UiSignOutContext {
   readonly config: AppConfig;
@@ -72,13 +81,16 @@ export interface UiSignOutContext {
  *    otherwise; and
  * 4. how an existing account signs in and out (`signIn`, `signInThroughUi`,
  *    `signOutThroughUi`) — the LMS login-session API and the authn MFE by
- *    default, or an SSO/IdP flow for installs that replace them.
+ *    default, or an SSO/IdP flow for installs that replace them; and
+ * 5. how a fresh account becomes able to create courses in Studio
+ *    (`grantCourseCreator`) — the Django admin with the configured admin
+ *    account by default, or whatever gates course creation on the install.
  *
- * Only `createIdentity` and `activate` are required. `register` and the three
- * auth flows are optional: when a backend omits one, the built-in default runs
- * (`registerLearnerAccount` for `register`, `default-flows.ts` for the rest), so a
- * backend that only customizes account creation stays a two-method
- * implementation.
+ * Only `createIdentity` and `activate` are required. `register`, the three auth
+ * flows and the grant flow are optional: when a backend omits one, the built-in
+ * default runs (`registerLearnerAccount` for `register`, `default-flows.ts` for
+ * the rest), so a backend that only customizes account creation stays a
+ * two-method implementation.
  *
  * Selecting a backend by config (`ACCOUNT_BACKEND`) keeps the specs identical
  * across targets.
@@ -132,4 +144,21 @@ export interface AccountBackend {
    * (`defaultSignOutThroughUi`).
    */
   signOutThroughUi?(context: UiSignOutContext): Promise<void>;
+
+  /**
+   * Make the account able to create courses in Studio, for the `author` role.
+   * Called only when Studio reports the account is not already `granted` (an
+   * install with `ENABLE_CREATOR_GROUP` off never gets here).
+   *
+   * Defaults to `defaultGrantCourseCreator`: the account requests access, and
+   * a separate superuser session (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) grants it
+   * through Studio's Django admin — the only path a default install offers.
+   * Providers that gate creation differently (an SSO group, a support ticket, a
+   * custom API) implement this instead.
+   *
+   * @throws {AccountNotConfiguredError} when the install offers no way to grant
+   *   with the current configuration, so the `author` role skips rather than
+   *   fails.
+   */
+  grantCourseCreator?(context: GrantCourseCreatorContext): Promise<void>;
 }

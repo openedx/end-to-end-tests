@@ -1,7 +1,14 @@
+import { existsSync } from 'node:fs';
+
 import { test as base, expect } from '@playwright/test';
 
 import { provisionLearnerSession } from '../accounts';
+import { authStateFile } from '../auth';
 import {
+  ensureCourse,
+  newCourseIdentity,
+  studioOrigin,
+  type CourseIdentity,
   unitsContaining,
   assertCourseAccessible,
   courseKeySkipReason,
@@ -17,7 +24,7 @@ import {
   type CourseUnit,
   type LearnerIdentity,
 } from '../api';
-import { getConfig, missingCapabilities, type AppConfig } from '../config';
+import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
@@ -107,6 +114,44 @@ export interface TestFixtures {
    * becomes a conditional inside a spec.
    */
   completionUnits: CompletionUnits;
+  /**
+   * Gate for Studio coverage: skips unless the installation declares the `studio`
+   * capability, and hands the spec the Studio origin as a plain string.
+   *
+   * Every Studio spec carries the `@studio` tag, which the `capabilityGate`
+   * already enforces; this fixture is the belt to that braces, so a Studio spec
+   * that forgets the tag still cannot run against a target without Studio.
+   */
+  studio: string;
+}
+
+/**
+ * Fixtures shared by every test a worker runs. Worker scope is what keeps the
+ * per-run Studio course count down: there is no course-deletion API, so a course
+ * per *test* would leave dozens behind on a persistent target.
+ */
+export interface WorkerFixtures {
+  /**
+   * The course the Studio settings specs act on — one per worker, created on
+   * first use through the Studio API by the `author` session the project loaded,
+   * and idempotent per (run, worker) so a retried worker lands on the same
+   * course rather than a new one.
+   *
+   * Two workers never share a course, which is what makes the settings specs
+   * parallel-safe while the author account is shared. A spec whose subject *is*
+   * course creation (or that must archive a course) creates its own instead of
+   * mutating this one.
+   *
+   * Only meaningful in the `studio-author` project: it reads the author state
+   * file that project loads, and fails with a pointer here when it is missing.
+   */
+  authoredCourse: AuthoredCourse;
+}
+
+/** What {@link WorkerFixtures.authoredCourse} hands a spec. */
+export interface AuthoredCourse extends CourseIdentity {
+  /** The course's Studio URL (redirects to the authoring MFE where applicable). */
+  readonly studioUrl: string;
 }
 
 /** What {@link TestFixtures.courseLearner} hands a spec. */
@@ -143,7 +188,7 @@ export type EnrolledCourse = CourseLearner;
  * environment is invalid, rather than surfacing later as a confusing navigation
  * failure.
  */
-export const test = base.extend<TestFixtures>({
+export const test = base.extend<TestFixtures, WorkerFixtures>({
   // eslint-disable-next-line no-empty-pattern
   config: async ({}, use) => {
     await use(getConfig());
@@ -276,6 +321,46 @@ export const test = base.extend<TestFixtures>({
   courseProgress: async ({ request, config, enrolledCourse }, use) => {
     await use(() => fetchCourseProgress(request, config, enrolledCourse.courseKey));
   },
+
+  studio: async ({ config }, use) => {
+    base.skip(
+      !config.capabilities.has('studio'),
+      'Studio coverage needs the "studio" capability (and CMS_BASE_URL). Declare it in ' +
+        'CAPABILITIES to enable the tests/studio/ tree.',
+    );
+    await use(studioOrigin(config));
+  },
+
+  authoredCourse: [
+    async ({ playwright }, use, workerInfo) => {
+      const config = getConfig();
+      const authorState = authStateFile('author');
+      if (!existsSync(authorState)) {
+        throw new Error(
+          `authoredCourse needs the author session (${authorState}), which only the ` +
+            '"studio-author" project provides. Run Studio specs in that project.',
+        );
+      }
+
+      // The identity is keyed on the run id (shared by all workers, minted in
+      // global setup) and this worker's parallel slot, so a restarted worker
+      // reuses its predecessor's course instead of creating another.
+      const identity = newCourseIdentity(config, getRunId(), `W${workerInfo.parallelIndex}`);
+
+      const request = await playwright.request.newContext({ storageState: authorState });
+      try {
+        const courseKey = await ensureCourse(request, config, identity);
+        await use({
+          ...identity,
+          courseKey,
+          studioUrl: `${studioOrigin(config)}/course/${courseKey}`,
+        });
+      } finally {
+        await request.dispose();
+      }
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
 
   completionUnits: async ({ courseOutline }, use) => {
     const viewOnly = courseOutline.units.find(

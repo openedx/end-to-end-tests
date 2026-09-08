@@ -1,9 +1,14 @@
 import type { APIRequestContext } from '@playwright/test';
 
-import { registerLearnerAccount, type LearnerIdentity } from '../api';
+import {
+  establishStudioSession,
+  fetchCourseCreatorStatus,
+  registerLearnerAccount,
+  type LearnerIdentity,
+} from '../api';
 import { hasAuthenticatedSession } from '../auth/preflight';
 import type { AppConfig } from '../config';
-import { accountSignIn } from './auth-flows';
+import { accountGrantCourseCreator, accountSignIn } from './auth-flows';
 import { resolveAccountBackend } from './registry';
 
 /**
@@ -67,5 +72,35 @@ export async function provisionLearnerSession(
     });
   }
 
+  return identity;
+}
+
+/**
+ * Provisions an **author** — a fresh account that can create courses in Studio —
+ * and leaves `request` holding a session valid on both the LMS and Studio.
+ *
+ * 1. {@link provisionLearnerSession}: register (and activate) the account; the
+ *    registration session is the LMS half.
+ * 2. `establishStudioSession`: the silent OAuth handshake that gives Studio its
+ *    own session (`src/api/studio-session.ts`). Without it every Studio URL is a
+ *    redirect to `/login/` and every Studio API a 401.
+ * 3. If Studio does not already report the account as `granted` (it does on an
+ *    install with `ENABLE_CREATOR_GROUP` off), run the backend's
+ *    `grantCourseCreator` — by default TC-00310's request-then-admin-grant.
+ *
+ * The result is the `author` role's storage state, and what a spec that needs an
+ * author of its own (`courseAuthor`) gets.
+ */
+export async function provisionAuthorSession(
+  request: APIRequestContext,
+  config: AppConfig,
+): Promise<LearnerIdentity> {
+  const identity = await provisionLearnerSession(request, config);
+  await establishStudioSession(request, config);
+
+  const status = await fetchCourseCreatorStatus(request, config);
+  if (status !== 'granted') {
+    await accountGrantCourseCreator({ config, request, identity });
+  }
   return identity;
 }

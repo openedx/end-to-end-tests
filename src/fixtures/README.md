@@ -25,4 +25,10 @@ Rules:
 - Per-test identity where state is mutated: `courseLearner` provisions a fresh
   learner and installs its session over the project's shared storage state, so
   enrollment and completion tests are parallel-safe.
+- **Worker-scoped state where creation is irreversible.** Studio offers no
+  course-deletion API, so `authoredCourse` is a worker fixture: one course per
+  worker, created on first use and reused by every Studio spec in that worker,
+  idempotent per (run id, worker slot) so a restarted worker finds its
+  predecessor's course. Only a spec whose subject _is_ course creation makes its
+  own. `studio` (test-scoped) is the skip gate for the Studio tree.
 - This is the only layer that reaches across all the others.

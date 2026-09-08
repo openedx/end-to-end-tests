@@ -66,8 +66,8 @@ The essentials:
 | ----------------------------------- | -------- | ------------------------------------------------------------------ |
 | `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                         |
 | `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`               |
-| `CMS_BASE_URL`                      | —        | Studio origin (only needed for Studio specs)                       |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither)                          |
+| `CMS_BASE_URL`                      | —        | Studio origin; required when `studio` is in `CAPABILITIES`         |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`    |
 | `ORG`                               | —        | Organization short code, e.g. `OpenedX`                            |
 | `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip |
 | `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install               |
@@ -245,6 +245,10 @@ Tests are organized into Playwright **projects**:
   project loads the captured learner session; specs that change course state use
   the `courseLearner` fixture instead, which provisions a fresh learner per test
   (one registration each — see the rate limit below).
+- `studio-author` — Studio tests (`@author`, the `tests/studio/` tree); depends on
+  `setup` and loads the captured **author** session, which is valid on Studio as
+  well as the LMS. Runs only when the `studio` capability is declared; see
+  "Studio coverage" below.
 
 Run a single project or filter by tag:
 
@@ -260,6 +264,38 @@ after `npm install`:
 ```sh
 npx playwright test --project=unit
 ```
+
+## Studio coverage
+
+Studio specs run when `CAPABILITIES` includes `studio` and `CMS_BASE_URL` is set
+(declaring one without the other fails configuration). Leave `studio` undeclared
+on an LMS-only target and the whole `tests/studio/` tree skips.
+
+**The `author` role.** The `setup` project provisions a fresh account, gives it a
+Studio session (Studio keeps its own session behind a silent OAuth handshake with
+the LMS — no second sign-in, no credentials), and grants it course-creator status.
+On a default install (`ENABLE_CREATOR_GROUP` on) the only grant path is the Studio
+Django admin, so the default account backend signs in as `ADMIN_USERNAME` /
+`ADMIN_PASSWORD` (a superuser) to approve the request. Without an admin account
+the `author` role — and every Studio spec — skips, unless the install grants every
+user (then no admin is needed). Installs that gate course creation differently
+implement `grantCourseCreator` in an account backend plugin
+([`src/accounts/README.md`](src/accounts/README.md)).
+
+**Courses the suite creates.** There is no API to delete a course, so the suite
+keeps the count low: the settings specs share **one course per worker**
+(`authoredCourse`), and only the specs whose subject is course creation make
+their own. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
+`E2E` when `ORG` is unset). On a persistent target, purge them with the CMS
+management command — it prompts, so pipe `yes` into it:
+
+```sh
+yes | tutor local exec cms ./manage.py cms delete_course <course key>
+```
+
+then `./manage.py cms reindex_course --all --setup` if deleted courses still show
+in catalog search. CI's Tutor installs are ephemeral, so nothing accumulates
+there.
 
 ## Quality gates
 
@@ -373,6 +409,7 @@ tests/                 # specs, grouped by platform domain (lms/, studio/)
   lms/courseware/      # learning MFE: outline sidebar
   lms/dashboard/       # learner dashboard
   lms/landing.spec.ts  # proof-of-life smoke test
+  studio/              # authoring MFE + Studio APIs (bootstrap: author session, course factory)
   conventions/         # suite-wide rules enforced as tests (no displayed text)
   config/ api/ auth/ accounts/ a11y/ reporting/   # unit tests (@unit) per module
   auth.setup.ts        # auth setup project

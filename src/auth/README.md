@@ -10,20 +10,26 @@ contract rather than an assumed sign-in flow (ADR-0002).
 
 Contains:
 
-- `roles.ts` — the `Role` vocabulary (`learner`, `instructor`, `staff`).
+- `roles.ts` — the `Role` vocabulary (`learner`, `instructor`, `staff`, `author`).
+  `author` is a fresh account granted course-creator status with a Studio
+  session; "author" and "course creator" are deliberately one role.
 - `types.ts` — the `AuthProvider` contract and `AuthContext`.
 - `preflight.ts` — post-login assertion that the login JWT cookie was captured
   (the reliable authenticated-session signal; `sessionid` is present for anonymous
   users too), plus the `hasAuthenticatedSession` predicate specs use and the HTTP
-  cookie-policy diagnostic.
+  cookie-policy diagnostic. `assertStudioSessionPresent` adds the Studio half for
+  the authoring roles when `studio` is declared: it asks Studio who the session is
+  rather than looking for a cookie, since the CMS cookie name is configurable.
 - `storage.ts` — where per-role storage state is written (`.auth/<role>.json`).
 - `api-provider.ts` — `ApiAuthProvider`, the default provider. Signs in through
   the configured account backend's `signIn` flow — by default the LMS APIs the
   authn MFE calls (`GET /csrf/api/v1/token` → `POST .../login_session/`) — and
   captures the parent-domain cookie jar into one storage state. `learner`
   self-registers a unique account (portable seeding); `staff` signs in with the
-  pre-existing `ADMIN_*` account and is never provisioned; `instructor` is an
-  extension point (reported not-configured so setup skips it). Because sign-in
+  pre-existing `ADMIN_*` account and is never provisioned; `author` is
+  provisioned through `provisionAuthorSession` (register → Studio handshake →
+  `grantCourseCreator`) and offered whenever `studio` is declared; `instructor`
+  is an extension point (reported not-configured so setup skips it). Because sign-in
   goes through the backend, an install with custom auth can redirect every role
   by setting `ACCOUNT_BACKEND` — see [`../accounts/README.md`](../accounts/README.md).
 - `default-provider.ts` — exports the default provider instance; swap it for a
@@ -32,5 +38,8 @@ Contains:
   setup project skip an unconfigured role instead of failing the run).
 
 Key design point: a single sign-in sets parent-scoped cookies that cover every
-sub-domain origin, so one storage state authenticates LMS, Studio, and all MFEs.
-We never disable browser security.
+sub-domain origin, so one storage state authenticates the LMS and all MFEs.
+Studio keeps its own session, reached from the LMS one through a silent OAuth
+handshake (`src/api/studio-session.ts`) that the provider performs for the
+authoring roles — still one storage state, no second sign-in. We never disable
+browser security.
