@@ -285,10 +285,14 @@ jobs:
           path: .ci/mysql-dump/
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
 
-      # Without this setting Playwright won't be able to complete most auth
-      # tests due to not being able to activate the account via email.
-      # This does mean that some tests around activation can't be completed
-      # here.
+      # - SKIP_EMAIL_VALIDATION: without it Playwright can't complete most
+      #   auth tests because accounts can't be activated via email. Some
+      #   activation tests therefore can't run here.
+      # - ENABLE_COURSE_DISCOVERY: exposes the course discovery/search UI the
+      #   catalog tests exercise.
+      # - Rate limits: the platform defaults are per-day and CI retries and
+      #   back-to-back runs exhaust them (HTTP 403 forbidden-request), so use
+      #   short, self-resetting per-minute windows.
       - name: Configure Tutor
         run: |
           set -euo pipefail
@@ -298,9 +302,20 @@ jobs:
 
           hooks.Filters.ENV_PATCHES.add_item(
               (
-                  "common-env-features",
+                  "openedx-common-settings",
                   """
-          SKIP_EMAIL_VALIDATION: true
+          REGISTRATION_RATELIMIT = "100/m"
+          PASSWORD_RESET_IP_RATE = "100/m"
+          PASSWORD_RESET_EMAIL_RATE = "100/m"
+
+          ENABLE_COURSE_DISCOVERY = True
+          SKIP_EMAIL_VALIDATION = True
+
+          # Releases before main still read these from FEATURES; main has
+          # deprecated FEATURES in favour of top-level settings.
+          if "FEATURES" in globals():
+              FEATURES["ENABLE_COURSE_DISCOVERY"] = True
+              FEATURES["SKIP_EMAIL_VALIDATION"] = True
           """
               )
           )
