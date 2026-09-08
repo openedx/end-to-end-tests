@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { COURSE_HOME_SELECTORS, type AppConfig } from '../../../config';
+import { COURSE_HOME_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 
 /**
  * Course home: the outline tab a learner lands on. Locators and single-surface
@@ -48,10 +48,12 @@ export class CourseOutlinePage {
   async dismissTourDialog(): Promise<void> {
     // The modal mounts *after* the outline first renders, so testing for it the
     // moment the page arrives finds nothing and leaves it to appear later and
-    // swallow the next click. Waiting for the page's own network activity to
-    // settle is what makes its presence decidable.
-    await this.page.waitForLoadState('networkidle');
-    if ((await this.tourDialog.count()) === 0) {
+    // swallow the next click. It is also absent altogether for a returning user,
+    // so the only decidable check is a bounded wait for it: present within the
+    // budget means dismiss it, otherwise there is nothing to dismiss.
+    try {
+      await this.tourDialog.waitFor({ state: 'visible', timeout: TIMEOUTS.optionalOverlay });
+    } catch {
       return;
     }
     await this.page.keyboard.press('Escape');

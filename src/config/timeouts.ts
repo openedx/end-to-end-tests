@@ -29,6 +29,15 @@ export const TIMEOUTS = {
   blockCompletion: 20_000,
 
   /**
+   * How long to give an overlay that may never come before deciding it will not.
+   * The course-home tour dialog mounts only after the outline's own user-tour
+   * request resolves, and only for a first visit, so a page object cannot assert
+   * it into existence: it waits this long for it and otherwise moves on. Kept
+   * short because every returning-user visit pays the full budget.
+   */
+  optionalOverlay: 5_000,
+
+  /**
    * Whole-test budget for the spec that works through an entire course. Every
    * HTML block costs the platform's dwell delay, so this scales with the course:
    * the demo course's 264 HTML blocks alone account for around 22 minutes.

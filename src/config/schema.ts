@@ -56,23 +56,20 @@ const envShape = z.object({
  */
 export const ENV_KEYS = Object.keys(envShape.shape) as readonly (keyof typeof envShape.shape)[];
 
-export const rawEnvSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== 'object' || value === null) {
-      return value;
-    }
-    const cleaned: Record<string, unknown> = {};
-    for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
-      if (typeof raw === 'string') {
-        const trimmed = raw.trim();
-        if (trimmed !== '') {
-          cleaned[key] = trimmed;
-        }
-      } else if (raw !== undefined) {
-        cleaned[key] = raw;
+export const rawEnvSchema = z.preprocess((value) => {
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed !== '') {
+        cleaned[key] = trimmed;
       }
+    } else if (raw !== undefined) {
+      cleaned[key] = raw;
     }
-    return cleaned;
-  },
-  envShape,
-);
+  }
+  return cleaned;
+}, envShape);
