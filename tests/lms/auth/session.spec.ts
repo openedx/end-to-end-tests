@@ -11,7 +11,7 @@ import { expect, test } from '../../../src/fixtures';
 test.describe('Reused learner session', () => {
   test(
     'reaches the dashboard without signing in again',
-    { tag: '@authenticated' },
+    { tag: ['@smoke', '@authenticated'] },
     async ({ page, config }) => {
       await page.goto(`${config.baseUrls.lms}/dashboard`);
 

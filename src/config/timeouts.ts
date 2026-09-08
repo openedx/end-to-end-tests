@@ -18,6 +18,36 @@ export const TIMEOUTS = {
 
   /** A navigation (`goto`, `waitForURL`) budget - MFEs can be slow to hydrate. */
   navigation: 30_000,
-} as const;
 
-export type Timeouts = typeof TIMEOUTS;
+  /**
+   * Budget for one content block to register completion after it is brought into
+   * view. The platform marks an HTML block complete only after it has been
+   * visible for its own dwell delay (`data-mark-completed-on-view-after-delay`,
+   * 5s on a default install), so this must comfortably exceed that delay plus the
+   * round trip of the resulting completion call.
+   */
+  blockCompletion: 20_000,
+
+  /**
+   * How long to give an overlay that may never come before deciding it will not.
+   * The course-home tour dialog mounts only after the outline's own user-tour
+   * request resolves, and only for a first visit, so a page object cannot assert
+   * it into existence: it waits this long for it and otherwise moves on. Kept
+   * short because every returning-user visit pays the full budget.
+   */
+  optionalOverlay: 5_000,
+
+  /**
+   * Whole-test budget for the spec that works through an entire course. Every
+   * HTML block costs the platform's dwell delay, so this scales with the course:
+   * the demo course's 264 HTML blocks alone account for around 22 minutes.
+   */
+  courseCrawlTest: 2_700_000,
+
+  /**
+   * Whole-test budget for specs that work through course content. View-based
+   * completion costs the platform's dwell delay per block, so a spec covering a
+   * handful of units takes minutes rather than seconds.
+   */
+  contentTest: 300_000,
+} as const;

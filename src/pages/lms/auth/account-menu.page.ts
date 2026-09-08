@@ -1,48 +1,38 @@
 import type { Locator, Page } from '@playwright/test';
 
-import type { AppConfig } from '../../../config';
-
-/** Escapes a string for safe use inside a `RegExp`. */
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { ACCOUNT_MENU_SELECTORS, type AppConfig } from '../../../config';
 
 /**
  * The header account menu that carries the sign-out affordance, shown once a
- * learner is signed in (the MFE header from `@openedx/frontend-component-header`).
+ * learner is signed in.
  *
- * The menu trigger's accessible name is the localized "Account menu for
- * {username}", so we match on the **username** — data the test owns, present in
- * the name in every language — rather than the surrounding localized copy. The
- * sign-out item is targeted by its `/logout` href, immune to label/translation.
+ * Both anchors are structural (see `ACCOUNT_MENU_SELECTORS`): the trigger by the
+ * `id` the shell gives it, the sign-out item by its `/logout` href. Neither
+ * depends on displayed text — which matters here, because the trigger's
+ * accessible name is the learner's **display name**, not their username, so the
+ * caller has nothing language-independent to match on.
  */
 export class AccountMenu {
+  readonly menuTrigger: Locator;
   readonly signOutLink: Locator;
 
   constructor(
     private readonly page: Page,
     private readonly config: AppConfig,
   ) {
-    this.signOutLink = page.locator('a[href*="/logout"]');
+    this.menuTrigger = page.locator(ACCOUNT_MENU_SELECTORS.menuTrigger);
+    this.signOutLink = page.locator(ACCOUNT_MENU_SELECTORS.signOutLink);
   }
 
-  /** Opens the account dropdown, identified by the signed-in user's username. */
-  async open(username: string): Promise<void> {
-    const byUsername = new RegExp(escapeRegExp(username), 'i');
-    await this.page.getByRole('button', { name: byUsername }).click();
+  /** Opens the account dropdown. */
+  async open(): Promise<void> {
+    await this.menuTrigger.click();
+    await this.signOutLink.waitFor();
   }
 
   /** Opens the menu and clicks the sign-out link. */
-  async signOut(username: string): Promise<void> {
-    await this.open(username);
+  async signOut(): Promise<void> {
+    await this.open();
     await this.signOutLink.click();
-  }
-
-  /**
-   * Direct sign-out via the LMS logout URL — a resilient fallback for flows that
-   * only need the session cleared, not the menu exercised.
-   */
-  async signOutDirect(): Promise<void> {
-    await this.page.goto(`${this.config.baseUrls.lms}/logout`);
   }
 }

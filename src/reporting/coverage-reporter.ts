@@ -3,7 +3,7 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 
 import type { FullConfig, Reporter, Suite, TestCase, TestResult } from '@playwright/test/reporter';
 
-import { summarizeCoverage, type TestOutcome } from './coverage';
+import { finalAttempts, summarizeCoverage, type TestAttempt, type TestStatus } from './coverage';
 import { testIdsFromAnnotations } from './test-id';
 
 export interface CoverageReporterOptions {
@@ -33,6 +33,24 @@ function projectNameOf(test: TestCase): string {
 }
 
 /**
+ * Reads one attempt's status the way the BTR sheet should see it, honouring
+ * `test.fail()`. A test marked as an expected failure (a known upstream defect,
+ * see CONVENTIONS "Known upstream defects") that duly fails is a *known gap*, not
+ * a regression, so it counts as `skipped` — the same reading a `test.fixme` gets.
+ * If it unexpectedly passes, the defect has been fixed and the marker is stale;
+ * Playwright fails the run for that, and so does this report.
+ */
+function statusOf(test: TestCase, result: TestResult): TestStatus {
+  if (result.status === 'skipped') {
+    return 'skipped';
+  }
+  if (test.expectedStatus === 'failed') {
+    return result.status === 'passed' ? 'failed' : 'skipped';
+  }
+  return result.status;
+}
+
+/**
  * Always-on reporter that maps every annotated test to its BTR case ID and its
  * outcome, and reports annotation **coverage** (annotated vs. unannotated) each
  * run. It writes a local JSON file only — uploading it is a CI-only concern and
@@ -44,7 +62,7 @@ function projectNameOf(test: TestCase): string {
 export default class CoverageReporter implements Reporter {
   private readonly outputFile: string;
   private readonly excluded: ReadonlySet<string>;
-  private readonly outcomes: TestOutcome[] = [];
+  private readonly attempts: TestAttempt[] = [];
   private configDir = process.cwd();
 
   constructor(options: CoverageReporterOptions = {}) {
@@ -56,19 +74,24 @@ export default class CoverageReporter implements Reporter {
     this.configDir = dirname(config.configFile ?? process.cwd());
   }
 
+  /**
+   * Fires once per **attempt**, so a retried test arrives here several times.
+   * Attempts are keyed by `test.id` and collapsed to the final one in `onEnd`.
+   */
   onTestEnd(test: TestCase, result: TestResult): void {
     if (this.excluded.has(projectNameOf(test))) {
       return;
     }
-    this.outcomes.push({
+    this.attempts.push({
+      testKey: test.id,
       title: test.titlePath().slice(1).join(' › '),
-      status: result.status,
+      status: statusOf(test, result),
       testIds: testIdsFromAnnotations(test.annotations),
     });
   }
 
   async onEnd(): Promise<void> {
-    const summary = summarizeCoverage(this.outcomes);
+    const summary = summarizeCoverage(finalAttempts(this.attempts));
 
     const path = isAbsolute(this.outputFile)
       ? this.outputFile
@@ -81,9 +104,11 @@ export default class CoverageReporter implements Reporter {
     );
 
     const pct = Math.round(summary.coverageRatio * 100);
+    const { verified, partial, unverified, failed } = summary.verdicts;
     console.log(
       `\n[btr-coverage] ${summary.annotated}/${summary.total} tests carry a test_id ` +
-        `(${pct}% annotated); ${summary.byTestId.length} BTR case(s) exercised. ` +
+        `(${pct}% annotated); ${summary.byTestId.length} BTR case(s) exercised — ` +
+        `${verified} verified, ${partial} partial, ${unverified} unverified, ${failed} failed. ` +
         `Wrote ${this.outputFile}.`,
     );
   }

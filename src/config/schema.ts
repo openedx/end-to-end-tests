@@ -21,51 +21,55 @@ const booleanFromEnv = z
  * absent, so an empty `FOO=` in a `.env` file fails the same "required" check as
  * omitting it entirely — a common footgun.
  */
-export const rawEnvSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== 'object' || value === null) {
-      return value;
-    }
-    const cleaned: Record<string, unknown> = {};
-    for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
-      if (typeof raw === 'string') {
-        const trimmed = raw.trim();
-        if (trimmed !== '') {
-          cleaned[key] = trimmed;
-        }
-      } else if (raw !== undefined) {
-        cleaned[key] = raw;
+const envShape = z.object({
+  // Base URLs.
+  LMS_BASE_URL: z.string(),
+  APPS_BASE_URL: z.string(),
+  CMS_BASE_URL: z.string().optional(),
+
+  // Credentials (paired admin/staff account; validated together in load.ts).
+  ADMIN_USERNAME: z.string().optional(),
+  ADMIN_PASSWORD: z.string().optional(),
+
+  // Tenant / content identifiers.
+  ORG: z.string().optional(),
+  COURSE_KEY: z.string().optional(),
+
+  // Capability declaration (comma-separated list of capability tags).
+  CAPABILITIES: z.string().optional(),
+
+  // Account-creation / activation backends (see src/config/account-backends.ts).
+  // Comma-separated file paths of extra account backend plugin modules to load,
+  // defaults to none.
+  CUSTOM_ACCOUNT_BACKEND_PLUGINS: z.string().optional(),
+  // Name of the actual backend to use (built-in or plugin), defaults to 'automatic'.
+  ACCOUNT_BACKEND: z.string().optional(),
+
+  // Escape hatch for providers whose origins are not same-site.
+  ALLOW_CROSS_SITE_ORIGINS: booleanFromEnv.optional(),
+});
+
+/**
+ * Every environment variable the configuration reads. Tests that pin
+ * `process.env` use this to neutralise the rest, so a developer's own `.env`
+ * cannot change their outcome.
+ */
+export const ENV_KEYS = Object.keys(envShape.shape) as readonly (keyof typeof envShape.shape)[];
+
+export const rawEnvSchema = z.preprocess((value) => {
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed !== '') {
+        cleaned[key] = trimmed;
       }
+    } else if (raw !== undefined) {
+      cleaned[key] = raw;
     }
-    return cleaned;
-  },
-  z.object({
-    // Base URLs.
-    LMS_BASE_URL: z.string(),
-    APPS_BASE_URL: z.string(),
-    CMS_BASE_URL: z.string().optional(),
-
-    // Credentials (paired admin/staff account; validated together in load.ts).
-    ADMIN_USERNAME: z.string().optional(),
-    ADMIN_PASSWORD: z.string().optional(),
-
-    // Tenant / content identifiers.
-    ORG: z.string().optional(),
-    COURSE_KEY: z.string().optional(),
-
-    // Capability declaration (comma-separated list of capability tags).
-    CAPABILITIES: z.string().optional(),
-
-    // Account-creation / activation backends (see src/config/account-backends.ts).
-    // Comma-separated file paths of extra account backend plugin modules to load,
-    // defaults to none.
-    CUSTOM_ACCOUNT_BACKEND_PLUGINS: z.string().optional(),
-    // Name of the actual backend to use (built-in or plugin), defaults to 'automatic'.
-    ACCOUNT_BACKEND: z.string().optional(),
-
-    // Escape hatch for providers whose origins are not same-site.
-    ALLOW_CROSS_SITE_ORIGINS: booleanFromEnv.optional(),
-  }),
-);
-
-export type RawEnv = z.infer<typeof rawEnvSchema>;
+  }
+  return cleaned;
+}, envShape);

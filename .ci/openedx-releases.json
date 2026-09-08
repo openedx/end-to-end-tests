@@ -1,26 +1,26 @@
 {
   "main": {
     "tutorConstraint": "",
-    "capabilities": "discussions,notes"
+    "capabilities": "discussions,notes,catalog-search,courseware-navigation-sidebar"
   },
   "verawood": {
     "tutorConstraint": ">=22.0.0,<23.0.0",
-    "capabilities": "discussions,notes"
+    "capabilities": "discussions,notes,catalog-search,courseware-navigation-sidebar"
   },
   "ulmo": {
     "tutorConstraint": ">=21.0.0,<22.0.0",
-    "capabilities": "discussions,notes"
+    "capabilities": "discussions,notes,catalog-search,courseware-legacy-navigation"
   },
   "teak": {
     "tutorConstraint": ">=20.0.0,<21.0.0",
-    "capabilities": "discussions,notes"
+    "capabilities": "discussions,notes,catalog-search,courseware-legacy-navigation"
   },
   "sumac": {
     "tutorConstraint": ">=19.0.0,<20.0.0",
-    "capabilities": "discussions,notes"
+    "capabilities": "discussions,notes,catalog-search,courseware-legacy-navigation"
   },
   "redwood": {
     "tutorConstraint": ">=18.0.0,<19.0.0",
-    "capabilities": "discussions,notes"
+    "capabilities": "discussions,notes,catalog-search,courseware-legacy-navigation"
   }
 }
