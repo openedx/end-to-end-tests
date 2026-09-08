@@ -9,10 +9,16 @@ export interface AccountContext {
   readonly request: APIRequestContext;
 }
 
-/** Context for the activation step: adds the identity that was just registered. */
-export interface ActivationContext extends AccountContext {
+/** Resources plus the identity being provisioned. */
+export interface IdentityContext extends AccountContext {
   readonly identity: LearnerIdentity;
 }
+
+/** Context for the registration step: the identity to create the account for. */
+export type RegistrationContext = IdentityContext;
+
+/** Context for the activation step: the identity that was just registered. */
+export type ActivationContext = IdentityContext;
 
 /** What a sign-in flow authenticates with. */
 export interface AccountCredentials {
@@ -53,16 +59,20 @@ export interface UiSignOutContext {
  * A backend decides what varies by installation:
  * 1. which identity to register with (`createIdentity`) — a throwaway address for
  *    auto-activating targets, or an operator-supplied inbox for manual runs;
- * 2. how a freshly-registered account becomes able to sign in (`activate`) — a
+ * 2. how the account is created (`register`) — the LMS registration API by
+ *    default, or the install's own service when the LMS is not the source of
+ *    identity;
+ * 3. how a freshly-registered account becomes able to sign in (`activate`) — a
  *    no-op when the target auto-activates, or fetching the activation link
  *    otherwise; and
- * 3. how an existing account signs in and out (`signIn`, `signInThroughUi`,
+ * 4. how an existing account signs in and out (`signIn`, `signInThroughUi`,
  *    `signOutThroughUi`) — the LMS login-session API and the authn MFE by
  *    default, or an SSO/IdP flow for installs that replace them.
  *
- * Only `createIdentity` and `activate` are required. The three auth flows are
- * optional: when a backend omits one, the built-in default in `default-flows.ts`
- * runs, so a backend that only customizes account creation stays a two-method
+ * Only `createIdentity` and `activate` are required. `register` and the three
+ * auth flows are optional: when a backend omits one, the built-in default runs
+ * (`registerLearnerAccount` for `register`, `default-flows.ts` for the rest), so a
+ * backend that only customizes account creation stays a two-method
  * implementation.
  *
  * Selecting a backend by config (`ACCOUNT_BACKEND`) keeps the specs identical
@@ -77,6 +87,19 @@ export interface AccountBackend {
 
   /** Make the just-registered account able to sign in. */
   activate(context: ActivationContext): Promise<void>;
+
+  /**
+   * Create the account for `identity` on the target.
+   *
+   * Implement it when accounts do not come from the LMS's own registration API —
+   * an SSO/IdP install, or a companion service that owns identity and provisions
+   * the LMS account itself. Such a target usually has no self-registration
+   * endpoint to call at all, so the step has to be replaceable rather than
+   * merely wrapped.
+   *
+   * Defaults to the LMS registration API (`registerLearnerAccount`).
+   */
+  register?(context: RegistrationContext): Promise<void>;
 
   /**
    * Sign in without a browser, leaving `context.request` authenticated. Used to

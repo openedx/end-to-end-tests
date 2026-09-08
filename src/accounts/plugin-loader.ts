@@ -14,8 +14,8 @@ const requireFrom = createRequire(__filename);
 type PluginExport =
   AccountBackend | (new () => AccountBackend) | (() => AccountBackend | Promise<AccountBackend>);
 
-/** Auth flows a backend may override; anything else falls back to the default. */
-const OPTIONAL_METHODS = ['signIn', 'signInThroughUi', 'signOutThroughUi'] as const;
+/** Steps a backend may override; anything else falls back to the default. */
+const OPTIONAL_METHODS = ['register', 'signIn', 'signInThroughUi', 'signOutThroughUi'] as const;
 
 function isAccountBackend(value: unknown): value is AccountBackend {
   if (typeof value !== 'object' || value === null) {

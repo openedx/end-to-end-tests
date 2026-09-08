@@ -3,6 +3,8 @@ export type {
   AccountContext,
   AccountCredentials,
   ActivationContext,
+  IdentityContext,
+  RegistrationContext,
   SignInContext,
   UiSignInContext,
   UiSignOutContext,
