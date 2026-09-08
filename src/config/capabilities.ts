@@ -16,6 +16,14 @@
  */
 export const CAPABILITIES = [
   'mfe-authn',
+  // The `frontend-base` shell: the MFEs are bundled into one application with a
+  // shared header/footer, replacing the one-MFE-per-app model with its
+  // `frontend-component-header`. Present from `main` onward (post-verawood). Gates
+  // the coverage that is *about* the shell's own chrome — a11y debt it carries,
+  // markup only it renders — while journeys through it stay ungated and rely on
+  // selector unions that match both headers (see
+  // `src/config/selectors/account-menu.ts`).
+  'frontend-base',
   'discussions',
   'teams',
   'notes',
@@ -66,8 +74,13 @@ export type Capability = (typeof CAPABILITIES)[number];
  * screens. An install whose identity lives in an external service (a custom
  * `ACCOUNT_BACKEND`; see `src/accounts/README.md`) has nothing for those specs to
  * drive, and on a locked-down tenant they fail rather than skip.
+ *
+ * `frontend-base` is on by default because `main` — and every release cut from it
+ * — serves its MFEs in the shell; a named release still on the separate-MFE model
+ * (verawood and earlier) opts out with `-frontend-base`, which is what
+ * `.ci/openedx-releases.json` declares for them.
  */
-export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = ['mfe-authn'];
+export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = ['mfe-authn', 'frontend-base'];
 
 /** Marks an opt-out in `CAPABILITIES`, e.g. `-mfe-authn`. */
 export const CAPABILITY_OPT_OUT_PREFIX = '-';

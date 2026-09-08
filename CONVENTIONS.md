@@ -152,8 +152,15 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   the `capabilityGate` fixture in `src/fixtures/` reads each test's own tags and
   skips it where that capability is not enabled, so the tag is the whole of the
   contract — while any other tag is only a filter. Most capabilities are off until
-  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces, currently `mfe-authn`)
-  are on unless turned off with `-mfe-authn`.
+  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces, currently `mfe-authn`
+  and `frontend-base`) are on unless turned off with a `-` prefix.
+
+  `@frontend-base` marks coverage that only makes sense in the `frontend-base`
+  shell (`main` onward): its chrome's a11y debt, markup only it renders. It is
+  **not** a version switch — a journey that merely passes through the shell stays
+  ungated and matches both headers with a selector union (see
+  `src/config/selectors/account-menu.ts`). Reach for the tag only when the two
+  models need mutually exclusive assertions.
 
   A capability gates the coverage that is _about_ the optional feature, not every
   spec that happens to pass through it. Where the feature is one of two routes to
