@@ -74,8 +74,11 @@ export function recordCompletions(page: Page, unit: CourseUnit): CompletionRecor
     if (!url.includes('publish_completion')) {
       return;
     }
+    // The handler URL is `.../xblock/{usage_key}/handler/publish_completion`, so
+    // match the whole path segment: a bare substring test would credit
+    // `block@unit1` with the completion of `block@unit10`.
     for (const blockId of unit.childIds) {
-      if (url.includes(blockId)) {
+      if (url.includes(`/xblock/${blockId}/handler/`)) {
         completed.add(blockId);
       }
     }

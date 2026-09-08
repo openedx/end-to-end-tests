@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import {
+  ENV_KEYS,
   loadConfig,
   getConfigIfValid,
   resetConfigCache,
@@ -262,20 +263,24 @@ test.describe('loadConfig — boolean coercion', { tag: '@unit' }, () => {
  * very project: `playwright.config.ts` and global setup call it instead of
  * `getConfig()`, so an invalid environment is reported rather than thrown.
  *
- * These tests drive `process.env` directly (real values always win over `.env`,
- * so they behave the same on a configured machine) and reset the memoized
- * config around each one.
+ * These tests drive `process.env` directly and reset the memoized config around
+ * each one. A real value always wins over `.env`, but an *absent* one does not:
+ * `getConfig` loads `.env` into whatever is unset, so on a configured machine a
+ * stray `CMS_BASE_URL` or `ACCOUNT_BACKEND` would join the values pinned here and
+ * change the outcome (a second registrable domain, an unknown backend, …). Every
+ * variable the schema reads is therefore set — to a blank, which the schema
+ * treats as absent — before the ones a test cares about are given real values.
  */
 test.describe('getConfigIfValid', { tag: '@unit' }, () => {
-  // Every variable the assertions depend on is pinned here, so a machine whose
-  // own `.env` sets (or misconfigures) one of them cannot change the outcome.
-  const OVERRIDDEN = ['LMS_BASE_URL', 'APPS_BASE_URL', 'CAPABILITIES'] as const;
   let saved: Record<string, string | undefined> = {};
   let warnings: string[] = [];
   const realWarn = console.warn;
 
   test.beforeEach(() => {
-    saved = Object.fromEntries(OVERRIDDEN.map((key) => [key, process.env[key]]));
+    saved = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
+    for (const key of ENV_KEYS) {
+      process.env[key] = '';
+    }
     warnings = [];
     console.warn = (...args: unknown[]) => warnings.push(args.map(String).join(' '));
     resetConfigCache();

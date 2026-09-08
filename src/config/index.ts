@@ -22,6 +22,7 @@ export {
   isAccountBackendName,
 } from './account-backends';
 export { registrableDomain } from './domain';
+export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
 export {
   ACCOUNT_MENU_SELECTORS,
