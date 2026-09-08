@@ -86,25 +86,27 @@ export default class SamlEnterpriseBackend implements AccountBackend {
 
 ### Plugin API
 
-`AccountBackend` (`types.ts`) has two required methods and five optional ones:
+`AccountBackend` (`types.ts`) has two required methods and six optional ones:
 
-| Method               | Required | Runs when                                             | Default when omitted                                                  |
-| -------------------- | -------- | ----------------------------------------------------- | --------------------------------------------------------------------- |
-| `createIdentity`     | yes      | An account is about to be registered                  | —                                                                     |
-| `activate`           | yes      | Just after registration, to make sign-in possible     | —                                                                     |
-| `register`           | no       | To create the account itself                          | LMS registration API                                                  |
-| `signIn`             | no       | Headless sign-in that captures reusable storage state | LMS login-session API                                                 |
-| `signInThroughUi`    | no       | A spec signs in through the browser                   | authn MFE `/login` form                                               |
-| `signOutThroughUi`   | no       | A spec signs out through the browser                  | header account-menu sign-out link                                     |
-| `grantCourseCreator` | no       | The `author` role needs course-creator status         | request access, then approve it in Studio's Django admin as `ADMIN_*` |
+| Method               | Required | Runs when                                                   | Default when omitted                                                  |
+| -------------------- | -------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| `createIdentity`     | yes      | An account is about to be registered                        | —                                                                     |
+| `activate`           | yes      | Just after registration, to make sign-in possible           | —                                                                     |
+| `register`           | no       | To create the account itself                                | LMS registration API                                                  |
+| `signIn`             | no       | Headless sign-in that captures reusable storage state       | LMS login-session API                                                 |
+| `signInStudio`       | no       | An LMS session needs a Studio session too (authoring roles) | silent `cms-sso` OAuth handshake via Studio `/login/`                 |
+| `signInThroughUi`    | no       | A spec signs in through the browser                         | authn MFE `/login` form                                               |
+| `signOutThroughUi`   | no       | A spec signs out through the browser                        | header account-menu sign-out link                                     |
+| `grantCourseCreator` | no       | The `author` role needs course-creator status               | request access, then approve it in Studio's Django admin as `ADMIN_*` |
 
 Each receives a single context object: `config` and `request` for the account
 methods, plus `identity` (`register`, `activate`, `grantCourseCreator` —
 `RegistrationContext`, `ActivationContext`, `GrantCourseCreatorContext`),
-`credentials` (`signIn`, `signInThroughUi`), or `page` and `username` (the UI
-flows). The defaults are exported as `defaultSignIn`, `defaultSignInThroughUi`,
-`defaultSignOutThroughUi` and `defaultGrantCourseCreator`, so a plugin that
-replaces only one flow can delegate the rest. `grantCourseCreator` runs only when
+`credentials` (`signIn`, `signInStudio`, `signInThroughUi`), or `page` and
+`username` (the UI flows). The defaults are exported as `defaultSignIn`,
+`defaultSignInStudio`, `defaultSignInThroughUi`, `defaultSignOutThroughUi` and
+`defaultGrantCourseCreator`, so a plugin that replaces only one flow can delegate
+the rest. `grantCourseCreator` runs only when
 Studio does not already report the account as `granted`, and throws
 `AccountNotConfiguredError` when the install offers no way to grant with the
 current configuration (no admin account, by default) — the auth layer turns that
@@ -120,6 +122,17 @@ sign in. Note that when account creation does not itself authenticate the reques
 context (the LMS API does; a separate identity service generally does not), the
 learner auth contract signs in through `signIn` afterwards rather than storing an
 anonymous session.
+
+**Studio on an external-identity install.** Every authoring path (`author`,
+`staff`, and the Studio fixtures that provision their own account) reaches Studio
+through `signInStudio`. The default follows Studio's `/login/` through the
+`cms-sso` OAuth handshake against the LMS, which is silent given any valid LMS
+session — however `signIn` obtained it — so an install that only replaces LMS
+sign-in usually needs nothing here. Implement it when Studio is fronted by an IdP
+of its own or uses a non-stock OAuth client; it must leave Studio answering
+`GET /api/user/v1/me` for the session. Such an install almost certainly needs
+`grantCourseCreator` as well: the default grant signs in a **separate** admin
+context with the stock LMS and Studio flows, not the backend's overrides.
 
 **An install whose identity lives elsewhere should also set
 `CAPABILITIES=-mfe-authn`.** Implementing a backend replaces sign-in, sign-out

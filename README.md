@@ -273,7 +273,9 @@ on an LMS-only target and the whole `tests/studio/` tree skips.
 
 **The `author` role.** The `setup` project provisions a fresh account, gives it a
 Studio session (Studio keeps its own session behind a silent OAuth handshake with
-the LMS — no second sign-in, no credentials), and grants it course-creator status.
+the LMS — no second sign-in, no credentials; an install that fronts Studio with
+its own IdP replaces this through the account backend's `signInStudio`), and
+grants it course-creator status.
 On a default install (`ENABLE_CREATOR_GROUP` on) the only grant path is the Studio
 Django admin, so the default account backend signs in as `ADMIN_USERNAME` /
 `ADMIN_PASSWORD` (a superuser) to approve the request. Without an admin account

@@ -56,7 +56,9 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   gives a request context holding an LMS session its Studio session too. The LMS
   cookies alone get a `302 /login/` from every Studio URL and a `401` from every
   Studio API; after this one `GET` they work. Success is judged by
-  `GET /api/user/v1/me` on Studio, not by a cookie name.
+  `GET /api/user/v1/me` on Studio, not by a cookie name. Consumers reach it
+  through the account backend's `signInStudio` (`src/accounts/`), of which it is
+  the default, so an install with its own Studio IdP can replace it.
 - `studio-home.ts` — `fetchStudioHome` (course-creator status, org flags,
   in-process re-runs) and `listStudioCourses` (the paginated list with the MFE's
   search / sort / filter parameters; falls back to the v1 payload on releases

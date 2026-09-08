@@ -1,14 +1,9 @@
 import type { APIRequestContext } from '@playwright/test';
 
-import {
-  establishStudioSession,
-  fetchCourseCreatorStatus,
-  registerLearnerAccount,
-  type LearnerIdentity,
-} from '../api';
+import { fetchCourseCreatorStatus, registerLearnerAccount, type LearnerIdentity } from '../api';
 import { hasAuthenticatedSession } from '../auth/preflight';
 import type { AppConfig } from '../config';
-import { accountGrantCourseCreator, accountSignIn } from './auth-flows';
+import { accountGrantCourseCreator, accountSignIn, accountSignInStudio } from './auth-flows';
 import { resolveAccountBackend } from './registry';
 
 /**
@@ -81,9 +76,10 @@ export async function provisionLearnerSession(
  *
  * 1. {@link provisionLearnerSession}: register (and activate) the account; the
  *    registration session is the LMS half.
- * 2. `establishStudioSession`: the silent OAuth handshake that gives Studio its
- *    own session (`src/api/studio-session.ts`). Without it every Studio URL is a
- *    redirect to `/login/` and every Studio API a 401.
+ * 2. `accountSignInStudio`: the backend's `signInStudio`, or by default the
+ *    silent OAuth handshake that gives Studio its own session
+ *    (`src/api/studio-session.ts`). Without it every Studio URL is a redirect to
+ *    `/login/` and every Studio API a 401.
  * 3. If Studio does not already report the account as `granted` (it does on an
  *    install with `ENABLE_CREATOR_GROUP` off), run the backend's
  *    `grantCourseCreator` — by default TC-00310's request-then-admin-grant.
@@ -96,7 +92,11 @@ export async function provisionAuthorSession(
   config: AppConfig,
 ): Promise<LearnerIdentity> {
   const identity = await provisionLearnerSession(request, config);
-  await establishStudioSession(request, config);
+  await accountSignInStudio({
+    config,
+    request,
+    credentials: { emailOrUsername: identity.email, password: identity.password },
+  });
 
   const status = await fetchCourseCreatorStatus(request, config);
   if (status !== 'granted') {

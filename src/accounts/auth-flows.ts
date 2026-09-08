@@ -1,6 +1,7 @@
 import {
   defaultGrantCourseCreator,
   defaultSignIn,
+  defaultSignInStudio,
   defaultSignInThroughUi,
   defaultSignOutThroughUi,
 } from './default-flows';
@@ -8,6 +9,7 @@ import { resolveAccountBackend } from './registry';
 import type {
   GrantCourseCreatorContext,
   SignInContext,
+  StudioSignInContext,
   UiSignInContext,
   UiSignOutContext,
 } from './types';
@@ -29,6 +31,15 @@ import type {
 export async function accountSignIn(context: SignInContext): Promise<void> {
   const backend = await resolveAccountBackend(context.config);
   await (backend.signIn ? backend.signIn(context) : defaultSignIn(context));
+}
+
+/**
+ * Gives `context.request`, which holds an LMS session, a Studio session too — the
+ * one seam every authoring path takes to reach Studio.
+ */
+export async function accountSignInStudio(context: StudioSignInContext): Promise<void> {
+  const backend = await resolveAccountBackend(context.config);
+  await (backend.signInStudio ? backend.signInStudio(context) : defaultSignInStudio(context));
 }
 
 /** Signs in by driving the install's sign-in UI. */

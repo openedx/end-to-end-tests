@@ -36,6 +36,14 @@ export interface SignInContext extends AccountContext {
   readonly credentials: AccountCredentials;
 }
 
+/**
+ * Context for giving a request context that already holds an LMS session its
+ * Studio session too. `credentials` are the account's own, for an install whose
+ * Studio sign-in cannot ride on the LMS session (a separate IdP round trip) and
+ * has to authenticate again; the stock flow never reads them.
+ */
+export type StudioSignInContext = SignInContext;
+
 /** Context for a sign-in driven through the install's UI. */
 export interface UiSignInContext {
   readonly config: AppConfig;
@@ -81,16 +89,19 @@ export interface UiSignOutContext {
  *    otherwise; and
  * 4. how an existing account signs in and out (`signIn`, `signInThroughUi`,
  *    `signOutThroughUi`) — the LMS login-session API and the authn MFE by
- *    default, or an SSO/IdP flow for installs that replace them; and
- * 5. how a fresh account becomes able to create courses in Studio
+ *    default, or an SSO/IdP flow for installs that replace them;
+ * 5. how an LMS session becomes a Studio session too (`signInStudio`) — the
+ *    silent `cms-sso` OAuth handshake by default, or the install's own flow when
+ *    Studio sits behind a different IdP; and
+ * 6. how a fresh account becomes able to create courses in Studio
  *    (`grantCourseCreator`) — the Django admin with the configured admin
  *    account by default, or whatever gates course creation on the install.
  *
- * Only `createIdentity` and `activate` are required. `register`, the three auth
- * flows and the grant flow are optional: when a backend omits one, the built-in
- * default runs (`registerLearnerAccount` for `register`, `default-flows.ts` for
- * the rest), so a backend that only customizes account creation stays a
- * two-method implementation.
+ * Only `createIdentity` and `activate` are required. `register`, the four
+ * sign-in/out flows and the grant flow are optional: when a backend omits one,
+ * the built-in default runs (`registerLearnerAccount` for `register`,
+ * `default-flows.ts` for the rest), so a backend that only customizes account
+ * creation stays a two-method implementation.
  *
  * Selecting a backend by config (`ACCOUNT_BACKEND`) keeps the specs identical
  * across targets.
@@ -129,6 +140,21 @@ export interface AccountBackend {
   signIn?(context: SignInContext): Promise<void>;
 
   /**
+   * Give `context.request`, which already holds an LMS session, a Studio session
+   * as well. Runs for every authoring role (`author`, `staff`, and the Studio
+   * fixtures that provision their own account) whenever `studio` is declared.
+   *
+   * The default follows Studio's `/login/` through the `cms-sso` OAuth handshake
+   * against the LMS — silent given a valid LMS session, however that session was
+   * obtained. Implement it when Studio is fronted by an IdP of its own, or when
+   * the OAuth client is not the stock one, so the handshake has something else to
+   * follow. It must leave Studio answering `GET /api/user/v1/me` for the session.
+   *
+   * Defaults to `defaultSignInStudio`.
+   */
+  signInStudio?(context: StudioSignInContext): Promise<void>;
+
+  /**
    * Sign in by driving the install's sign-in UI, leaving the browser on a
    * post-sign-in page. Specs that assert on the sign-in experience itself go
    * through here, so an SSO install exercises its own screens.
@@ -152,9 +178,12 @@ export interface AccountBackend {
    *
    * Defaults to `defaultGrantCourseCreator`: the account requests access, and
    * a separate superuser session (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) grants it
-   * through Studio's Django admin — the only path a default install offers.
-   * Providers that gate creation differently (an SSO group, a support ticket, a
-   * custom API) implement this instead.
+   * through Studio's Django admin — the only path a default install offers. That
+   * admin session is obtained with the **stock** LMS and Studio sign-ins, not
+   * the backend's overrides, so an install whose identity lives elsewhere almost
+   * certainly needs to implement this too. Providers that gate creation
+   * differently (an SSO group, a support ticket, a custom API) implement it
+   * instead.
    *
    * @throws {AccountNotConfiguredError} when the install offers no way to grant
    *   with the current configuration, so the `author` role skips rather than

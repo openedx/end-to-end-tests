@@ -1,10 +1,10 @@
 import {
   AccountNotConfiguredError,
   accountSignIn,
+  accountSignInStudio,
   provisionAuthorSession,
   provisionLearnerSession,
 } from '../accounts';
-import { establishStudioSession } from '../api';
 import type { AppConfig } from '../config';
 import { AuthNotConfiguredError } from './errors';
 import type { Role } from './roles';
@@ -40,7 +40,9 @@ import type { AuthContext, AuthProvider, StorageState } from './types';
  *   not-configured and the Studio specs skip with it.
  *
  * With `studio` declared, `staff` also completes the Studio handshake, so the
- * one stored state covers Studio too.
+ * one stored state covers Studio too. Every Studio sign-in goes through the
+ * backend's `signInStudio` (the stock OAuth handshake by default), so an install
+ * that fronts Studio with its own IdP replaces it once, for every role.
  */
 export class ApiAuthProvider implements AuthProvider {
   /**
@@ -84,13 +86,10 @@ export class ApiAuthProvider implements AuthProvider {
               'ADMIN_PASSWORD to enable staff-role coverage.',
           );
         }
-        await accountSignIn({
-          config,
-          request,
-          credentials: { emailOrUsername: admin.username, password: admin.password },
-        });
+        const credentials = { emailOrUsername: admin.username, password: admin.password };
+        await accountSignIn({ config, request, credentials });
         if (config.capabilities.has('studio')) {
-          await establishStudioSession(request, config);
+          await accountSignInStudio({ config, request, credentials });
         }
         break;
       }

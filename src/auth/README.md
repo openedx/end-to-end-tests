@@ -27,8 +27,10 @@ Contains:
   captures the parent-domain cookie jar into one storage state. `learner`
   self-registers a unique account (portable seeding); `staff` signs in with the
   pre-existing `ADMIN_*` account and is never provisioned; `author` is
-  provisioned through `provisionAuthorSession` (register → Studio handshake →
-  `grantCourseCreator`) and offered whenever `studio` is declared; `instructor`
+  provisioned through `provisionAuthorSession` (register → `signInStudio` →
+  `grantCourseCreator`) and offered whenever `studio` is declared; with `studio`
+  declared `staff` also runs `signInStudio`, so the Studio half of every
+  authoring session is the backend's to replace too; `instructor`
   is an extension point (reported not-configured so setup skips it). Because sign-in
   goes through the backend, an install with custom auth can redirect every role
   by setting `ACCOUNT_BACKEND` — see [`../accounts/README.md`](../accounts/README.md).

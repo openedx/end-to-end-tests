@@ -121,8 +121,9 @@ request-then-Django-admin flow of BTR TC-00310, using the admin account.
 
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
-used by `setup`), `signInThroughUi` and `signOutThroughUi` (what the login and
-logout specs drive). A backend ships as a plugin module listed in
+used by `setup`), `signInStudio` (the Studio half of every authoring session, the
+`cms-sso` handshake by default), `signInThroughUi` and `signOutThroughUi` (what
+the login and logout specs drive), and `grantCourseCreator`. A backend ships as a plugin module listed in
 `CUSTOM_ACCOUNT_BACKEND_PLUGINS`; see [`src/accounts/README.md`](src/accounts/README.md).
 
 `tests/global-setup.ts` runs once before any project: it clears `.auth/` so a

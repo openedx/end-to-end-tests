@@ -7,18 +7,21 @@ export type {
   IdentityContext,
   RegistrationContext,
   SignInContext,
+  StudioSignInContext,
   UiSignInContext,
   UiSignOutContext,
 } from './types';
 export {
   accountGrantCourseCreator,
   accountSignIn,
+  accountSignInStudio,
   accountSignInThroughUi,
   accountSignOutThroughUi,
 } from './auth-flows';
 export {
   defaultGrantCourseCreator,
   defaultSignIn,
+  defaultSignInStudio,
   defaultSignInThroughUi,
   defaultSignOutThroughUi,
 } from './default-flows';

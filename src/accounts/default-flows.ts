@@ -13,6 +13,7 @@ import { AccountNotConfiguredError } from './errors';
 import type {
   GrantCourseCreatorContext,
   SignInContext,
+  StudioSignInContext,
   UiSignInContext,
   UiSignOutContext,
 } from './types';
@@ -37,6 +38,15 @@ export async function defaultSignIn({
   credentials,
 }: SignInContext): Promise<void> {
   await loginSession(request, config, credentials);
+}
+
+/**
+ * Gives a request context holding an LMS session its Studio session through the
+ * silent `cms-sso` OAuth handshake (`establishStudioSession`). Ignores the
+ * credentials: on a stock install the LMS session is all Studio asks for.
+ */
+export async function defaultSignInStudio({ config, request }: StudioSignInContext): Promise<void> {
+  await establishStudioSession(request, config);
 }
 
 /**
@@ -75,6 +85,10 @@ export async function defaultSignOutThroughUi({ config, page }: UiSignOutContext
  * signs in as the configured admin, completes its own Studio handshake, and
  * submits the Django admin change form. The two sessions never share a cookie
  * jar — the author's context must keep the author's session.
+ *
+ * The admin session uses the stock LMS and Studio sign-ins deliberately: this is
+ * the default install's grant path, and a backend replacing those flows is
+ * expected to replace the grant as well (see `AccountBackend.grantCourseCreator`).
  *
  * Ends by confirming Studio now reports the author as `granted`.
  *

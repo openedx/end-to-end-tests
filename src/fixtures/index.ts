@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 
 import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
 
-import { provisionLearnerSession } from '../accounts';
+import { accountSignInStudio, provisionLearnerSession } from '../accounts';
 import { StudioHomePage } from '../pages/studio/home/studio-home.page';
 import { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
@@ -14,7 +14,6 @@ import {
   type CourseIdentity,
   unitsContaining,
   assertCourseAccessible,
-  establishStudioSession,
   fetchStudioUsername,
   DEFAULT_PASSWORD,
   fetchStudioHome,
@@ -474,7 +473,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     const request = await playwright.request.newContext();
     try {
       const identity = await provisionLearnerSession(request, config);
-      await establishStudioSession(request, config);
+      await accountSignInStudio({
+        config,
+        request,
+        credentials: { emailOrUsername: identity.email, password: identity.password },
+      });
       const home = await fetchStudioHome(request, config);
       base.skip(
         home.courseCreatorStatus === 'granted',
