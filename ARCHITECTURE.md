@@ -119,6 +119,14 @@ provisions a learner the same way, completes the Studio handshake, and has the
 backend's `grantCourseCreator` hook make it a course creator — by default the
 request-then-Django-admin flow of BTR TC-00310, using the admin account.
 
+The `studio-author` project does not reuse that author state directly: its
+`workerAuthor` fixture provisions one author per worker the same way and points the
+worker's `page` and `request` at it, because the platform's
+`PREVENT_CONCURRENT_LOGINS` ends a user's other sessions on each sign-in and the
+browser specs sign in through the UI per test. The single shared admin account is
+used only under a cross-worker lock (`withAdminSession`), reusing the `setup`
+session where it is still alive.
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the
@@ -144,7 +152,7 @@ collide. We never disable browser security to paper over cross-origin auth.
 | `smoke`         | Critical-path browser tests, anonymous. Tag: `@smoke` (excludes `@authenticated`, `@author`).      |
 | `regression`    | Broader-depth browser tests, anonymous. Tag: `@regression` (excludes `@authenticated`, `@author`). |
 | `lms-learner`   | Authenticated tests reusing the captured learner state. Tag: `@authenticated`.                     |
-| `studio-author` | Studio tests reusing the captured author state (LMS + Studio session). Tag: `@author`.             |
+| `studio-author` | Studio tests, each worker as an author of its own (LMS + Studio session). Tag: `@author`.          |
 
 ## Cross-cutting testing modules
 

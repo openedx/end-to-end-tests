@@ -85,11 +85,14 @@ export async function provisionLearnerSession(
  *    `grantCourseCreator` — by default TC-00310's request-then-admin-grant.
  *
  * The result is the `author` role's storage state, and what a spec that needs an
- * author of its own (`courseAuthor`) gets.
+ * author of its own (`courseAuthor`) gets. `options.adminStorageState` is handed
+ * to the grant so a caller that already holds an admin session (a worker, after
+ * `setup`) does not cost another admin sign-in.
  */
 export async function provisionAuthorSession(
   request: APIRequestContext,
   config: AppConfig,
+  options: { readonly adminStorageState?: string } = {},
 ): Promise<LearnerIdentity> {
   const identity = await provisionLearnerSession(request, config);
   await accountSignInStudio({
@@ -100,7 +103,7 @@ export async function provisionAuthorSession(
 
   const status = await fetchCourseCreatorStatus(request, config);
   if (status !== 'granted') {
-    await accountGrantCourseCreator({ config, request, identity });
+    await accountGrantCourseCreator({ config, request, identity, ...options });
   }
   return identity;
 }

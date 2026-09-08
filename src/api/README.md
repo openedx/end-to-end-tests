@@ -74,7 +74,9 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   `waitForRerun`.
 - `course-settings.ts` — Schedule & Details (`v1/course_details`, GET/PUT),
   grading (`v1/course_grading`), Advanced Settings (`/settings/advanced`, the
-  legacy JSON view that answers on every release).
+  legacy JSON view that answers on every release), and `fetchCourseSettingsFlags`
+  (`v1/course_settings`: whether the certificates-available-date and prerequisite
+  controls render on this target).
 - `course-team.ts`, `group-configurations.ts`, `certificates.ts`,
   `course-apps.ts` (Pages & Resources toggles), `course-transfer.ts` (export
   start/poll, import status), `course-checklists.ts` (validation and quality

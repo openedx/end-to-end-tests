@@ -246,9 +246,9 @@ Tests are organized into Playwright **projects**:
   the `courseLearner` fixture instead, which provisions a fresh learner per test
   (one registration each — see the rate limit below).
 - `studio-author` — Studio tests (`@author`, the `tests/studio/` tree); depends on
-  `setup` and loads the captured **author** session, which is valid on Studio as
-  well as the LMS. Runs only when the `studio` capability is declared; see
-  "Studio coverage" below.
+  `setup`. Each worker provisions an **author of its own** (see "Studio coverage")
+  whose session is valid on Studio as well as the LMS. Runs only when the `studio`
+  capability is declared.
 
 Run a single project or filter by tag:
 
@@ -275,7 +275,18 @@ on an LMS-only target and the whole `tests/studio/` tree skips.
 Studio session (Studio keeps its own session behind a silent OAuth handshake with
 the LMS — no second sign-in, no credentials; an install that fronts Studio with
 its own IdP replaces this through the account backend's `signInStudio`), and
-grants it course-creator status.
+grants it course-creator status. The `studio-author` project then provisions
+**one such author per worker** (`workerAuthor`) and runs that worker's tests as
+it: the platform's `PREVENT_CONCURRENT_LOGINS` (on by default) ends a user's
+other sessions on every sign-in, and the browser specs sign the author in through
+the UI per test, so a single shared author would have each worker logging the
+others out mid-test. The admin is the one account that stays shared, so anything
+that signs in as the admin (the course-creator grant, the superuser-in-a-browser
+fixtures) runs under a cross-worker lock and reuses the `setup` session where it
+can — which also keeps admin sign-ins clear of the platform's **per-account
+login rate limit** (`LOGISTRATION_PER_EMAIL_RATELIMIT_RATE`, default `30/5m`;
+exceeded, sign-in answers `400` "Too many failed login attempts"). Repeated local
+runs within five minutes can still reach it; wait it out or raise the setting.
 On a default install (`ENABLE_CREATOR_GROUP` on) the only grant path is the Studio
 Django admin, so the default account backend signs in as `ADMIN_USERNAME` /
 `ADMIN_PASSWORD` (a superuser) to approve the request. Without an admin account

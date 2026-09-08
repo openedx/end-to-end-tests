@@ -53,6 +53,13 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
 
+    // Pin the browser to UTC so date/time controls that render in the viewer's
+    // zone (Studio's Schedule & Details fields, labelled "(UTC)") read and write
+    // the same instants the API does. Without this the suite's result depends on
+    // the machine's local zone — a value entered as UTC comes back shifted by the
+    // runner's offset.
+    timezoneId: 'UTC',
+
     // We deliberately do not launch with `--disable-web-security`. Disabling web
     // security masks real misconfiguration and makes tests stop reflecting real
     // users.

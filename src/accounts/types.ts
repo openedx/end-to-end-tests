@@ -58,6 +58,15 @@ export interface UiSignInContext {
  */
 export interface GrantCourseCreatorContext extends AccountContext {
   readonly identity: LearnerIdentity;
+  /**
+   * A storage state already holding the admin's LMS + Studio session (the `staff`
+   * state the `setup` project captured), for the default grant to reuse instead
+   * of signing the admin in again. Optional and best-effort: a state whose
+   * session has since ended falls back to a fresh sign-in. Reusing it matters
+   * because the platform ends the admin's other sessions on every sign-in and
+   * rate-limits sign-ins per account, and one run may need several grants.
+   */
+  readonly adminStorageState?: string;
 }
 
 /** Context for a sign-out driven through the install's UI. */

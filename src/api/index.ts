@@ -84,8 +84,10 @@ export {
   ADVANCED_SETTINGS_PATH,
   COURSE_DETAILS_PATH,
   COURSE_GRADING_PATH,
+  COURSE_SETTINGS_PATH,
   fetchAdvancedSettings,
   fetchCourseDetails,
+  fetchCourseSettingsFlags,
   fetchGradingPolicy,
   updateAdvancedSettings,
   updateCourseDetails,
@@ -93,6 +95,7 @@ export {
   type AdvancedSetting,
   type AdvancedSettings,
   type CourseDetails,
+  type CourseSettingsFlags,
   type Grader,
   type GradingPolicy,
 } from './course-settings';

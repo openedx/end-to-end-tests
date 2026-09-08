@@ -31,4 +31,15 @@ Rules:
   idempotent per (run id, worker slot) so a restarted worker finds its
   predecessor's course. Only a spec whose subject _is_ course creation makes its
   own. `studio` (test-scoped) is the skip gate for the Studio tree.
+- **One author per worker.** `workerAuthor` provisions the author the worker runs
+  as and overrides the `storageState` option so `page` and `request` load it
+  (`.auth/author-worker-<n>.json`). The platform ends a user's other sessions on
+  every sign-in (`PREVENT_CONCURRENT_LOGINS`), and `studioAuthorSession` signs
+  the author in through the UI per test, so a shared author had workers logging
+  each other out. The admin stays shared: `adminPage` and `newOrgCreator` hold
+  the `withAdminSession` lock for the whole test, and the default grant reuses
+  the `setup` admin session where it is still alive.
+- **Learners for the LMS half of a Studio case.** `newLearner()` provisions a
+  fresh learner per call on a request context of its own (the author's `request`
+  must stay the author's), disposed when the test ends.
 - This is the only layer that reaches across all the others.

@@ -70,4 +70,12 @@ export const TIMEOUTS = {
    * its course: one Studio API call plus the search that makes it idempotent.
    */
   studioSetup: 60_000,
+
+  /**
+   * Budget for a Studio settings page to answer the write its save bar triggers
+   * (`PUT course_details`, `POST course_grading`). Comfortably above `action`
+   * because several authoring workers save at once on a shared CMS, and the save
+   * button is a stateful control that mounts with the save bar.
+   */
+  studioSettingsSave: 30_000,
 } as const;

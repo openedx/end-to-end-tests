@@ -1,12 +1,21 @@
 import { existsSync } from 'node:fs';
+import path from 'node:path';
 
 import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
 
-import { accountSignInStudio, provisionLearnerSession } from '../accounts';
+import {
+  AccountNotConfiguredError,
+  accountSignInStudio,
+  provisionAuthorSession,
+  provisionLearnerSession,
+  withAdminSession,
+} from '../accounts';
 import { StudioHomePage } from '../pages/studio/home/studio-home.page';
 import { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
+import { StudioGradingPage } from '../pages/studio/settings/grading.page';
+import { StudioScheduleDetailsPage } from '../pages/studio/settings/schedule-details.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
-import { authStateFile } from '../auth';
+import { AUTH_STATE_DIR, authStateFile } from '../auth';
 import {
   ensureCourse,
   newCourseIdentity,
@@ -17,6 +26,7 @@ import {
   fetchStudioUsername,
   DEFAULT_PASSWORD,
   fetchStudioHome,
+  fetchCourseSettingsFlags,
   courseKeySkipReason,
   enrollInCourseViaApi,
   fetchCourseDetail,
@@ -150,6 +160,25 @@ export interface TestFixtures {
   studioHomePage: StudioHomePage;
   /** A course's outline in the authoring MFE — where creating a course lands. */
   studioCourseOutlinePage: StudioCourseOutlinePage;
+  /** Schedule & Details settings page object (authoring MFE). */
+  scheduleDetailsPage: StudioScheduleDetailsPage;
+  /** Grading settings page object (authoring MFE). */
+  gradingPage: StudioGradingPage;
+  /**
+   * Makes learners of this test's own for the LMS half of a Studio case: each
+   * call provisions a fresh account and returns a request context holding its
+   * session, **separate** from the author's `request`. Contexts are disposed when
+   * the test ends. A settings case that needs "a learner who has not enrolled"
+   * three times over calls it three times.
+   */
+  newLearner: () => Promise<StudioLearner>;
+  /**
+   * Gate for the "Certificates available date" fields: skips unless the target
+   * lets Schedule & Details show them (`can_show_certificate_available_date_field`,
+   * which needs the `certificates.auto_certificate_generation` switch — off on a
+   * default install). What TC-00297 needs before it can drive the fields.
+   */
+  certificateAvailableDateField: void;
   /**
    * The identity for a course **this test creates** — for the specs whose subject
    * is course creation (§2.4 course budget: nothing else makes a course). Identity
@@ -181,6 +210,13 @@ export interface TestFixtures {
   newOrgCreator: NewOrgCreator;
 }
 
+/** What one {@link TestFixtures.newLearner} call hands a spec. */
+export interface StudioLearner {
+  readonly identity: LearnerIdentity;
+  /** Request context holding this learner's LMS session. */
+  readonly request: APIRequestContext;
+}
+
 /** What {@link TestFixtures.studioNewcomer} hands a spec. */
 export interface StudioNewcomer {
   readonly identity: LearnerIdentity;
@@ -203,6 +239,26 @@ export interface NewOrgCreator {
  */
 export interface WorkerFixtures {
   /**
+   * The author this worker acts as, in the `studio-author` project: a fresh
+   * account, provisioned and granted course-creator status on first use, with its
+   * LMS + Studio session captured to a worker-specific state file that the
+   * `page` and `request` fixtures then load instead of the project's shared
+   * author state.
+   *
+   * Why per worker rather than the one `setup` captured: the platform's
+   * `PREVENT_CONCURRENT_LOGINS` (on by default) kills a user's other sessions on
+   * every sign-in, and the browser specs sign the author in through the UI per
+   * test (see `studioAuthorSession`). With one author shared by several workers,
+   * each worker's sign-in bounced the others' browsers back to the login screen
+   * mid-test. One author per worker keeps every sign-in inside the worker whose
+   * previous test has already finished with the session.
+   *
+   * `undefined` outside the `studio-author` project, where nothing needs it.
+   * Skips the worker's tests when the author cannot be provisioned for lack of
+   * configuration (no admin to grant with), like the `setup` project does.
+   */
+  workerAuthor: WorkerAuthor | undefined;
+  /**
    * The course the Studio settings specs act on — one per worker, created on
    * first use through the Studio API by the `author` session the project loaded,
    * and idempotent per (run, worker) so a retried worker lands on the same
@@ -217,6 +273,13 @@ export interface WorkerFixtures {
    * file that project loads, and fails with a pointer here when it is missing.
    */
   authoredCourse: AuthoredCourse;
+}
+
+/** What {@link WorkerFixtures.workerAuthor} holds. */
+export interface WorkerAuthor {
+  readonly identity: LearnerIdentity;
+  /** Storage state (LMS + Studio session) the worker's contexts load. */
+  readonly stateFile: string;
 }
 
 /** What {@link WorkerFixtures.authoredCourse} hands a spec. */
@@ -402,16 +465,72 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(studioOrigin(config));
   },
 
-  authoredCourse: [
+  workerAuthor: [
     async ({ playwright }, use, workerInfo) => {
+      // Only the project that runs as the author needs one; it is recognised by
+      // the state file it was configured to load.
+      if (workerInfo.project.use.storageState !== authStateFile('author')) {
+        await use(undefined);
+        return;
+      }
       const config = getConfig();
-      const authorState = authStateFile('author');
-      if (!existsSync(authorState)) {
+      const stateFile = path.join(AUTH_STATE_DIR, `author-worker-${workerInfo.parallelIndex}.json`);
+      const request = await playwright.request.newContext();
+      try {
+        // Playwright replaces a worker after a failure, keeping its slot. The
+        // replacement must carry on as the same author — it owns the slot's
+        // course — so a state file the slot already wrote this run is reused
+        // rather than a second author provisioned. Global setup clears `.auth/`,
+        // so nothing older than the run can be picked up.
+        if (existsSync(stateFile)) {
+          const resumed = await playwright.request.newContext({ storageState: stateFile });
+          try {
+            const username = await fetchStudioUsername(resumed, config);
+            await use({ identity: newLearnerIdentity({ username }), stateFile });
+            return;
+          } finally {
+            await resumed.dispose();
+          }
+        }
+        // Grant with the admin session `setup` captured where it is still there,
+        // rather than signing the admin in once per worker.
+        const staffState = authStateFile('staff');
+        let identity: LearnerIdentity;
+        try {
+          identity = await provisionAuthorSession(request, config, {
+            adminStorageState: existsSync(staffState) ? staffState : undefined,
+          });
+        } catch (error) {
+          if (error instanceof AccountNotConfiguredError) {
+            base.skip(true, error.message);
+          }
+          throw error;
+        }
+        await request.storageState({ path: stateFile });
+        await use({ identity, stateFile });
+      } finally {
+        await request.dispose();
+      }
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
+  // The `page` and `request` contexts load the worker's own author when there is
+  // one, and whatever the project configured otherwise.
+  storageState: async ({ workerAuthor }, use, testInfo) => {
+    await use(workerAuthor?.stateFile ?? testInfo.project.use.storageState);
+  },
+
+  authoredCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      if (workerAuthor === undefined) {
         throw new Error(
-          `authoredCourse needs the author session (${authorState}), which only the ` +
-            '"studio-author" project provides. Run Studio specs in that project.',
+          'authoredCourse needs the worker author, which only the "studio-author" project ' +
+            'provides. Run Studio specs in that project.',
         );
       }
+      const authorState = workerAuthor.stateFile;
 
       // The identity is keyed on the run id (shared by all workers, minted in
       // global setup) and this worker's parallel slot, so a restarted worker
@@ -453,6 +572,36 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   studioCourseOutlinePage: async ({ page, config }, use) => {
     await use(new StudioCourseOutlinePage(page, config));
+  },
+
+  scheduleDetailsPage: async ({ page, config }, use) => {
+    await use(new StudioScheduleDetailsPage(page, config));
+  },
+
+  gradingPage: async ({ page, config }, use) => {
+    await use(new StudioGradingPage(page, config));
+  },
+
+  newLearner: async ({ playwright, config }, use) => {
+    const contexts: APIRequestContext[] = [];
+    await use(async () => {
+      const request = await playwright.request.newContext();
+      contexts.push(request);
+      const identity = await provisionLearnerSession(request, config);
+      return { identity, request };
+    });
+    await Promise.all(contexts.map((context) => context.dispose()));
+  },
+
+  certificateAvailableDateField: async ({ request, config, authoredCourse }, use) => {
+    const flags = await fetchCourseSettingsFlags(request, config, authoredCourse.courseKey);
+    base.skip(
+      !flags.canShowCertificateAvailableDateField,
+      'Schedule & Details does not offer the "Certificates available date" fields on this ' +
+        'installation (can_show_certificate_available_date_field is false; enable the ' +
+        'certificates.auto_certificate_generation switch to cover TC-00297).',
+    );
+    await use();
   },
 
   lifecycleCourse: async ({ config, authoredCourse }, use, testInfo) => {
@@ -504,17 +653,21 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     );
     // A fresh context signed in through the UI: the admin's captured API session
     // does not drive the interactive Studio SSO (see signInToStudioThroughUi).
-    const context = await browser.newContext();
-    try {
-      const page = await context.newPage();
-      await signInToStudioThroughUi(page, config, {
-        emailOrUsername: (admin as NonNullable<typeof admin>).username,
-        password: (admin as NonNullable<typeof admin>).password,
-      });
-      await use(page);
-    } finally {
-      await context.close();
-    }
+    // Held under the admin-session lock for the whole test: another worker's
+    // admin sign-in would end this browser's session (PREVENT_CONCURRENT_LOGINS).
+    await withAdminSession(async () => {
+      const context = await browser.newContext();
+      try {
+        const page = await context.newPage();
+        await signInToStudioThroughUi(page, config, {
+          emailOrUsername: (admin as NonNullable<typeof admin>).username,
+          password: (admin as NonNullable<typeof admin>).password,
+        });
+        await use(page);
+      } finally {
+        await context.close();
+      }
+    });
   },
 
   courseCreatorAdminPage: async ({ adminPage, config }, use) => {
@@ -541,16 +694,19 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         'is off) and no admin account is configured to do it instead. Set ADMIN_USERNAME ' +
         'and ADMIN_PASSWORD, or allow authors to create organizations.',
     );
-    await signInToStudioThroughUi(page, config, {
-      emailOrUsername: (admin as NonNullable<typeof admin>).username,
-      password: (admin as NonNullable<typeof admin>).password,
+    // Under the admin-session lock for the whole test, like `adminPage`.
+    await withAdminSession(async () => {
+      await signInToStudioThroughUi(page, config, {
+        emailOrUsername: (admin as NonNullable<typeof admin>).username,
+        password: (admin as NonNullable<typeof admin>).password,
+      });
+      const staff = await playwright.request.newContext({ storageState: state });
+      try {
+        await use({ request: staff, role: 'staff' });
+      } finally {
+        await staff.dispose();
+      }
     });
-    const staff = await playwright.request.newContext({ storageState: state });
-    try {
-      await use({ request: staff, role: 'staff' });
-    } finally {
-      await staff.dispose();
-    }
   },
 
   completionUnits: async ({ courseOutline }, use) => {

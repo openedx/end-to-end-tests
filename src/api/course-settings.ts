@@ -10,6 +10,52 @@ export const COURSE_DETAILS_PATH = '/api/contentstore/v1/course_details';
 export const COURSE_GRADING_PATH = '/api/contentstore/v1/course_grading';
 
 /**
+ * What Schedule & Details may show and edit on this target: feature flags the MFE
+ * reads before rendering the page.
+ */
+export const COURSE_SETTINGS_PATH = '/api/contentstore/v1/course_settings';
+
+export interface CourseSettingsFlags {
+  /**
+   * Whether the "Certificates available date" fields render — needs the
+   * `certificates.auto_certificate_generation` switch, off on a default install.
+   */
+  readonly canShowCertificateAvailableDateField: boolean;
+  /** Whether the prerequisite-course control renders (`ENABLE_PREREQUISITE_COURSES`). */
+  readonly isPrerequisiteCoursesEnabled: boolean;
+  readonly enrollmentEndEditable: boolean;
+  /** Courses the session may pick as a prerequisite (`possible_pre_requisite_courses`). */
+  readonly possiblePrerequisiteCourseKeys: readonly string[];
+}
+
+interface RawCourseSettings {
+  readonly can_show_certificate_available_date_field?: boolean;
+  readonly is_prerequisite_courses_enabled?: boolean;
+  readonly enrollment_end_editable?: boolean;
+  readonly possible_pre_requisite_courses?: readonly { readonly course_key?: string }[];
+}
+
+export async function fetchCourseSettingsFlags(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<CourseSettingsFlags> {
+  const response = await request.get(`${studioOrigin(config)}${COURSE_SETTINGS_PATH}/${courseKey}`);
+  const raw = await studioJson<RawCourseSettings>(
+    response,
+    `Reading the Schedule & Details flags of ${courseKey}`,
+  );
+  return {
+    canShowCertificateAvailableDateField: raw.can_show_certificate_available_date_field ?? false,
+    isPrerequisiteCoursesEnabled: raw.is_prerequisite_courses_enabled ?? false,
+    enrollmentEndEditable: raw.enrollment_end_editable ?? true,
+    possiblePrerequisiteCourseKeys: (raw.possible_pre_requisite_courses ?? [])
+      .map((course) => course.course_key)
+      .filter((key): key is string => typeof key === 'string'),
+  };
+}
+
+/**
  * Advanced Settings. The legacy Studio view is the one that answers on every
  * supported release (the `v1/advanced_settings` route is 404 on `main`); it
  * serves JSON when asked for it.
@@ -56,6 +102,13 @@ export async function fetchCourseDetails(
 /**
  * Writes Schedule & Details fields. Partial bodies are accepted (measured), so
  * pass only what changes. Returns the full details as saved.
+ *
+ * One quirk (`PLAT-006`, measured on `main`): a body that carries `self_paced`
+ * without `start_date` is answered 200 but leaves the pacing as it was — the
+ * platform only toggles pacing while the course has a start it can see in the
+ * same request. The MFE always sends the whole object, so it never notices; this
+ * client adds the current `start_date` when a caller changes pacing alone, so a
+ * partial write behaves like the full one.
  */
 export async function updateCourseDetails(
   request: APIRequestContext,
@@ -63,9 +116,14 @@ export async function updateCourseDetails(
   courseKey: string,
   changes: Partial<CourseDetails>,
 ): Promise<CourseDetails> {
+  let data = changes;
+  if ('self_paced' in changes && !('start_date' in changes)) {
+    const current = await fetchCourseDetails(request, config, courseKey);
+    data = { ...changes, start_date: current.start_date };
+  }
   const headers = await studioWriteHeaders(request, config);
   const response = await request.put(`${studioOrigin(config)}${COURSE_DETAILS_PATH}/${courseKey}`, {
-    data: changes,
+    data,
     headers,
   });
   return studioJson<CourseDetails>(response, `Updating Schedule & Details of ${courseKey}`);

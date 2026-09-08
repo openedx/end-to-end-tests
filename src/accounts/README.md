@@ -110,7 +110,12 @@ the rest. `grantCourseCreator` runs only when
 Studio does not already report the account as `granted`, and throws
 `AccountNotConfiguredError` when the install offers no way to grant with the
 current configuration (no admin account, by default) — the auth layer turns that
-into a skipped `author` role.
+into a skipped `author` role. Its context may carry `adminStorageState`, a
+captured admin session for the default grant to reuse before signing the admin
+in again; the default also runs under `withAdminSession`, the cross-worker lock
+that keeps admin sessions from ending one another (the platform's
+`PREVENT_CONCURRENT_LOGINS`). A custom grant that signs in as a shared account
+should take the same lock.
 
 `register` is what makes an install viable when the LMS is not the source of
 identity. The default provisioning path posts to the LMS registration API, which

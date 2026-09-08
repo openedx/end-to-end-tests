@@ -1,12 +1,14 @@
 import { request as playwrightRequest } from '@playwright/test';
 
 import {
+  ApiError,
   establishStudioSession,
   fetchCourseCreatorStatus,
   grantCourseCreator,
   loginSession,
   requestCourseCreator,
 } from '../api';
+import { withAdminSession } from './admin-lock';
 import { AccountMenu } from '../pages/lms/auth/account-menu.page';
 import { LoginPage } from '../pages/lms/auth/login.page';
 import { AccountNotConfiguredError } from './errors';
@@ -101,6 +103,7 @@ export async function defaultGrantCourseCreator({
   config,
   request,
   identity,
+  adminStorageState,
 }: GrantCourseCreatorContext): Promise<void> {
   const admin = config.credentials.admin;
   if (!admin) {
@@ -114,17 +117,34 @@ export async function defaultGrantCourseCreator({
 
   await requestCourseCreator(request, config);
 
-  const adminRequest = await playwrightRequest.newContext();
-  try {
-    await loginSession(adminRequest, config, {
-      emailOrUsername: admin.username,
-      password: admin.password,
-    });
-    await establishStudioSession(adminRequest, config);
-    await grantCourseCreator(adminRequest, config, identity.username);
-  } finally {
-    await adminRequest.dispose();
-  }
+  // One admin session at a time across workers: the platform ends the admin's
+  // other sessions on each sign-in, and the admin form runs on the session.
+  await withAdminSession(async () => {
+    // Prefer a session that already exists over another sign-in (see
+    // `adminStorageState`); only when that session turns out dead sign in anew.
+    if (adminStorageState !== undefined) {
+      const reused = await playwrightRequest.newContext({ storageState: adminStorageState });
+      try {
+        await grantCourseCreator(reused, config, identity.username);
+        return;
+      } catch (error) {
+        if (!(error instanceof ApiError)) throw error;
+      } finally {
+        await reused.dispose();
+      }
+    }
+    const adminRequest = await playwrightRequest.newContext();
+    try {
+      await loginSession(adminRequest, config, {
+        emailOrUsername: admin.username,
+        password: admin.password,
+      });
+      await establishStudioSession(adminRequest, config);
+      await grantCourseCreator(adminRequest, config, identity.username);
+    } finally {
+      await adminRequest.dispose();
+    }
+  });
 
   const status = await fetchCourseCreatorStatus(request, config);
   if (status !== 'granted') {
