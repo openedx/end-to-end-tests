@@ -1,7 +1,7 @@
 # `src/steps/` — reusable business flows
 
 **Single responsibility:** compose page objects (and API/data layers) into
-reusable, multi-page business flows — e.g. "register an account", "enrol in a
+reusable, multi-page business flows — e.g. "register an account", "enroll in a
 course", "complete a unit".
 
 Steps sit above page objects and below fixtures/specs. A step orchestrates

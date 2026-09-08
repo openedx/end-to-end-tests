@@ -45,7 +45,7 @@ fill, and wait for the state change their action causes (a response, a URL chang
 never for a fixed time.
 
 **4. Multi-surface flows → `src/steps/<flow>.ts`.** Only when a journey crosses
-page objects (enrol through the catalog; complete a unit). A step that cannot do
+page objects (enroll through the catalog; complete a unit). A step that cannot do
 its job **reports why** — returning the blockers, as `completeUnit` does — rather
 than throwing or, worse, quietly succeeding.
 
@@ -62,7 +62,7 @@ the captured session, and a `testId(...)` annotation when it maps to a BTR case.
 
 ```ts
 test(
-  'enrols a learner from the course About page',
+  'enrolls a learner from the course About page',
   { tag: ['@smoke', '@authenticated'], annotation: testId('TC-00008') },
   async ({ request, config, courseAboutPage, courseLearner }) => {
     await courseAboutPage.goto(courseLearner.courseKey);
