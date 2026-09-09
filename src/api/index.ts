@@ -140,10 +140,13 @@ export {
   EXPORT_PATH,
   EXPORT_STATUS_PATH,
   IMPORT_STATUS_PATH,
+  IMPORT_SUCCESS,
+  downloadCourseExport,
   fetchExportState,
   fetchImportState,
   startCourseExport,
   waitForCourseExport,
+  waitForCourseImport,
   type ExportState,
   type ImportState,
 } from './course-transfer';

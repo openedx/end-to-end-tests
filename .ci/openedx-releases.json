@@ -1,11 +1,11 @@
 {
   "main": {
     "tutorConstraint": "",
-    "capabilities": "discussions,notes,catalog-search,courseware-navigation-sidebar,studio,taxonomies"
+    "capabilities": "discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies"
   },
   "verawood": {
     "tutorConstraint": ">=22.0.0,<23.0.0",
-    "capabilities": "-frontend-base,discussions,notes,catalog-search,courseware-navigation-sidebar,studio,taxonomies"
+    "capabilities": "-frontend-base,discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies"
   },
   "ulmo": {
     "tutorConstraint": ">=21.0.0,<22.0.0",

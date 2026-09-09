@@ -64,6 +64,22 @@ export async function grantCourseCreatorThroughAdmin(
 }
 
 /**
+ * Completes the Studio SSO for a page that **already** carries a browser-usable
+ * LMS session (the `studio-author` project loads the worker author's storage
+ * state). Hitting Studio drives the silent `cms-sso` OAuth handshake off that
+ * session, leaving the page on Studio Home — no credential entry.
+ *
+ * Prefer this over {@link signInToStudioThroughUi} for the author: a fresh
+ * credential login per test would consume a login attempt, and the author is
+ * shared across a worker's whole Studio run, so those add up and trip the LMS
+ * login rate limit (30 / 5 min) under load. This path signs in zero times.
+ */
+export async function establishStudioBrowserSession(page: Page, config: AppConfig): Promise<void> {
+  await page.goto(`${studioOrigin(config)}/home/`);
+  await page.locator(STUDIO_HOME_SELECTORS.header).waitFor();
+}
+
+/**
  * Signs a browser page in as `credentials` and drives it through the Studio SSO
  * handshake, leaving it on Studio Home with a browser-usable Studio session.
  *
@@ -78,25 +94,6 @@ export async function grantCourseCreatorThroughAdmin(
  *
  * Establishes the Studio session up front so a later `goto` cannot land mid-SSO.
  */
-/**
- * Completes the Studio SSO for a page that **already** carries a browser-usable
- * LMS session (the `studio-author` project loads the worker author's storage
- * state). Hitting Studio drives the silent `cms-sso` OAuth handshake off that
- * session, leaving the page on Studio Home — no credential entry.
- *
- * Prefer this over {@link signInToStudioThroughUi} for the author: a fresh
- * credential login per test would consume a login attempt, and the author is
- * shared across a worker's whole Studio run, so those add up and trip the LMS
- * login rate limit (30 / 5 min) under load. This path signs in zero times.
- */
-export async function establishStudioBrowserSession(
-  page: Page,
-  config: AppConfig,
-): Promise<void> {
-  await page.goto(`${studioOrigin(config)}/home/`);
-  await page.locator(STUDIO_HOME_SELECTORS.header).waitFor();
-}
-
 export async function signInToStudioThroughUi(
   page: Page,
   config: AppConfig,

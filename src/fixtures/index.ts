@@ -18,6 +18,10 @@ import { StudioCourseTeamPage } from '../pages/studio/settings/course-team.page'
 import { StudioGradingPage } from '../pages/studio/settings/grading.page';
 import { StudioGroupConfigurationsPage } from '../pages/studio/settings/group-configurations.page';
 import { StudioScheduleDetailsPage } from '../pages/studio/settings/schedule-details.page';
+import { StudioPagesResourcesPage } from '../pages/studio/pages-resources/pages-resources.page';
+import { StudioExportPage } from '../pages/studio/tools/export.page';
+import { StudioImportPage } from '../pages/studio/tools/import.page';
+import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
 import { AUTH_STATE_DIR, authStateFile } from '../auth';
 import {
@@ -176,6 +180,14 @@ export interface TestFixtures {
   groupConfigurationsPage: StudioGroupConfigurationsPage;
   /** Certificates page object (authoring MFE). */
   certificatesPage: StudioCertificatesPage;
+  /** Course Export page object (authoring MFE). */
+  exportPage: StudioExportPage;
+  /** Course Import page object (authoring MFE). */
+  importPage: StudioImportPage;
+  /** Launch / Best-practices checklists page object (authoring MFE). */
+  checklistsPage: StudioChecklistsPage;
+  /** Pages & Resources page object (authoring MFE). */
+  pagesResourcesPage: StudioPagesResourcesPage;
   /**
    * Makes learners of this test's own for the LMS half of a Studio case: each
    * call provisions a fresh account and returns a request context holding its
@@ -614,6 +626,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   certificatesPage: async ({ page, config }, use) => {
     await use(new StudioCertificatesPage(page, config));
+  },
+
+  exportPage: async ({ page, config }, use) => {
+    await use(new StudioExportPage(page, config));
+  },
+
+  importPage: async ({ page, config }, use) => {
+    await use(new StudioImportPage(page, config));
+  },
+
+  checklistsPage: async ({ page, config }, use) => {
+    await use(new StudioChecklistsPage(page, config));
+  },
+
+  pagesResourcesPage: async ({ page, config }, use) => {
+    await use(new StudioPagesResourcesPage(page, config));
   },
 
   newLearner: async ({ playwright, config }, use) => {
