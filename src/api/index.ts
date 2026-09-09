@@ -110,6 +110,7 @@ export {
 } from './course-team';
 export {
   GROUP_CONFIGURATIONS_PATH,
+  GROUP_CONFIGURATIONS_WRITE_PATH,
   createContentGroups,
   fetchGroupConfigurations,
   type ContentGroup,

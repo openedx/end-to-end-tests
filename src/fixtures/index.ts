@@ -12,7 +12,10 @@ import {
 } from '../accounts';
 import { StudioHomePage } from '../pages/studio/home/studio-home.page';
 import { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
+import { StudioAdvancedSettingsPage } from '../pages/studio/settings/advanced-settings.page';
+import { StudioCourseTeamPage } from '../pages/studio/settings/course-team.page';
 import { StudioGradingPage } from '../pages/studio/settings/grading.page';
+import { StudioGroupConfigurationsPage } from '../pages/studio/settings/group-configurations.page';
 import { StudioScheduleDetailsPage } from '../pages/studio/settings/schedule-details.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
 import { AUTH_STATE_DIR, authStateFile } from '../auth';
@@ -164,6 +167,12 @@ export interface TestFixtures {
   scheduleDetailsPage: StudioScheduleDetailsPage;
   /** Grading settings page object (authoring MFE). */
   gradingPage: StudioGradingPage;
+  /** Advanced Settings page object (authoring MFE). */
+  advancedSettingsPage: StudioAdvancedSettingsPage;
+  /** Course Team page object (authoring MFE). */
+  courseTeamPage: StudioCourseTeamPage;
+  /** Group Configurations page object (authoring MFE). */
+  groupConfigurationsPage: StudioGroupConfigurationsPage;
   /**
    * Makes learners of this test's own for the LMS half of a Studio case: each
    * call provisions a fresh account and returns a request context holding its
@@ -580,6 +589,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   gradingPage: async ({ page, config }, use) => {
     await use(new StudioGradingPage(page, config));
+  },
+
+  advancedSettingsPage: async ({ page, config }, use) => {
+    await use(new StudioAdvancedSettingsPage(page, config));
+  },
+
+  courseTeamPage: async ({ page, config }, use) => {
+    await use(new StudioCourseTeamPage(page, config));
+  },
+
+  groupConfigurationsPage: async ({ page, config }, use) => {
+    await use(new StudioGroupConfigurationsPage(page, config));
   },
 
   newLearner: async ({ playwright, config }, use) => {
