@@ -29,13 +29,16 @@ export const STUDIO_COURSE_TEAM_SELECTORS = {
   memberName: '.member-info-name',
   /** The "New team member" button that reveals the add-by-email form. */
   newMemberButton: '.course-team button.btn.btn-primary.btn-sm',
+  /** The add-member form (revealed by "New team member"). */
+  addMemberForm: '[data-testid="add-user-form"]',
   /** The add-member form's email field. */
-  emailInput: 'input[name="email"]',
+  emailInput: '[data-testid="add-user-form"] input[name="email"]',
   /**
-   * The add-member form's submit ("Add user"). Same classes as "New team member",
-   * but that one disables once the form is open, so the enabled one is the submit.
+   * The add-member form's submit ("Add user"). Scoped to the form so it never
+   * matches a seated member's "Add admin access" button, which shares the
+   * `btn-primary btn-sm` classes and is also enabled.
    */
-  addSubmitButton: '.course-team button.btn.btn-primary.btn-sm:not(:disabled)',
+  addSubmitButton: '[data-testid="add-user-form"] button[type="submit"]',
   /**
    * A member row's role-toggle button — "Add admin access" (a `btn-primary` that
    * promotes staff→instructor) or "Remove admin access" (a `btn-tertiary` that

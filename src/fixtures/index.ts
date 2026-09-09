@@ -28,7 +28,6 @@ import {
   unitsContaining,
   assertCourseAccessible,
   fetchStudioUsername,
-  DEFAULT_PASSWORD,
   fetchStudioHome,
   fetchCourseSettingsFlags,
   ensureCertificateBearingMode,
@@ -54,7 +53,7 @@ import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
 import { canCompleteUnit } from '../steps/completion';
-import { signInToStudioThroughUi } from '../steps/studio';
+import { establishStudioBrowserSession, signInToStudioThroughUi } from '../steps/studio';
 import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
 import { LoginPage } from '../pages/lms/auth/login.page';
 import { RegistrationPage } from '../pages/lms/auth/registration.page';
@@ -572,17 +571,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
 
-  studioAuthorSession: async ({ page, request, config, studio }, use) => {
+  studioAuthorSession: async ({ page, config, studio }, use) => {
     void studio;
-    // A plain read of the identity — not a second SSO handshake. Establishing a
-    // fresh session on the API context here as well would race the browser login
-    // (the same user), and the platform's concurrent-login handling can leave the
-    // browser's Studio SSO bounced back to sign-in.
-    const username = await fetchStudioUsername(request, config);
-    await signInToStudioThroughUi(page, config, {
-      emailOrUsername: username,
-      password: DEFAULT_PASSWORD,
-    });
+    // The page already carries the worker author's browser-usable LMS session
+    // (the studio-author project loads its storage state), so the Studio session
+    // is completed off that — a silent SSO handshake, no credential entry. A
+    // per-test UI login would re-authenticate the same author on every Studio
+    // test, and with one worker running the whole Studio suite against a single
+    // author that trips the LMS login rate limit (30 / 5 min); this signs in
+    // zero times.
+    await establishStudioBrowserSession(page, config);
     await use();
   },
 
