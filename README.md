@@ -372,7 +372,10 @@ should reuse the same runnable unit and supply only the target.
   [`run-suite`](.github/actions/run-suite/action.yml) composite action.
 - **GitLab CI**: include [`ci/gitlab/run-suite.yml`](ci/gitlab/run-suite.yml)
   and extend the hidden `.openedx-e2e` job it defines. That file's header
-  comment is the reference for the variables it accepts.
+  comment is the reference for the variables it accepts, and
+  [`ci/gitlab/README.md`](ci/gitlab/README.md) has worked examples - gating on a
+  deploy, waiting for the target to serve, serialising runs - plus what to check
+  on the installation under test.
 
 Both own the same thing - the image, the install, the Playwright command line,
 and the report artifacts - so the consuming pipeline is left with the target's
