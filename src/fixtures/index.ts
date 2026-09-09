@@ -27,6 +27,7 @@ import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-adm
 import { AUTH_STATE_DIR, authStateFile } from '../auth';
 import {
   ensureCourse,
+  establishStudioSession,
   newCourseIdentity,
   studioOrigin,
   type CourseIdentity,
@@ -577,6 +578,17 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
       const request = await playwright.request.newContext({ storageState: authorState });
       try {
+        // Re-establish the Studio session on this context before writing. The CMS
+        // Django session in the captured state can be gone by the time the worker
+        // reaches here (it decays independently of the LMS session, or its cookie
+        // was dropped), and Studio then answers a write with its 200 HTML login
+        // page — seen on verawood as "Creating course … non-JSON body: <title>
+        // Authentication". The silent SSO handshake off the still-live LMS session
+        // makes the context authenticated, and is a no-op when it already is; the
+        // refreshed session is persisted back to the worker's state file so the
+        // per-test `request`/`page` contexts that load it start authenticated too.
+        await establishStudioSession(request, config);
+        await request.storageState({ path: authorState });
         const courseKey = await ensureCourse(request, config, identity);
         await use({
           ...identity,
