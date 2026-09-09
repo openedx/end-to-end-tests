@@ -1,0 +1,20 @@
+name: Install Tutor (main branch)
+description: >
+  Install Tutor and the MFE, forum and notes plugins from their GitHub main
+  branches, for testing the unreleased "main" Open edX release. Shared by
+  run_tests_tutor.yml and build_tutor_main_images.yml so both always install
+  the same set of plugins. Expects Python to be set up already.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Tutor and plugins (main branch)
+      shell: bash
+      run: |
+        set -euo pipefail
+        git clone --branch=main --depth=1 https://github.com/overhangio/tutor.git /tmp/tutor-main
+        pip install -e /tmp/tutor-main
+        pip install \
+          "tutor-forum@git+https://github.com/overhangio/tutor-forum@main" \
+          "tutor-mfe@git+https://github.com/overhangio/tutor-mfe@main" \
+          "tutor-notes@git+https://github.com/overhangio/tutor-notes@main"

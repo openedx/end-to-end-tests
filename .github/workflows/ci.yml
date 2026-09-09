@@ -13,6 +13,9 @@ on:
 
 permissions:
   contents: read
+  # Required by the reusable run_tests_tutor.yml, which pulls the prebuilt
+  # "main" Open edX images from this repo's ghcr.io namespace.
+  packages: read
 
 concurrency:
   group: ci-${{ github.ref }}
