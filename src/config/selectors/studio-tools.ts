@@ -23,19 +23,16 @@ export const STUDIO_EXPORT_SELECTORS = {
 export const STUDIO_IMPORT_SELECTORS = {
   /** The import page container — marks the MFE route as rendered. */
   page: '.import',
-  /** The dropzone; its react-dropzone `<input type=file>` takes the upload. */
-  dropzone: '[data-testid="dropzone"]',
+  /** The dropzone's react-dropzone `<input type=file>`, which takes the upload. */
   fileInput: '[data-testid="dropzone"] input[type="file"]',
   /** One step of the import progress stepper (five for an import). */
   step: '.import [data-testid="course-stepper__step"]',
-  /** The upload-percent readout, shown while the first (upload) step runs. */
-  stepPercent: '.import [data-testid="course-stepper__step-percent"]',
   /** The "View course outline" button the MFE reveals once the import succeeds. */
   successButton: '.import section button.btn',
 } as const;
 
-/** A stepper step carries `done` once its stage completes; `error` on failure. */
-export const STUDIO_STEPPER_STATE = { done: 'done', active: 'active', error: 'error' } as const;
+/** A stepper step carries this class once its stage completes. */
+export const STUDIO_STEPPER_STATE = { done: 'done' } as const;
 
 export const STUDIO_CHECKLISTS_SELECTORS = {
   /**
@@ -47,9 +44,6 @@ export const STUDIO_CHECKLISTS_SELECTORS = {
   item: (id: string) => `[data-testid="checklist-item-${id}"]`,
   /** The class a row carries only when the item is complete. */
   completeClass: 'checklist-item-complete',
-  /** A row's completed marker icon — present only when the item is complete. */
-  completedIcon: (id: string) =>
-    `[data-testid="checklist-item-${id}"] [data-testid="completed-icon"]`,
 } as const;
 
 /** The Launch checklist's item ids (`assignmentDeadlines` is instructor-paced only). */
@@ -60,12 +54,4 @@ export const LAUNCH_CHECKLIST_ITEMS = [
   'courseDates',
   'assignmentDeadlines',
   'proctoringEmail',
-] as const;
-
-/** The Best-practices checklist's item ids (`weeklyHighlights` is self-paced only). */
-export const BEST_PRACTICES_CHECKLIST_ITEMS = [
-  'videoDuration',
-  'diverseSequences',
-  'weeklyHighlights',
-  'unitDepth',
 ] as const;

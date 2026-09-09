@@ -78,9 +78,12 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   (`v1/course_settings`: whether the certificates-available-date and prerequisite
   controls render on this target).
 - `course-team.ts`, `group-configurations.ts`, `certificates.ts`,
-  `course-apps.ts` (Pages & Resources toggles), `course-transfer.ts` (export
+  `course-apps.ts` (Pages & Resources toggles), `custom-pages.ts` (static-tab
+  create/rename/delete + reorder read, `v0/tabs`), `course-transfer.ts` (export
   start/poll, import status), `course-checklists.ts` (validation and quality
-  behind the Launch and Best-practices checklists — served by the Studio origin).
+  behind the Launch and Best-practices checklists — served by the Studio origin),
+  `course-modes.ts` (LMS enrollment modes; `ensureCertificateBearingMode` adds the
+  `honor` mode a course needs before the Certificates form renders — staff only).
 
 The auth primitives are what the default auth provider (`src/auth/`) and the
 account backends compose into a captured storage state; the course primitives

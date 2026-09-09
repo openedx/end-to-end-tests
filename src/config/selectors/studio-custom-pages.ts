@@ -10,10 +10,10 @@
 export const STUDIO_CUSTOM_PAGES_SELECTORS = {
   /** Always-present header control — marks the page as rendered (and authorized). */
   ready: '[data-testid="header-add-button"]',
-  /** Shown instead of the page when the session may not view it. */
-  permissionDenied: '[data-testid="under-construction-placeholder"]',
   /** One custom-page card's title (one per card; scope by index). */
   cardTitle: '[data-testid="card-title"]',
   /** A card's drag handle — the dnd-kit sortable button (one per card). */
   dragHandle: '[aria-roledescription="sortable"]',
+  /** A drag handle mid-lift: dnd-kit's keyboard sensor sets `aria-pressed` on it. */
+  liftedHandle: '[aria-roledescription="sortable"][aria-pressed="true"]',
 } as const;

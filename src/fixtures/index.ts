@@ -284,10 +284,11 @@ export interface WorkerFixtures {
    *
    * Why per worker rather than the one `setup` captured: the platform's
    * `PREVENT_CONCURRENT_LOGINS` (on by default) kills a user's other sessions on
-   * every sign-in, and the browser specs sign the author in through the UI per
-   * test (see `studioAuthorSession`). With one author shared by several workers,
-   * each worker's sign-in bounced the others' browsers back to the login screen
-   * mid-test. One author per worker keeps every sign-in inside the worker whose
+   * every sign-in. `studioAuthorSession` normally completes Studio SSO silently
+   * (no login), but recovers a decayed session with a UI re-login — and with one
+   * author shared by several workers, each such re-login bounced the others'
+   * browsers back to the login screen mid-test. One author per worker keeps every
+   * sign-in inside the worker whose
    * previous test has already finished with the session.
    *
    * `undefined` outside the `studio-author` project, where nothing needs it.
@@ -359,27 +360,33 @@ export type EnrolledCourse = CourseLearner;
  * environment is invalid, rather than surfacing later as a confusing navigation
  * failure.
  */
+/**
+ * Builds a test fixture that hands the spec a page object constructed from the
+ * `page` and `config` fixtures — the shape almost every page-object fixture takes.
+ * Playwright reads the returned function's destructured parameters to wire its
+ * dependencies, so `{ page, config }` stays declared here rather than hidden.
+ */
+function pageObjectFixture<T>(
+  Ctor: new (page: Page, config: AppConfig) => T,
+): (args: { page: Page; config: AppConfig }, use: (value: T) => Promise<void>) => Promise<void> {
+  return async ({ page, config }, use) => {
+    await use(new Ctor(page, config));
+  };
+}
+
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   // eslint-disable-next-line no-empty-pattern
   config: async ({}, use) => {
     await use(getConfig());
   },
 
-  loginPage: async ({ page, config }, use) => {
-    await use(new LoginPage(page, config));
-  },
+  loginPage: pageObjectFixture(LoginPage),
 
-  registrationPage: async ({ page, config }, use) => {
-    await use(new RegistrationPage(page, config));
-  },
+  registrationPage: pageObjectFixture(RegistrationPage),
 
-  forgotPasswordPage: async ({ page, config }, use) => {
-    await use(new ForgotPasswordPage(page, config));
-  },
+  forgotPasswordPage: pageObjectFixture(ForgotPasswordPage),
 
-  accountSettingsPage: async ({ page, config }, use) => {
-    await use(new AccountSettingsPage(page, config));
-  },
+  accountSettingsPage: pageObjectFixture(AccountSettingsPage),
 
   // eslint-disable-next-line no-empty-pattern
   learnerIdentity: async ({}, use) => {
@@ -404,29 +411,17 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     },
     { auto: true },
   ],
-  catalogPage: async ({ page, config }, use) => {
-    await use(new CatalogPage(page, config));
-  },
+  catalogPage: pageObjectFixture(CatalogPage),
 
-  courseAboutPage: async ({ page, config }, use) => {
-    await use(new CourseAboutPage(page, config));
-  },
+  courseAboutPage: pageObjectFixture(CourseAboutPage),
 
-  unitPage: async ({ page, config }, use) => {
-    await use(new UnitPage(page, config));
-  },
+  unitPage: pageObjectFixture(UnitPage),
 
-  courseOutlinePage: async ({ page, config }, use) => {
-    await use(new CourseOutlinePage(page, config));
-  },
+  courseOutlinePage: pageObjectFixture(CourseOutlinePage),
 
-  progressPage: async ({ page, config }, use) => {
-    await use(new ProgressPage(page, config));
-  },
+  progressPage: pageObjectFixture(ProgressPage),
 
-  dashboardPage: async ({ page, config }, use) => {
-    await use(new DashboardPage(page, config));
-  },
+  dashboardPage: pageObjectFixture(DashboardPage),
 
   courseKey: async ({ request, config }, use) => {
     const skipReason = courseKeySkipReason(config);
@@ -627,57 +622,31 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use();
   },
 
-  studioHomePage: async ({ page, config }, use) => {
-    await use(new StudioHomePage(page, config));
-  },
+  studioHomePage: pageObjectFixture(StudioHomePage),
 
-  studioCourseOutlinePage: async ({ page, config }, use) => {
-    await use(new StudioCourseOutlinePage(page, config));
-  },
+  studioCourseOutlinePage: pageObjectFixture(StudioCourseOutlinePage),
 
-  scheduleDetailsPage: async ({ page, config }, use) => {
-    await use(new StudioScheduleDetailsPage(page, config));
-  },
+  scheduleDetailsPage: pageObjectFixture(StudioScheduleDetailsPage),
 
-  gradingPage: async ({ page, config }, use) => {
-    await use(new StudioGradingPage(page, config));
-  },
+  gradingPage: pageObjectFixture(StudioGradingPage),
 
-  advancedSettingsPage: async ({ page, config }, use) => {
-    await use(new StudioAdvancedSettingsPage(page, config));
-  },
+  advancedSettingsPage: pageObjectFixture(StudioAdvancedSettingsPage),
 
-  courseTeamPage: async ({ page, config }, use) => {
-    await use(new StudioCourseTeamPage(page, config));
-  },
+  courseTeamPage: pageObjectFixture(StudioCourseTeamPage),
 
-  groupConfigurationsPage: async ({ page, config }, use) => {
-    await use(new StudioGroupConfigurationsPage(page, config));
-  },
+  groupConfigurationsPage: pageObjectFixture(StudioGroupConfigurationsPage),
 
-  certificatesPage: async ({ page, config }, use) => {
-    await use(new StudioCertificatesPage(page, config));
-  },
+  certificatesPage: pageObjectFixture(StudioCertificatesPage),
 
-  exportPage: async ({ page, config }, use) => {
-    await use(new StudioExportPage(page, config));
-  },
+  exportPage: pageObjectFixture(StudioExportPage),
 
-  importPage: async ({ page, config }, use) => {
-    await use(new StudioImportPage(page, config));
-  },
+  importPage: pageObjectFixture(StudioImportPage),
 
-  checklistsPage: async ({ page, config }, use) => {
-    await use(new StudioChecklistsPage(page, config));
-  },
+  checklistsPage: pageObjectFixture(StudioChecklistsPage),
 
-  pagesResourcesPage: async ({ page, config }, use) => {
-    await use(new StudioPagesResourcesPage(page, config));
-  },
+  pagesResourcesPage: pageObjectFixture(StudioPagesResourcesPage),
 
-  customPagesPage: async ({ page, config }, use) => {
-    await use(new StudioCustomPagesPage(page, config));
-  },
+  customPagesPage: pageObjectFixture(StudioCustomPagesPage),
 
   newLearner: async ({ playwright, config }, use) => {
     const contexts: APIRequestContext[] = [];

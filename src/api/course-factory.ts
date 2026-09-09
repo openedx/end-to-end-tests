@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { TIMEOUTS, type AppConfig } from '../config';
 import { ApiError } from './errors';
-import { fetchStudioHome, listStudioCourses } from './studio-home';
+import { fetchStudioHome } from './studio-home';
 import { studioOrigin, studioWriteHeaders } from './studio-origin';
 
 /**
@@ -200,22 +200,6 @@ export async function courseExists(
     url,
     body: await response.text(),
   });
-}
-
-/**
- * Looks up a suite-created course by its number in the session's Studio course
- * list, or `undefined` when there is none. Eventually consistent — see
- * {@link courseExists} for the synchronous check.
- */
-export async function findCourseByNumber(
-  request: APIRequestContext,
-  config: AppConfig,
-  identity: Pick<CourseIdentity, 'org' | 'number'>,
-): Promise<string | undefined> {
-  const list = await listStudioCourses(request, config, { search: identity.number });
-  return list.courses.find(
-    (course) => course.number === identity.number && course.org === identity.org,
-  )?.courseKey;
 }
 
 /**

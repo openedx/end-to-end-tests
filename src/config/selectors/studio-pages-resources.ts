@@ -19,9 +19,6 @@ export const STUDIO_PAGES_RESOURCES_SELECTORS = {
   viewLiveLink: 'a[href*="/learning/course/"]',
   /** One app's enable/disable switch inside its settings modal, by app id. */
   enableToggle: (appId: string) => `#enable-${appId}-toggle`,
-  /** The app-settings modal (its title marks it open). */
-  modal: '[role="dialog"]',
-  modalTitle: '[data-testid="modal-title"]',
-  /** The modal's "Save" — the primary action; the Cancel/close button is tertiary. */
+  /** The app-settings modal's "Save" — the primary action; Cancel/close is tertiary. */
   modalSaveButton: '[role="dialog"] button.btn-primary',
 } as const;

@@ -75,7 +75,6 @@ export {
   courseKeyFor,
   createCourse,
   ensureCourse,
-  findCourseByNumber,
   newCourseIdentity,
   rerunCourse,
   waitForRerun,

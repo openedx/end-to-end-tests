@@ -4,8 +4,12 @@ import { STUDIO_CUSTOM_PAGES_SELECTORS, type AppConfig } from '../../../config';
 import { TABS_PATH } from '../../../api';
 import { authoringCourseBaseUrl } from '../authoring-base';
 
-/** Pause between dnd-kit keyboard announcements so each registers before the next. */
-const DND_SETTLE_MS = 400;
+/**
+ * Animation frames yielded between dnd-kit keyboard-drag steps. Its keyboard
+ * sensor needs a few frames to accept the next key after the lift; 5 was the
+ * measured floor, so 6 leaves a margin.
+ */
+const DND_SETTLE_FRAMES = 6;
 
 /**
  * Custom Pages in the authoring MFE. Reached on the apps origin (Studio does not
@@ -56,14 +60,18 @@ export class StudioCustomPagesPage {
   async dragCardDown(courseKey: string, fromIndex: number): Promise<void> {
     const handle = this.dragHandles.nth(fromIndex);
     await handle.focus();
-    // dnd-kit's keyboard sensor works one announcement at a time and needs a frame
-    // between them: Space lifts the item, an Arrow advances it one position, Space
-    // drops it. Pressing them back-to-back drops before the move registers, so pause
-    // between each (measured: the reorder does not fire without this).
+    // Space lifts the item, an Arrow advances it one position, Space drops it.
+    // dnd-kit's keyboard sensor advances one step per render frame and exposes no
+    // DOM/ARIA "ready to move" signal — `aria-pressed` and its live-region
+    // announcement both fire before it will accept an arrow key (measured). So
+    // after confirming the lift we yield a few animation frames — the unit dnd-kit
+    // actually works in — between the steps, rather than pause a wall-clock time.
     await this.page.keyboard.press('Space');
-    await this.page.waitForTimeout(DND_SETTLE_MS);
+    await this.page.locator(STUDIO_CUSTOM_PAGES_SELECTORS.liftedHandle).waitFor();
+    await this.settleFrames();
     await this.page.keyboard.press('ArrowDown');
-    await this.page.waitForTimeout(DND_SETTLE_MS);
+    await this.settleFrames();
+
     await Promise.all([
       this.page.waitForResponse(
         (r) =>
@@ -73,5 +81,26 @@ export class StudioCustomPagesPage {
       ),
       this.page.keyboard.press('Space'),
     ]);
+  }
+
+  /**
+   * Resolves after `frames` animation frames have rendered — the settle dnd-kit's
+   * keyboard sensor needs between key steps, tied to the browser's render loop
+   * rather than a fixed duration.
+   */
+  private settleFrames(frames = DND_SETTLE_FRAMES): Promise<void> {
+    return this.page.evaluate(
+      (count) =>
+        new Promise<void>((resolve) => {
+          let seen = 0;
+          const step = (): void => {
+            seen += 1;
+            if (seen >= count) resolve();
+            else requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        }),
+      frames,
+    );
   }
 }

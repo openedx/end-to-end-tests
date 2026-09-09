@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
-import { ApiError } from './errors';
+import { studioJson } from './studio-origin';
 
 /**
  * Course-home metadata the learning MFE loads first: the course's tabs (in the
@@ -40,15 +40,5 @@ export async function fetchCourseMetadata(
 ): Promise<CourseMetadata> {
   const url = `${config.baseUrls.lms}${COURSE_METADATA_PATH}/${courseKey}`;
   const response = await request.get(url);
-  if (!response.ok()) {
-    throw new ApiError(
-      `Could not read course metadata for "${courseKey}" (HTTP ${response.status()}).`,
-      {
-        status: response.status(),
-        url,
-        body: await response.text(),
-      },
-    );
-  }
-  return (await response.json()) as CourseMetadata;
+  return studioJson<CourseMetadata>(response, `Reading course metadata for "${courseKey}"`);
 }

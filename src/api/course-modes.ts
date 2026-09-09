@@ -3,6 +3,7 @@ import type { APIRequestContext } from '@playwright/test';
 import type { AppConfig } from '../config';
 import { CSRF_HEADER, fetchCsrfToken } from './csrf';
 import { ApiError } from './errors';
+import { studioJson } from './studio-origin';
 
 /**
  * LMS Course Modes API (`common/djangoapps/course_modes/rest_api`). Reading is
@@ -23,17 +24,10 @@ export async function fetchCourseModes(
 ): Promise<readonly string[]> {
   const url = `${config.baseUrls.lms}${COURSE_MODES_PATH}/${courseKey}/`;
   const response = await request.get(url);
-  if (!response.ok()) {
-    throw new ApiError(
-      `Could not read course modes for "${courseKey}" (HTTP ${response.status()}).`,
-      {
-        status: response.status(),
-        url,
-        body: await response.text(),
-      },
-    );
-  }
-  const body = (await response.json()) as readonly RawCourseMode[];
+  const body = await studioJson<readonly RawCourseMode[]>(
+    response,
+    `Reading course modes for "${courseKey}"`,
+  );
   return body.map((mode) => mode.mode_slug ?? '').filter((slug) => slug !== '');
 }
 

@@ -35,7 +35,7 @@ test.describe('Studio Home', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
 
       // The documentation links go to external docs, never back to the platform.
       const docLinks = page.locator('a[href*="docs.openedx.org"], a[href*="//openedx.org"]');
-      expect(await docLinks.count()).toBeGreaterThan(0);
+      await expect(docLinks).not.toHaveCount(0);
 
       const platformHosts = new Set(
         [config.baseUrls.lms, config.baseUrls.studio, config.baseUrls.apps]

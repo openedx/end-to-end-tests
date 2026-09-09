@@ -122,8 +122,11 @@ request-then-Django-admin flow of BTR TC-00310, using the admin account.
 The `studio-author` project does not reuse that author state directly: its
 `workerAuthor` fixture provisions one author per worker the same way and points the
 worker's `page` and `request` at it, because the platform's
-`PREVENT_CONCURRENT_LOGINS` ends a user's other sessions on each sign-in and the
-browser specs sign in through the UI per test. The single shared admin account is
+`PREVENT_CONCURRENT_LOGINS` ends a user's other sessions on each sign-in — so a
+shared author would have workers logging each other out. A browser spec normally
+completes Studio's SSO silently off the loaded state (no login); only when that
+stored session has decayed does `studioAuthorSession` fall back to a single UI
+re-login, refreshing the worker's state file. The single shared admin account is
 used only under a cross-worker lock (`withAdminSession`), reusing the `setup`
 session where it is still alive.
 
