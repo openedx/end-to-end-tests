@@ -1,9 +1,5 @@
 import { checkA11y } from '../../../src/a11y';
-import {
-  createCertificate,
-  fetchCertificateConfiguration,
-  resetCertificates,
-} from '../../../src/api';
+import { fetchCertificateConfiguration, resetCertificates } from '../../../src/api';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -14,7 +10,11 @@ import { testId } from '../../../src/reporting';
  * mode (`STUDIO-006`), which the `certificateCourseMode` fixture adds with the
  * staff session. The MFE drives each change; Studio's certificate API decides the
  * outcome. There is no per-run course teardown and certificates accumulate, so
- * each test resets the course's certificates first.
+ * each test resets the course's certificates first. Certificates are created
+ * through the MFE, not the certificate write API: the browser's own request is the
+ * one that works across releases (the legacy Studio write handler answers a
+ * non-browser JSON client with HTML on older releases such as verawood; the
+ * delete used by the reset does work).
  */
 test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] }, () => {
   const signatory = (name: string) => ({ name, title: 'Chair', organization: 'Open edX' });
@@ -52,7 +52,7 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
         .toBe(3);
 
       await checkA11y(page, { label: 'studio-certificates' });
-      await resetCertificates(request, config, courseKey);
+      await resetCertificates(request, config, courseKey).catch(() => {});
     },
   );
 
@@ -71,12 +71,11 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
       void certificateCourseMode;
       const { courseKey } = authoredCourse;
       await resetCertificates(request, config, courseKey);
-      await createCertificate(request, config, courseKey, {
-        name: 'Certificate',
-        signatories: [signatory('Ada Lovelace')],
-      });
 
+      // The certificate is created through the MFE (the browser's own write works
+      // across releases; see the spec-level note).
       await certificatesPage.goto(courseKey);
+      await certificatesPage.createCertificate(courseKey, [signatory('Ada Lovelace')]);
       const cfg = await fetchCertificateConfiguration(request, config, courseKey);
       // The preview link points at the LMS certificate web view the API reports.
       // The API gives a protocol-relative URL; the page renders it scheme-qualified.
@@ -87,7 +86,7 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
       const response = await request.get(previewUrl);
       expect(response.status()).toBeLessThan(400);
 
-      await resetCertificates(request, config, courseKey);
+      await resetCertificates(request, config, courseKey).catch(() => {});
     },
   );
 
@@ -106,12 +105,9 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
       void certificateCourseMode;
       const { courseKey } = authoredCourse;
       await resetCertificates(request, config, courseKey);
-      await createCertificate(request, config, courseKey, {
-        name: 'Certificate',
-        signatories: [signatory('Ada Lovelace')],
-      });
 
       await certificatesPage.goto(courseKey);
+      await certificatesPage.createCertificate(courseKey, [signatory('Ada Lovelace')]);
       expect((await certificatesPage.activate(courseKey)).status).toBe(200);
 
       await expect
@@ -120,7 +116,7 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
         )
         .toBe(true);
 
-      await resetCertificates(request, config, courseKey);
+      await resetCertificates(request, config, courseKey).catch(() => {});
     },
   );
 

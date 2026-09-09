@@ -35,7 +35,15 @@ export async function studioWriteHeaders(
 ): Promise<Record<string, string>> {
   const origin = studioOrigin(config);
   const token = await fetchCsrfToken(request, config, origin);
-  return { [CSRF_HEADER]: token, Referer: origin, Accept: 'application/json' };
+  return {
+    [CSRF_HEADER]: token,
+    Referer: origin,
+    Accept: 'application/json',
+    // The MFE's XHR client sends this, and the legacy Studio write handlers on
+    // older releases (e.g. verawood) serve JSON only to an XHR — without it they
+    // answer with the HTML page, which a JSON caller cannot parse.
+    'X-Requested-With': 'XMLHttpRequest',
+  };
 }
 
 /** Headers for a Studio read that must take the JSON branch of a legacy view. */

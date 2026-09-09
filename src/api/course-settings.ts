@@ -56,11 +56,12 @@ export async function fetchCourseSettingsFlags(
 }
 
 /**
- * Advanced Settings. The legacy Studio view is the one that answers on every
- * supported release (the `v1/advanced_settings` route is 404 on `main`); it
- * serves JSON when asked for it.
+ * Advanced Settings, as the authoring MFE reads and writes them: the `v0` REST
+ * endpoint (GET + PATCH). The legacy `/settings/advanced` view is avoided — it
+ * serves HTML to a non-XHR caller on older releases (e.g. verawood), which a JSON
+ * client cannot parse. Keys are snake_case on this endpoint.
  */
-export const ADVANCED_SETTINGS_PATH = '/settings/advanced';
+export const ADVANCED_SETTINGS_PATH = '/api/contentstore/v0/advanced_settings';
 
 /**
  * The Schedule & Details fields the suite reads or writes. The platform returns
@@ -204,7 +205,11 @@ export async function fetchAdvancedSettings(
     `${studioOrigin(config)}${ADVANCED_SETTINGS_PATH}/${courseKey}`,
     { headers: STUDIO_JSON_ACCEPT },
   );
-  return studioJson<AdvancedSettings>(response, `Reading Advanced Settings of ${courseKey}`);
+  const raw = await studioJson<Record<string, AdvancedSetting>>(
+    response,
+    `Reading Advanced Settings of ${courseKey}`,
+  );
+  return raw;
 }
 
 /**
@@ -222,7 +227,7 @@ export async function updateAdvancedSettings(
   const data = Object.fromEntries(
     Object.entries(changes).map(([field, value]) => [field, { value }]),
   );
-  const response = await request.post(
+  const response = await request.patch(
     `${studioOrigin(config)}${ADVANCED_SETTINGS_PATH}/${courseKey}`,
     { data, headers },
   );

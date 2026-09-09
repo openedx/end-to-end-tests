@@ -11,6 +11,7 @@ export default tseslint.config(
       'dist/',
       'test-results/',
       'playwright-report/',
+      'ci-test-results/',
       'blob-report/',
       '.auth/',
       // Tooling and local-only dot-directories (including `.private/` scratch
