@@ -74,9 +74,20 @@ export async function grantCourseCreatorThroughAdmin(
  * shared across a worker's whole Studio run, so those add up and trip the LMS
  * login rate limit (30 / 5 min) under load. This path signs in zero times.
  */
-export async function establishStudioBrowserSession(page: Page, config: AppConfig): Promise<void> {
+export async function establishStudioBrowserSession(
+  page: Page,
+  config: AppConfig,
+): Promise<boolean> {
   await page.goto(`${studioOrigin(config)}/home/`);
-  await page.locator(STUDIO_HOME_SELECTORS.header).waitFor();
+  // The cms-sso handshake lands on Studio Home when the loaded session is live, or
+  // bounces to the authn login MFE when it has decayed (JWT/session expiry, or a
+  // concurrent-login eviction). Settle on whichever appears and report which, so
+  // the caller can recover a dead session instead of every Studio test timing out
+  // waiting for a header that will never come.
+  const header = page.locator(STUDIO_HOME_SELECTORS.header);
+  const loginField = page.locator('input[name="emailOrUsername"]');
+  await header.or(loginField).first().waitFor();
+  return (await header.count()) > 0;
 }
 
 /**

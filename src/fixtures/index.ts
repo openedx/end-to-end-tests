@@ -33,6 +33,7 @@ import {
   unitsContaining,
   assertCourseAccessible,
   fetchStudioUsername,
+  DEFAULT_PASSWORD,
   fetchStudioHome,
   fetchCourseSettingsFlags,
   ensureCertificateBearingMode,
@@ -150,19 +151,21 @@ export interface TestFixtures {
    */
   studio: string;
   /**
-   * Ensures the browser page holds a **fresh, interactive** Studio session as the
-   * worker's author, and returns nothing.
+   * Ensures the browser page holds an interactive Studio session as the worker's
+   * author, and returns nothing.
    *
-   * The studio-author project loads the author's captured state, which keeps its
-   * API session alive through the JWT — but the Django session behind Studio's
-   * interactive SSO decays within minutes, so a page that only replays the stored
-   * cookies is bounced to the login screen once a few other specs have run. This
-   * signs the page in through the UI (the author's username, read from the live
-   * API session, plus the suite's fixed account password), which is reliable
-   * regardless of how long the run has been going. Author-driven browser specs
-   * request it before touching Studio; the API `request` fixture stays valid
-   * alongside it (a re-login does not invalidate the other session on this
-   * platform).
+   * The studio-author project loads the author's captured state, and normally the
+   * page completes Studio's SSO silently off it — no login, so the login rate
+   * limit is untouched. But the stored Django session can be lost mid-run — the
+   * cache backing sessions is flushed or evicted (a service restart does this), or
+   * a safe-sessions user mismatch forces a logout — and the page is then bounced to
+   * the authn login MFE. When that happens this recovers with a single UI sign-in
+   * and **persists the refreshed session back to the worker's state file**, so the
+   * rest of the worker's Studio specs reuse the live session instead of each
+   * re-signing-in (which would press the rate limit). The API `request` fixture
+   * stays valid alongside it (a re-login does not invalidate the other session on
+   * this platform). This does not cover the separate ~1h JWT-cookie clock the API
+   * `request` replays — a run over an hour needs session+CSRF API auth instead.
    */
   studioAuthorSession: void;
   /** Studio Home page object (`frontend-app-course-authoring`). */
@@ -586,16 +589,35 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
 
-  studioAuthorSession: async ({ page, config, studio }, use) => {
+  studioAuthorSession: async ({ page, request, config, studio, workerAuthor }, use) => {
     void studio;
     // The page already carries the worker author's browser-usable LMS session
     // (the studio-author project loads its storage state), so the Studio session
-    // is completed off that — a silent SSO handshake, no credential entry. A
-    // per-test UI login would re-authenticate the same author on every Studio
-    // test, and with one worker running the whole Studio suite against a single
-    // author that trips the LMS login rate limit (30 / 5 min); this signs in
-    // zero times.
-    await establishStudioBrowserSession(page, config);
+    // is normally completed off that — a silent SSO handshake, no credential
+    // entry. A per-test UI login would re-authenticate the same author on every
+    // Studio test, and with one worker running the whole Studio suite against a
+    // single author that trips the LMS login rate limit (30 / 5 min).
+    const authenticated = await establishStudioBrowserSession(page, config);
+    if (!authenticated) {
+      // The stored session decayed (expiry, or a concurrent-login eviction) and
+      // Studio bounced to the login MFE. Recover with a single UI sign-in — using
+      // the worker author's own identity, so it does not depend on the (equally
+      // decayed) API session — rather than letting every remaining Studio test
+      // fail on the login page.
+      const username =
+        workerAuthor?.identity.username ?? (await fetchStudioUsername(request, config));
+      await signInToStudioThroughUi(page, config, {
+        emailOrUsername: username,
+        password: DEFAULT_PASSWORD,
+      });
+      // Persist the refreshed session so the rest of this worker's Studio tests
+      // load a live one and reuse it, instead of each re-signing-in (which would
+      // press the rate limit). Worker authors own their own state file, so this
+      // write races nothing.
+      if (workerAuthor) {
+        await page.context().storageState({ path: workerAuthor.stateFile });
+      }
+    }
     await use();
   },
 
