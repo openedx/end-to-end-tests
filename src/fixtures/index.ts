@@ -19,6 +19,7 @@ import { StudioGradingPage } from '../pages/studio/settings/grading.page';
 import { StudioGroupConfigurationsPage } from '../pages/studio/settings/group-configurations.page';
 import { StudioScheduleDetailsPage } from '../pages/studio/settings/schedule-details.page';
 import { StudioPagesResourcesPage } from '../pages/studio/pages-resources/pages-resources.page';
+import { StudioCustomPagesPage } from '../pages/studio/custom-pages/custom-pages.page';
 import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
@@ -188,6 +189,8 @@ export interface TestFixtures {
   checklistsPage: StudioChecklistsPage;
   /** Pages & Resources page object (authoring MFE). */
   pagesResourcesPage: StudioPagesResourcesPage;
+  /** Custom Pages page object (authoring MFE). */
+  customPagesPage: StudioCustomPagesPage;
   /**
    * Makes learners of this test's own for the LMS half of a Studio case: each
    * call provisions a fresh account and returns a request context holding its
@@ -642,6 +645,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   pagesResourcesPage: async ({ page, config }, use) => {
     await use(new StudioPagesResourcesPage(page, config));
+  },
+
+  customPagesPage: async ({ page, config }, use) => {
+    await use(new StudioCustomPagesPage(page, config));
   },
 
   newLearner: async ({ playwright, config }, use) => {

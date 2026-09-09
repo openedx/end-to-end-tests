@@ -137,6 +137,14 @@ export {
   type CourseApp,
 } from './course-apps';
 export {
+  TABS_PATH,
+  createCustomPage,
+  deleteCustomPage,
+  fetchCustomPages,
+  setCustomPageName,
+  type CustomPage,
+} from './custom-pages';
+export {
   EXPORT_PATH,
   EXPORT_STATUS_PATH,
   IMPORT_STATUS_PATH,
