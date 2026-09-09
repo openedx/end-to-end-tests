@@ -50,6 +50,15 @@ export async function studioWriteHeaders(
 export const STUDIO_JSON_ACCEPT = { Accept: 'application/json' } as const;
 
 /**
+ * A one-line preview of a non-JSON response body for an error message. The report
+ * does not surface `ApiError.body`, so the prefix (an HTML `<title>`, a login
+ * page, a gateway error) has to travel in the message to be diagnosable in CI.
+ */
+export function nonJsonPreview(text: string): string {
+  return text.slice(0, 200).replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Reads a JSON body from a Studio response or throws an {@link ApiError} naming
  * the request. Shared by the Studio clients so their success paths stay short.
  */
@@ -69,10 +78,9 @@ export async function studioJson<T>(
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new ApiError(`${what} did not return JSON.`, {
-      status: response.status(),
-      url,
-      body: text.slice(0, 500),
-    });
+    throw new ApiError(
+      `${what} returned HTTP ${response.status()} with a non-JSON body: ${nonJsonPreview(text)}`,
+      { status: response.status(), url, body: text.slice(0, 500) },
+    );
   }
 }

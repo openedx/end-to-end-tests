@@ -3,7 +3,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { TIMEOUTS, type AppConfig } from '../config';
 import { ApiError } from './errors';
 import { fetchStudioHome } from './studio-home';
-import { studioOrigin, studioWriteHeaders } from './studio-origin';
+import { nonJsonPreview, studioOrigin, studioWriteHeaders } from './studio-origin';
 
 /**
  * The course-creation endpoint Studio Home itself posts to. Also performs
@@ -112,14 +112,15 @@ async function postCourse(
     body = JSON.parse(text) as CreateCourseResponse;
   } catch {
     // A 2xx with a non-JSON body is what the CMS returns when it is overloaded by
-    // concurrent course creation (an error/HTML page slips through). It is
-    // transient, so mark it retryable for `ensureCourse`.
-    throw new ApiError(`${what} did not return JSON.`, {
-      status: response.status(),
-      url,
-      body: text.slice(0, 500),
-      retryable: true,
-    });
+    // concurrent course creation (an error/HTML page slips through), or when the
+    // request is anonymous (a login page). It is transient, so mark it retryable
+    // for `ensureCourse`; the body prefix is in the message because the report
+    // does not surface `ApiError.body`, and that prefix (e.g. a `<title>`) is what
+    // says whether it was an error page, a login redirect, or a throttle.
+    throw new ApiError(
+      `${what} returned HTTP ${response.status()} with a non-JSON body: ${nonJsonPreview(text)}`,
+      { status: response.status(), url, body: text.slice(0, 500), retryable: true },
+    );
   }
 
   // The legacy view reports a duplicate as HTTP 200 with an error body, so
