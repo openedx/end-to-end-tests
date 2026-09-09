@@ -191,6 +191,9 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       await scheduleDetailsPage.setCourseStart(toDateTimeFields(PAST));
       await scheduleDetailsPage.setCourseEnd(toDateTimeFields(PAST_END));
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      // The archived list is searched by course *number*, which a re-run of this
+      // course (the lifecycle spec's, on the same worker) shares — so assert this
+      // course is among the archived, not that it is the only one.
       await expect
         .poll(async () => {
           const lms = await fetchCourseDetail(request, config, courseKey);
@@ -198,9 +201,12 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
             search: authoredCourse.number,
             archivedOnly: true,
           });
-          return { end: lms.end, archived: archived.courses.map((course) => course.courseKey) };
+          return {
+            end: lms.end,
+            archived: archived.courses.some((course) => course.courseKey === courseKey),
+          };
         })
-        .toEqual({ end: iso(PAST_END), archived: [courseKey] });
+        .toEqual({ end: iso(PAST_END), archived: true });
 
       await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
     },
@@ -254,6 +260,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       const justEnded = hoursFromNow(-1);
       await scheduleDetailsPage.setCourseEnd(toDateTimeFields(justEnded));
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      // Archived is searched by number, which a same-worker re-run shares (see the
+      // dates case above): assert this course is among the archived, not the only.
       await expect
         .poll(async () => {
           const lms = await fetchCourseDetail(request, config, courseKey);
@@ -261,9 +269,12 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
             search: authoredCourse.number,
             archivedOnly: true,
           });
-          return { end: lms.end, archived: archived.courses.map((course) => course.courseKey) };
+          return {
+            end: lms.end,
+            archived: archived.courses.some((course) => course.courseKey === courseKey),
+          };
         })
-        .toEqual({ end: iso(justEnded), archived: [courseKey] });
+        .toEqual({ end: iso(justEnded), archived: true });
 
       await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
     },
