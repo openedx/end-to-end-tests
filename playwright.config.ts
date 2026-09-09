@@ -30,8 +30,8 @@ export default defineConfig({
   // bounded retries, and centralized timeouts.
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
-  workers: isCI ? 8 : undefined,
+  retries: isCI ? 3 : 0,
+  workers: isCI ? 2 : undefined,
   timeout: TIMEOUTS.test,
   expect: { timeout: TIMEOUTS.expect },
 
