@@ -165,4 +165,46 @@ export class StudioHomePage {
       this.searchInput.fill(term),
     ]);
   }
+
+  /** The course keys of the rendered cards, in display order. */
+  async renderedCourseKeys(): Promise<string[]> {
+    const hrefs = await this.courseCards
+      .locator(STUDIO_HOME_SELECTORS.courseCardLink)
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+    return hrefs.map((href) => href.match(/course-v1:[^/?#]+/)?.[0] ?? '').filter(Boolean);
+  }
+
+  /** Sorts the list through the order menu and waits for the reloaded page. */
+  async sortBy(kind: 'az' | 'za' | 'newest' | 'oldest'): Promise<void> {
+    await this.page.locator(STUDIO_HOME_SELECTORS.courseOrderMenu).click();
+    await Promise.all([
+      this.page.waitForResponse((r) => r.url().includes('/home/courses')),
+      this.page.locator(STUDIO_HOME_SELECTORS.courseOrderItem(kind)).click(),
+    ]);
+  }
+
+  /** Filters the list through the type menu and waits for the reloaded page. */
+  async filterBy(kind: 'all' | 'active' | 'archived'): Promise<void> {
+    await this.page.locator(STUDIO_HOME_SELECTORS.courseTypeMenu).click();
+    await Promise.all([
+      this.page.waitForResponse((r) => r.url().includes('/home/courses')),
+      this.page.locator(STUDIO_HOME_SELECTORS.courseTypeItem(kind)).click(),
+    ]);
+  }
+
+  /** Opens a course card's three-dot "Course actions" menu. */
+  async openCardMenu(courseKey: string): Promise<void> {
+    await this.courseCard(courseKey).locator(STUDIO_HOME_SELECTORS.courseCardActions).click();
+    await this.page.locator(STUDIO_HOME_SELECTORS.openMenu).waitFor();
+  }
+
+  /** The "View live" link inside the open card menu. */
+  get cardViewLiveLink(): Locator {
+    return this.page.locator(STUDIO_HOME_SELECTORS.cardViewLiveLink);
+  }
+
+  /** The brand logo; its `alt` carries the platform name. */
+  get brandLogo(): Locator {
+    return this.page.locator(STUDIO_HOME_SELECTORS.brandLogo);
+  }
 }

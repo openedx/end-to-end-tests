@@ -65,8 +65,28 @@ export const STUDIO_HOME_SELECTORS = {
   /** "All courses / Active / Archived" filter toggle. */
   courseTypeMenu: '[data-testid="dropdown-toggle-course-type-menu"]',
 
+  /** One filter option, by kind: `all` / `active` / `archived`. */
+  courseTypeItem: (kind: 'all' | 'active' | 'archived') =>
+    `[data-testid="item-menu-${kind}-courses"]`,
+
   /** "Name A-Z / …" sort toggle. */
   courseOrderMenu: '[data-testid="dropdown-toggle-courses-order-menu"]',
+
+  /** One sort option, by kind: `az` / `za` / `newest` / `oldest`. */
+  courseOrderItem: (kind: 'az' | 'za' | 'newest' | 'oldest') =>
+    `[data-testid="item-menu-${kind}-courses"]`,
+
+  /** The open card / sort / filter dropdown menu. */
+  openMenu: '.dropdown-menu.show',
+
+  /** The "View live" link inside an open card menu (to the LMS course). */
+  cardViewLiveLink: '.dropdown-menu.show a[href*="/courses/"]',
+
+  /**
+   * The Studio brand logo; its `alt` is `Studio <platform name>`, the rendered
+   * slot for the platform name (TC-00254).
+   */
+  brandLogo: 'img.logo',
 
   /** "Showing N of M". */
   paginationInfo: '[data-testid="pagination-info"]',
