@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { STUDIO_EXPORT_SELECTORS, STUDIO_STEPPER_STATE, type AppConfig } from '../../../config';
 import { EXPORT_PATH, studioOrigin } from '../../../api';
+import { waitForWrite } from '../wait-for-write';
 
 /**
  * Course Export in the authoring MFE (`/export/<key>` on Studio, redirected to
@@ -43,11 +44,11 @@ export class StudioExportPage {
    * worker afterwards — poll `waitForCourseExport` for that.
    */
   async startExport(courseKey: string): Promise<{ status: number }> {
-    const path = `${EXPORT_PATH}/${courseKey}`;
-    const [response] = await Promise.all([
-      this.page.waitForResponse((r) => r.url().includes(path) && r.request().method() === 'POST'),
-      this.startButton.click(),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      { method: 'POST', urlIncludes: `${EXPORT_PATH}/${courseKey}` },
+      () => this.startButton.click(),
+    );
     return { status: response.status() };
   }
 

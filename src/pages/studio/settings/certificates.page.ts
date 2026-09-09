@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { STUDIO_CERTIFICATES_SELECTORS, type AppConfig } from '../../../config';
 import { CERTIFICATES_WRITE_PATH, CERTIFICATE_ACTIVATION_PATH, studioOrigin } from '../../../api';
+import { waitForWrite } from '../wait-for-write';
 
 /** One signatory's authored details. */
 export interface SignatoryInput {
@@ -72,14 +73,11 @@ export class StudioCertificatesPage {
     }
 
     const create = this.page.locator(s.createSubmitButton).last();
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) =>
-          r.request().method() === 'POST' &&
-          r.url().includes(`${CERTIFICATES_WRITE_PATH}/${courseKey}`),
-      ),
-      create.click(),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      { method: 'POST', urlIncludes: `${CERTIFICATES_WRITE_PATH}/${courseKey}` },
+      () => create.click(),
+    );
     return { status: response.status() };
   }
 
@@ -88,14 +86,11 @@ export class StudioCertificatesPage {
    * it causes — course-wide activation, so it applies to the course's certificate.
    */
   async activate(courseKey: string): Promise<{ status: number }> {
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) =>
-          r.request().method() === 'POST' &&
-          r.url().includes(`${CERTIFICATE_ACTIVATION_PATH}/${courseKey}`),
-      ),
-      this.activateButton.click(),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      { method: 'POST', urlIncludes: `${CERTIFICATE_ACTIVATION_PATH}/${courseKey}` },
+      () => this.activateButton.click(),
+    );
     return { status: response.status() };
   }
 }

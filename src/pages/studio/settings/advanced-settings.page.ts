@@ -7,6 +7,7 @@ import {
   type AppConfig,
 } from '../../../config';
 import { studioOrigin } from '../../../api';
+import { waitForWrite } from '../wait-for-write';
 
 /**
  * Advanced Settings in the authoring MFE (`/settings/advanced/<key>` on Studio,
@@ -63,15 +64,15 @@ export class StudioAdvancedSettingsPage {
    */
   async save(courseKey: string): Promise<{ status: number }> {
     await this.saveButton.waitFor({ state: 'visible' });
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) =>
-          ['PATCH', 'POST', 'PUT'].includes(r.request().method()) &&
-          r.url().includes(`advanced_settings/${courseKey}`),
-        { timeout: TIMEOUTS.studioSettingsSave },
-      ),
-      this.saveButton.click(),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: ['PATCH', 'POST', 'PUT'],
+        urlIncludes: `advanced_settings/${courseKey}`,
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => this.saveButton.click(),
+    );
     return { status: response.status() };
   }
 }

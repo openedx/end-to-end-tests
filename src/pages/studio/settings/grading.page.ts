@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { STUDIO_GRADING_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 import { COURSE_GRADING_PATH, studioOrigin } from '../../../api';
+import { waitForWrite } from '../wait-for-write';
 
 /** One assignment type as the page's card takes it. */
 export interface AssignmentTypeFields {
@@ -180,15 +181,15 @@ export class StudioGradingPage {
    */
   async save(courseKey: string): Promise<{ status: number }> {
     await this.saveButton.waitFor({ state: 'visible' });
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) =>
-          r.request().method() === 'POST' &&
-          r.url().includes(`${COURSE_GRADING_PATH}/${courseKey}`),
-        { timeout: TIMEOUTS.studioSettingsSave },
-      ),
-      this.saveButton.click(),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        urlIncludes: `${COURSE_GRADING_PATH}/${courseKey}`,
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => this.saveButton.click(),
+    );
     return { status: response.status() };
   }
 }

@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { STUDIO_PAGES_RESOURCES_SELECTORS, type AppConfig } from '../../../config';
 import { COURSE_APPS_PATH } from '../../../api';
 import { authoringCourseBaseUrl } from '../authoring-base';
+import { waitForWrite } from '../wait-for-write';
 
 /**
  * Pages & Resources in the authoring MFE. Reached on the apps origin (Studio does
@@ -71,14 +72,13 @@ export class StudioPagesResourcesPage {
     }
     await toggle.setChecked(enabled);
 
-    const [response] = await Promise.all([
-      // Match the path only — the MFE URL-encodes the course key's `:`/`+`, so the
-      // raw key would not appear verbatim in the request URL.
-      this.page.waitForResponse(
-        (r) => r.url().includes(COURSE_APPS_PATH) && r.request().method() === 'PATCH',
-      ),
-      this.page.locator(s.modalSaveButton).click(),
-    ]);
+    // Match the path only — the MFE URL-encodes the course key's `:`/`+`, so the
+    // raw key would not appear verbatim in the request URL.
+    const response = await waitForWrite(
+      this.page,
+      { method: 'PATCH', urlIncludes: COURSE_APPS_PATH },
+      () => this.page.locator(s.modalSaveButton).click(),
+    );
     return response.status();
   }
 }

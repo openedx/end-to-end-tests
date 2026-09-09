@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { STUDIO_HOME_SELECTORS, type AppConfig } from '../../../config';
 import { studioOrigin } from '../../../api';
+import { waitForWrite } from '../wait-for-write';
 
 /**
  * Studio Home (`frontend-app-course-authoring`): the course list, its controls,
@@ -124,12 +125,11 @@ export class StudioHomePage {
    * causes, so the caller can judge the outcome before the MFE navigates away.
    */
   async submitNewCourseForm(): Promise<{ status: number; body: string }> {
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/course/',
-      ),
-      this.createButton.click(),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      { method: 'POST', predicate: (r) => new URL(r.url()).pathname === '/course/' },
+      () => this.createButton.click(),
+    );
     return { status: response.status(), body: await response.text() };
   }
 
@@ -147,23 +147,24 @@ export class StudioHomePage {
    * acknowledge the request it posts.
    */
   async requestCreatorAccess(): Promise<{ status: number }> {
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) => r.request().method() === 'POST' && r.url().includes('/request_course_creator'),
-      ),
-      this.requestCreatorAccessButton.click(),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      { method: 'POST', urlIncludes: '/request_course_creator' },
+      () => this.requestCreatorAccessButton.click(),
+    );
     return { status: response.status() };
   }
 
   /** Searches the course list and waits for the list request it triggers. */
   async search(term: string): Promise<void> {
-    await Promise.all([
-      this.page.waitForResponse(
-        (r) => r.url().includes('/home/courses') && r.url().includes(encodeURIComponent(term)),
-      ),
-      this.searchInput.fill(term),
-    ]);
+    await waitForWrite(
+      this.page,
+      {
+        predicate: (r) =>
+          r.url().includes('/home/courses') && r.url().includes(encodeURIComponent(term)),
+      },
+      () => this.searchInput.fill(term),
+    );
   }
 
   /** The course keys of the rendered cards, in display order. */
@@ -177,19 +178,17 @@ export class StudioHomePage {
   /** Sorts the list through the order menu and waits for the reloaded page. */
   async sortBy(kind: 'az' | 'za' | 'newest' | 'oldest'): Promise<void> {
     await this.page.locator(STUDIO_HOME_SELECTORS.courseOrderMenu).click();
-    await Promise.all([
-      this.page.waitForResponse((r) => r.url().includes('/home/courses')),
+    await waitForWrite(this.page, { urlIncludes: '/home/courses' }, () =>
       this.page.locator(STUDIO_HOME_SELECTORS.courseOrderItem(kind)).click(),
-    ]);
+    );
   }
 
   /** Filters the list through the type menu and waits for the reloaded page. */
   async filterBy(kind: 'all' | 'active' | 'archived'): Promise<void> {
     await this.page.locator(STUDIO_HOME_SELECTORS.courseTypeMenu).click();
-    await Promise.all([
-      this.page.waitForResponse((r) => r.url().includes('/home/courses')),
+    await waitForWrite(this.page, { urlIncludes: '/home/courses' }, () =>
       this.page.locator(STUDIO_HOME_SELECTORS.courseTypeItem(kind)).click(),
-    ]);
+    );
   }
 
   /** Opens a course card's three-dot "Course actions" menu. */

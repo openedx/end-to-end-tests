@@ -7,6 +7,7 @@ import {
   type AppConfig,
 } from '../../../config';
 import { COURSE_DETAILS_PATH, studioOrigin } from '../../../api';
+import { waitForWrite } from '../wait-for-write';
 
 /** A UTC instant split the way the page's paired date and time fields take it. */
 export interface DateTimeFields {
@@ -186,12 +187,11 @@ export class StudioScheduleDetailsPage {
     mimeType: string;
     buffer: Buffer;
   }): Promise<{ status: number }> {
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) => r.request().method() === 'POST' && r.url().includes('/assets/'),
-      ),
-      this.courseImageFileInput.setInputFiles(file),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      { method: 'POST', urlIncludes: '/assets/' },
+      () => this.courseImageFileInput.setInputFiles(file),
+    );
     return { status: response.status() };
   }
 
@@ -229,14 +229,15 @@ export class StudioScheduleDetailsPage {
     // wait for the button before clicking so the click cannot miss it, and give
     // the write a budget above `action` for a busy shared CMS.
     await this.saveButton.waitFor({ state: 'visible' });
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) =>
-          r.request().method() === 'PUT' && r.url().includes(`${COURSE_DETAILS_PATH}/${courseKey}`),
-        { timeout: TIMEOUTS.studioSettingsSave },
-      ),
-      this.saveButton.click(),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: 'PUT',
+        urlIncludes: `${COURSE_DETAILS_PATH}/${courseKey}`,
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => this.saveButton.click(),
+    );
     return { status: response.status() };
   }
 

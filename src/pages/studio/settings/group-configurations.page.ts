@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { STUDIO_GROUP_CONFIGURATIONS_SELECTORS, type AppConfig } from '../../../config';
 import { GROUP_CONFIGURATIONS_WRITE_PATH, studioOrigin } from '../../../api';
+import { waitForWrite } from '../wait-for-write';
 
 /**
  * Group Configurations in the authoring MFE (`/group_configurations/<key>` on
@@ -44,14 +45,14 @@ export class StudioGroupConfigurationsPage {
     const create = this.page
       .locator(STUDIO_GROUP_CONFIGURATIONS_SELECTORS.createGroupButton)
       .last();
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) =>
-          ['POST', 'PATCH', 'PUT'].includes(r.request().method()) &&
-          r.url().includes(`${GROUP_CONFIGURATIONS_WRITE_PATH}/${courseKey}`),
-      ),
-      create.click(),
-    ]);
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PATCH', 'PUT'],
+        urlIncludes: `${GROUP_CONFIGURATIONS_WRITE_PATH}/${courseKey}`,
+      },
+      () => create.click(),
+    );
     return { status: response.status() };
   }
 }

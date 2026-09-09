@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { STUDIO_CUSTOM_PAGES_SELECTORS, type AppConfig } from '../../../config';
 import { TABS_PATH } from '../../../api';
 import { authoringCourseBaseUrl } from '../authoring-base';
+import { waitForWrite } from '../wait-for-write';
 
 /**
  * Animation frames yielded between dnd-kit keyboard-drag steps. Its keyboard
@@ -72,15 +73,14 @@ export class StudioCustomPagesPage {
     await this.page.keyboard.press('ArrowDown');
     await this.settleFrames();
 
-    await Promise.all([
-      this.page.waitForResponse(
-        (r) =>
-          r.url().includes(`${TABS_PATH}/`) &&
-          r.url().endsWith('/reorder') &&
-          r.request().method() === 'POST',
-      ),
-      this.page.keyboard.press('Space'),
-    ]);
+    await waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => r.url().includes(`${TABS_PATH}/`) && r.url().endsWith('/reorder'),
+      },
+      () => this.page.keyboard.press('Space'),
+    );
   }
 
   /**
