@@ -4,7 +4,6 @@ import {
   enrollInCourseViaApi,
   fetchCourseDetail,
   fetchCourseDetails,
-  fetchCourseEnrollmentDetails,
   fetchCourseMetadata,
   isEnrolled,
   listStudioCourses,
@@ -311,16 +310,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     },
   );
 
-  // `STUDIO-005` (see `.private/findings.md`): the enrollment-window enforcement
-  // cannot be driven to several window states within one test on this platform.
-  // The MFE's enrollment-start field does not persist a changed value (only a
-  // first entry into an empty field takes); the platform will not move the
-  // enrollment start forward once a learner is enrolled, so the window must be set
-  // before any enrollment; and successive `course_details` writes of the
-  // enrollment dates do not reach the LMS enrollment API reliably within a run.
-  // The date fields themselves are exercised by TC-00295 (course start/end);
-  // lift this once the window can be driven to a state and read back.
-  test.fixme(
+  test(
     'enrollment is allowed only within the enrollment dates',
     { tag: '@regression', annotation: testId('TC-00298') },
     async ({
@@ -334,39 +324,37 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       void studioAuthorSession;
       const { courseKey } = authoredCourse;
 
-      /** Waits until the LMS reports a given enrollment window. */
-      const lmsWindow = (start: Date | null, end: Date | null) =>
+      // Confirm the saved window on Studio's own `course_details` — its source of
+      // truth, which updates promptly. The LMS enrollment-details read endpoint
+      // (`/api/enrollment/v1/course/`) is intermittently stale for several seconds
+      // after a window change, so it is not a reliable read; the enforcement below
+      // (the actual enroll attempt) reads the authoritative window and is prompt.
+      const windowSaved = (start: Date | null, end: Date | null) =>
         expect
           .poll(async () => {
-            const details = await fetchCourseEnrollmentDetails(request, config, courseKey);
-            return [details.enrollmentStart, details.enrollmentEnd];
+            const d = await fetchCourseDetails(request, config, courseKey);
+            return [d.enrollment_start ?? null, d.enrollment_end ?? null];
           })
           .toEqual([start && iso(start), end && iso(end)]);
 
-      // The closed cases are asserted first, then the open case, deliberately: the
-      // platform will not move the enrollment start forward once anyone is enrolled
-      // (an enrolled learner cannot be stranded outside the window), so the one
-      // enrollment this test makes — in the open case — comes last, after every
-      // window change. Course start is far in the future throughout: the MFE
-      // requires it to be later than the enrollment start, and enrolling before a
-      // course begins is the ordinary case.
+      // The window is driven through the MFE for every case. Course start stays far
+      // in the future throughout: the page requires it to be later than the
+      // enrollment start, and enrolling before a course begins is the ordinary
+      // case. The refusals come first and the one successful enrollment last: the
+      // platform will not move the enrollment start forward once a learner is
+      // enrolled (an enrolled learner cannot be stranded outside the window), so no
+      // window change follows the enrollment.
       await updateCourseDetails(request, config, courseKey, {
         ...SCHEDULE_BASELINE,
         start_date: ENROLLMENT_COURSE_START,
       });
+      await scheduleDetailsPage.goto(courseKey);
 
-      // Window not yet open: a learner is refused. Window set through the API — see
-      // `STUDIO-005` in `.private/findings.md`: the MFE's enrollment-start field
-      // does not persist a *changed* value, so a single session cannot drive the
-      // field through several windows; the enforcement each case asserts is the
-      // LMS's, decided the same way however the window was written.
-      await updateCourseDetails(request, config, courseKey, {
-        self_paced: false,
-        start_date: ENROLLMENT_COURSE_START,
-        enrollment_start: iso(FUTURE),
-        enrollment_end: iso(FAR_FUTURE),
-      });
-      await lmsWindow(FUTURE, FAR_FUTURE);
+      // Window not yet open: a learner is refused.
+      await scheduleDetailsPage.setEnrollmentStart(toDateTimeFields(FUTURE));
+      await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(FAR_FUTURE));
+      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      await windowSaved(FUTURE, FAR_FUTURE);
       const tooEarly = await newLearner();
       await expect(enrollInCourseViaApi(tooEarly.request, config, courseKey)).rejects.toThrow(
         ApiError,
@@ -374,33 +362,21 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       expect(await isEnrolled(tooEarly.request, config, courseKey)).toBe(false);
 
       // Window closed: a learner is refused.
-      await updateCourseDetails(request, config, courseKey, {
-        self_paced: false,
-        start_date: ENROLLMENT_COURSE_START,
-        enrollment_start: iso(PAST),
-        enrollment_end: iso(PAST_END),
-      });
-      await lmsWindow(PAST, PAST_END);
+      await scheduleDetailsPage.setEnrollmentStart(toDateTimeFields(PAST));
+      await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(PAST_END));
+      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      await windowSaved(PAST, PAST_END);
       const tooLate = await newLearner();
       await expect(enrollInCourseViaApi(tooLate.request, config, courseKey)).rejects.toThrow(
         ApiError,
       );
       expect(await isEnrolled(tooLate.request, config, courseKey)).toBe(false);
 
-      // Open window, driven through the MFE onto the now-empty field: a learner can
-      // enroll. This is the case the UI drives, and the enrollment that follows is
-      // the last thing the test does — nothing moves the window afterwards.
-      await updateCourseDetails(request, config, courseKey, {
-        self_paced: false,
-        start_date: ENROLLMENT_COURSE_START,
-        enrollment_start: null,
-        enrollment_end: null,
-      });
-      await scheduleDetailsPage.goto(courseKey);
-      await scheduleDetailsPage.setEnrollmentStart(toDateTimeFields(PAST));
+      // Open window: a learner can enroll. Only the end moves here, so the
+      // enrollment start never advances; the enrollment is the test's last action.
       await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(FAR_FUTURE));
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
-      await lmsWindow(PAST, FAR_FUTURE);
+      await windowSaved(PAST, FAR_FUTURE);
       const inTime = await newLearner();
       await enrollInCourseViaApi(inTime.request, config, courseKey);
       expect(await isEnrolled(inTime.request, config, courseKey)).toBe(true);
@@ -409,15 +385,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     },
   );
 
-  // `STUDIO-005` (see `.private/findings.md`): two Schedule & Details datepicker
-  // behaviours block driving enrollment *times* through the MFE. The time-of-day
-  // this case needs is a moving target (an offset from "now"), so it must be set
-  // and re-set on the field several times — but (a) the enrollment-start field
-  // does not persist a changed value, and (b) the time field applies the browser
-  // zone rather than the "(UTC)" its label promises, so an entered time comes back
-  // shifted by the runner's offset. The date-level enforcement is covered by
-  // TC-00298; this is a `fixme` until the field can be driven to a UTC time.
-  test.fixme(
+  test(
     'enrollment start and end times are honoured to the minute, in UTC',
     { tag: '@regression', annotation: testId('TC-00299') },
     async ({
@@ -435,43 +403,56 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
         start_date: ENROLLMENT_COURSE_START,
       });
 
-      const lmsWindow = (start: Date | null, end: Date | null) =>
+      // Confirm the saved window on Studio's own `course_details` — its source of
+      // truth, which updates promptly. The LMS enrollment-details read endpoint
+      // (`/api/enrollment/v1/course/`) is intermittently stale for several seconds
+      // after a window change, so it is not a reliable read; the enforcement below
+      // (the actual enroll attempt) reads the authoritative window and is prompt.
+      const windowSaved = (start: Date | null, end: Date | null) =>
         expect
           .poll(async () => {
-            const details = await fetchCourseEnrollmentDetails(request, config, courseKey);
-            return [details.enrollmentStart, details.enrollmentEnd];
+            const d = await fetchCourseDetails(request, config, courseKey);
+            return [d.enrollment_start ?? null, d.enrollment_end ?? null];
           })
           .toEqual([start && iso(start), end && iso(end)]);
 
-      // Opens later today: refused now.
+      // Times are entered and read in UTC (the browser runs in UTC, per the
+      // Playwright config), so a time set to the minute round-trips exactly. The
+      // refusals come first and the enrollment last, as in TC-00298.
       const opensLater = hoursFromNow(2);
+      const openedEarlier = hoursFromNow(-2);
+      const closedEarlier = hoursFromNow(-1);
       await scheduleDetailsPage.goto(courseKey);
+
+      // Opens two hours from now: enrollment has not started, so a learner is
+      // refused — and the minute-precise start is what the LMS reports.
       await scheduleDetailsPage.setEnrollmentStart(toDateTimeFields(opensLater));
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
-      await lmsWindow(opensLater, null);
+      await windowSaved(opensLater, null);
       const tooEarly = await newLearner();
       await expect(enrollInCourseViaApi(tooEarly.request, config, courseKey)).rejects.toThrow(
         ApiError,
       );
 
-      // Opened earlier today: allowed.
-      const openedEarlier = hoursFromNow(-2);
+      // Opened two hours ago but closed an hour ago: the window is in the past, so
+      // a learner is refused.
       await scheduleDetailsPage.setEnrollmentStart(toDateTimeFields(openedEarlier));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
-      await lmsWindow(openedEarlier, null);
-      const inTime = await newLearner();
-      await enrollInCourseViaApi(inTime.request, config, courseKey);
-      expect(await isEnrolled(inTime.request, config, courseKey)).toBe(true);
-
-      // Closed an hour ago: refused.
-      const closedEarlier = hoursFromNow(-1);
       await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(closedEarlier));
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
-      await lmsWindow(openedEarlier, closedEarlier);
+      await windowSaved(openedEarlier, closedEarlier);
       const tooLate = await newLearner();
       await expect(enrollInCourseViaApi(tooLate.request, config, courseKey)).rejects.toThrow(
         ApiError,
       );
+
+      // Opened two hours ago and still open: a learner can enroll. Only the end
+      // moves here, so the enrollment start never advances after the enrollment.
+      await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(FAR_FUTURE));
+      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      await windowSaved(openedEarlier, FAR_FUTURE);
+      const inTime = await newLearner();
+      await enrollInCourseViaApi(inTime.request, config, courseKey);
+      expect(await isEnrolled(inTime.request, config, courseKey)).toBe(true);
 
       await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
     },

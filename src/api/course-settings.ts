@@ -116,11 +116,11 @@ export async function updateCourseDetails(
   courseKey: string,
   changes: Partial<CourseDetails>,
 ): Promise<CourseDetails> {
-  let data = changes;
-  if ('self_paced' in changes && !('start_date' in changes)) {
-    const current = await fetchCourseDetails(request, config, courseKey);
-    data = { ...changes, start_date: current.start_date };
-  }
+  // Read the current full object and merge the changes onto it, then send the
+  // whole thing — the way the authoring MFE does. A *partial* body is accepted on
+  // `main` but returns HTTP 500 on some releases (e.g. `verawood`).
+  const current = await fetchCourseDetails(request, config, courseKey);
+  const data = { ...current, ...changes };
   const headers = await studioWriteHeaders(request, config);
   const response = await request.put(`${studioOrigin(config)}${COURSE_DETAILS_PATH}/${courseKey}`, {
     data,

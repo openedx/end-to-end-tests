@@ -110,11 +110,8 @@ export class StudioScheduleDetailsPage {
 
   /**
    * Fills a paired date/time control. The date field is a plain text input behind
-   * a `react-datepicker` calendar that opens on focus. `fill()` bypasses the
-   * calendar's own keyboard handling, and under load its pending calendar leaks
-   * the typed value into a sibling date field; typing the value and committing it
-   * with Enter (which Tab and Escape do not do here) keeps each field its own, so
-   * this commits the value and verifies it landed before moving on.
+   * a `react-datepicker` calendar that opens on focus; the value is typed and
+   * committed there (see {@link commitDate}), then the time is filled.
    */
   private async fillDateTime(date: Locator, time: Locator, value: DateTimeFields): Promise<void> {
     await this.commitDate(date, value.date);
@@ -130,25 +127,25 @@ export class StudioScheduleDetailsPage {
   }
 
   /**
-   * Sets a `react-datepicker` date field to `value` (empty to clear). Clears the
-   * field to empty and commits that with Enter first, then types the new value and
-   * commits it: react-datepicker keeps its previously selected date when text is
-   * merely overtyped, so a change would leave the DOM showing the new value while
-   * the form still saves the old one — clearing to null between the two makes the
-   * new value stick. Enter also closes the calendar, which Tab and Escape do not
-   * do here. Retries so a keystroke lost to the calendar's re-render self-heals.
+   * Sets a `react-datepicker` date field to `value` (empty to clear).
+   *
+   * Types the value and commits it with Enter, which closes the calendar (Tab and
+   * Escape do not). The commit matters twice over: it is what updates the form
+   * model the save reads, and it is asynchronous, so a save clicked before it
+   * lands sends the field's *previous* value — a race that surfaces only under
+   * load. Waiting for the calendar to detach after Enter is that commit's own DOM
+   * signal, so the field's value has reached the model before anything saves.
+   * Retries the whole entry so a keystroke lost to the calendar's re-render heals.
    */
   private async commitDate(date: Locator, value: string): Promise<void> {
+    const calendar = this.page.locator('.react-datepicker');
     for (let attempt = 0; attempt < 3; attempt += 1) {
       await date.click();
       await date.press('ControlOrMeta+a');
       await date.press('Delete');
+      if (value) await date.pressSequentially(value);
       await date.press('Enter');
-      if (value) {
-        await date.click();
-        await date.pressSequentially(value);
-        await date.press('Enter');
-      }
+      await calendar.waitFor({ state: 'detached' }).catch(() => {});
       if ((await date.inputValue()) === value) return;
     }
     throw new Error(`The date field did not settle on "${value}" after three attempts.`);
