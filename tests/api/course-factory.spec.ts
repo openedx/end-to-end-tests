@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
-import { COURSE_NUMBER_PREFIX, courseKeyFor, newCourseIdentity } from '../../src/api';
+import {
+  ApiError,
+  COURSE_NUMBER_PREFIX,
+  courseKeyFor,
+  ensureCourse,
+  newCourseIdentity,
+} from '../../src/api';
 import { loadConfig, type Env } from '../../src/config';
 
 /**
@@ -41,5 +48,81 @@ test.describe('newCourseIdentity', { tag: '@unit' }, () => {
     const identity = newCourseIdentity(loadConfig(baseEnv), 'run42', 'W3', 'lifecycle');
     expect(identity.displayName).toContain('run42');
     expect(identity.displayName).toContain('lifecycle');
+  });
+});
+
+/**
+ * `ensureCourse` retries a *transient* creation failure. Under heavy concurrent
+ * creation the CMS answers `POST /course/` with a 2xx whose body is not JSON (an
+ * error/HTML page), which is retryable — the same call succeeds a moment later.
+ * A stub request context replays a scripted sequence of responses so no browser
+ * or target is needed.
+ */
+type StubResponse = {
+  ok: () => boolean;
+  status: () => number;
+  url: () => string;
+  text: () => Promise<string>;
+  json: () => Promise<unknown>;
+};
+
+const json = (status: number, value: unknown): StubResponse => ({
+  ok: () => status >= 200 && status < 300,
+  status: () => status,
+  url: () => 'stub',
+  text: () => Promise.resolve(JSON.stringify(value)),
+  json: () => Promise.resolve(value),
+});
+
+const nonJson = (status: number, body: string): StubResponse => ({
+  ok: () => status >= 200 && status < 300,
+  status: () => status,
+  url: () => 'stub',
+  text: () => Promise.resolve(body),
+  json: () => Promise.reject(new Error('not json')),
+});
+
+/**
+ * A request context whose `POST /course/` returns each queued response in turn.
+ * `GET` answers the two reads `ensureCourse` makes: a 404 for the course-exists
+ * probe (so it proceeds to create) and a CSRF token for the write headers.
+ */
+function stubContext(coursePosts: StubResponse[]) {
+  const posts = [...coursePosts];
+  const calls = { post: 0 };
+  const request = {
+    get: (url: string) => {
+      if (url.includes('/csrf/')) return Promise.resolve(json(200, { csrfToken: 'token' }));
+      return Promise.resolve(nonJson(404, 'not found')); // course-exists probe
+    },
+    post: () => {
+      calls.post += 1;
+      return Promise.resolve(posts.shift() ?? json(500, {}));
+    },
+  } as unknown as APIRequestContext;
+  return { request, calls };
+}
+
+test.describe('ensureCourse — transient-failure retry', { tag: '@unit' }, () => {
+  const config = loadConfig({ ...baseEnv, CMS_BASE_URL: 'http://studio.local.openedx.io' });
+  const identity = newCourseIdentity(loadConfig(baseEnv), 'run1', 'W0');
+
+  test('retries a 2xx non-JSON creation response, then succeeds', async () => {
+    const { request, calls } = stubContext([
+      nonJson(200, '<html>Server error</html>'),
+      json(200, { course_key: identity.courseKey }),
+    ]);
+
+    const key = await ensureCourse(request, config, identity);
+
+    expect(key).toBe(identity.courseKey);
+    expect(calls.post).toBe(2);
+  });
+
+  test('does not retry a 4xx rejection', async () => {
+    const { request, calls } = stubContext([json(400, { error: 'bad request' })]);
+
+    await expect(ensureCourse(request, config, identity)).rejects.toBeInstanceOf(ApiError);
+    expect(calls.post).toBe(1);
   });
 });

@@ -111,10 +111,14 @@ async function postCourse(
   try {
     body = JSON.parse(text) as CreateCourseResponse;
   } catch {
+    // A 2xx with a non-JSON body is what the CMS returns when it is overloaded by
+    // concurrent course creation (an error/HTML page slips through). It is
+    // transient, so mark it retryable for `ensureCourse`.
     throw new ApiError(`${what} did not return JSON.`, {
       status: response.status(),
       url,
       body: text.slice(0, 500),
+      retryable: true,
     });
   }
 
@@ -255,11 +259,15 @@ export async function ensureCourse(
         if (await courseExists(request, config, identity.courseKey)) return identity.courseKey;
         throw error;
       }
-      const serverError = error instanceof ApiError && error.status >= 500;
-      if (!serverError || attempt >= ENSURE_COURSE_RETRIES) {
+      // Retry a transient creation failure: a 5xx, or a 2xx whose body was not
+      // JSON — both are what an overloaded CMS returns when many workers create
+      // courses at once. A jittered delay keeps the retries from re-colliding.
+      const transient = error instanceof ApiError && (error.status >= 500 || error.retryable);
+      if (!transient || attempt >= ENSURE_COURSE_RETRIES) {
         throw error;
       }
-      await new Promise((resolve) => setTimeout(resolve, ENSURE_COURSE_RETRY_MS));
+      const jitter = Math.floor(Math.random() * ENSURE_COURSE_RETRY_MS);
+      await new Promise((resolve) => setTimeout(resolve, ENSURE_COURSE_RETRY_MS + jitter));
     }
   }
 }
