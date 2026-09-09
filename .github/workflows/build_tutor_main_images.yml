@@ -1,0 +1,111 @@
+name: Build Tutor main images
+
+# Build the Docker images for the unreleased "main" Open edX release once a
+# day and push them to this repository's GitHub Container Registry namespace
+# (ghcr.io/<owner>/<repo>/openedx:main, openedx-permissions:main, openedx-mfe:main,
+# openedx-notes:main).
+#
+# Building these images is by far the slowest part of the "main" Tutor job in
+# run_tests_tutor.yml (~50 of its ~60 minutes). That job now pulls the images
+# built here instead, and only falls back to building them itself when the
+# pull fails (first run, or a fork where this workflow has not run yet).
+#
+# The trade-off: a "main" test run exercises images that are up to a day old.
+# Dispatch this workflow manually to refresh them sooner.
+#
+# One-time setup on the GitHub side (not doable from this repo):
+#   - After the first push, make the four ghcr.io packages public (or, if they
+#     stay private, make sure the repository has read access to them) so that
+#     pull-request runs from forks can pull them.
+#
+# The BuildKit layer cache is also pushed to the registry (<image>:main-cache)
+# so subsequent nightly builds only rebuild layers whose inputs changed.
+
+on:
+  schedule:
+    # Daily, well before the 09:00 UTC scheduled run of run_tests_tutor.yml.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# Never build the same tag twice at once; a manual run supersedes a running one.
+concurrency:
+  group: build-tutor-main-images
+  cancel-in-progress: true
+
+env:
+  TUTOR_ROOT: ./.ci/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.12
+
+      - name: Install Tutor and plugins (main branch)
+        uses: ./.github/actions/install-tutor-main
+
+      - name: Point Tutor at the ghcr.io image names
+        run: .ci/tutor-main-images.sh "ghcr.io/${{ github.repository }}"
+
+      - name: Assert Tutor config is loaded from .ci/config.yml
+        run: |
+          set -euo pipefail
+          tutor config save
+          EXPECTED="End-to-end Local CI Test"
+          ACTUAL=$(tutor config printvalue PLATFORM_NAME)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Tutor config not loaded from .ci/config.yml (PLATFORM_NAME is '$ACTUAL')."
+            exit 1
+          fi
+          echo "Images to build and push:"
+          for key in DOCKER_IMAGE_OPENEDX DOCKER_IMAGE_PERMISSIONS MFE_DOCKER_IMAGE NOTES_DOCKER_IMAGE; do
+            echo "  $key=$(tutor config printvalue "$key")"
+          done
+
+      # We'll run out of disk building images if we don't clear up some space
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: true
+
+      # Necessary to keep github from killing our build process
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        with:
+          buildkitd-config-inline: |
+            # Keeps Github from killing MFE builds for CPU usage
+            [worker.oci]
+              max-parallelism = 2
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # Only the images the test job actually runs — not "all", which would
+      # also build the openedx-dev and per-MFE *-dev images nobody uses here.
+      # --cache-to-registry pushes the BuildKit cache to <image>:main-cache;
+      # the default --cache-from picks it up on the next run.
+      - name: Build images
+        run: |
+          # shellcheck disable=SC2086  # TUTOR_MAIN_IMAGES is a deliberate word list
+          tutor images build $TUTOR_MAIN_IMAGES --cache-to-registry
+
+      - name: Push images
+        run: |
+          # shellcheck disable=SC2086
+          tutor images push $TUTOR_MAIN_IMAGES

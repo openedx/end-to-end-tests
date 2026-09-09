@@ -12,6 +12,9 @@ name: Tutor E2E Test
 # Also callable (`workflow_call`) so `ci.yml` can run it as a non-blocking,
 # Docker-based check against the "main" and last-released environments on
 # every PR/push, without duplicating the Tutor provisioning steps.
+#
+# For the "main" release the Docker images come prebuilt from
+# build_tutor_main_images.yml (nightly, pushed to ghcr.io); see that workflow.
 
 on:
   schedule:
@@ -80,6 +83,8 @@ on:
 
 permissions:
   contents: read
+  # Pull the prebuilt "main" images from this repo's ghcr.io namespace.
+  packages: read
 
 env:
   TUTOR_ROOT: ./.ci/
@@ -139,14 +144,17 @@ jobs:
 
       - name: Install Tutor and plugins (main branch)
         if: env.OPENEDX_RELEASE == 'main'
-        run: |
-          set -euo pipefail
-          git clone --branch=main --depth=1 https://github.com/overhangio/tutor.git /tmp/tutor-main
-          pip install -e /tmp/tutor-main
-          pip install \
-            "tutor-forum@git+https://github.com/overhangio/tutor-forum@main" \
-            "tutor-mfe@git+https://github.com/overhangio/tutor-mfe@main" \
-            "tutor-notes@git+https://github.com/overhangio/tutor-notes@main"
+        uses: ./.github/actions/install-tutor-main
+
+      # Tutor "main" images aren't always reliably published, especially for
+      # the plugins. So build_tutor_main_images.yml builds them nightly and
+      # pushes them to this repo's ghcr.io namespace.
+      #
+      # Point Tutor at those names (via TUTOR_* env vars, which apply to every
+      # later step) so the launch below pulls them instead of building.
+      - name: Point Tutor at the prebuilt main images (main only)
+        if: env.OPENEDX_RELEASE == 'main'
+        run: .ci/tutor-main-images.sh "ghcr.io/${{ github.repository }}"
 
       - name: Capture installed Tutor version
         id: tutor_version
@@ -184,13 +192,8 @@ jobs:
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
 
       ##################
-      # The Free Disk Space, BuildX, and image build steps are only necessary
-      # if we're not getting consistent main images built by Tutor for all
-      # plugins we're installing. We can comment them during periods when we
-      # don't need them, but should keep them in case of future issues since
-      # it took quite a bit of work to get right.
-
-      # We'll run out of disk building images if we don't clear up some space
+      # We'll run out of disk pulling or building images if we don't clear up
+      # some space
       - name: Free Disk Space (main only)
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
         if: env.OPENEDX_RELEASE == 'main'
@@ -207,19 +210,43 @@ jobs:
           large-packages: false
           swap-storage: true
 
-      # Necessary to keep github from killing our build process
-      - name: Setup Docker Buildx (main only)
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      # GITHUB_TOKEN can read packages published by this repo's workflows, so
+      # this works even while the ghcr.io packages are private. Fork PRs get a
+      # read-only token, which should be all that is needed.
+      - name: Log in to GitHub Container Registry (main only)
         if: env.OPENEDX_RELEASE == 'main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin || \
+            echo "::warning::ghcr.io login failed; pulling anonymously."
+
+      - name: Pull prebuilt main images (main only)
+        id: pull_images
+        if: env.OPENEDX_RELEASE == 'main'
+        run: |
+          set -uo pipefail
+          # shellcheck disable=SC2086  # TUTOR_MAIN_IMAGES is a deliberate word list
+          if tutor images pull $TUTOR_MAIN_IMAGES; then
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not pull prebuilt main images from ghcr.io; building them on this runner instead. Has build_tutor_main_images.yml run for this repository?"
+            echo "pulled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Necessary to keep github from killing our build process
+      - name: Setup Docker Buildx (main only, pull failed)
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        if: env.OPENEDX_RELEASE == 'main' && steps.pull_images.outputs.pulled != 'true'
         with:
           buildkitd-config-inline: |
             # Keeps Github from killing MFE builds for CPU usage
             [worker.oci]
               max-parallelism = 2
 
-      - name: Build all images (main only)
-        if: env.OPENEDX_RELEASE == 'main'
-        run: tutor images build all
+      - name: Build images (main only, pull failed)
+        if: env.OPENEDX_RELEASE == 'main' && steps.pull_images.outputs.pulled != 'true'
+        run: |
+          # shellcheck disable=SC2086
+          tutor images build $TUTOR_MAIN_IMAGES
 
       - name: Tutor launch (cache miss — runs migrations)
         if: steps.mysql_cache.outputs.cache-hit != 'true'
