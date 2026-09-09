@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
@@ -359,6 +359,19 @@ export type EnrolledCourse = CourseLearner;
  * environment is invalid, rather than surfacing later as a confusing navigation
  * failure.
  */
+/** A Playwright storage state as `newContext` accepts it. */
+type StorageState = Awaited<ReturnType<APIRequestContext['storageState']>>;
+
+/**
+ * Reads a captured storage-state file and returns it with the JWT cookies
+ * removed, so a context loaded from it authenticates by session rather than the
+ * short-lived JWT. See the `request` fixture for why.
+ */
+function sessionOnlyState(statePath: string): StorageState {
+  const parsed = JSON.parse(readFileSync(statePath, 'utf8')) as StorageState;
+  return { ...parsed, cookies: parsed.cookies.filter((cookie) => !/jwt/i.test(cookie.name)) };
+}
+
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   // eslint-disable-next-line no-empty-pattern
   config: async ({}, use) => {
@@ -556,6 +569,25 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   // one, and whatever the project configured otherwise.
   storageState: async ({ workerAuthor }, use, testInfo) => {
     await use(workerAuthor?.stateFile ?? testInfo.project.use.storageState);
+  },
+
+  // The API context authenticates by **session + CSRF, never the JWT cookie**. The
+  // captured JWT cookie expires after an hour (JWT_IN_COOKIE_EXPIRATION), and an
+  // expired JWT sent to an Open edX endpoint can 401 before the request falls
+  // through to session auth — so on a long run the API calls would start failing
+  // around the hour mark even though the Django session (a fortnight) is fine.
+  // Stripping the JWT here forces the durable session path, which every endpoint
+  // the suite calls accepts (reads, and writes with the CSRF header). The browser
+  // `page` keeps its JWT — the MFE refreshes that itself — and setup's
+  // auth-detection, which keys off the JWT cookie, sees the unmodified state file.
+  request: async ({ storageState, playwright, baseURL }, use) => {
+    const state = typeof storageState === 'string' ? sessionOnlyState(storageState) : undefined;
+    const context = await playwright.request.newContext({ storageState: state, baseURL });
+    try {
+      await use(context);
+    } finally {
+      await context.dispose();
+    }
   },
 
   authoredCourse: [
