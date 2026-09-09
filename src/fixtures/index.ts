@@ -13,6 +13,7 @@ import {
 import { StudioHomePage } from '../pages/studio/home/studio-home.page';
 import { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
 import { StudioAdvancedSettingsPage } from '../pages/studio/settings/advanced-settings.page';
+import { StudioCertificatesPage } from '../pages/studio/settings/certificates.page';
 import { StudioCourseTeamPage } from '../pages/studio/settings/course-team.page';
 import { StudioGradingPage } from '../pages/studio/settings/grading.page';
 import { StudioGroupConfigurationsPage } from '../pages/studio/settings/group-configurations.page';
@@ -30,6 +31,7 @@ import {
   DEFAULT_PASSWORD,
   fetchStudioHome,
   fetchCourseSettingsFlags,
+  ensureCertificateBearingMode,
   courseKeySkipReason,
   enrollInCourseViaApi,
   fetchCourseDetail,
@@ -173,6 +175,8 @@ export interface TestFixtures {
   courseTeamPage: StudioCourseTeamPage;
   /** Group Configurations page object (authoring MFE). */
   groupConfigurationsPage: StudioGroupConfigurationsPage;
+  /** Certificates page object (authoring MFE). */
+  certificatesPage: StudioCertificatesPage;
   /**
    * Makes learners of this test's own for the LMS half of a Studio case: each
    * call provisions a fresh account and returns a request context holding its
@@ -188,6 +192,13 @@ export interface TestFixtures {
    * default install). What TC-00297 needs before it can drive the fields.
    */
   certificateAvailableDateField: void;
+  /**
+   * Ensures the worker course offers a certificate-bearing mode (`honor`), which
+   * the authoring MFE requires before it renders the Certificates form
+   * (`STUDIO-006`). Adds it once with the `staff` (superuser) session — the author
+   * session may not (403) — and skips the test when no admin account is configured.
+   */
+  certificateCourseMode: void;
   /**
    * The identity for a course **this test creates** — for the specs whose subject
    * is course creation (§2.4 course budget: nothing else makes a course). Identity
@@ -603,6 +614,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(new StudioGroupConfigurationsPage(page, config));
   },
 
+  certificatesPage: async ({ page, config }, use) => {
+    await use(new StudioCertificatesPage(page, config));
+  },
+
   newLearner: async ({ playwright, config }, use) => {
     const contexts: APIRequestContext[] = [];
     await use(async () => {
@@ -622,6 +637,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         'installation (can_show_certificate_available_date_field is false; enable the ' +
         'certificates.auto_certificate_generation switch to cover TC-00297).',
     );
+    await use();
+  },
+
+  certificateCourseMode: async ({ playwright, config, authoredCourse }, use) => {
+    const staffState = authStateFile('staff');
+    base.skip(
+      config.credentials.admin === undefined || !existsSync(staffState),
+      'Certificates need a certificate-bearing course mode, which only a staff/superuser ' +
+        'session can add (the author session is refused). Set ADMIN_USERNAME and ADMIN_PASSWORD.',
+    );
+    const staff = await playwright.request.newContext({ storageState: staffState });
+    try {
+      await ensureCertificateBearingMode(staff, config, authoredCourse.courseKey);
+    } finally {
+      await staff.dispose();
+    }
     await use();
   },
 

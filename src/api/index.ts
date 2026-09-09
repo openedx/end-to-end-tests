@@ -30,6 +30,7 @@ export {
   isEnrolled,
   type CourseEnrollmentDetails,
 } from './enrollment';
+export { COURSE_MODES_PATH, ensureCertificateBearingMode, fetchCourseModes } from './course-modes';
 export { COURSE_DETAIL_PATH, fetchCourseDetail, type CourseDetail } from './course-detail';
 export {
   CoursePreflightError,
@@ -118,9 +119,12 @@ export {
 } from './group-configurations';
 export {
   CERTIFICATES_PATH,
+  CERTIFICATES_WRITE_PATH,
   CERTIFICATE_ACTIVATION_PATH,
   createCertificate,
+  deleteCertificate,
   fetchCertificateConfiguration,
+  resetCertificates,
   setCertificateActive,
   type Certificate,
   type CertificateConfiguration,

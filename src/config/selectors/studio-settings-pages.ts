@@ -67,6 +67,34 @@ export const STUDIO_GROUP_CONFIGURATIONS_SELECTORS = {
 } as const;
 
 export const STUDIO_CERTIFICATES_SELECTORS = {
-  /** The certificates page container. */
-  page: '.certificates',
+  /**
+   * The certificates page container. Scoped to the layout container because
+   * `.certificates` also matches an alert toast on the page.
+   */
+  page: '.certificates.container-mw-xl',
+  /**
+   * The button that opens the create-certificate form — "Add your first
+   * certificate" on an empty page, "Add certificate" once one exists. The page's
+   * only primary button while no form is open, so it is anchored structurally.
+   */
+  newCertificateButton: '.certificates.container-mw-xl button.btn.btn-primary',
+  /** The create-certificate form. */
+  createForm: '[data-testid="certificates-create-form"]',
+  /** One signatory's name / title / organization fields, by index. */
+  signatoryName: (n: number) => `input[name="signatories[${n}].name"]`,
+  signatoryTitle: (n: number) => `textarea[name="signatories[${n}].title"]`,
+  signatoryOrganization: (n: number) => `input[name="signatories[${n}].organization"]`,
+  /** "Add additional signatory" — the form's full-width outline button. */
+  addSignatoryButton: '[data-testid="certificates-create-form"] button.btn-outline-primary.w-100',
+  /** The form's "Create" submit (its last primary button, after the signatories). */
+  createSubmitButton: '[data-testid="certificates-create-form"] button.btn.btn-primary',
+  /**
+   * The card's "Activate" button (course-wide certificate activation). The only
+   * full-size outline-primary button once a certificate exists — the help toggle
+   * is `btn-sm`, the add-signatory button is `w-100` and only on the form.
+   */
+  activateButton:
+    '.certificates.container-mw-xl button.btn.btn-outline-primary:not(.w-100):not(.btn-sm)',
+  /** The "Preview certificate" link; its `href` is the LMS certificate web view. */
+  previewLink: '.certificates.container-mw-xl a[href*="/certificates/course/"]',
 } as const;

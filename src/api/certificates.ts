@@ -115,3 +115,43 @@ export async function setCertificateActive(
     );
   }
 }
+
+/**
+ * Deletes the certificate with `certificateId`. The platform refuses to delete an
+ * **active** certificate, so deactivate first (see {@link resetCertificates}).
+ */
+export async function deleteCertificate(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  certificateId: number,
+): Promise<void> {
+  const url = `${studioOrigin(config)}${CERTIFICATES_WRITE_PATH}/${courseKey}/${certificateId}`;
+  const headers = await studioWriteHeaders(request, config);
+  const response = await request.delete(url, { headers });
+  if (!response.ok() && response.status() !== 204) {
+    throw new ApiError(
+      `Deleting certificate ${certificateId} of ${courseKey} failed (HTTP ${response.status()}).`,
+      { status: response.status(), url, body: await response.text() },
+    );
+  }
+}
+
+/**
+ * Removes every certificate from a course, deactivating first so the deletes are
+ * allowed. Leaves the course with no certificate configuration — the clean slate
+ * each certificate spec starts from, since there is no per-run course teardown.
+ */
+export async function resetCertificates(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<void> {
+  const current = await fetchCertificateConfiguration(request, config, courseKey);
+  if (current.isActive) {
+    await setCertificateActive(request, config, courseKey, false);
+  }
+  for (const certificate of current.certificates) {
+    await deleteCertificate(request, config, courseKey, certificate.id);
+  }
+}
