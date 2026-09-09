@@ -10,6 +10,9 @@
 # Keep the two in step: an input added to that action generally belongs here too, under
 # the name below.
 #
+# `README.md` next to this file containes working examples of consuming pipelines and the
+# patterns around them; this header is the reference for the variables themselves.
+#
 # ## Usage
 #
 # Nothing here is a concrete job: the template defines the hidden `.openedx-e2e` job, and
