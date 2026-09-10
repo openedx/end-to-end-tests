@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { TIMEOUTS, type AppConfig } from '../config';
 import { ApiError } from './errors';
+import { establishStudioSession } from './studio-session';
 import { fetchStudioHome } from './studio-home';
 import { nonJsonPreview, studioOrigin, studioWriteHeaders } from './studio-origin';
 
@@ -88,8 +89,32 @@ async function postCourse(
   what: string,
 ): Promise<CreateCourseResponse> {
   const url = `${studioOrigin(config)}${CREATE_COURSE_PATH}`;
-  const headers = await studioWriteHeaders(request, config);
-  const response = await request.post(url, { data, headers });
+  let response = await request.post(url, {
+    data,
+    headers: await studioWriteHeaders(request, config),
+    // The legacy `/course/` view authenticates by the Studio Django session cookie,
+    // not the JWT — so once that session decays (it dies independently of the LMS
+    // session and the JWT cannot stand in for it here), the POST is anonymous and
+    // `@login_required` answers 302 to the login MFE. Do not follow it: a followed
+    // redirect lands on `GET /course/` with no key and returns a misleading 404
+    // (seen on verawood as "Re-running … failed (HTTP 404)"). Catch the 302 and
+    // heal instead.
+    maxRedirects: 0,
+  });
+  if (response.status() === 302) {
+    // Re-establish the Studio session off the still-live LMS session on this same
+    // context (idempotent when already authenticated) and retry once — the write
+    // path's counterpart to `studioAuthorSession`'s browser-session recovery. The
+    // context that creates a course is not always the one that later re-runs it,
+    // so the later context can arrive with a decayed session even when create just
+    // succeeded.
+    await establishStudioSession(request, config);
+    response = await request.post(url, {
+      data,
+      headers: await studioWriteHeaders(request, config),
+      maxRedirects: 0,
+    });
+  }
   const text = await response.text();
 
   if (response.status() === 403) {
