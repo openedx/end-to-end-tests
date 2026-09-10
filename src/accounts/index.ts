@@ -35,5 +35,6 @@ export {
   provisionAuthorSession,
   provisionLearnerAccount,
   provisionLearnerSession,
+  reauthenticateStudioAuthor,
 } from './provision';
 export { promptOperator } from './prompt';

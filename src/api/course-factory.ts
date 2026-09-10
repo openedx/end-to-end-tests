@@ -1,8 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import { TIMEOUTS, type AppConfig } from '../config';
-import { ApiError } from './errors';
-import { establishStudioSession } from './studio-session';
+import { ApiError, StudioSessionExpiredError } from './errors';
 import { fetchStudioHome } from './studio-home';
 import { nonJsonPreview, studioOrigin, studioWriteHeaders } from './studio-origin';
 
@@ -89,32 +88,16 @@ async function postCourse(
   what: string,
 ): Promise<CreateCourseResponse> {
   const url = `${studioOrigin(config)}${CREATE_COURSE_PATH}`;
-  let response = await request.post(url, {
+  const response = await request.post(url, {
     data,
     headers: await studioWriteHeaders(request, config),
     // The legacy `/course/` view authenticates by the Studio Django session cookie,
-    // not the JWT — so once that session decays (it dies independently of the LMS
-    // session and the JWT cannot stand in for it here), the POST is anonymous and
-    // `@login_required` answers 302 to the login MFE. Do not follow it: a followed
-    // redirect lands on `GET /course/` with no key and returns a misleading 404
-    // (seen on verawood as "Re-running … failed (HTTP 404)"). Catch the 302 and
-    // heal instead.
+    // not the JWT, so a gone session makes `@login_required` answer 302 to sign-in.
+    // Do not follow it: a followed redirect becomes `GET /course/` with no key and
+    // returns a misleading 404. Surface the 302 (below) so a caller that holds
+    // credentials can re-authenticate and retry.
     maxRedirects: 0,
   });
-  if (response.status() === 302) {
-    // Re-establish the Studio session off the still-live LMS session on this same
-    // context (idempotent when already authenticated) and retry once — the write
-    // path's counterpart to `studioAuthorSession`'s browser-session recovery. The
-    // context that creates a course is not always the one that later re-runs it,
-    // so the later context can arrive with a decayed session even when create just
-    // succeeded.
-    await establishStudioSession(request, config);
-    response = await request.post(url, {
-      data,
-      headers: await studioWriteHeaders(request, config),
-      maxRedirects: 0,
-    });
-  }
   const text = await response.text();
 
   if (response.status() === 403) {
@@ -124,20 +107,11 @@ async function postCourse(
       { status: 403, url, body: text },
     );
   }
-  if (response.status() === 302) {
-    // Still redirecting after the re-establish attempt: the context is anonymous at
-    // the CMS and the in-context handshake could not recover it (its LMS session is
-    // gone too, so the SSO handshake has nothing to authenticate). This is the same
-    // transient anonymity the non-JSON branch handles, so it is retryable — a later
-    // attempt (another worker settling, a refreshed session) succeeds. Retryable
-    // also restores the pre-`maxRedirects` behaviour, where a followed 302 reached a
-    // login HTML page and failed as a retryable non-JSON body.
-    throw new ApiError(`${what} was redirected to sign-in (HTTP 302): the session is anonymous.`, {
-      status: 302,
-      url,
-      body: response.headers()['location'] ?? '',
-      retryable: true,
-    });
+  // 3xx here is always the sign-in bounce of a gone Studio session (the only
+  // redirect this view issues). Surfaced as its own error so the fixture that holds
+  // credentials can catch it and re-authenticate on a clean context.
+  if (response.status() >= 300 && response.status() < 400) {
+    throw new StudioSessionExpiredError(what, { url, status: response.status() });
   }
   if (!response.ok()) {
     throw new ApiError(`${what} failed (HTTP ${response.status()}).`, {
@@ -284,9 +258,12 @@ export async function ensureCourse(
         if (await courseExists(request, config, identity.courseKey)) return identity.courseKey;
         throw error;
       }
-      // Retry a transient creation failure: a 5xx, or a 2xx whose body was not
-      // JSON — both are what an overloaded CMS returns when many workers create
-      // courses at once. A jittered delay keeps the retries from re-colliding.
+      // A gone Studio session ({@link StudioSessionExpiredError}) is not retryable
+      // here — the same context keeps bouncing to sign-in — so it propagates to the
+      // caller (`authoredCourse`) to re-authenticate on a clean context. Retry only
+      // a genuinely transient failure: a 5xx, or a 2xx whose body was not JSON —
+      // what an overloaded CMS returns when many workers create at once. A jittered
+      // delay keeps the retries from re-colliding.
       const transient = error instanceof ApiError && (error.status >= 500 || error.retryable);
       if (!transient || attempt >= ENSURE_COURSE_RETRIES) {
         throw error;

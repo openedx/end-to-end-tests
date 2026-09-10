@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import { test as setup } from '@playwright/test';
@@ -9,6 +9,7 @@ import {
   AuthNotConfiguredError,
   authStateFile,
   defaultAuthProvider,
+  persistStorageState,
   ROLES,
 } from '../src/auth';
 import { getConfig, getConfigIfValid } from '../src/config';
@@ -61,6 +62,6 @@ for (const role of rolesToAuthenticate) {
 
     const file = authStateFile(role);
     await mkdir(dirname(file), { recursive: true });
-    await writeFile(file, JSON.stringify(state, null, 2), 'utf8');
+    persistStorageState(state, file);
   });
 }

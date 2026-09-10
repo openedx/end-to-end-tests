@@ -1,8 +1,15 @@
 import type { APIRequestContext } from '@playwright/test';
 
-import { fetchCourseCreatorStatus, registerLearnerAccount, type LearnerIdentity } from '../api';
+import {
+  establishStudioSession,
+  fetchCourseCreatorStatus,
+  loginSession,
+  registerLearnerAccount,
+  type LearnerIdentity,
+} from '../api';
 import { hasAuthenticatedSession } from '../auth/preflight';
 import type { AppConfig } from '../config';
+import type { AccountCredentials } from './types';
 import { accountGrantCourseCreator, accountSignIn, accountSignInStudio } from './auth-flows';
 import { resolveAccountBackend } from './registry';
 
@@ -106,4 +113,29 @@ export async function provisionAuthorSession(
     await accountGrantCourseCreator({ config, request, identity, ...options });
   }
   return identity;
+}
+
+/**
+ * Re-authenticates `request` as the author from scratch — a fresh LMS sign-in
+ * followed by the Studio SSO handshake — so it again holds sessions the LMS and
+ * Studio both accept.
+ *
+ * This is the recovery the memory-constrained CI target needs: it evicts Django
+ * sessions from its shared cache spuriously, at any time, with no logout event.
+ * When that happens the silent SSO handshake alone cannot recover — it needs a
+ * live LMS session to trade for a Studio one, and that is gone too — so only a
+ * credential sign-in restores the context. (A sign-in on a context still holding
+ * the dead session cookies is accepted; the platform does not reject it the way it
+ * rejects one made on a *live* session.)
+ *
+ * Wired into {@link ensureCourse} as its `onSessionExpired` hook and used to
+ * confirm a freshly provisioned author can actually author.
+ */
+export async function reauthenticateStudioAuthor(
+  request: APIRequestContext,
+  config: AppConfig,
+  credentials: AccountCredentials,
+): Promise<void> {
+  await loginSession(request, config, credentials);
+  await establishStudioSession(request, config);
 }

@@ -28,3 +28,26 @@ export class ApiError extends Error {
     this.retryable = details.retryable ?? false;
   }
 }
+
+/**
+ * Raised when a legacy Studio write (`POST /course/`) is answered with a redirect
+ * to sign-in: the request context's Studio Django session has gone (the CI cache
+ * evicts it spuriously under memory pressure), and these views authenticate by
+ * that session, not the JWT. Distinct from a plain {@link ApiError} so a caller
+ * that holds credentials can catch *this* case and re-authenticate before
+ * retrying, rather than treating it as a generic failure.
+ *
+ * Not retryable: retrying the same context just bounces to sign-in again. The
+ * caller must restore the session first (a fresh credential sign-in on a clean
+ * context — see `authoredCourse`), then re-issue the write.
+ */
+export class StudioSessionExpiredError extends ApiError {
+  constructor(what: string, details: { url: string; status: number }) {
+    super(
+      `${what} was redirected to sign-in (HTTP ${details.status}): the Studio session is gone. ` +
+        'Re-authenticate the request context and retry.',
+      { status: details.status, url: details.url, body: '' },
+    );
+    this.name = 'StudioSessionExpiredError';
+  }
+}

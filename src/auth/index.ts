@@ -7,6 +7,6 @@ export {
   assertAuthCookiesPresent,
   assertStudioSessionPresent,
 } from './preflight';
-export { AUTH_STATE_DIR, authStateFile } from './storage';
+export { AUTH_STATE_DIR, authStateFile, isUsableStateFile, persistStorageState } from './storage';
 export { ApiAuthProvider } from './api-provider';
 export { defaultAuthProvider } from './default-provider';

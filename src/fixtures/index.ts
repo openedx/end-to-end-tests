@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
@@ -8,6 +7,7 @@ import {
   accountSignInStudio,
   provisionAuthorSession,
   provisionLearnerSession,
+  reauthenticateStudioAuthor,
   withAdminSession,
 } from '../accounts';
 import { StudioHomePage } from '../pages/studio/home/studio-home.page';
@@ -24,10 +24,11 @@ import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
-import { AUTH_STATE_DIR, authStateFile } from '../auth';
+import { AUTH_STATE_DIR, authStateFile, isUsableStateFile, persistStorageState } from '../auth';
 import {
   ensureCourse,
   establishStudioSession,
+  StudioSessionExpiredError,
   newCourseIdentity,
   studioOrigin,
   type CourseIdentity,
@@ -515,7 +516,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         // course — so a state file the slot already wrote this run is reused
         // rather than a second author provisioned. Global setup clears `.auth/`,
         // so nothing older than the run can be picked up.
-        if (existsSync(stateFile)) {
+        if (isUsableStateFile(stateFile)) {
           const resumed = await playwright.request.newContext({ storageState: stateFile });
           try {
             const username = await fetchStudioUsername(resumed, config);
@@ -531,7 +532,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         let identity: LearnerIdentity;
         try {
           identity = await provisionAuthorSession(request, config, {
-            adminStorageState: existsSync(staffState) ? staffState : undefined,
+            adminStorageState: isUsableStateFile(staffState) ? staffState : undefined,
           });
         } catch (error) {
           if (error instanceof AccountNotConfiguredError) {
@@ -539,7 +540,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           }
           throw error;
         }
-        await request.storageState({ path: stateFile });
+        persistStorageState(await request.storageState(), stateFile);
         await use({ identity, stateFile });
       } finally {
         await request.dispose();
@@ -556,7 +557,28 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   // session itself has decayed (a cache flush or eviction) but is not yet renewed.
   // (Stripping the JWT to force session-only auth was tried and reverted: it left
   // API calls with no fallback the moment the session decayed — a 401 under load.)
-  storageState: async ({ workerAuthor }, use, testInfo) => {
+  storageState: async ({ playwright, workerAuthor, config }, use, testInfo) => {
+    // On a retry of a worker-author test, refresh the persisted Studio session
+    // before the `page`/`request` contexts load it. The previous attempt may have
+    // failed because the memory-constrained CI evicted the session from its shared
+    // cache mid-run, and the state file still holds the dead one; a fresh sign-in
+    // (on a clean context — a login is refused on a jar that still holds session
+    // cookies) restores it for both contexts. Gated on `retry > 0` so a healthy
+    // first attempt spends no login and never presses the LMS login rate limit —
+    // only a test that already failed pays for the recovery. This is the API-side
+    // counterpart to `studioAuthorSession`'s in-test browser recovery.
+    if (workerAuthor !== undefined && testInfo.retry > 0) {
+      const fresh = await playwright.request.newContext();
+      try {
+        await reauthenticateStudioAuthor(fresh, config, {
+          emailOrUsername: workerAuthor.identity.username,
+          password: DEFAULT_PASSWORD,
+        });
+        persistStorageState(await fresh.storageState(), workerAuthor.stateFile);
+      } finally {
+        await fresh.dispose();
+      }
+    }
     await use(workerAuthor?.stateFile ?? testInfo.project.use.storageState);
   },
 
@@ -576,20 +598,50 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       // reuses its predecessor's course instead of creating another.
       const identity = newCourseIdentity(config, getRunId(), `W${workerInfo.parallelIndex}`);
 
-      const request = await playwright.request.newContext({ storageState: authorState });
+      const credentials = {
+        emailOrUsername: workerAuthor.identity.username,
+        password: DEFAULT_PASSWORD,
+      };
+
+      // Create the worker's course, recovering once from a Studio session that the
+      // CI target evicted from its shared cache (it does so spuriously, at any time,
+      // with no logout event). This is also the immediate, self-verifying check that
+      // the just-provisioned author can actually author: a genuinely broken session
+      // fails loudly here at worker setup instead of cascading through every spec.
+      // Load the captured session if the file is intact; a torn one (an OOM kill
+      // mid-write) opens anonymous and the create's recovery signs in fresh.
+      let request = await playwright.request.newContext(
+        isUsableStateFile(authorState) ? { storageState: authorState } : {},
+      );
       try {
-        // Re-establish the Studio session on this context before writing. The CMS
-        // Django session in the captured state can be gone by the time the worker
-        // reaches here (it decays independently of the LMS session, or its cookie
-        // was dropped), and Studio then answers a write with its 200 HTML login
-        // page — seen on verawood as "Creating course … non-JSON body: <title>
-        // Authentication". The silent SSO handshake off the still-live LMS session
-        // makes the context authenticated, and is a no-op when it already is; the
-        // refreshed session is persisted back to the worker's state file so the
-        // per-test `request`/`page` contexts that load it start authenticated too.
-        await establishStudioSession(request, config);
-        await request.storageState({ path: authorState });
-        const courseKey = await ensureCourse(request, config, identity);
+        // Best-effort: give this context a Studio session off the captured LMS
+        // session (the silent SSO handshake; a no-op when it already has one) and
+        // persist it so the per-test `request`/`page` contexts that load the state
+        // file start authenticated too. If the captured session is already gone the
+        // handshake cannot establish one — fall through, the create below detects
+        // that and recovers.
+        try {
+          await establishStudioSession(request, config);
+          persistStorageState(await request.storageState(), authorState);
+        } catch {
+          // Left to the create's own recovery below.
+        }
+
+        let courseKey: string;
+        try {
+          courseKey = await ensureCourse(request, config, identity);
+        } catch (error) {
+          if (!(error instanceof StudioSessionExpiredError)) throw error;
+          // The captured session was gone and cannot be recovered in place — a
+          // credential sign-in is refused on a jar that still holds session cookies,
+          // and an `APIRequestContext` cannot clear them. So sign in fresh on a clean
+          // context, persist it for the per-test contexts, and retry the create.
+          await request.dispose();
+          request = await playwright.request.newContext();
+          await reauthenticateStudioAuthor(request, config, credentials);
+          persistStorageState(await request.storageState(), authorState);
+          courseKey = await ensureCourse(request, config, identity);
+        }
         await use({
           ...identity,
           courseKey,
@@ -628,7 +680,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       // press the rate limit). Worker authors own their own state file, so this
       // write races nothing.
       if (workerAuthor) {
-        await page.context().storageState({ path: workerAuthor.stateFile });
+        persistStorageState(await page.context().storageState(), workerAuthor.stateFile);
       }
     }
     await use();
@@ -685,7 +737,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   certificateCourseMode: async ({ playwright, config, authoredCourse }, use) => {
     const staffState = authStateFile('staff');
     base.skip(
-      config.credentials.admin === undefined || !existsSync(staffState),
+      config.credentials.admin === undefined || !isUsableStateFile(staffState),
       'Certificates need a certificate-bearing course mode, which only a staff/superuser ' +
         'session can add (the author session is refused). Set ADMIN_USERNAME and ADMIN_PASSWORD.',
     );
@@ -783,7 +835,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     const admin = config.credentials.admin;
     const state = authStateFile('staff');
     base.skip(
-      admin === undefined || !existsSync(state),
+      admin === undefined || !isUsableStateFile(state),
       'Authors may not create organizations on this installation (allow_to_create_new_org ' +
         'is off) and no admin account is configured to do it instead. Set ADMIN_USERNAME ' +
         'and ADMIN_PASSWORD, or allow authors to create organizations.',
