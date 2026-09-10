@@ -25,22 +25,30 @@ test.describe('Custom Pages', { tag: ['@studio', '@author', '@mfe-authoring'] },
   test(
     'reorders custom pages by drag and drop',
     { tag: '@regression', annotation: testId('TC-00237') },
-    async ({ page, request, config, authoredCourse, customPagesPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, customPagesPage, studioAuthorSession }) => {
       void studioAuthorSession;
       const { courseKey } = authoredCourse;
 
+      // Drive the API off the browser context's own session (`page.request`): the
+      // page-creation writes are legacy session-auth (no JWT fallback), and
+      // `studioAuthorSession`'s cms-sso handshake ends the author's other Studio
+      // session under `PREVENT_CONCURRENT_LOGINS` — a standalone `request` fixture's.
+      // See `tests/studio/home/course-lifecycle.spec.ts` and the
+      // `studio-browser-session-decays` findings.
+      const api = page.request;
+
       // Clean slate, then two named pages in a known order [A, B].
-      const existing = await fetchCustomPages(request, config, courseKey);
-      await Promise.all(existing.map((p) => deleteCustomPage(request, config, p.id)));
-      const idA = await createCustomPage(request, config, courseKey);
-      await setCustomPageName(request, config, idA, NAME_A);
-      const idB = await createCustomPage(request, config, courseKey);
-      await setCustomPageName(request, config, idB, NAME_B);
+      const existing = await fetchCustomPages(api, config, courseKey);
+      await Promise.all(existing.map((p) => deleteCustomPage(api, config, p.id)));
+      const idA = await createCustomPage(api, config, courseKey);
+      await setCustomPageName(api, config, idA, NAME_A);
+      const idB = await createCustomPage(api, config, courseKey);
+      await setCustomPageName(api, config, idB, NAME_B);
 
       const apiOrder = async () =>
-        (await fetchCustomPages(request, config, courseKey)).map((p) => p.name);
+        (await fetchCustomPages(api, config, courseKey)).map((p) => p.name);
       const lmsOrder = async () =>
-        (await fetchCourseMetadata(request, config, courseKey)).tabs
+        (await fetchCourseMetadata(api, config, courseKey)).tabs
           .filter((tab) => tab.tab_id.startsWith('static_tab'))
           .map((tab) => tab.title);
 
@@ -63,9 +71,9 @@ test.describe('Custom Pages', { tag: ['@studio', '@author', '@mfe-authoring'] },
         // Tolerated on this screen only; remove when STUDIO-008 lands upstream.
         await checkA11y(page, { label: 'studio-custom-pages', additionalBaseline: ['list'] });
       } finally {
-        const remaining = await fetchCustomPages(request, config, courseKey);
+        const remaining = await fetchCustomPages(api, config, courseKey);
         await Promise.all(
-          remaining.map((p) => deleteCustomPage(request, config, p.id).catch(() => {})),
+          remaining.map((p) => deleteCustomPage(api, config, p.id).catch(() => {})),
         );
       }
     },

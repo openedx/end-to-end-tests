@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { errors, type Locator, type Page } from '@playwright/test';
 
 import { STUDIO_CUSTOM_PAGES_SELECTORS, type AppConfig } from '../../../config';
 import { TABS_PATH } from '../../../api';
@@ -6,11 +6,29 @@ import { authoringCourseBaseUrl } from '../authoring-base';
 import { waitForWrite } from '../wait-for-write';
 
 /**
- * Animation frames yielded between dnd-kit keyboard-drag steps. Its keyboard
- * sensor needs a few frames to accept the next key after the lift; 5 was the
- * measured floor, so 6 leaves a margin.
+ * Animation frames to yield after the lift (and after the Arrow) to give dnd-kit's
+ * keyboard sensor a chance to measure the list before the next key — tied to the
+ * render loop, not a wall-clock pause. Best-effort only: the whole drag is retried
+ * when it does not take, so this just keeps the common case to one attempt.
  */
 const DND_SETTLE_FRAMES = 6;
+
+/**
+ * How many times to run the whole lift→Arrow→drop before giving up. dnd-kit's
+ * keyboard sensor silently drops an Arrow pressed before it has measured the list
+ * (an unbounded delay under CI load), so the drop then reorders nothing and fires
+ * no write; the only reliable "it worked" signal is the `reorder` request itself,
+ * so a drag that produces none is cancelled (Escape) and retried.
+ */
+const DND_DRAG_ATTEMPTS = 4;
+
+/**
+ * How long one drag attempt waits for its `reorder` write before treating the move
+ * as lost and retrying. Comfortably longer than the request itself, so only a drag
+ * that truly reordered nothing times out — a real reorder posts at once, well
+ * inside this, so a retry never follows a slow-but-successful drop (no double move).
+ */
+const DND_REORDER_TIMEOUT_MS = 5_000;
 
 /**
  * Custom Pages in the authoring MFE. Reached on the apps origin (Studio does not
@@ -59,14 +77,45 @@ export class StudioCustomPagesPage {
    * index; the drop moves it past exactly one neighbour.
    */
   async dragCardDown(courseKey: string, fromIndex: number): Promise<void> {
+    // Run the whole lift→Arrow→drop, judged by the `reorder` write it must fire;
+    // if none comes the Arrow was dropped before the sensor was ready, so cancel and
+    // retry. A drag that failed reordered nothing, so a retry starts from the same
+    // order — never a double move.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await this.attemptDragCardDown(fromIndex);
+        return;
+      } catch (error) {
+        const lost = error instanceof errors.TimeoutError;
+        if (!lost || attempt + 1 >= DND_DRAG_ATTEMPTS) {
+          if (lost) {
+            throw new Error(
+              `dnd-kit produced no reorder after ${DND_DRAG_ATTEMPTS} drag attempts on the card ` +
+                `at index ${fromIndex}.`,
+              { cause: error },
+            );
+          }
+          throw error;
+        }
+        // Cancel the in-flight drag and wait for it to end before retrying.
+        await this.page.keyboard.press('Escape');
+        await this.page
+          .locator(STUDIO_CUSTOM_PAGES_SELECTORS.liftedHandle)
+          .waitFor({ state: 'detached' })
+          .catch(() => undefined);
+      }
+    }
+  }
+
+  /**
+   * One keyboard-drag of the card at `fromIndex` down past its neighbour: Space
+   * lifts, an Arrow advances it, Space drops. Waits for the `reorder` write the drop
+   * fires — and throws {@link errors.TimeoutError} when it does not, which
+   * {@link dragCardDown} treats as a lost Arrow and retries.
+   */
+  private async attemptDragCardDown(fromIndex: number): Promise<void> {
     const handle = this.dragHandles.nth(fromIndex);
     await handle.focus();
-    // Space lifts the item, an Arrow advances it one position, Space drops it.
-    // dnd-kit's keyboard sensor advances one step per render frame and exposes no
-    // DOM/ARIA "ready to move" signal — `aria-pressed` and its live-region
-    // announcement both fire before it will accept an arrow key (measured). So
-    // after confirming the lift we yield a few animation frames — the unit dnd-kit
-    // actually works in — between the steps, rather than pause a wall-clock time.
     await this.page.keyboard.press('Space');
     await this.page.locator(STUDIO_CUSTOM_PAGES_SELECTORS.liftedHandle).waitFor();
     await this.settleFrames();
@@ -78,6 +127,7 @@ export class StudioCustomPagesPage {
       {
         method: 'POST',
         predicate: (r) => r.url().includes(`${TABS_PATH}/`) && r.url().endsWith('/reorder'),
+        timeout: DND_REORDER_TIMEOUT_MS,
       },
       () => this.page.keyboard.press('Space'),
     );
