@@ -124,6 +124,21 @@ async function postCourse(
       { status: 403, url, body: text },
     );
   }
+  if (response.status() === 302) {
+    // Still redirecting after the re-establish attempt: the context is anonymous at
+    // the CMS and the in-context handshake could not recover it (its LMS session is
+    // gone too, so the SSO handshake has nothing to authenticate). This is the same
+    // transient anonymity the non-JSON branch handles, so it is retryable — a later
+    // attempt (another worker settling, a refreshed session) succeeds. Retryable
+    // also restores the pre-`maxRedirects` behaviour, where a followed 302 reached a
+    // login HTML page and failed as a retryable non-JSON body.
+    throw new ApiError(`${what} was redirected to sign-in (HTTP 302): the session is anonymous.`, {
+      status: 302,
+      url,
+      body: response.headers()['location'] ?? '',
+      retryable: true,
+    });
+  }
   if (!response.ok()) {
     throw new ApiError(`${what} failed (HTTP ${response.status()}).`, {
       status: response.status(),
