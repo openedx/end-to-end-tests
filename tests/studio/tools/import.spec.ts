@@ -22,14 +22,16 @@ test.describe('Course Import', { tag: ['@studio', '@author', '@mfe-authoring'] }
   test(
     'imports an OLX tarball back into the course',
     { tag: '@regression', annotation: testId('TC-00309') },
-    async ({ page, request, config, authoredCourse, importPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, importPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
 
       // Produce a tarball to upload: the course's own export.
-      await startCourseExport(request, config, courseKey);
-      const { outputPath } = await waitForCourseExport(request, config, courseKey);
-      const tarball = await downloadCourseExport(request, config, outputPath);
+      await startCourseExport(api, config, courseKey);
+      const { outputPath } = await waitForCourseExport(api, config, courseKey);
+      const tarball = await downloadCourseExport(api, config, outputPath);
 
       // The import task is keyed on the uploaded filename; make it unique per run
       // and keep the `.tar.gz` the dropzone requires.
@@ -38,8 +40,8 @@ test.describe('Course Import', { tag: ['@studio', '@author', '@mfe-authoring'] }
       await importPage.uploadArchive(fileName, tarball);
 
       // The CMS worker unpacks it; the status API is the source of truth.
-      await waitForCourseImport(request, config, courseKey, fileName);
-      expect(await courseExists(request, config, courseKey)).toBe(true);
+      await waitForCourseImport(api, config, courseKey, fileName);
+      expect(await courseExists(api, config, courseKey)).toBe(true);
 
       // The page reflects the finished import: the "view outline" control appears.
       await expect(importPage.successButton).toBeVisible();

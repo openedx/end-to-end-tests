@@ -16,15 +16,10 @@ test.describe('Group Configurations', { tag: ['@studio', '@author', '@mfe-author
   test(
     'adds a content group',
     { tag: '@regression', annotation: testId('TC-00291') },
-    async ({
-      page,
-      request,
-      config,
-      authoredCourse,
-      groupConfigurationsPage,
-      studioAuthorSession,
-    }) => {
+    async ({ page, config, authoredCourse, groupConfigurationsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       const groupName = `E2E Group ${getRunId()}-${Date.now().toString(36)}`;
 
@@ -35,7 +30,7 @@ test.describe('Group Configurations', { tag: ['@studio', '@author', '@mfe-author
       // Studio reports a content-group configuration carrying the new group.
       await expect
         .poll(async () => {
-          const configs = await fetchGroupConfigurations(request, config, courseKey);
+          const configs = await fetchGroupConfigurations(api, config, courseKey);
           return configs
             .filter((cfg) => cfg.scheme === 'cohort')
             .flatMap((cfg) => cfg.groups.map((group) => group.name));

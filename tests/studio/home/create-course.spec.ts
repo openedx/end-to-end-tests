@@ -30,7 +30,6 @@ test.describe(
       { tag: '@smoke', annotation: testId('TC-00249') },
       async ({
         page,
-        request,
         config,
         studioHomePage,
         studioCourseOutlinePage,
@@ -38,9 +37,11 @@ test.describe(
         studioAuthorSession,
       }) => {
         void studioAuthorSession;
+        // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+        const api = page.request;
         // An org the target already has: the worker course's (the fixture put it
         // there), so the form's org control offers it whichever shape it takes.
-        expect(await courseExists(request, config, lifecycleCourse.courseKey)).toBe(false);
+        expect(await courseExists(api, config, lifecycleCourse.courseKey)).toBe(false);
 
         const created = await createCourseThroughStudioHome(
           studioHomePage,
@@ -62,13 +63,13 @@ test.describe(
         // Studio lists it and the LMS serves it.
         await expect
           .poll(async () => {
-            const listed = await listStudioCourses(request, config, {
+            const listed = await listStudioCourses(api, config, {
               search: lifecycleCourse.number,
             });
             return listed.courses.map((course) => course.courseKey);
           })
           .toContain(lifecycleCourse.courseKey);
-        const detail = await fetchCourseDetail(request, config, lifecycleCourse.courseKey);
+        const detail = await fetchCourseDetail(api, config, lifecycleCourse.courseKey);
         expect(detail.org).toBe(lifecycleCourse.org);
         expect(detail.number).toBe(lifecycleCourse.number);
 

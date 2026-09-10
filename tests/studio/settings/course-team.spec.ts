@@ -28,16 +28,10 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
   test(
     'adds a new member to the course team',
     { tag: '@regression', annotation: testId('TC-00280') },
-    async ({
-      page,
-      request,
-      config,
-      authoredCourse,
-      courseTeamPage,
-      studioAuthorSession,
-      newLearner,
-    }) => {
+    async ({ page, config, authoredCourse, courseTeamPage, studioAuthorSession, newLearner }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       const member = await newLearner();
       try {
@@ -47,7 +41,7 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
         // Studio lists the member as staff.
         await expect
           .poll(async () =>
-            roleOf(await fetchCourseTeam(request, config, courseKey), member.identity.email),
+            roleOf(await fetchCourseTeam(api, config, courseKey), member.identity.email),
           )
           .toBe('staff');
 
@@ -71,9 +65,7 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
 
         await checkA11y(page, { label: 'studio-course-team' });
       } finally {
-        await removeCourseTeamMember(request, config, courseKey, member.identity.email).catch(
-          () => {},
-        );
+        await removeCourseTeamMember(api, config, courseKey, member.identity.email).catch(() => {});
       }
     },
   );
@@ -81,15 +73,10 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
   test(
     'grants admin access to a member',
     { tag: '@regression', annotation: testId('TC-00281') },
-    async ({
-      request,
-      config,
-      authoredCourse,
-      courseTeamPage,
-      studioAuthorSession,
-      newLearner,
-    }) => {
+    async ({ page, config, authoredCourse, courseTeamPage, studioAuthorSession, newLearner }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       const member = await newLearner();
       try {
@@ -101,13 +88,11 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
 
         await expect
           .poll(async () =>
-            roleOf(await fetchCourseTeam(request, config, courseKey), member.identity.email),
+            roleOf(await fetchCourseTeam(api, config, courseKey), member.identity.email),
           )
           .toBe('instructor');
       } finally {
-        await removeCourseTeamMember(request, config, courseKey, member.identity.email).catch(
-          () => {},
-        );
+        await removeCourseTeamMember(api, config, courseKey, member.identity.email).catch(() => {});
       }
     },
   );
@@ -115,15 +100,10 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
   test(
     'removes admin access from a member',
     { tag: '@regression', annotation: testId('TC-00282') },
-    async ({
-      request,
-      config,
-      authoredCourse,
-      courseTeamPage,
-      studioAuthorSession,
-      newLearner,
-    }) => {
+    async ({ page, config, authoredCourse, courseTeamPage, studioAuthorSession, newLearner }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       const member = await newLearner();
       try {
@@ -134,7 +114,7 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
         await courseTeamPage.toggleAdmin(member.identity.email);
         await expect
           .poll(async () =>
-            roleOf(await fetchCourseTeam(request, config, courseKey), member.identity.email),
+            roleOf(await fetchCourseTeam(api, config, courseKey), member.identity.email),
           )
           .toBe('instructor');
 
@@ -144,13 +124,11 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
 
         await expect
           .poll(async () =>
-            roleOf(await fetchCourseTeam(request, config, courseKey), member.identity.email),
+            roleOf(await fetchCourseTeam(api, config, courseKey), member.identity.email),
           )
           .toBe('staff');
       } finally {
-        await removeCourseTeamMember(request, config, courseKey, member.identity.email).catch(
-          () => {},
-        );
+        await removeCourseTeamMember(api, config, courseKey, member.identity.email).catch(() => {});
       }
     },
   );
@@ -158,15 +136,10 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
   test(
     'removes a member from the course team',
     { tag: '@regression', annotation: testId('TC-00283') },
-    async ({
-      request,
-      config,
-      authoredCourse,
-      courseTeamPage,
-      studioAuthorSession,
-      newLearner,
-    }) => {
+    async ({ page, config, authoredCourse, courseTeamPage, studioAuthorSession, newLearner }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       const member = await newLearner();
       try {
@@ -176,13 +149,11 @@ test.describe('Course Team', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
 
         await expect
           .poll(async () =>
-            roleOf(await fetchCourseTeam(request, config, courseKey), member.identity.email),
+            roleOf(await fetchCourseTeam(api, config, courseKey), member.identity.email),
           )
           .toBeUndefined();
       } finally {
-        await removeCourseTeamMember(request, config, courseKey, member.identity.email).catch(
-          () => {},
-        );
+        await removeCourseTeamMember(api, config, courseKey, member.identity.email).catch(() => {});
       }
     },
   );

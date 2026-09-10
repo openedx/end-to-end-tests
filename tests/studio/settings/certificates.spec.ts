@@ -24,7 +24,6 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
     { tag: '@regression', annotation: testId('TC-00275') },
     async ({
       page,
-      request,
       config,
       authoredCourse,
       certificatesPage,
@@ -33,8 +32,10 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
     }) => {
       void studioAuthorSession;
       void certificateCourseMode;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await resetCertificates(request, config, courseKey);
+      await resetCertificates(api, config, courseKey);
 
       await certificatesPage.goto(courseKey);
       const created = await certificatesPage.createCertificate(courseKey, [
@@ -46,13 +47,13 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
 
       await expect
         .poll(async () => {
-          const cfg = await fetchCertificateConfiguration(request, config, courseKey);
+          const cfg = await fetchCertificateConfiguration(api, config, courseKey);
           return cfg.certificates[0]?.signatories.length;
         })
         .toBe(3);
 
       await checkA11y(page, { label: 'studio-certificates' });
-      await resetCertificates(request, config, courseKey).catch(() => {});
+      await resetCertificates(api, config, courseKey).catch(() => {});
     },
   );
 
@@ -60,7 +61,7 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
     'previews the certificate',
     { tag: '@regression', annotation: testId('TC-00276') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       certificatesPage,
@@ -69,24 +70,26 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
     }) => {
       void studioAuthorSession;
       void certificateCourseMode;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await resetCertificates(request, config, courseKey);
+      await resetCertificates(api, config, courseKey);
 
       // The certificate is created through the MFE (the browser's own write works
       // across releases; see the spec-level note).
       await certificatesPage.goto(courseKey);
       await certificatesPage.createCertificate(courseKey, [signatory('Ada Lovelace')]);
-      const cfg = await fetchCertificateConfiguration(request, config, courseKey);
+      const cfg = await fetchCertificateConfiguration(api, config, courseKey);
       // The preview link points at the LMS certificate web view the API reports.
       // The API gives a protocol-relative URL; the page renders it scheme-qualified.
       const previewUrl = `${new URL(config.baseUrls.lms).protocol}${cfg.certificateWebViewUrl}`;
       await expect(certificatesPage.previewLink).toHaveAttribute('href', previewUrl);
 
       // That web view is reachable.
-      const response = await request.get(previewUrl);
+      const response = await api.get(previewUrl);
       expect(response.status()).toBeLessThan(400);
 
-      await resetCertificates(request, config, courseKey).catch(() => {});
+      await resetCertificates(api, config, courseKey).catch(() => {});
     },
   );
 
@@ -94,7 +97,7 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
     'activates the course certificate',
     { tag: '@regression', annotation: testId('TC-00279') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       certificatesPage,
@@ -103,20 +106,20 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
     }) => {
       void studioAuthorSession;
       void certificateCourseMode;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await resetCertificates(request, config, courseKey);
+      await resetCertificates(api, config, courseKey);
 
       await certificatesPage.goto(courseKey);
       await certificatesPage.createCertificate(courseKey, [signatory('Ada Lovelace')]);
       expect((await certificatesPage.activate(courseKey)).status).toBe(200);
 
       await expect
-        .poll(
-          async () => (await fetchCertificateConfiguration(request, config, courseKey)).isActive,
-        )
+        .poll(async () => (await fetchCertificateConfiguration(api, config, courseKey)).isActive)
         .toBe(true);
 
-      await resetCertificates(request, config, courseKey).catch(() => {});
+      await resetCertificates(api, config, courseKey).catch(() => {});
     },
   );
 

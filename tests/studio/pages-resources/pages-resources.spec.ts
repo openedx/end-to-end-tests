@@ -23,8 +23,10 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'toggling the progress app adds and removes its tab',
     { tag: '@regression', annotation: testId('TC-00241') },
-    async ({ page, request, config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
 
       await pagesResourcesPage.goto(courseKey);
@@ -36,10 +38,8 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
       );
       await expect
         .poll(async () => ({
-          enabled: isEnabled(await fetchCourseApps(request, config, courseKey), 'progress'),
-          hasTab: tabIds(await fetchCourseMetadata(request, config, courseKey)).includes(
-            'progress',
-          ),
+          enabled: isEnabled(await fetchCourseApps(api, config, courseKey), 'progress'),
+          hasTab: tabIds(await fetchCourseMetadata(api, config, courseKey)).includes('progress'),
         }))
         .toEqual({ enabled: false, hasTab: false });
 
@@ -49,10 +49,8 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
       expect(await pagesResourcesPage.setAppEnabled(courseKey, 'progress', true)).toBeLessThan(300);
       await expect
         .poll(async () => ({
-          enabled: isEnabled(await fetchCourseApps(request, config, courseKey), 'progress'),
-          hasTab: tabIds(await fetchCourseMetadata(request, config, courseKey)).includes(
-            'progress',
-          ),
+          enabled: isEnabled(await fetchCourseApps(api, config, courseKey), 'progress'),
+          hasTab: tabIds(await fetchCourseMetadata(api, config, courseKey)).includes('progress'),
         }))
         .toEqual({ enabled: true, hasTab: true });
     },
@@ -61,16 +59,18 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'toggling the wiki app adds and removes its tab',
     { tag: ['@regression', '@wiki'], annotation: testId('TC-00240') },
-    async ({ request, config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       await pagesResourcesPage.goto(courseKey);
 
       // The wiki tab tracks the app: flip it from its current state and back, and
       // the LMS tab appears and disappears with it (leaving the course as found).
       const wikiState = async () => ({
-        enabled: isEnabled(await fetchCourseApps(request, config, courseKey), 'wiki'),
-        hasTab: tabIds(await fetchCourseMetadata(request, config, courseKey)).includes('wiki'),
+        enabled: isEnabled(await fetchCourseApps(api, config, courseKey), 'wiki'),
+        hasTab: tabIds(await fetchCourseMetadata(api, config, courseKey)).includes('wiki'),
       });
       const before = (await wikiState()).enabled;
 
@@ -101,30 +101,28 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'toggling the calculator app switches it on the course',
     { tag: '@regression', annotation: testId('TC-00239') },
-    async ({ request, config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
 
       // The calculator is a courseware tool, not a tab, so `course_apps` is the
       // authoritative read. Flip it from its current state and back.
-      const before = isEnabled(await fetchCourseApps(request, config, courseKey), 'calculator');
+      const before = isEnabled(await fetchCourseApps(api, config, courseKey), 'calculator');
 
       expect(await pagesResourcesPage.setAppEnabled(courseKey, 'calculator', !before)).toBeLessThan(
         300,
       );
       await expect
-        .poll(async () =>
-          isEnabled(await fetchCourseApps(request, config, courseKey), 'calculator'),
-        )
+        .poll(async () => isEnabled(await fetchCourseApps(api, config, courseKey), 'calculator'))
         .toBe(!before);
 
       expect(await pagesResourcesPage.setAppEnabled(courseKey, 'calculator', before)).toBeLessThan(
         300,
       );
       await expect
-        .poll(async () =>
-          isEnabled(await fetchCourseApps(request, config, courseKey), 'calculator'),
-        )
+        .poll(async () => isEnabled(await fetchCourseApps(api, config, courseKey), 'calculator'))
         .toBe(before);
     },
   );

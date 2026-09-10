@@ -15,8 +15,10 @@ test.describe('Course Export', { tag: ['@studio', '@author', '@mfe-authoring'] }
   test(
     'exports the course content as an OLX tarball',
     { tag: '@regression', annotation: testId('TC-00308') },
-    async ({ page, request, config, authoredCourse, exportPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, exportPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
 
       await exportPage.goto(courseKey);
@@ -24,8 +26,8 @@ test.describe('Course Export', { tag: ['@studio', '@author', '@mfe-authoring'] }
 
       // The CMS worker builds the tarball asynchronously; the status API says when
       // it is ready and where to fetch it.
-      const { outputPath } = await waitForCourseExport(request, config, courseKey);
-      const tarball = await downloadCourseExport(request, config, outputPath);
+      const { outputPath } = await waitForCourseExport(api, config, courseKey);
+      const tarball = await downloadCourseExport(api, config, outputPath);
       expect(tarball.length).toBeGreaterThan(0);
       // gzip magic bytes — the download is a real gzip stream, not an error page.
       expect([tarball[0], tarball[1]]).toEqual([0x1f, 0x8b]);

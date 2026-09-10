@@ -36,10 +36,12 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
   test(
     'drags a grade-range boundary',
     { tag: '@regression', annotation: testId('TC-00284') },
-    async ({ page, request, config, authoredCourse, gradingPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, gradingPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateGradingPolicy(request, config, courseKey, BASELINE);
+      await updateGradingPolicy(api, config, courseKey, BASELINE);
 
       await gradingPage.goto(courseKey);
       // The Pass/Fail boundary sits at 50; drag it towards 65 and take whatever
@@ -50,7 +52,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
 
       await expect
         .poll(async () => {
-          const { grade_cutoffs } = await fetchGradingPolicy(request, config, courseKey);
+          const { grade_cutoffs } = await fetchGradingPolicy(api, config, courseKey);
           return Math.round((grade_cutoffs.Pass ?? 0) * 100);
         })
         .toBe(settled);
@@ -70,10 +72,12 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
   test(
     'adds the standard letter grades',
     { tag: '@regression', annotation: testId('TC-00285') },
-    async ({ request, config, authoredCourse, gradingPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, gradingPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateGradingPolicy(request, config, courseKey, BASELINE);
+      await updateGradingPolicy(api, config, courseKey, BASELINE);
 
       await gradingPage.goto(courseKey);
       await expect(gradingPage.segments).toHaveCount(2);
@@ -87,11 +91,11 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
 
       await expect
         .poll(async () => {
-          const { grade_cutoffs } = await fetchGradingPolicy(request, config, courseKey);
+          const { grade_cutoffs } = await fetchGradingPolicy(api, config, courseKey);
           return Object.keys(grade_cutoffs).sort();
         })
         .toEqual(['A', 'B', 'C', 'D']);
-      const { grade_cutoffs } = await fetchGradingPolicy(request, config, courseKey);
+      const { grade_cutoffs } = await fetchGradingPolicy(api, config, courseKey);
       const cutoffs = ['A', 'B', 'C', 'D'].map((letter) => grade_cutoffs[letter] ?? 0);
       // Strictly descending, and none of them empty.
       expect(cutoffs).toEqual([...cutoffs].sort((left, right) => right - left));
@@ -103,10 +107,12 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
   test(
     'removes letter grades',
     { tag: '@regression', annotation: testId('TC-00286') },
-    async ({ request, config, authoredCourse, gradingPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, gradingPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateGradingPolicy(request, config, courseKey, {
+      await updateGradingPolicy(api, config, courseKey, {
         ...BASELINE,
         grade_cutoffs: { A: 0.9, B: 0.8, C: 0.7, D: 0.6 },
       });
@@ -123,7 +129,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
 
       await expect
         .poll(async () => {
-          const { grade_cutoffs } = await fetchGradingPolicy(request, config, courseKey);
+          const { grade_cutoffs } = await fetchGradingPolicy(api, config, courseKey);
           return Object.keys(grade_cutoffs).sort();
         })
         .toEqual([...remaining].sort());
@@ -133,17 +139,19 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
   test(
     'sets a grace period on deadlines',
     { tag: '@regression', annotation: testId('TC-00287') },
-    async ({ request, config, authoredCourse, gradingPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, gradingPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateGradingPolicy(request, config, courseKey, BASELINE);
+      await updateGradingPolicy(api, config, courseKey, BASELINE);
 
       await gradingPage.goto(courseKey);
       await gradingPage.setGracePeriod('12:30');
       expect((await gradingPage.save(courseKey)).status).toBe(200);
 
       await expect
-        .poll(async () => (await fetchGradingPolicy(request, config, courseKey)).grace_period)
+        .poll(async () => (await fetchGradingPolicy(api, config, courseKey)).grace_period)
         .toEqual({ hours: 12, minutes: 30 });
     },
   );
@@ -162,11 +170,13 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
   test(
     'adds an assignment type',
     { tag: '@regression', annotation: testId('TC-00288') },
-    async ({ request, config, authoredCourse, gradingPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, gradingPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       // Leave room so the weights still total 100 with the new type.
-      await updateGradingPolicy(request, config, courseKey, {
+      await updateGradingPolicy(api, config, courseKey, {
         ...BASELINE,
         graders: BASELINE.graders.map((grader) =>
           grader.type === 'Final Exam' ? { ...grader, weight: 30 } : grader,
@@ -182,7 +192,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
 
       await expect
         .poll(async () => {
-          const { graders } = await fetchGradingPolicy(request, config, courseKey);
+          const { graders } = await fetchGradingPolicy(api, config, courseKey);
           return graders.find((grader) => grader.type === quiz.name);
         })
         .toMatchObject({
@@ -198,10 +208,12 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
   test(
     'removes an assignment type',
     { tag: '@regression', annotation: testId('TC-00289') },
-    async ({ request, config, authoredCourse, gradingPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, gradingPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateGradingPolicy(request, config, courseKey, BASELINE);
+      await updateGradingPolicy(api, config, courseKey, BASELINE);
 
       await gradingPage.goto(courseKey);
       await expect(gradingPage.assignmentTypes).toHaveCount(4);
@@ -211,7 +223,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
 
       await expect
         .poll(async () => {
-          const { graders } = await fetchGradingPolicy(request, config, courseKey);
+          const { graders } = await fetchGradingPolicy(api, config, courseKey);
           return graders.map((grader) => grader.type);
         })
         .toEqual(['Homework', 'Midterm Exam', 'Final Exam']);
@@ -221,10 +233,12 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
   test(
     'the save bar appears on a change and persists it',
     { tag: '@regression', annotation: testId('TC-00290') },
-    async ({ request, config, authoredCourse, gradingPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, gradingPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateGradingPolicy(request, config, courseKey, BASELINE);
+      await updateGradingPolicy(api, config, courseKey, BASELINE);
 
       await gradingPage.goto(courseKey);
       await expect(gradingPage.saveBar).toHaveCount(0);
@@ -232,7 +246,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
       await expect(gradingPage.saveBar).toBeVisible();
       expect((await gradingPage.save(courseKey)).status).toBe(200);
       await expect
-        .poll(async () => (await fetchGradingPolicy(request, config, courseKey)).grace_period)
+        .poll(async () => (await fetchGradingPolicy(api, config, courseKey)).grace_period)
         .toEqual({ hours: 1, minutes: 15 });
 
       // A fresh load shows the saved value and nothing left to save.

@@ -34,15 +34,10 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'updates the course display name',
     { tag: '@regression', annotation: testId('TC-00267') },
-    async ({
-      page,
-      request,
-      config,
-      authoredCourse,
-      advancedSettingsPage,
-      studioAuthorSession,
-    }) => {
+    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       const name = `E2E Renamed ${getRunId()}`;
 
@@ -52,8 +47,8 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
 
       await expect
         .poll(async () => ({
-          studio: await settingValue(request, config, courseKey, 'display_name'),
-          lms: (await fetchCourseDetail(request, config, courseKey)).name,
+          studio: await settingValue(api, config, courseKey, 'display_name'),
+          lms: (await fetchCourseDetail(api, config, courseKey)).name,
         }))
         .toEqual({ studio: name, lms: name });
 
@@ -64,10 +59,12 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'sets the maximum student enrollment',
     { tag: '@regression', annotation: testId('TC-00268') },
-    async ({ request, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateAdvancedSettings(request, config, courseKey, {
+      await updateAdvancedSettings(api, config, courseKey, {
         max_student_enrollments_allowed: null,
       });
 
@@ -76,10 +73,10 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
 
       await expect
-        .poll(() => settingValue(request, config, courseKey, 'max_student_enrollments_allowed'))
+        .poll(() => settingValue(api, config, courseKey, 'max_student_enrollments_allowed'))
         .toBe(250);
 
-      await updateAdvancedSettings(request, config, courseKey, {
+      await updateAdvancedSettings(api, config, courseKey, {
         max_student_enrollments_allowed: null,
       });
     },
@@ -88,10 +85,12 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'controls catalog visibility',
     { tag: '@regression', annotation: testId('TC-00269') },
-    async ({ request, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateAdvancedSettings(request, config, courseKey, { catalog_visibility: 'both' });
+      await updateAdvancedSettings(api, config, courseKey, { catalog_visibility: 'both' });
 
       // "none" hides the course from the catalog: the public Course Detail API
       // then stops serving it entirely, so the visibility is read from Studio's
@@ -100,7 +99,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       await advancedSettingsPage.setField('catalogVisibility', 'none');
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
       await expect
-        .poll(() => settingValue(request, config, courseKey, 'catalog_visibility'))
+        .poll(() => settingValue(api, config, courseKey, 'catalog_visibility'))
         .toBe('none');
 
       await advancedSettingsPage.goto(courseKey);
@@ -108,8 +107,8 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
       await expect
         .poll(async () => ({
-          studio: await settingValue(request, config, courseKey, 'catalog_visibility'),
-          hidden: (await fetchCourseDetail(request, config, courseKey)).hidden,
+          studio: await settingValue(api, config, courseKey, 'catalog_visibility'),
+          hidden: (await fetchCourseDetail(api, config, courseKey)).hidden,
         }))
         .toEqual({ studio: 'both', hidden: false });
     },
@@ -119,7 +118,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
     'enables invitation-only enrollment',
     { tag: '@regression', annotation: testId('TC-00271') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       advancedSettingsPage,
@@ -127,8 +126,10 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       newLearner,
     }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateAdvancedSettings(request, config, courseKey, { invitation_only: false });
+      await updateAdvancedSettings(api, config, courseKey, { invitation_only: false });
 
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('invitationOnly', true);
@@ -137,9 +138,9 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       // The LMS marks the course invitation-only, and a self-enroll is refused.
       await expect
         .poll(async () => ({
-          studio: await settingValue(request, config, courseKey, 'invitation_only'),
-          lms: (await fetchCourseDetail(request, config, courseKey)).invitationOnly,
-          enrollLms: (await fetchCourseEnrollmentDetails(request, config, courseKey)).inviteOnly,
+          studio: await settingValue(api, config, courseKey, 'invitation_only'),
+          lms: (await fetchCourseDetail(api, config, courseKey)).invitationOnly,
+          enrollLms: (await fetchCourseEnrollmentDetails(api, config, courseKey)).inviteOnly,
         }))
         .toEqual({ studio: true, lms: true, enrollLms: true });
       const learner = await newLearner();
@@ -148,64 +149,66 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       );
       expect(await isEnrolled(learner.request, config, courseKey)).toBe(false);
 
-      await updateAdvancedSettings(request, config, courseKey, { invitation_only: false });
+      await updateAdvancedSettings(api, config, courseKey, { invitation_only: false });
     },
   );
 
   test(
     'makes the course available on mobile',
     { tag: '@regression', annotation: testId('TC-00272') },
-    async ({ request, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateAdvancedSettings(request, config, courseKey, { mobile_available: false });
+      await updateAdvancedSettings(api, config, courseKey, { mobile_available: false });
 
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('mobileAvailable', true);
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
 
-      await expect
-        .poll(() => settingValue(request, config, courseKey, 'mobile_available'))
-        .toBe(true);
-      await updateAdvancedSettings(request, config, courseKey, { mobile_available: false });
+      await expect.poll(() => settingValue(api, config, courseKey, 'mobile_available')).toBe(true);
+      await updateAdvancedSettings(api, config, courseKey, { mobile_available: false });
     },
   );
 
   test(
     'enables the calculator',
     { tag: '@regression', annotation: testId('TC-00273') },
-    async ({ request, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateAdvancedSettings(request, config, courseKey, { show_calculator: false });
+      await updateAdvancedSettings(api, config, courseKey, { show_calculator: false });
 
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('showCalculator', true);
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
 
-      await expect
-        .poll(() => settingValue(request, config, courseKey, 'show_calculator'))
-        .toBe(true);
-      await updateAdvancedSettings(request, config, courseKey, { show_calculator: false });
+      await expect.poll(() => settingValue(api, config, courseKey, 'show_calculator')).toBe(true);
+      await updateAdvancedSettings(api, config, courseKey, { show_calculator: false });
     },
   );
 
   test(
     'enables the word cloud advanced module',
     { tag: '@regression', annotation: testId('TC-00300') },
-    async ({ request, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateAdvancedSettings(request, config, courseKey, { advanced_modules: [] });
+      await updateAdvancedSettings(api, config, courseKey, { advanced_modules: [] });
 
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('advancedModules', ['word_cloud']);
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
 
       await expect
-        .poll(() => settingValue(request, config, courseKey, 'advanced_modules'))
+        .poll(() => settingValue(api, config, courseKey, 'advanced_modules'))
         .toEqual(['word_cloud']);
-      await updateAdvancedSettings(request, config, courseKey, { advanced_modules: [] });
+      await updateAdvancedSettings(api, config, courseKey, { advanced_modules: [] });
     },
   );
 
@@ -213,7 +216,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
     'enables the Teams feature',
     { tag: ['@regression', '@teams'], annotation: testId('TC-00274') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       advancedSettingsPage,
@@ -221,14 +224,16 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       newLearner,
     }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateAdvancedSettings(request, config, courseKey, { advanced_modules: [] });
+      await updateAdvancedSettings(api, config, courseKey, { advanced_modules: [] });
 
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('advancedModules', ['teams']);
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
       await expect
-        .poll(() => settingValue(request, config, courseKey, 'advanced_modules'))
+        .poll(() => settingValue(api, config, courseKey, 'advanced_modules'))
         .toEqual(['teams']);
 
       // A Teams tab appears in the learner's course navigation.
@@ -241,7 +246,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
         })
         .toBe(true);
 
-      await updateAdvancedSettings(request, config, courseKey, { advanced_modules: [] });
+      await updateAdvancedSettings(api, config, courseKey, { advanced_modules: [] });
     },
   );
 

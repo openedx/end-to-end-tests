@@ -13,12 +13,14 @@ test.describe('Studio Home', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
   test(
     'shows the platform name',
     { tag: '@regression', annotation: testId('TC-00254') },
-    async ({ request, config, studioHomePage, studioAuthorSession }) => {
+    async ({ page, config, studioHomePage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       await studioHomePage.goto();
 
       // The brand logo's alt is "Studio <platform name>" — the rendered slot.
-      const { platformName } = await fetchStudioHome(request, config);
+      const { platformName } = await fetchStudioHome(api, config);
       await expect(studioHomePage.brandLogo).toHaveAttribute(
         'alt',
         new RegExp(platformName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
@@ -54,8 +56,10 @@ test.describe('Studio Home', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
   test(
     'search narrows the list to matching courses',
     { tag: '@regression', annotation: testId('TC-00256') },
-    async ({ request, config, authoredCourse, studioHomePage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, studioHomePage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       await studioHomePage.goto();
       await studioHomePage.search(authoredCourse.number);
 
@@ -64,12 +68,12 @@ test.describe('Studio Home', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
       await expect
         .poll(async () => {
           const rendered = await studioHomePage.renderedCourseKeys();
-          const api = (
-            await listStudioCourses(request, config, { search: authoredCourse.number })
+          const apiKeys = (
+            await listStudioCourses(api, config, { search: authoredCourse.number })
           ).courses.map((course) => course.courseKey);
           return {
             hasWorkerCourse: rendered.includes(authoredCourse.courseKey),
-            matchesApi: [...rendered].sort().join() === [...api].sort().join(),
+            matchesApi: [...rendered].sort().join() === [...apiKeys].sort().join(),
           };
         })
         .toEqual({ hasWorkerCourse: true, matchesApi: true });
@@ -79,8 +83,10 @@ test.describe('Studio Home', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
   test(
     'the sort control orders the list like the API',
     { tag: '@regression', annotation: testId('TC-00257') },
-    async ({ request, config, studioHomePage, studioAuthorSession }) => {
+    async ({ page, config, studioHomePage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       await studioHomePage.goto();
       await studioHomePage.sortBy('za');
 
@@ -90,10 +96,10 @@ test.describe('Studio Home', { tag: ['@studio', '@author', '@mfe-authoring'] }, 
       await expect
         .poll(async () => {
           const rendered = await studioHomePage.renderedCourseKeys();
-          const api = (
-            await listStudioCourses(request, config, { order: '-display_name' })
+          const apiKeys = (
+            await listStudioCourses(api, config, { order: '-display_name' })
           ).courses.map((course) => course.courseKey);
-          const renderedInApiOrder = api.filter((key) => rendered.includes(key));
+          const renderedInApiOrder = apiKeys.filter((key) => rendered.includes(key));
           return rendered.join() === renderedInApiOrder.join();
         })
         .toBe(true);

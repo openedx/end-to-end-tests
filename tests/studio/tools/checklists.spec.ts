@@ -51,8 +51,10 @@ test.describe('Checklists', { tag: ['@studio', '@author', '@mfe-authoring'] }, (
   test(
     'the launch checklist reflects the validation API',
     { tag: '@regression', annotation: testId('TC-00306') },
-    async ({ page, request, config, authoredCourse, checklistsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, checklistsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
 
       await checklistsPage.goto(courseKey);
@@ -66,7 +68,7 @@ test.describe('Checklists', { tag: ['@studio', '@author', '@mfe-authoring'] }, (
 
       // Each drawn item agrees with the validation API's own verdict.
       const mismatches = async () => {
-        const validation = await fetchCourseValidation(request, config, courseKey);
+        const validation = await fetchCourseValidation(api, config, courseKey);
         const rows = await Promise.all(
           visible.map(async (id) => ({
             id,
@@ -82,25 +84,27 @@ test.describe('Checklists', { tag: ['@studio', '@author', '@mfe-authoring'] }, (
 
       // A settings change the checklist watches: an end date registers in the
       // validation API, and the drawn checklist stays consistent with it.
-      await updateCourseDetails(request, config, courseKey, { end_date: END_DATE });
+      await updateCourseDetails(api, config, courseKey, { end_date: END_DATE });
       await checklistsPage.goto(courseKey);
       await expect
         .poll(async () => ({
-          endDate: (await fetchCourseValidation(request, config, courseKey)).dates.has_end_date,
+          endDate: (await fetchCourseValidation(api, config, courseKey)).dates.has_end_date,
           mismatches: await mismatches(),
         }))
         .toEqual({ endDate: true, mismatches: [] });
 
       // Leave the worker course as the factory made it.
-      await updateCourseDetails(request, config, courseKey, { end_date: null });
+      await updateCourseDetails(api, config, courseKey, { end_date: null });
     },
   );
 
   test(
     'the best-practices checklist reflects course quality',
     { tag: '@regression', annotation: testId('TC-00307') },
-    async ({ request, config, authoredCourse, checklistsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, checklistsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
 
       await checklistsPage.goto(courseKey);
@@ -114,7 +118,7 @@ test.describe('Checklists', { tag: ['@studio', '@author', '@mfe-authoring'] }, (
 
       // Its data source is the quality API; the empty worker course reads as
       // empty (no sections / subsections / units / videos).
-      const quality = await fetchCourseQuality(request, config, courseKey);
+      const quality = await fetchCourseQuality(api, config, courseKey);
       expect({
         sections: quality.sections.total_visible,
         subsections: quality.subsections.total_visible,

@@ -72,10 +72,12 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
   test(
     'sets the course to instructor-paced',
     { tag: '@regression', annotation: testId('TC-00293') },
-    async ({ page, request, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateCourseDetails(request, config, courseKey, { self_paced: true });
+      await updateCourseDetails(api, config, courseKey, { self_paced: true });
 
       await scheduleDetailsPage.goto(courseKey);
       await expect(scheduleDetailsPage.selfPacedRadio).toBeChecked();
@@ -84,8 +86,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       await expect
         .poll(async () => ({
-          studio: (await fetchCourseDetails(request, config, courseKey)).self_paced,
-          lms: (await fetchCourseDetail(request, config, courseKey)).pacing,
+          studio: (await fetchCourseDetails(api, config, courseKey)).self_paced,
+          lms: (await fetchCourseDetail(api, config, courseKey)).pacing,
         }))
         .toEqual({ studio: false, lms: 'instructor' });
 
@@ -105,10 +107,12 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
   test(
     'sets the course to self-paced',
     { tag: '@regression', annotation: testId('TC-00294') },
-    async ({ request, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateCourseDetails(request, config, courseKey, { self_paced: false });
+      await updateCourseDetails(api, config, courseKey, { self_paced: false });
 
       await scheduleDetailsPage.goto(courseKey);
       await expect(scheduleDetailsPage.instructorPacedRadio).toBeChecked();
@@ -117,13 +121,13 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       await expect
         .poll(async () => ({
-          studio: (await fetchCourseDetails(request, config, courseKey)).self_paced,
-          lms: (await fetchCourseDetail(request, config, courseKey)).pacing,
+          studio: (await fetchCourseDetails(api, config, courseKey)).self_paced,
+          lms: (await fetchCourseDetail(api, config, courseKey)).pacing,
         }))
         .toEqual({ studio: true, lms: 'self' });
 
       // Leave the worker course as the factory made it.
-      await updateCourseDetails(request, config, courseKey, { self_paced: false });
+      await updateCourseDetails(api, config, courseKey, { self_paced: false });
     },
   );
 
@@ -131,7 +135,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     'course start and end dates decide learner access and archival',
     { tag: '@regression', annotation: testId('TC-00295') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       scheduleDetailsPage,
@@ -139,8 +143,10 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       newLearner,
     }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
+      await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
 
       // An enrolled learner, kept out only by the schedule.
       const learner = await newLearner();
@@ -159,8 +165,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
       await expect
         .poll(async () => {
-          const studio = await fetchCourseDetails(request, config, courseKey);
-          const lms = await fetchCourseDetail(request, config, courseKey);
+          const studio = await fetchCourseDetails(api, config, courseKey);
+          const lms = await fetchCourseDetail(api, config, courseKey);
           const access = (await fetchCourseMetadata(learner.request, config, courseKey))
             .course_access;
           return {
@@ -180,7 +186,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
       await expect
         .poll(async () => {
-          const lms = await fetchCourseDetail(request, config, courseKey);
+          const lms = await fetchCourseDetail(api, config, courseKey);
           const access = (await fetchCourseMetadata(learner.request, config, courseKey))
             .course_access;
           return { start: lms.start, hasAccess: access.has_access, why: access.error_code };
@@ -196,8 +202,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // course is among the archived, not that it is the only one.
       await expect
         .poll(async () => {
-          const lms = await fetchCourseDetail(request, config, courseKey);
-          const archived = await listStudioCourses(request, config, {
+          const lms = await fetchCourseDetail(api, config, courseKey);
+          const archived = await listStudioCourses(api, config, {
             search: authoredCourse.number,
             archivedOnly: true,
           });
@@ -208,7 +214,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
         })
         .toEqual({ end: iso(PAST_END), archived: true });
 
-      await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
+      await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
     },
   );
 
@@ -216,7 +222,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     'course start and end times are honoured to the minute, in UTC',
     { tag: '@regression', annotation: testId('TC-00296') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       scheduleDetailsPage,
@@ -224,8 +230,10 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       newLearner,
     }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
+      await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
       const learner = await newLearner();
       await enrollInCourseViaApi(learner.request, config, courseKey);
 
@@ -236,7 +244,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
       await expect
         .poll(async () => {
-          const lms = await fetchCourseDetail(request, config, courseKey);
+          const lms = await fetchCourseDetail(api, config, courseKey);
           const access = (await fetchCourseMetadata(learner.request, config, courseKey))
             .course_access;
           return { start: lms.start, hasAccess: access.has_access, why: access.error_code };
@@ -249,7 +257,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
       await expect
         .poll(async () => {
-          const lms = await fetchCourseDetail(request, config, courseKey);
+          const lms = await fetchCourseDetail(api, config, courseKey);
           const access = (await fetchCourseMetadata(learner.request, config, courseKey))
             .course_access;
           return { start: lms.start, hasAccess: access.has_access };
@@ -264,8 +272,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // dates case above): assert this course is among the archived, not the only.
       await expect
         .poll(async () => {
-          const lms = await fetchCourseDetail(request, config, courseKey);
-          const archived = await listStudioCourses(request, config, {
+          const lms = await fetchCourseDetail(api, config, courseKey);
+          const archived = await listStudioCourses(api, config, {
             search: authoredCourse.number,
             archivedOnly: true,
           });
@@ -276,7 +284,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
         })
         .toEqual({ end: iso(justEnded), archived: true });
 
-      await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
+      await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
     },
   );
 
@@ -284,7 +292,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     'sets a custom certificates-available date',
     { tag: '@regression', annotation: testId('TC-00297') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       scheduleDetailsPage,
@@ -293,9 +301,11 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     }) => {
       void studioAuthorSession;
       void certificateAvailableDateField;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       // Instructor-paced with an end date, which is when the fields apply.
-      await updateCourseDetails(request, config, courseKey, {
+      await updateCourseDetails(api, config, courseKey, {
         ...SCHEDULE_BASELINE,
         start_date: iso(PAST),
         end_date: iso(FUTURE),
@@ -309,12 +319,11 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       await expect
         .poll(
-          async () =>
-            (await fetchCourseDetails(request, config, courseKey)).certificate_available_date,
+          async () => (await fetchCourseDetails(api, config, courseKey)).certificate_available_date,
         )
         .toBe(iso(available));
 
-      await updateCourseDetails(request, config, courseKey, {
+      await updateCourseDetails(api, config, courseKey, {
         ...SCHEDULE_BASELINE,
         certificate_available_date: null,
       });
@@ -325,7 +334,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     'enrollment is allowed only within the enrollment dates',
     { tag: '@regression', annotation: testId('TC-00298') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       scheduleDetailsPage,
@@ -333,6 +342,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       newLearner,
     }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
 
       // Confirm the saved window on Studio's own `course_details` — its source of
@@ -343,7 +354,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       const windowSaved = (start: Date | null, end: Date | null) =>
         expect
           .poll(async () => {
-            const d = await fetchCourseDetails(request, config, courseKey);
+            const d = await fetchCourseDetails(api, config, courseKey);
             return [d.enrollment_start ?? null, d.enrollment_end ?? null];
           })
           .toEqual([start && iso(start), end && iso(end)]);
@@ -355,7 +366,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // platform will not move the enrollment start forward once a learner is
       // enrolled (an enrolled learner cannot be stranded outside the window), so no
       // window change follows the enrollment.
-      await updateCourseDetails(request, config, courseKey, {
+      await updateCourseDetails(api, config, courseKey, {
         ...SCHEDULE_BASELINE,
         start_date: ENROLLMENT_COURSE_START,
       });
@@ -392,7 +403,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       await enrollInCourseViaApi(inTime.request, config, courseKey);
       expect(await isEnrolled(inTime.request, config, courseKey)).toBe(true);
 
-      await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
+      await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
     },
   );
 
@@ -400,7 +411,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     'enrollment start and end times are honoured to the minute, in UTC',
     { tag: '@regression', annotation: testId('TC-00299') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       scheduleDetailsPage,
@@ -408,8 +419,10 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       newLearner,
     }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateCourseDetails(request, config, courseKey, {
+      await updateCourseDetails(api, config, courseKey, {
         ...SCHEDULE_BASELINE,
         start_date: ENROLLMENT_COURSE_START,
       });
@@ -422,7 +435,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       const windowSaved = (start: Date | null, end: Date | null) =>
         expect
           .poll(async () => {
-            const d = await fetchCourseDetails(request, config, courseKey);
+            const d = await fetchCourseDetails(api, config, courseKey);
             return [d.enrollment_start ?? null, d.enrollment_end ?? null];
           })
           .toEqual([start && iso(start), end && iso(end)]);
@@ -465,15 +478,17 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       await enrollInCourseViaApi(inTime.request, config, courseKey);
       expect(await isEnrolled(inTime.request, config, courseKey)).toBe(true);
 
-      await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
+      await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
     },
   );
 
   test(
     'uploads and sets the course card image',
     { tag: '@regression', annotation: testId('TC-00302') },
-    async ({ request, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       const fileName = `e2e-card-${getRunId()}-${Date.now().toString(36)}.png`;
 
@@ -491,8 +506,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       await expect
         .poll(async () => {
-          const studio = await fetchCourseDetails(request, config, courseKey);
-          const lms = await fetchCourseDetail(request, config, courseKey);
+          const studio = await fetchCourseDetails(api, config, courseKey);
+          const lms = await fetchCourseDetail(api, config, courseKey);
           return {
             name: studio.course_image_name,
             lmsHasIt: (lms.courseImageUri ?? '').includes(fileName),
@@ -505,10 +520,12 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
   test(
     'adds a YouTube introduction video',
     { tag: '@regression', annotation: testId('TC-00303') },
-    async ({ request, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
+      await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
       // Any well-formed YouTube ID: the page embeds it, the platform stores it.
       const videoId = 'aqz-KE-bpKQ';
 
@@ -520,8 +537,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       await expect
         .poll(async () => {
-          const studio = await fetchCourseDetails(request, config, courseKey);
-          const lms = await fetchCourseDetail(request, config, courseKey);
+          const studio = await fetchCourseDetails(api, config, courseKey);
+          const lms = await fetchCourseDetail(api, config, courseKey);
           return {
             studio: studio.intro_video,
             lmsHasIt: (lms.courseVideoUri ?? '').includes(videoId),
@@ -534,10 +551,12 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
   test(
     'sets the estimated hours of effort',
     { tag: '@regression', annotation: testId('TC-00304') },
-    async ({ request, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, scheduleDetailsPage, studioAuthorSession }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateCourseDetails(request, config, courseKey, SCHEDULE_BASELINE);
+      await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
 
       await scheduleDetailsPage.goto(courseKey);
       await scheduleDetailsPage.setEffort('3:30');
@@ -545,8 +564,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       await expect
         .poll(async () => ({
-          studio: (await fetchCourseDetails(request, config, courseKey)).effort,
-          lms: (await fetchCourseDetail(request, config, courseKey)).effort,
+          studio: (await fetchCourseDetails(api, config, courseKey)).effort,
+          lms: (await fetchCourseDetail(api, config, courseKey)).effort,
         }))
         .toEqual({ studio: '3:30', lms: '3:30' });
     },
@@ -562,7 +581,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     'a prerequisite course blocks learners until they complete it',
     { tag: '@regression', annotation: testId('TC-00305') },
     async ({
-      request,
+      page,
       config,
       authoredCourse,
       scheduleDetailsPage,
@@ -570,11 +589,13 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       newLearner,
     }) => {
       void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
       const { courseKey } = authoredCourse;
       await scheduleDetailsPage.goto(courseKey);
       await scheduleDetailsPage.choosePrerequisite(1);
       expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
-      const details = await fetchCourseDetails(request, config, courseKey);
+      const details = await fetchCourseDetails(api, config, courseKey);
       expect(details.pre_requisite_courses).toHaveLength(1);
 
       const learner = await newLearner();
