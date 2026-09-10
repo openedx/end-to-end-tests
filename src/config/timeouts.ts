@@ -50,4 +50,32 @@ export const TIMEOUTS = {
    * handful of units takes minutes rather than seconds.
    */
   contentTest: 300_000,
+
+  /**
+   * Budget for a Studio course re-run to finish. The copy runs as a Celery task
+   * on the CMS worker; an empty course takes a few seconds, a populated one
+   * proportionally longer.
+   */
+  courseRerun: 120_000,
+
+  /**
+   * Budget for a course export or import task to reach its terminal state. Both
+   * run on the CMS worker; the export of an empty course took about two seconds
+   * when measured, so this is headroom for a populated course and a busy worker.
+   */
+  courseTransfer: 180_000,
+
+  /**
+   * Budget for the worker-scoped course fixture (`authoredCourse`) to provision
+   * its course: one Studio API call plus the search that makes it idempotent.
+   */
+  studioSetup: 60_000,
+
+  /**
+   * Budget for a Studio settings page to answer the write its save bar triggers
+   * (`PUT course_details`, `POST course_grading`). Comfortably above `action`
+   * because several authoring workers save at once on a shared CMS, and the save
+   * button is a stateful control that mounts with the save bar.
+   */
+  studioSettingsSave: 30_000,
 } as const;

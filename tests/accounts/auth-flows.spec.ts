@@ -1,7 +1,13 @@
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { accountSignIn, accountSignInThroughUi, accountSignOutThroughUi } from '../../src/accounts';
+import {
+  accountSignIn,
+  accountSignInStudio,
+  accountSignInThroughUi,
+  accountSignOutThroughUi,
+} from '../../src/accounts';
+import { STUDIO_LOGIN_PATH, STUDIO_ME_PATH } from '../../src/api';
 import { loadConfig, type Env } from '../../src/config';
 import { calls } from './fixtures/auth-flows-backend.plugin';
 
@@ -40,6 +46,12 @@ test.describe('account auth flows — backend overrides', { tag: '@unit' }, () =
     await accountSignIn({ config: pluginConfig(), request: noopRequest, credentials });
 
     expect(calls).toEqual(['signIn:learner@example.com']);
+  });
+
+  test('signInStudio dispatches to the backend', async () => {
+    await accountSignInStudio({ config: pluginConfig(), request: noopRequest, credentials });
+
+    expect(calls).toEqual(['signInStudio:learner@example.com']);
   });
 
   test('signInThroughUi dispatches to the backend', async () => {
@@ -89,6 +101,38 @@ test.describe('account auth flows — defaults', { tag: '@unit' }, () => {
     expect(requested).toEqual([
       'GET http://local.openedx.io/csrf/api/v1/token',
       'POST http://local.openedx.io/api/user/v2/account/login_session/',
+    ]);
+  });
+
+  test('a backend without signInStudio falls back to the cms-sso handshake', async () => {
+    const requested: string[] = [];
+    // Minimal fake: the default flow follows Studio's login URL, then asks Studio
+    // who the session is.
+    const request = {
+      get: (url: string) => {
+        requested.push(`GET ${url}`);
+        return Promise.resolve({
+          ok: () => true,
+          status: () => 200,
+          url: () => url,
+          json: () => Promise.resolve({ username: 'learner-1' }),
+          text: () => Promise.resolve(''),
+        });
+      },
+    } as unknown as APIRequestContext;
+
+    await accountSignInStudio({
+      config: configWith({
+        CMS_BASE_URL: 'http://studio.local.openedx.io',
+        CAPABILITIES: 'studio',
+      }),
+      request,
+      credentials,
+    });
+
+    expect(requested).toEqual([
+      `GET http://studio.local.openedx.io${STUDIO_LOGIN_PATH}`,
+      `GET http://studio.local.openedx.io${STUDIO_ME_PATH}`,
     ]);
   });
 });

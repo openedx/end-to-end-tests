@@ -45,7 +45,7 @@ test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
     expect(config.registrableDomain).toBe('openedx.io');
     expect(config.allowCrossSiteOrigins).toBe(false);
     // Default-on capabilities (stock surfaces) need no declaration.
-    expect([...config.capabilities]).toEqual(['mfe-authn']);
+    expect([...config.capabilities].sort()).toEqual(['frontend-base', 'mfe-authn']);
   });
 
   test('accepts an HTTPS environment including Studio', () => {
@@ -180,13 +180,24 @@ test.describe('loadConfig — shared parent domain', { tag: '@unit' }, () => {
 test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('parses a declared capability list', () => {
     const config = loadConfig(validEnv({ CAPABILITIES: 'discussions, notes' }));
-    expect([...config.capabilities].sort()).toEqual(['discussions', 'mfe-authn', 'notes']);
+    expect([...config.capabilities].sort()).toEqual([
+      'discussions',
+      'frontend-base',
+      'mfe-authn',
+      'notes',
+    ]);
   });
 
   test('turns off a default-on capability with the "-" prefix', () => {
     const config = loadConfig(validEnv({ CAPABILITIES: 'discussions,-mfe-authn' }));
 
-    expect([...config.capabilities]).toEqual(['discussions']);
+    expect([...config.capabilities].sort()).toEqual(['discussions', 'frontend-base']);
+  });
+
+  test('turns off the frontend-base shell for a release on the separate-MFE model', () => {
+    const config = loadConfig(validEnv({ CAPABILITIES: '-frontend-base' }));
+
+    expect([...config.capabilities]).toEqual(['mfe-authn']);
   });
 
   test('rejects opting out of a capability that is off unless declared', () => {
@@ -209,6 +220,23 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('rejects mutually-exclusive capabilities declared together', () => {
     const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'badges,credly-badges' })));
     expect(issues.join('\n')).toContain('mutually-exclusive');
+  });
+
+  test('requires CMS_BASE_URL when studio is declared', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'studio' })));
+    expect(issues.join('\n')).toContain('declares "studio" but CMS_BASE_URL is not set');
+  });
+
+  test('accepts studio with a Studio origin', () => {
+    const config = loadConfig(
+      validEnv({ CAPABILITIES: 'studio', CMS_BASE_URL: 'http://studio.local.openedx.io' }),
+    );
+    expect(config.capabilities.has('studio')).toBe(true);
+    expect(config.baseUrls.studio).toBe('http://studio.local.openedx.io');
+  });
+
+  test('leaves CMS_BASE_URL optional without studio', () => {
+    expect(loadConfig(validEnv({ CAPABILITIES: 'notes' })).baseUrls.studio).toBeUndefined();
   });
 });
 

@@ -1,5 +1,9 @@
+import type { APIRequestContext } from '@playwright/test';
+
+import { hasStudioSession } from '../api';
 import type { AppConfig } from '../config';
 import { AuthError } from './errors';
+import type { Role } from './roles';
 import type { StorageState } from './types';
 
 /**
@@ -49,5 +53,36 @@ export function assertAuthCookiesPresent(state: StorageState, config: AppConfig)
   throw new AuthError(
     `Post-login preflight failed: no "${AUTH_JWT_COOKIE}" cookie was captured, ` +
       `so the stored session is anonymous rather than authenticated.${httpHint}`,
+  );
+}
+
+/** Roles whose stored state must also authenticate Studio when `studio` is declared. */
+const STUDIO_ROLES: ReadonlySet<Role> = new Set<Role>(['author', 'staff']);
+
+/**
+ * Post-login preflight for Studio: when the target declares `studio`, the roles
+ * that author (`author`, `staff`) must hold a Studio session as well as an LMS
+ * one. The LMS cookies alone are not enough — Studio has its own session,
+ * obtained through a silent OAuth handshake (`establishStudioSession`) — and
+ * the cookie name is operator-configurable, so the check asks Studio who the
+ * session is instead of looking for a cookie.
+ *
+ * @throws {AuthError} when Studio answers that there is no session.
+ */
+export async function assertStudioSessionPresent(
+  request: APIRequestContext,
+  config: AppConfig,
+  role: Role,
+): Promise<void> {
+  if (!config.capabilities.has('studio') || !STUDIO_ROLES.has(role)) {
+    return;
+  }
+  if (await hasStudioSession(request, config)) {
+    return;
+  }
+  throw new AuthError(
+    `Post-login preflight failed for "${role}": the LMS session is present but Studio ` +
+      `(${config.baseUrls.studio ?? 'CMS_BASE_URL'}) reports no session. The provider must ` +
+      'complete the Studio SSO handshake (see establishStudioSession) before capturing state.',
   );
 }
