@@ -1,6 +1,14 @@
 import path from 'node:path';
 
-import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
+import {
+  test as base,
+  expect,
+  type APIRequestContext,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type PlaywrightWorkerArgs,
+} from '@playwright/test';
 
 import {
   AccountNotConfiguredError,
@@ -26,8 +34,16 @@ import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
 import { AUTH_STATE_DIR, authStateFile, isUsableStateFile, persistStorageState } from '../auth';
 import {
+  buildSection,
+  DEFAULT_SECTION_SHAPE,
   ensureCourse,
   establishStudioSession,
+  fetchCourseNavigation,
+  fetchSequenceMetadata,
+  updateAdvancedSettings,
+  updateCourseDetails,
+  type AuthoredSection,
+  type SectionShape,
   StudioSessionExpiredError,
   newCourseIdentity,
   studioOrigin,
@@ -247,6 +263,68 @@ export interface TestFixtures {
    * neither can. What TC-00248 needs.
    */
   newOrgCreator: NewOrgCreator;
+  /**
+   * A section of this test's own in the worker's {@link WorkerFixtures.contentCourse},
+   * built through the xblock API in the default shape (one subsection, one unit
+   * with a text block and a multiple-choice problem), units left **unpublished**
+   * so publishing is the spec's own act. Named after the test and run, so two
+   * tests sharing the course never confuse their content and a spec may match
+   * these names in the LMS as its own data.
+   */
+  ownSection: AuthoredSection;
+  /**
+   * Builds further sections of this test's own in the content course, for specs
+   * whose case needs a different shape (a graded subsection, a gating pair, a
+   * video unit). Each call gets a distinct label.
+   */
+  authorSection: (shape?: SectionShape, label?: string) => Promise<AuthoredSection>;
+  /**
+   * The learner half of a round trip: a fresh account enrolled in the content
+   * course, holding its **own** browser context and request context so the
+   * author's session on `page`/`request` is never touched (the platform's
+   * `PREVENT_CONCURRENT_LOGINS` would otherwise evict one of them). Both
+   * contexts are disposed when the test ends.
+   */
+  roundTripLearner: RoundTripLearner;
+  /**
+   * Two independent {@link roundTripLearner}s — for a case whose point is that
+   * two learners see different content (a cohort-restricted unit).
+   */
+  roundTripLearners: readonly [RoundTripLearner, RoundTripLearner];
+  /** A {@link roundTripLearner} enrolled in the not-yet-started {@link WorkerFixtures.futureCourse}. */
+  futureCourseLearner: RoundTripLearner;
+}
+
+/** What {@link TestFixtures.roundTripLearner} hands a spec. */
+export interface RoundTripLearner {
+  readonly identity: LearnerIdentity;
+  readonly courseKey: string;
+  /** Request context holding this learner's LMS session. */
+  readonly request: APIRequestContext;
+  /** Browser context (and its one page) carrying the same session. */
+  readonly context: BrowserContext;
+  readonly page: Page;
+  /** Courseware unit page object bound to this learner's page. */
+  readonly unitPage: UnitPage;
+  /** Course-home outline page object bound to this learner's page. */
+  readonly courseOutlinePage: CourseOutlinePage;
+  /**
+   * The course structure **as this learner sees it** (Blocks API): unreleased,
+   * hidden, group-restricted and unsatisfied-gated blocks are absent. The
+   * outcome reading of every visibility round trip — poll it under
+   * `TIMEOUTS.contentPublish` after an authoring change.
+   */
+  outline: () => Promise<CourseOutline>;
+  /** One subsection as this learner sees it, or `undefined` when it is not served to them. */
+  sequence: (sequentialId: string) => ReturnType<typeof fetchSequenceMetadata>;
+  /** The course-home navigation model as this learner sees it. */
+  navigation: () => ReturnType<typeof fetchCourseNavigation>;
+  /**
+   * Renders one subsection for this learner through the API before the browser
+   * does — the AnonymousUserId race workaround (`primeCoursewareForLearner`).
+   * Call it with the test's own subsection before opening a unit in the browser.
+   */
+  prime: (sequentialId: string) => Promise<void>;
 }
 
 /** What one {@link TestFixtures.newLearner} call hands a spec. */
@@ -313,6 +391,22 @@ export interface WorkerFixtures {
    * file that project loads, and fails with a pointer here when it is missing.
    */
   authoredCourse: AuthoredCourse;
+  /**
+   * The course the authoring round-trip specs build content in — one per worker,
+   * distinct from {@link authoredCourse} because the settings specs move that
+   * course's schedule and enrollment window around, which would make a learner's
+   * ability to enroll here depend on test order. Seeded once: start date in the
+   * past (a new course starts in 2040 by default) and subsection gating enabled.
+   * Specs share it **by section**: each builds its own (`ownSection`) and never
+   * touches another test's.
+   */
+  contentCourse: AuthoredCourse;
+  /**
+   * A course left at its default **future** start date (2040), never edited: what
+   * the future-dated publish cases need, and the destination for cross-course
+   * paste. One per worker.
+   */
+  futureCourse: AuthoredCourse;
 }
 
 /** What {@link WorkerFixtures.workerAuthor} holds. */
@@ -374,6 +468,154 @@ function pageObjectFixture<T>(
   return async ({ page, config }, use) => {
     await use(new Ctor(page, config));
   };
+}
+
+/**
+ * The fixed, far-past start date the content course gets, so every learner the
+ * suite enrolls can reach its content. A constant rather than "now": the
+ * release-date specs place their own dates on either side of it.
+ */
+export const CONTENT_COURSE_START = '2000-01-01T00:00:00Z';
+
+/**
+ * Provisions one worker-scoped course as the worker's author — the body every
+ * worker-course fixture shares (`authoredCourse`, `contentCourse`, `futureCourse`).
+ *
+ * Creates the course for `identity` (idempotently: a restarted worker lands on
+ * its predecessor's course), recovering once from a Studio session that the CI
+ * target evicted from its shared cache (it does so spuriously, at any time, with
+ * no logout event). This is also the immediate, self-verifying check that the
+ * just-provisioned author can actually author: a genuinely broken session fails
+ * loudly here at worker setup instead of cascading through every spec. Loads the
+ * captured session if the file is intact; a torn one (an OOM kill mid-write) opens
+ * anonymous and the create's recovery signs in fresh.
+ *
+ * `seed` runs after the course exists, on the same authenticated context, for
+ * the one-time settings a fixture needs on its course; it must be idempotent.
+ */
+async function provisionWorkerCourse(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  workerAuthor: WorkerAuthor | undefined,
+  identity: CourseIdentity,
+  seed?: (request: APIRequestContext, courseKey: string) => Promise<void>,
+): Promise<AuthoredCourse> {
+  const config = getConfig();
+  if (workerAuthor === undefined) {
+    throw new Error(
+      `The worker course ${identity.courseKey} needs the worker author, which only the ` +
+        '"studio-author" project provides. Run Studio specs in that project.',
+    );
+  }
+  const authorState = workerAuthor.stateFile;
+  const credentials = {
+    emailOrUsername: workerAuthor.identity.username,
+    password: DEFAULT_PASSWORD,
+  };
+
+  let request = await playwright.request.newContext(
+    isUsableStateFile(authorState) ? { storageState: authorState } : {},
+  );
+  try {
+    // Best-effort: give this context a Studio session off the captured LMS
+    // session (the silent SSO handshake; a no-op when it already has one) and
+    // persist it so the per-test `request`/`page` contexts that load the state
+    // file start authenticated too. If the captured session is already gone the
+    // handshake cannot establish one — fall through, the create below detects
+    // that and recovers.
+    try {
+      await establishStudioSession(request, config);
+      persistStorageState(await request.storageState(), authorState);
+    } catch {
+      // Left to the create's own recovery below.
+    }
+
+    let courseKey: string;
+    try {
+      courseKey = await ensureCourse(request, config, identity);
+    } catch (error) {
+      if (!(error instanceof StudioSessionExpiredError)) throw error;
+      // The captured session was gone and cannot be recovered in place — a
+      // credential sign-in is refused on a jar that still holds session cookies,
+      // and an `APIRequestContext` cannot clear them. So sign in fresh on a clean
+      // context, persist it for the per-test contexts, and retry the create.
+      await request.dispose();
+      request = await playwright.request.newContext();
+      await reauthenticateStudioAuthor(request, config, credentials);
+      persistStorageState(await request.storageState(), authorState);
+      courseKey = await ensureCourse(request, config, identity);
+    }
+    if (seed !== undefined) {
+      await seed(request, courseKey);
+    }
+    return {
+      ...identity,
+      courseKey,
+      studioUrl: `${studioOrigin(config)}/course/${courseKey}`,
+    };
+  } finally {
+    await request.dispose();
+  }
+}
+
+/**
+ * A learner of the test's own, enrolled in `courseKey`, with a request context
+ * and a browser context both carrying the session. The caller disposes both.
+ */
+async function provisionRoundTripLearner(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  browser: Browser,
+  config: AppConfig,
+  courseKey: string,
+): Promise<RoundTripLearner> {
+  const request = await playwright.request.newContext();
+  const identity = await provisionLearnerSession(request, config);
+  await enrollInCourseViaApi(request, config, courseKey);
+  const context = await browser.newContext();
+  await context.addCookies((await request.storageState()).cookies);
+  const page = await context.newPage();
+  return {
+    identity,
+    courseKey,
+    request,
+    context,
+    page,
+    unitPage: new UnitPage(page, config),
+    courseOutlinePage: new CourseOutlinePage(page, config),
+    outline: () => fetchCourseOutline(request, config, courseKey, identity.username),
+    sequence: (sequentialId) => fetchSequenceMetadata(request, config, sequentialId),
+    navigation: () => fetchCourseNavigation(request, config, courseKey),
+    prime: (sequentialId) => primeCoursewareForLearner(request, config, sequentialId),
+  };
+}
+
+async function disposeRoundTripLearner(learner: RoundTripLearner): Promise<void> {
+  await learner.context.close();
+  await learner.request.dispose();
+}
+
+/**
+ * Ensures the per-test `request` context holds a **live Studio Django session**
+ * before it drives the legacy session-authed xblock writes (`POST /xblock/`).
+ *
+ * The context loads the worker author's captured state, whose Studio session may
+ * have been evicted by a later CMS login of the same author (the three
+ * worker-course fixtures each establish one; `PREVENT_CONCURRENT_LOGINS` keeps
+ * only the last). The write then 302s to sign-in — a JWT read like
+ * `fetchXBlockOutline` survives, but the session-only write cannot. The SSO
+ * handshake trades the still-live LMS session on this context for a fresh Studio
+ * session, which is exactly what those writes need. Idempotent: a no-op when the
+ * session is already live.
+ */
+async function establishAuthorWriteSession(
+  request: APIRequestContext,
+  config: AppConfig,
+): Promise<void> {
+  await establishStudioSession(request, config);
+}
+
+/** A section label unique to this test and run, safe to match as the test's own data. */
+function sectionLabel(testInfo: { testId: string; retry: number }, ordinal: number): string {
+  return `E2E ${getRunId()} ${testInfo.testId.slice(-6)}R${testInfo.retry} S${ordinal}`;
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -584,72 +826,56 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   authoredCourse: [
     async ({ playwright, workerAuthor }, use, workerInfo) => {
-      const config = getConfig();
-      if (workerAuthor === undefined) {
-        throw new Error(
-          'authoredCourse needs the worker author, which only the "studio-author" project ' +
-            'provides. Run Studio specs in that project.',
-        );
-      }
-      const authorState = workerAuthor.stateFile;
-
       // The identity is keyed on the run id (shared by all workers, minted in
       // global setup) and this worker's parallel slot, so a restarted worker
       // reuses its predecessor's course instead of creating another.
-      const identity = newCourseIdentity(config, getRunId(), `W${workerInfo.parallelIndex}`);
+      const identity = newCourseIdentity(getConfig(), getRunId(), `W${workerInfo.parallelIndex}`);
+      await use(await provisionWorkerCourse(playwright, workerAuthor, identity));
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
 
-      const credentials = {
-        emailOrUsername: workerAuthor.identity.username,
-        password: DEFAULT_PASSWORD,
-      };
-
-      // Create the worker's course, recovering once from a Studio session that the
-      // CI target evicted from its shared cache (it does so spuriously, at any time,
-      // with no logout event). This is also the immediate, self-verifying check that
-      // the just-provisioned author can actually author: a genuinely broken session
-      // fails loudly here at worker setup instead of cascading through every spec.
-      // Load the captured session if the file is intact; a torn one (an OOM kill
-      // mid-write) opens anonymous and the create's recovery signs in fresh.
-      let request = await playwright.request.newContext(
-        isUsableStateFile(authorState) ? { storageState: authorState } : {},
+  contentCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}C`,
+        'content',
       );
-      try {
-        // Best-effort: give this context a Studio session off the captured LMS
-        // session (the silent SSO handshake; a no-op when it already has one) and
-        // persist it so the per-test `request`/`page` contexts that load the state
-        // file start authenticated too. If the captured session is already gone the
-        // handshake cannot establish one — fall through, the create below detects
-        // that and recovers.
-        try {
-          await establishStudioSession(request, config);
-          persistStorageState(await request.storageState(), authorState);
-        } catch {
-          // Left to the create's own recovery below.
-        }
+      await use(
+        await provisionWorkerCourse(
+          playwright,
+          workerAuthor,
+          identity,
+          async (request, courseKey) => {
+            // Learners must be able to reach the content: a new course starts in
+            // 2040. Re-applied on every provisioning (idempotent), so a restarted
+            // worker never inherits a half-seeded course.
+            await updateCourseDetails(request, config, courseKey, {
+              start_date: CONTENT_COURSE_START,
+            });
+            await updateAdvancedSettings(request, config, courseKey, {
+              enable_subsection_gating: true,
+            });
+          },
+        ),
+      );
+    },
+    // Two extra Studio writes on top of the create.
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
+  ],
 
-        let courseKey: string;
-        try {
-          courseKey = await ensureCourse(request, config, identity);
-        } catch (error) {
-          if (!(error instanceof StudioSessionExpiredError)) throw error;
-          // The captured session was gone and cannot be recovered in place — a
-          // credential sign-in is refused on a jar that still holds session cookies,
-          // and an `APIRequestContext` cannot clear them. So sign in fresh on a clean
-          // context, persist it for the per-test contexts, and retry the create.
-          await request.dispose();
-          request = await playwright.request.newContext();
-          await reauthenticateStudioAuthor(request, config, credentials);
-          persistStorageState(await request.storageState(), authorState);
-          courseKey = await ensureCourse(request, config, identity);
-        }
-        await use({
-          ...identity,
-          courseKey,
-          studioUrl: `${studioOrigin(config)}/course/${courseKey}`,
-        });
-      } finally {
-        await request.dispose();
-      }
+  futureCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const identity = newCourseIdentity(
+        getConfig(),
+        getRunId(),
+        `W${workerInfo.parallelIndex}F`,
+        'future',
+      );
+      await use(await provisionWorkerCourse(playwright, workerAuthor, identity));
     },
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
@@ -853,6 +1079,74 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         await staff.dispose();
       }
     });
+  },
+
+  ownSection: async ({ request, config, contentCourse }, use, testInfo) => {
+    await establishAuthorWriteSession(request, config);
+    await use(
+      await buildSection(
+        request,
+        config,
+        contentCourse.courseKey,
+        sectionLabel(testInfo, 0),
+        DEFAULT_SECTION_SHAPE,
+      ),
+    );
+  },
+
+  authorSection: async ({ request, config, contentCourse }, use, testInfo) => {
+    let ordinal = 0;
+    await use(async (shape = DEFAULT_SECTION_SHAPE, label) => {
+      ordinal += 1;
+      await establishAuthorWriteSession(request, config);
+      return buildSection(
+        request,
+        config,
+        contentCourse.courseKey,
+        label ?? sectionLabel(testInfo, ordinal),
+        shape,
+      );
+    });
+  },
+
+  roundTripLearner: async ({ playwright, browser, config, contentCourse }, use) => {
+    const learner = await provisionRoundTripLearner(
+      playwright,
+      browser,
+      config,
+      contentCourse.courseKey,
+    );
+    try {
+      await use(learner);
+    } finally {
+      await disposeRoundTripLearner(learner);
+    }
+  },
+
+  roundTripLearners: async ({ playwright, browser, config, contentCourse }, use) => {
+    const learners = await Promise.all([
+      provisionRoundTripLearner(playwright, browser, config, contentCourse.courseKey),
+      provisionRoundTripLearner(playwright, browser, config, contentCourse.courseKey),
+    ]);
+    try {
+      await use([learners[0], learners[1]]);
+    } finally {
+      await Promise.all(learners.map(disposeRoundTripLearner));
+    }
+  },
+
+  futureCourseLearner: async ({ playwright, browser, config, futureCourse }, use) => {
+    const learner = await provisionRoundTripLearner(
+      playwright,
+      browser,
+      config,
+      futureCourse.courseKey,
+    );
+    try {
+      await use(learner);
+    } finally {
+      await disposeRoundTripLearner(learner);
+    }
   },
 
   completionUnits: async ({ courseOutline }, use) => {

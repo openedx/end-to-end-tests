@@ -109,10 +109,16 @@ export async function fetchCourseOutline(
   config: AppConfig,
   courseKey: string,
   username: string,
+  options: { readonly allBlocks?: boolean } = {},
 ): Promise<CourseOutline> {
+  // `all_blocks=true` is the **author's control reading**: as course staff it
+  // lists unreleased, staff-only, group-restricted and gated blocks too, so a spec
+  // can show a hidden block still exists while the learner's reading omits it.
+  // A learner asking for it is refused, so it is never the outcome reading.
   const url =
     `${config.baseUrls.lms}${COURSE_BLOCKS_PATH}?course_id=${encodeURIComponent(courseKey)}` +
-    `&username=${encodeURIComponent(username)}&depth=all&requested_fields=${REQUESTED_FIELDS}`;
+    `&username=${encodeURIComponent(username)}&depth=all&requested_fields=${REQUESTED_FIELDS}` +
+    (options.allBlocks === true ? '&all_blocks=true' : '');
   const response = await request.get(url);
 
   if (!response.ok()) {
@@ -191,4 +197,99 @@ export function buildOutline(
   visit(rootId);
 
   return { courseKey, rootId, chapterIds, sequentialIds, units, blocks };
+}
+
+/** What the learning MFE loads for a subsection: its units and whether it is gated. */
+export interface SequenceMetadata {
+  readonly items: readonly {
+    readonly id: string;
+    readonly type: string;
+    readonly page_title: string;
+    readonly graded: boolean;
+    readonly complete: boolean | null;
+    readonly is_gated?: boolean;
+  }[];
+  readonly gated_content: {
+    readonly gated: boolean;
+    readonly prereq_id: string | null;
+    readonly prereq_url: string | null;
+    readonly prereq_section_name: string | null;
+    readonly gated_section_name: string;
+  };
+  readonly is_time_limited: boolean;
+  readonly display_name: string;
+  readonly [field: string]: unknown;
+}
+
+/**
+ * The learner's view of one subsection, or `undefined` when the platform does not
+ * serve it to them at all (**404**: unreleased, hidden from learners, or a course
+ * that has not started). Returned rather than thrown because "not reachable" is
+ * an outcome the visibility specs assert. A gated subsection is served with
+ * `gated_content.gated: true` and every item `is_gated`.
+ *
+ * @throws {ApiError} on any other non-2xx status.
+ */
+export async function fetchSequenceMetadata(
+  request: APIRequestContext,
+  config: AppConfig,
+  sequentialId: string,
+): Promise<SequenceMetadata | undefined> {
+  const url = `${config.baseUrls.lms}${COURSEWARE_SEQUENCE_PATH}${encodeURIComponent(sequentialId)}`;
+  const response = await request.get(url);
+  if (response.status() === 404) return undefined;
+  if (!response.ok()) {
+    throw new ApiError(`Reading the sequence ${sequentialId} failed (HTTP ${response.status()}).`, {
+      status: response.status(),
+      url,
+      body: await response.text(),
+    });
+  }
+  return (await response.json()) as SequenceMetadata;
+}
+
+/** The learner's course-home navigation model: every block with its type and unit icon. */
+export const COURSE_NAVIGATION_PATH = '/api/course_home/v1/navigation/';
+
+export interface NavigationBlock {
+  readonly id: string;
+  /** `chapter`, `sequential`, `vertical` — or **`lock`** for a gated subsection. */
+  readonly type: string;
+  readonly display_name: string;
+  readonly children: readonly string[];
+  /** On units: `problem`, `video`, `other`, … — what the sidebar's unit icon shows. */
+  readonly icon: string | null;
+  readonly complete: boolean;
+  readonly hide_from_toc: boolean;
+}
+
+export interface CourseNavigation {
+  readonly blocks: Readonly<Record<string, NavigationBlock>>;
+  readonly [field: string]: unknown;
+}
+
+/**
+ * The learner's navigation model, or `undefined` when the course is not open to
+ * them (403, e.g. not started). Hidden blocks are absent; a gated subsection is
+ * present with `type: "lock"`.
+ */
+export async function fetchCourseNavigation(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<CourseNavigation | undefined> {
+  const url = `${config.baseUrls.lms}${COURSE_NAVIGATION_PATH}${courseKey}`;
+  const response = await request.get(url);
+  if (response.status() === 403) return undefined;
+  if (!response.ok()) {
+    throw new ApiError(
+      `Reading the navigation of ${courseKey} failed (HTTP ${response.status()}).`,
+      {
+        status: response.status(),
+        url,
+        body: await response.text(),
+      },
+    );
+  }
+  return (await response.json()) as CourseNavigation;
 }

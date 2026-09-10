@@ -344,6 +344,7 @@ jobs:
           LOGISTRATION_API_RATELIMIT = "100/m"
 
           ENABLE_COURSE_DISCOVERY = True
+          ENABLE_COURSEWARE_INDEX = True
           SKIP_EMAIL_VALIDATION = True
 
           # Releases before main still read these from FEATURES; main has
