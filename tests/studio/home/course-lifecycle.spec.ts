@@ -29,8 +29,18 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
   test(
     're-runs a course into a new run, and archives it once ended',
     { tag: '@regression', annotation: [testId('TC-00251'), testId('TC-00253')] },
-    async ({ page, request, config, authoredCourse, studioHomePage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, studioHomePage, studioAuthorSession }) => {
       void studioAuthorSession;
+
+      // Drive the API off the browser context's own session (`page.request`), not a
+      // standalone `request` fixture. The re-run is a legacy `POST /course/` that
+      // authenticates by the Studio Django session cookie (no JWT fallback), and
+      // `studioAuthorSession`'s cms-sso handshake logs the author into Studio in the
+      // browser — which, under `PREVENT_CONCURRENT_LOGINS`, ends the author's other
+      // Studio session, i.e. a separate `request` context's. Sharing the browser's
+      // session is the one that survives (settings writes over DRF would ride the JWT,
+      // but the re-run cannot). See `studio-browser-session-decays` findings.
+      const api = page.request;
 
       // A re-run is a new **run** of the worker course — same org+number, a new run
       // (re-running into a new number is refused for the author). The copy runs on
@@ -42,12 +52,12 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
         displayName: `${authoredCourse.displayName} rerun`,
         courseKey: courseKeyFor(authoredCourse.org, authoredCourse.number, 'rerun'),
       };
-      const destKey = await rerunCourse(request, config, authoredCourse.courseKey, destination);
+      const destKey = await rerunCourse(api, config, authoredCourse.courseKey, destination);
       expect(destKey).toBe(destination.courseKey);
-      await waitForRerun(request, config, destKey);
+      await waitForRerun(api, config, destKey);
 
       // TC-00251: the re-run destination exists and appears in Studio Home.
-      expect(await courseExists(request, config, destKey)).toBe(true);
+      expect(await courseExists(api, config, destKey)).toBe(true);
       await studioHomePage.goto();
       await studioHomePage.search(authoredCourse.number);
       await expect.poll(() => studioHomePage.renderedCourseKeys()).toContain(destKey);
@@ -57,11 +67,11 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
       // TC-00253: end it in the past → the platform files it as archived, and both
       // the archived-only query and the Archived filter list it (while the default
       // active view no longer does).
-      await updateCourseDetails(request, config, destKey, { end_date: PAST_END });
+      await updateCourseDetails(api, config, destKey, { end_date: PAST_END });
       await expect
         .poll(async () =>
           (
-            await listStudioCourses(request, config, {
+            await listStudioCourses(api, config, {
               search: authoredCourse.number,
               archivedOnly: true,
             })

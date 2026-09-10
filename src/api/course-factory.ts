@@ -310,8 +310,17 @@ export async function rerunCourse(
 }
 
 /**
- * Waits until a re-run has left Studio Home's in-process list, polling the home
- * API under `TIMEOUTS.courseRerun`.
+ * Waits until a re-run has actually produced its destination course, polling
+ * under `TIMEOUTS.courseRerun`.
+ *
+ * "Done" is judged by the destination course *existing* (a direct modulestore
+ * read), never by Studio Home's in-process list being empty: the re-run is a
+ * Celery task, and under load the CMS worker can be slow to pick it up, so the
+ * destination is briefly absent from that list because it has **not started
+ * yet** — indistinguishable from "finished". Treating an empty list as done
+ * returns before the copy exists, and the caller then sees the course missing.
+ * The in-process list is still read, but only to surface a reported failure
+ * promptly instead of waiting out the whole budget.
  *
  * @throws {ApiError} when the platform reports the re-run failed, or the budget
  *   runs out.
@@ -325,10 +334,10 @@ export async function waitForRerun(
   const deadline = Date.now() + timeoutMs;
   const pollMs = 1_000;
   for (;;) {
+    if (await courseExists(request, config, destinationCourseKey)) return;
     const home = await fetchStudioHome(request, config);
     const action = home.inProcessCourseActions.find((a) => a.courseKey === destinationCourseKey);
-    if (action === undefined) return;
-    if (action.isFailed) {
+    if (action?.isFailed) {
       throw new ApiError(`The re-run into ${destinationCourseKey} failed on the CMS worker.`, {
         status: 200,
         url: `${studioOrigin(config)}/api/contentstore/v1/home`,
@@ -337,8 +346,9 @@ export async function waitForRerun(
     }
     if (Date.now() + pollMs > deadline) {
       throw new ApiError(
-        `The re-run into ${destinationCourseKey} was still in progress after ${timeoutMs} ms.`,
-        { status: 200, url: '', body: JSON.stringify(action) },
+        `The re-run into ${destinationCourseKey} did not produce the destination course ` +
+          `within ${timeoutMs} ms.`,
+        { status: 200, url: '', body: action ? JSON.stringify(action) : 'no in-process action' },
       );
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
