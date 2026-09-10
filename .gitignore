@@ -25,3 +25,6 @@ dist/
 
 # Local scratch notes and probes, never committed.
 .private/
+
+# Skill script output
+**/__pycache__/
