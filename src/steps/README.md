@@ -6,7 +6,15 @@ course", "complete a unit".
 
 Steps sit above page objects and below fixtures/specs. A step orchestrates
 several single-surface actions into one meaningful user flow that multiple specs
-can reuse.
+can reuse — e.g.:
+
+- `studio.ts` — the Studio authoring flows: `createCourseThroughStudioHome` (open
+  the New Course form, submit, follow the MFE to the new outline),
+  `grantCourseCreatorThroughAdmin`, and the Studio-SSO helpers
+  (`establishStudioBrowserSession` / `signInToStudioThroughUi`).
+- `gating.ts` — `satisfyPrerequisiteByScore` (answer a prerequisite problem
+  correctly through the LMS `problem_check` handler so a score-gated subsection
+  unlocks) and `submitProblem` (submit an answer and return the platform's grade).
 
 Rules:
 

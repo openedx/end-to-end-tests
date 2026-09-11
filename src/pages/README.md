@@ -15,6 +15,12 @@ Page objects live in the same platform-domain folder as the specs that use them,
 - `pages/studio/settings/schedule-details.page.ts` and `grading.page.ts` serve
   `tests/studio/settings/*.spec.ts`; each exposes `save(courseKey)`, which
   presses the settings save bar and returns the status of the write it causes
+- `pages/studio/course-outline.page.ts` is the authoring MFE's course outline
+  (build the section/subsection/unit tree, publish); `unit.page.ts` is the unit
+  (container) page and `outline-configure.dialog.ts` the Configure dialog opened
+  from an outline card (release dates, visibility, grading, prerequisites)
+- `pages/studio/editors/text-editor.ts` and `video-editor.ts` drive the text
+  (TinyMCE) and video component editors the add-component tiles open
 
 A component rendered _inside_ a surface — an XBlock in a unit — is a `*.block.ts`
 object beside its page (`courseware/problem.block.ts`), constructed with the

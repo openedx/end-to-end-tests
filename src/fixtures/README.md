@@ -43,4 +43,27 @@ Rules:
 - **Learners for the LMS half of a Studio case.** `newLearner()` provisions a
   fresh learner per call on a request context of its own (the author's `request`
   must stay the author's), disposed when the test ends.
+- **Two content courses per worker.** `contentCourse` (seeded past-start with
+  subsection gating on) is where the authoring round-trip specs build content —
+  each builds its own section (`ownSection` / `authorSection`) and never touches
+  another's — and `futureCourse` keeps a default 2040 start for future-dated
+  publish and cross-course-paste cases. Both are worker-scoped and are the
+  round-trip budget's two content courses, distinct from `authoredCourse` (which
+  the settings specs move around). `authoringCourse` is a **fresh, empty** course
+  per test, for building the outline through the UI where unambiguous
+  `.first()`/`.last()` card lookups matter.
+- **A round-trip learner is never the author's page.** `roundTripLearner` (and
+  `roundTripLearners`, `futureCourseLearner`, `authoringCourseLearner` /
+  `authoringCourseLearners`) each provision a fresh account enrolled in the
+  matching course, holding **their own** browser context and request — the
+  author's `page`/`request` are untouched, or `PREVENT_CONCURRENT_LOGINS` would
+  evict one of the two sessions.
+- **A staff API session for the global-staff-only reads.** `adminApi` hands a
+  spec a superuser API context (Studio SSO completed) under the admin-session
+  lock, for the few author-side actions the author cannot do — reindexing a
+  course, reading the staff-only `reindex_link`.
+- **Cohort fixtures need session auth.** The LMS cohort views are Django
+  session-auth, not JWT: drive them from a fresh `loginSession` on a throwaway
+  context, not the author's JWT-only session (see the `api/` README /
+  `studio-auth-resilience.md`).
 - This is the only layer that reaches across all the others.
