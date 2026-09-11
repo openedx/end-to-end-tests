@@ -63,9 +63,9 @@ test.describe(
         page,
         config,
         studioCourseOutlinePage,
-        contentCourse,
+        authoringCourse,
         studioAuthorSession,
-        roundTripLearner,
+        authoringCourseLearner,
       }) => {
         void studioAuthorSession;
         const label = sectionLabel(test.info());
@@ -73,24 +73,21 @@ test.describe(
         const subsectionName = `${label} subsection`;
         const unitName = `${label} unit`;
 
-        await studioCourseOutlinePage.goto(contentCourse.courseKey);
+        // A fresh, empty course of this test's own, so the outline holds only what
+        // this test creates — card lookups are unambiguous and the page stays light.
+        await studioCourseOutlinePage.goto(authoringCourse.courseKey);
 
         // Author the tree through the UI, capturing the usage keys the platform
-        // assigns. Each new child is added under the card just created (the last
-        // of its level in this test's run); the content course is shared, so once
-        // the unit exists every level is named by locating the card that contains
-        // it — never by its position or its default text.
+        // assigns. The course is this test's own and starts empty, so the new
+        // section is the only one; child adds are scoped within it.
         const sectionKey = await studioCourseOutlinePage.addSection();
-        // The new section is appended last; capture that card and scope the child
-        // adds within it, so a subsection or unit from another (collapsed) section
-        // in the shared course is never targeted.
         const sectionCard = studioCourseOutlinePage.sectionCards.last();
         const subsectionKey = await studioCourseOutlinePage.addSubsection(sectionCard);
         const subsectionCard = sectionCard.locator('[data-testid="subsection-card"]').last();
         // "New unit" navigates to the unit page; come back to the outline to name
         // and publish the tree there.
         const unitKey = await studioCourseOutlinePage.addUnit(subsectionCard);
-        await studioCourseOutlinePage.goto(contentCourse.courseKey);
+        await studioCourseOutlinePage.goto(authoringCourse.courseKey);
         // A reloaded outline is collapsed; collapsed sections do not render their
         // child cards, so expand before locating them by usage key.
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -132,11 +129,11 @@ test.describe(
         // Round trip: the learner's Blocks API lists the unit under the named
         // subsection, and the names are the ones the author typed.
         await expect
-          .poll(async () => (await roundTripLearner.outline()).units.map((u) => u.id), {
+          .poll(async () => (await authoringCourseLearner.outline()).units.map((u) => u.id), {
             timeout: TIMEOUTS.contentPublish,
           })
           .toContain(unitKey);
-        const outline = await roundTripLearner.outline();
+        const outline = await authoringCourseLearner.outline();
         const unit = outline.units.find((u) => u.id === unitKey);
         expect(unit?.displayName).toBe(unitName);
         expect(unit?.sequentialId).toBe(subsectionKey);

@@ -296,6 +296,17 @@ export interface TestFixtures {
   roundTripLearners: readonly [RoundTripLearner, RoundTripLearner];
   /** A {@link roundTripLearner} enrolled in the not-yet-started {@link WorkerFixtures.futureCourse}. */
   futureCourseLearner: RoundTripLearner;
+  /**
+   * A **fresh, empty** course of this test's own (seeded with a past start date),
+   * for specs that build the outline through the UI. Unlike the shared
+   * {@link WorkerFixtures.contentCourse}, its outline holds only what the test
+   * creates, so `.last()`/`.first()` card lookups are unambiguous and the page
+   * stays light — which matters for the New-section/subsection/unit flow on a
+   * slower MFE. One course per test that asks.
+   */
+  authoringCourse: AuthoredCourse;
+  /** A {@link roundTripLearner} enrolled in this test's {@link authoringCourse}. */
+  authoringCourseLearner: RoundTripLearner;
 }
 
 /** What {@link TestFixtures.roundTripLearner} hands a spec. */
@@ -1146,6 +1157,44 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       browser,
       config,
       futureCourse.courseKey,
+    );
+    try {
+      await use(learner);
+    } finally {
+      await disposeRoundTripLearner(learner);
+    }
+  },
+
+  authoringCourse: async ({ playwright, workerAuthor }, use, testInfo) => {
+    const config = getConfig();
+    // A course of this test's own, keyed to the test and retry so a rerun reuses
+    // it rather than piling up. Seeded past-start so the learner can reach it.
+    const identity = newCourseIdentity(
+      config,
+      getRunId(),
+      `A${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}R${testInfo.retry}`,
+      'authoring',
+    );
+    await use(
+      await provisionWorkerCourse(
+        playwright,
+        workerAuthor,
+        identity,
+        async (request, courseKey) => {
+          await updateCourseDetails(request, config, courseKey, {
+            start_date: CONTENT_COURSE_START,
+          });
+        },
+      ),
+    );
+  },
+
+  authoringCourseLearner: async ({ playwright, browser, config, authoringCourse }, use) => {
+    const learner = await provisionRoundTripLearner(
+      playwright,
+      browser,
+      config,
+      authoringCourse.courseKey,
     );
     try {
       await use(learner);
