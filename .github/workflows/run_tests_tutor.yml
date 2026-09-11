@@ -398,7 +398,10 @@ jobs:
           admin_password: ${{ env.ADMIN_PASSWORD }}
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}
-          exclude_features: ${{ inputs.exclude_features }}
+          # Always exclude the `@unit` project: those are pure-logic tests that
+          # need no target, and the "Lint, types & unit tests" job in ci.yml
+          # already runs them.
+          exclude_features: ${{ inputs.exclude_features }} @unit
           artifact_suffix: ${{ env.OPENEDX_RELEASE }}
 
       # Collect the LMS/Studio logs whatever the outcome (`always()`, so they
