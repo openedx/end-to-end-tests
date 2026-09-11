@@ -36,8 +36,15 @@ import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
-import { AUTH_STATE_DIR, authStateFile, isUsableStateFile, persistStorageState } from '../auth';
 import {
+  AUTH_STATE_DIR,
+  authStateFile,
+  isUsableStateFile,
+  storedSessionNeedsRefresh,
+  persistStorageState,
+} from '../auth';
+import {
+  ApiError,
   buildSection,
   DEFAULT_SECTION_SHAPE,
   ensureCourse,
@@ -266,6 +273,13 @@ export interface TestFixtures {
    * the administrator's half of a case. Skips when no admin account is configured.
    */
   adminPage: Page;
+  /**
+   * A staff/superuser **API** session (not a browser), Studio SSO completed, held
+   * under the admin-session lock for the whole test. For the few author-side reads
+   * and actions that are global-staff-only — reindexing a course, reading the
+   * staff-only `reindex_link`. Skips when no admin account is configured.
+   */
+  adminApi: APIRequestContext;
   /** Studio Django admin for course-creator rows, on {@link adminPage}. */
   courseCreatorAdminPage: CourseCreatorAdminPage;
   /**
@@ -316,6 +330,8 @@ export interface TestFixtures {
   authoringCourse: AuthoredCourse;
   /** A {@link roundTripLearner} enrolled in this test's {@link authoringCourse}. */
   authoringCourseLearner: RoundTripLearner;
+  /** Two independent learners in this test's {@link authoringCourse} (cohort in/out cases). */
+  authoringCourseLearners: readonly [RoundTripLearner, RoundTripLearner];
 }
 
 /** What {@link TestFixtures.roundTripLearner} hands a spec. */
@@ -621,19 +637,37 @@ async function disposeRoundTripLearner(learner: RoundTripLearner): Promise<void>
  * before it drives the legacy session-authed xblock writes (`POST /xblock/`).
  *
  * The context loads the worker author's captured state, whose Studio session may
- * have been evicted by a later CMS login of the same author (the three
- * worker-course fixtures each establish one; `PREVENT_CONCURRENT_LOGINS` keeps
- * only the last). The write then 302s to sign-in — a JWT read like
- * `fetchXBlockOutline` survives, but the session-only write cannot. The SSO
- * handshake trades the still-live LMS session on this context for a fresh Studio
- * session, which is exactly what those writes need. Idempotent: a no-op when the
- * session is already live.
+ * have been evicted from the shared cache (Redis `allkeys-lru` under CI memory
+ * pressure, or a cache flush) — not by a concurrent login: CMS runs with
+ * `PREVENT_CONCURRENT_LOGINS` off, so neither a sibling fixture's SSO handshake
+ * nor a browser Studio login ends this context's Studio session. The write then
+ * 302s to sign-in — a JWT read like `fetchXBlockOutline` survives, but the
+ * session-only write cannot. The SSO handshake rebuilds the Studio session off
+ * this context's login JWT (the JWT authorizes the `cms-sso` OAuth flow), so it
+ * recovers an evicted session on its own **as long as the JWT is still valid**.
+ * Idempotent: a no-op when the session is already live.
+ *
+ * The one case it cannot heal is a **lapsed JWT** (a worker run past the ~1 h
+ * clock): there is then nothing to authorize the handshake, and no clean context
+ * to sign into here. That is pre-empted upstream — the `storageState` fixture
+ * refreshes the state file before this context is built once the stored JWT is
+ * stale — so if it is still hit, the session is genuinely gone: surface it as
+ * {@link StudioSessionExpiredError} (the write path's typed "re-auth on a clean
+ * context and retry" signal) rather than a bare handshake error, so a retry's
+ * heal is reached and the failure reads correctly.
  */
 async function establishAuthorWriteSession(
   request: APIRequestContext,
   config: AppConfig,
 ): Promise<void> {
-  await establishStudioSession(request, config);
+  try {
+    await establishStudioSession(request, config);
+  } catch (error) {
+    throw new StudioSessionExpiredError('Establishing the author write session', {
+      url: `${studioOrigin(config)}/login/`,
+      status: error instanceof ApiError ? error.status : 0,
+    });
+  }
 }
 
 /** A section label unique to this test and run, safe to match as the test's own data. */
@@ -823,16 +857,32 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   // (Stripping the JWT to force session-only auth was tried and reverted: it left
   // API calls with no fallback the moment the session decayed — a 401 under load.)
   storageState: async ({ playwright, workerAuthor, config }, use, testInfo) => {
-    // On a retry of a worker-author test, refresh the persisted Studio session
-    // before the `page`/`request` contexts load it. The previous attempt may have
-    // failed because the memory-constrained CI evicted the session from its shared
-    // cache mid-run, and the state file still holds the dead one; a fresh sign-in
-    // (on a clean context — a login is refused on a jar that still holds session
-    // cookies) restores it for both contexts. Gated on `retry > 0` so a healthy
-    // first attempt spends no login and never presses the LMS login rate limit —
-    // only a test that already failed pays for the recovery. This is the API-side
+    // Refresh the persisted worker-author session before the `page`/`request`
+    // contexts load it, in two cases — both because a context built from a stale
+    // state file cannot be healed in place (`APIRequestContext` exposes no cookie
+    // mutation), so a lapsed session there fails every session-authed write until
+    // the file is rewritten:
+    //
+    //   * `retry > 0` — the previous attempt may have failed because the
+    //     memory-constrained CI evicted the session from its shared cache mid-run
+    //     and the file still holds the dead one; and
+    //   * the stored login JWT has lapsed (or is within the refresh margin) —
+    //     a worker whose Studio run outlives the ~1 h JWT. While the JWT is live a
+    //     decayed session behind it needs no refresh here (the SSO handshake in
+    //     `establishAuthorWriteSession` rebuilds it off the JWT); once the JWT
+    //     itself lapses there is nothing left to authorize that handshake, and the
+    //     author-write fixtures (`ownSection`, `authorSection`) would otherwise
+    //     throw at setup. `storedSessionNeedsRefresh` reads the file to decide.
+    //
+    // A fresh sign-in on a clean context (a login is refused on a jar that still
+    // holds session cookies) restores it for both contexts. The JWT gate spends a
+    // login only about once an hour per worker — nowhere near the 30 / 5 min LMS
+    // login limit — so a healthy sub-hour run still pays nothing. API-side
     // counterpart to `studioAuthorSession`'s in-test browser recovery.
-    if (workerAuthor !== undefined && testInfo.retry > 0) {
+    if (
+      workerAuthor !== undefined &&
+      (testInfo.retry > 0 || storedSessionNeedsRefresh(workerAuthor.stateFile))
+    ) {
       const fresh = await playwright.request.newContext();
       try {
         await reauthenticateStudioAuthor(fresh, config, {
@@ -1073,6 +1123,25 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 
+  adminApi: async ({ playwright, config }, use) => {
+    const staffState = authStateFile('staff');
+    base.skip(
+      config.credentials.admin === undefined || !isUsableStateFile(staffState),
+      'This case needs the administrator: set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
+    );
+    // Held under the admin lock for the whole test: another worker signing in as
+    // the admin would evict this session (PREVENT_CONCURRENT_LOGINS).
+    await withAdminSession(async () => {
+      const admin = await playwright.request.newContext({ storageState: staffState });
+      try {
+        await establishStudioSession(admin, config);
+        await use(admin);
+      } finally {
+        await admin.dispose();
+      }
+    });
+  },
+
   courseCreatorAdminPage: async ({ adminPage, config }, use) => {
     await use(new CourseCreatorAdminPage(adminPage, config));
   },
@@ -1215,6 +1284,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       await use(learner);
     } finally {
       await disposeRoundTripLearner(learner);
+    }
+  },
+
+  authoringCourseLearners: async ({ playwright, browser, config, authoringCourse }, use) => {
+    const learners = await Promise.all([
+      provisionRoundTripLearner(playwright, browser, config, authoringCourse.courseKey),
+      provisionRoundTripLearner(playwright, browser, config, authoringCourse.courseKey),
+    ]);
+    try {
+      await use([learners[0], learners[1]]);
+    } finally {
+      await Promise.all(learners.map(disposeRoundTripLearner));
     }
   },
 

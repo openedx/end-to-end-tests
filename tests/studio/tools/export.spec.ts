@@ -1,5 +1,6 @@
 import { checkA11y } from '../../../src/a11y';
 import { downloadCourseExport, waitForCourseExport } from '../../../src/api';
+import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -12,6 +13,10 @@ import { testId } from '../../../src/reporting';
  * end, offer the download.
  */
 test.describe('Course Export', { tag: ['@studio', '@author', '@mfe-authoring'] }, () => {
+  // The export runs on the CMS worker under `TIMEOUTS.courseTransfer`, longer
+  // than the default test budget.
+  test.describe.configure({ timeout: TIMEOUTS.contentTest });
+
   test(
     'exports the course content as an OLX tarball',
     { tag: '@regression', annotation: testId('TC-00308') },

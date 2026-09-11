@@ -1,26 +1,26 @@
 {
   "main": {
     "tutorConstraint": "",
-    "capabilities": "discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga"
+    "capabilities": "discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams"
   },
   "verawood": {
     "tutorConstraint": ">=22.0.0,<23.0.0",
-    "capabilities": "-frontend-base,discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga"
+    "capabilities": "-frontend-base,discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams"
   },
   "ulmo": {
     "tutorConstraint": ">=21.0.0,<22.0.0",
-    "capabilities": "-frontend-base,discussions,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga"
+    "capabilities": "-frontend-base,discussions,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams"
   },
   "teak": {
     "tutorConstraint": ">=20.0.0,<21.0.0",
-    "capabilities": "-frontend-base,discussions,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga"
+    "capabilities": "-frontend-base,discussions,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams"
   },
   "sumac": {
     "tutorConstraint": ">=19.0.0,<20.0.0",
-    "capabilities": "-frontend-base,discussions,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga"
+    "capabilities": "-frontend-base,discussions,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams"
   },
   "redwood": {
     "tutorConstraint": ">=18.0.0,<19.0.0",
-    "capabilities": "-frontend-base,discussions,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga"
+    "capabilities": "-frontend-base,discussions,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams"
   }
 }

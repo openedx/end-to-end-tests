@@ -58,14 +58,19 @@ export const STUDIO_GROUP_CONFIGURATIONS_SELECTORS = {
   /** One content-group configuration card. */
   contentGroupCard: '[data-testid="content-group-card"]',
   /**
-   * The button that opens the new-content-group form. It reads "Add your first
-   * content group" on an empty page and "New content group" once one exists, so
-   * it is anchored structurally as the page's outline-primary action button.
+   * The button that opens the new-content-group form. Its label and styling
+   * change with page state: an empty page shows a solid-primary "Add your first
+   * content group", a populated one an outline-primary "New content group". Both
+   * are the page's own action button (no `data-testid`); the group cards carry
+   * only tertiary/icon buttons, so matching either primary variant selects it in
+   * both states. Before the form opens it is the only match; once the form opens
+   * its "Create" submit is the page's sole `btn-primary` (see createGroupButton).
    */
-  addContentGroupButton: '.group-configurations button.btn-primary:not([data-testid])',
+  addContentGroupButton:
+    '.group-configurations button.btn-primary:not([data-testid]), .group-configurations button.btn-outline-primary:not([data-testid])',
   /** The new-group form's name field. */
   newGroupNameInput: 'input[name="newGroupName"]',
-  /** The new-group form's "Create" button. */
+  /** The new-group form's "Create" button — the only `btn-primary` while the form is open. */
   createGroupButton: '.group-configurations button.btn.btn-primary',
 } as const;
 

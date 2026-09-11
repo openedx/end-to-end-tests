@@ -84,6 +84,13 @@ export {
   type XBlockWriteResult,
 } from './xblock';
 export {
+  addToCohort,
+  createCohort,
+  enableCohorts,
+  linkCohortToGroup,
+  type Cohort,
+} from './cohorts';
+export {
   CLIPBOARD_PATH,
   copyToClipboard,
   pasteFromClipboard,
@@ -242,3 +249,9 @@ export {
   type CourseMetadata,
   type CourseTab,
 } from './course-metadata';
+export {
+  COURSE_DISCOVERY_SEARCH_PATH,
+  reindexCourse,
+  searchCourseDiscovery,
+  type CourseDiscoveryHit,
+} from './search';

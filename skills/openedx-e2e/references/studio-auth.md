@@ -17,15 +17,26 @@ that signs in, or any `src/api/` client that hits a legacy (non-DRF) view.
    Studio. It needs a live LMS session to trade and cannot recover from a dead
    one. `establishStudioSession` (API) and `establishStudioBrowserSession`
    (page) do this; success is judged by asking Studio who the session is.
-3. **`PREVENT_CONCURRENT_LOGINS` is on by default and per service.** Every
-   sign-in of a user ends that user's other sessions for that service. The
-   Studio SSO handshake **is a CMS login**. A browser completing SSO evicts the
-   same author's separate `request` context's Studio session; a second worker
-   signing in as a shared account evicts the first's.
+3. **`PREVENT_CONCURRENT_LOGINS` is per service, and the two services differ.**
+   Verified on the Tutor `main` target (the flat setting in `*/envs/common.py`
+   wins; the `FEATURES` entry is dead — the TUTOR-001 flattening): **LMS `True`,
+   CMS `False`.** So a credential _login_ as a user ends that user's **other LMS
+   sessions** (a browser recovery via `signInToStudioThroughUi`, a second worker
+   as a shared account), but Studio (CMS) sessions are **not** evicted by another
+   CMS login or SSO handshake. Do not assume a CMS login evicts a sibling CMS
+   session on this target. (An earlier note that "the browser SSO handshake is a
+   CMS login that evicts the author's other Studio session" was written against
+   that assumption; the observed deterministic 302 in the course-lifecycle case
+   is real, but its mechanism is under re-verification now that CMS has the flag
+   off — the `page.request` rule below stands regardless.)
 4. **Sessions live in the shared Redis cache with `allkeys-lru`.** Under memory
    pressure (CI) a session vanishes with no logout event and no log line. A
-   service restart flushes them all. This is the dominant decay in CI and the
-   SSO handshake cannot heal it; only a fresh credential sign-in can.
+   service restart flushes them all. This is the dominant Studio-session decay in
+   CI. The SSO handshake **rebuilds an evicted Studio session off the login JWT**
+   (the JWT authorizes the `cms-sso` OAuth flow) — so a session-only eviction
+   self-heals while the JWT is valid. It cannot heal once the **JWT itself has
+   lapsed** (a run past the ~1 h clock): then only a fresh credential sign-in on a
+   clean context restores it.
 5. **Login is rate-limited per account**: `LOGISTRATION_PER_EMAIL_RATELIMIT_RATE`
    defaults to 30 per 5 minutes (`400 "Too many failed login attempts"`, 5-minute
    lockout). CI raises it to `100/m`; local runs do not. Every recovery path
@@ -52,15 +63,16 @@ that signs in, or any `src/api/` client that hits a legacy (non-DRF) view.
   admin and the `lms-learner` learner.
 - **Self-healing holders, gated on failure evidence, persisted per worker:**
 
-  | Holder | Detects a dead session by | Recovers with |
-  |---|---|---|
-  | worker course provisioning (`provisionWorkerCourse`) | `StudioSessionExpiredError` from `POST /course/` | fresh context, `reauthenticateStudioAuthor`, retry; also the post-provision smoke check |
-  | browser (`studioAuthorSession`) | landing on the authn login field instead of Studio Home | one `signInToStudioThroughUi` as the worker author |
-  | per-test `storageState` | `testInfo.retry > 0` | fresh context re-auth before `page`/`request` load the file |
-  | per-test `request` before `/xblock/` writes | none: calls `establishAuthorWriteSession` (idempotent SSO handshake) | refreshes the Studio session off the still-live LMS session |
+  | Holder                                               | Detects a dead session by                                                               | Recovers with                                                                                                                              |
+  | ---------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+  | worker course provisioning (`provisionWorkerCourse`) | `StudioSessionExpiredError` from `POST /course/`                                        | fresh context, `reauthenticateStudioAuthor`, retry; also the post-provision smoke check                                                    |
+  | browser (`studioAuthorSession`)                      | landing on the authn login field instead of Studio Home                                 | one `signInToStudioThroughUi` as the worker author                                                                                         |
+  | per-test `storageState`                              | `testInfo.retry > 0` **or** the stored login JWT is stale (`storedSessionNeedsRefresh`) | fresh context re-auth before `page`/`request` load the file — pre-empts the un-healable lapsed-JWT context                                 |
+  | per-test `request` before `/xblock/` writes          | none: calls `establishAuthorWriteSession` (idempotent SSO handshake)                    | rebuilds the Studio session off the context's live JWT; a full decay (JWT also gone) raises `StudioSessionExpiredError` for the retry heal |
 
   Recoveries write back to the worker's state file so the rest of the worker
   reuses the live session. Never reduce `studioAuthorSession` to reuse-only.
+
 - **Legacy writes go through `studioWrite`** (`src/api/studio-origin.ts`):
   `maxRedirects: 0`, any 3xx → `StudioSessionExpiredError` (re-authenticate,
   don't retry), 403 → permission message, 2xx with HTML → `ApiError{retryable}`.
@@ -74,6 +86,14 @@ that signs in, or any `src/api/` client that hits a legacy (non-DRF) view.
   decays.
 - **State files are written atomically and validated on read**
   (`persistStorageState`, `isUsableStateFile`). Never `existsSync` then load.
+- **A stale login JWT in a worker author's state file is refreshed before the
+  per-test contexts load it** (`storedSessionNeedsRefresh` gating the
+  `storageState` fixture). A context built from a captured state cannot be healed
+  in place (`APIRequestContext` has no cookie mutation), so a lapsed JWT there
+  fails every session-authed write; refreshing when the JWT is within its margin
+  spends a login only about once an hour per worker. This is what keeps the
+  author-write fixtures (`ownSection`, `authorSection`) robust on a run that
+  outlives the ~1 h JWT — they need no bespoke recovery of their own.
 
 ## Rules for a Studio spec
 
@@ -113,22 +133,23 @@ that signs in, or any `src/api/` client that hits a legacy (non-DRF) view.
 
 ## Signature → cause → fix
 
-| You see | It means | Do |
-|---|---|---|
-| Studio page lands on the authn login MFE mid-run | browser session evicted or expired | `studioAuthorSession` heals it; if it recurs every test, some other context is logging in as this user |
-| Legacy write 302s / `StudioSessionExpiredError`, while DRF writes in the same test succeed | Studio session dead, JWT alive | re-auth on a clean context; if the test also holds a browser session, switch to `page.request` |
-| Same 302 on every retry and every worker | browser SSO re-evicts a separate `request` after each heal | `page.request` |
-| `/api/user/v1/me` is 200 but writes bounce | you probed the JWT | act on the operation's typed error instead |
-| `POST /courses/<key>/cohorts/...` → **405** | JWT-only context hit an LMS session-auth view and was redirected to login | throwaway context + `loginSession` (rule 4) |
-| `login_session` → bare-HTML `Bad Request (400)` | posting on a jar with session cookies, or the first-POST CSRF race | new context; the CSRF race is already retried |
-| `login_session` → 400 JSON "Too many failed login attempts" | per-email rate limit | wait 5 min; find and gate the unconditional re-login |
-| Registration or password reset → 403 forbidden-request in CI | per-day platform rate limits exhausted | already raised to `100/m` in the Tutor patch |
-| CI: one worker, every request `user None`, one unchanging session id for minutes | Redis LRU evicted the session | provisioning's re-auth covers it; never restart services mid-run |
-| `Unterminated string in JSON` on `.auth/*.json` on every retry of a slot | torn state file | a writer bypassed `persistStorageState` |
-| Legacy write → 404 on the collection URL | a followed 302-to-login became a GET | `maxRedirects: 0` via `studioWrite` |
-| Re-run → 403 | destination is a new course *number* | re-run keeps org + number, changes `run` |
-| Admin in the browser reaches only the login screen despite injected staff cookies | a captured API state does not drive interactive SSO | `signInToStudioThroughUi` under `withAdminSession` |
-| HTML body from a legacy Studio view on an older release | missing XHR headers | `studioWriteHeaders` |
+| You see                                                                                    | It means                                                                             | Do                                                                                                                             |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Studio page lands on the authn login MFE mid-run                                           | browser session evicted or expired                                                   | `studioAuthorSession` heals it; if it recurs every test, some other context is logging in as this user                         |
+| Legacy write 302s / `StudioSessionExpiredError`, while DRF writes in the same test succeed | Studio session dead, JWT alive                                                       | re-auth on a clean context; if the test also holds a browser session, switch to `page.request`                                 |
+| Same 302 on every retry and every worker                                                   | browser SSO re-evicts a separate `request` after each heal                           | `page.request`                                                                                                                 |
+| `/api/user/v1/me` is 200 but writes bounce                                                 | you probed the JWT                                                                   | act on the operation's typed error instead                                                                                     |
+| `POST /courses/<key>/cohorts/...` → **405**                                                | JWT-only context hit an LMS session-auth view and was redirected to login            | throwaway context + `loginSession` (rule 4)                                                                                    |
+| `login_session` → bare-HTML `Bad Request (400)`                                            | posting on a jar with session cookies, or the first-POST CSRF race                   | new context; the CSRF race is already retried                                                                                  |
+| `login_session` → 400 JSON "Too many failed login attempts"                                | per-email rate limit                                                                 | wait 5 min; find and gate the unconditional re-login                                                                           |
+| Registration or password reset → 403 forbidden-request in CI                               | per-day platform rate limits exhausted                                               | already raised to `100/m` in the Tutor patch                                                                                   |
+| CI: one worker, every request `user None`, one unchanging session id for minutes           | Redis LRU evicted the session (JWT still valid)                                      | the SSO handshake rebuilds it off the JWT and provisioning's re-auth covers the rest; never restart services mid-run           |
+| Author-write fixture (`ownSection`/`authorSection`) throws at setup on a long run          | the state file's login JWT lapsed (>~1 h), so the handshake has nothing to authorize | the `storageState` JWT-freshness heal pre-empts it; if seen, confirm `storedSessionNeedsRefresh` runs before the contexts load |
+| `Unterminated string in JSON` on `.auth/*.json` on every retry of a slot                   | torn state file                                                                      | a writer bypassed `persistStorageState`                                                                                        |
+| Legacy write → 404 on the collection URL                                                   | a followed 302-to-login became a GET                                                 | `maxRedirects: 0` via `studioWrite`                                                                                            |
+| Re-run → 403                                                                               | destination is a new course _number_                                                 | re-run keeps org + number, changes `run`                                                                                       |
+| Admin in the browser reaches only the login screen despite injected staff cookies          | a captured API state does not drive interactive SSO                                  | `signInToStudioThroughUi` under `withAdminSession`                                                                             |
+| HTML body from a legacy Studio view on an older release                                    | missing XHR headers                                                                  | `studioWriteHeaders`                                                                                                           |
 
 ## Not auth, though it looks like it
 

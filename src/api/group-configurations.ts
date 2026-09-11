@@ -57,7 +57,10 @@ export async function createContentGroups(
   groupNames: readonly string[],
   name = 'Content Groups',
 ): Promise<GroupConfiguration> {
-  const headers = await studioWriteHeaders(request, config);
+  // This group-configurations JSON endpoint answers 406 when the request declares
+  // itself an XHR (`X-Requested-With`), unlike the other legacy Studio writes, so
+  // send the write headers without it.
+  const { 'X-Requested-With': _xhr, ...headers } = await studioWriteHeaders(request, config);
   const response = await request.post(
     `${studioOrigin(config)}${GROUP_CONFIGURATIONS_WRITE_PATH}/${courseKey}`,
     {

@@ -270,8 +270,17 @@ export interface CourseNavigation {
 
 /**
  * The learner's navigation model, or `undefined` when the course is not open to
- * them (403, e.g. not started). Hidden blocks are absent; a gated subsection is
- * present with `type: "lock"`.
+ * them (403, e.g. not started) **or not yet built for them**. Hidden blocks are
+ * absent; a gated subsection is present with `type: "lock"`.
+ *
+ * The "not yet built" case is `PLAT-009` (see `.private/findings.md`): the LMS
+ * derives this model from the `learning_sequences` outline, which the CMS worker
+ * writes asynchronously after a publish. Between the publish and that task
+ * landing the view raises `CourseOutlineData.DoesNotExist` and answers HTTP 500
+ * instead of an empty model or a 404 — on a busy worker this window is tens of
+ * seconds. Callers poll this function under `TIMEOUTS.contentPublish`, so the
+ * 500 is reported as "no navigation yet" and the poll continues; a persistent
+ * 500 still fails the poll, only with the outline's absence as the message.
  */
 export async function fetchCourseNavigation(
   request: APIRequestContext,
@@ -281,6 +290,7 @@ export async function fetchCourseNavigation(
   const url = `${config.baseUrls.lms}${COURSE_NAVIGATION_PATH}${courseKey}`;
   const response = await request.get(url);
   if (response.status() === 403) return undefined;
+  if (response.status() === 500) return undefined; // PLAT-009: outline not built yet
   if (!response.ok()) {
     throw new ApiError(
       `Reading the navigation of ${courseKey} failed (HTTP ${response.status()}).`,

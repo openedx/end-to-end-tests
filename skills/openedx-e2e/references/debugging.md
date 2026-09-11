@@ -4,12 +4,13 @@
 
 Four very different causes look alike in the report:
 
-| Symptom                                                            | Likely cause                                        | Where the fix goes                                       |
-| ------------------------------------------------------------------ | --------------------------------------------------- | -------------------------------------------------------- |
-| Fails at startup with a `ConfigError`, or every browser spec fails | misconfiguration / wrong target                     | `.env` or the run's env vars — **not** the test          |
-| `HTTP 403 forbidden-request`, or "previous request is in progress" | rate limits (registration, password reset)          | the target's settings; see `references/running-tests.md` |
-| A gated spec fails on a surface that isn't there                   | `CAPABILITIES` declares something the install lacks | the declaration (this failure is by design)              |
-| A locator times out, or an API answer changed shape                | the platform's markup/API moved                     | selector module / api client / page object               |
+| Symptom                                                                                                                                                                                                 | Likely cause                                                                                                 | Where the fix goes                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fails at startup with a `ConfigError`, or every browser spec fails                                                                                                                                      | misconfiguration / wrong target                                                                              | `.env` or the run's env vars — **not** the test                                                                                                         |
+| `HTTP 403 forbidden-request`, or "previous request is in progress"                                                                                                                                      | rate limits (registration, password reset)                                                                   | the target's settings; see `references/running-tests.md`                                                                                                |
+| A gated spec fails on a surface that isn't there                                                                                                                                                        | `CAPABILITIES` declares something the install lacks                                                          | the declaration (this failure is by design)                                                                                                             |
+| A locator times out, or an API answer changed shape                                                                                                                                                     | the platform's markup/API moved                                                                              | selector module / api client / page object                                                                                                              |
+| A Studio legacy write 302s (`StudioSessionExpiredError`) while DRF writes pass, a Studio page lands on the login MFE, a cohort write returns 405, or CI logs show one worker as `user None` for minutes | a Studio/LMS session was evicted (concurrent login, Redis LRU) or a JWT-only context hit a session-auth view | `references/studio-auth.md` — wrong context (`request` vs `page.request`), missing throwaway `loginSession`, or a shared account outside the admin lock |
 
 A step that reports blockers (`completeUnit`) or a course that lacks the needed
 content is **not** a failure — it is a property of the target. Don't "fix" it by
@@ -82,6 +83,12 @@ Rules for probing:
   registrable parent domain) and the captured state in `.auth/`. `globalSetup`
   clears `.auth/` each run; a stale session is not the usual culprit. **Never**
   disable web security to make cross-origin auth work.
+- Studio session failures (302 on legacy writes, login-MFE bounces, cohort 405s)
+  → classify with the signature table in `references/studio-auth.md` before
+  changing anything. The fix is almost always which context a call rides
+  (`page.request` beside a browser session, a throwaway `loginSession` for LMS
+  session-auth views) or a missing `withAdminSession`, never a retry loop, a
+  `/me` probe, or stripping a cookie.
 - The platform is genuinely wrong → `test.fixme()` + `issue(...)` annotation
   against the intended behaviour (see `references/writing-tests.md`).
 

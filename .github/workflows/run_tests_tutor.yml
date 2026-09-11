@@ -317,6 +317,10 @@ jobs:
       #   activation tests therefore can't run here.
       # - ENABLE_COURSE_DISCOVERY: exposes the course discovery/search UI the
       #   catalog tests exercise.
+      # - ENABLE_COURSEWARE_INDEX: courseware indexing is meant to be on by
+      #   default, but on main the top-level setting reads False while only the
+      #   dead FEATURES flag is True (the TUTOR-001 flattening); force it so the
+      #   Studio Reindex button and catalog search see authored content.
       # - Rate limits: the platform defaults are per-day and CI retries and
       #   back-to-back runs exhaust them (HTTP 403 forbidden-request), so use
       #   short, self-resetting per-minute windows.
@@ -351,6 +355,7 @@ jobs:
           # deprecated FEATURES in favour of top-level settings.
           if "FEATURES" in globals():
               FEATURES["ENABLE_COURSE_DISCOVERY"] = True
+              FEATURES["ENABLE_COURSEWARE_INDEX"] = True
               FEATURES["SKIP_EMAIL_VALIDATION"] = True
           """
               )

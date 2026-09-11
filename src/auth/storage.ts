@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { storedJwtIsFresh } from './preflight';
 import type { Role } from './roles';
 import type { StorageState } from './types';
 
@@ -45,5 +46,29 @@ export function isUsableStateFile(filePath: string): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Whether a captured author state file should be re-authenticated **before** a
+ * per-test context loads it: it is torn/absent, or its login JWT has lapsed (or
+ * is within {@link storedJwtIsFresh}'s margin of doing so).
+ *
+ * This is the proactive counterpart to the on-retry heal. A session the platform
+ * evicted while the JWT is still valid needs no refresh here — the SSO handshake
+ * rebuilds it off the live JWT. But once the JWT itself lapses, a request context
+ * built from the file cannot be healed in place (`APIRequestContext` has no
+ * cookie mutation), so every session-authed write on it fails until the file is
+ * rewritten. Refreshing here, only when the JWT is stale, keeps a long worker run
+ * (one that outlives the ~1 h JWT) from failing its first attempt while spending
+ * a login roughly once an hour per worker rather than per test.
+ */
+export function storedSessionNeedsRefresh(filePath: string): boolean {
+  if (!existsSync(filePath)) return true;
+  try {
+    const state = JSON.parse(readFileSync(filePath, 'utf8')) as StorageState;
+    return !storedJwtIsFresh(state.cookies);
+  } catch {
+    return true;
   }
 }
