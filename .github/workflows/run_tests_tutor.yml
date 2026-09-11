@@ -317,6 +317,10 @@ jobs:
       #   activation tests therefore can't run here.
       # - ENABLE_COURSE_DISCOVERY: exposes the course discovery/search UI the
       #   catalog tests exercise.
+      # - ENABLE_COURSEWARE_INDEX: courseware indexing is meant to be on by
+      #   default, but on main the top-level setting reads False while only the
+      #   dead FEATURES flag is True (the TUTOR-001 flattening); force it so the
+      #   Studio Reindex button and catalog search see authored content.
       # - Rate limits: the platform defaults are per-day and CI retries and
       #   back-to-back runs exhaust them (HTTP 403 forbidden-request), so use
       #   short, self-resetting per-minute windows.
@@ -335,13 +339,23 @@ jobs:
           PASSWORD_RESET_IP_RATE = "100/m"
           PASSWORD_RESET_EMAIL_RATE = "100/m"
 
+          # Login limits. The per-email default (30/5m) trips first: a worker's
+          # author signs in repeatedly across its Studio run and hits "Too many
+          # failed login attempts"; the per-IP default (100/5m) is shared by all
+          # workers. Both use self-resetting per-minute windows here.
+          LOGISTRATION_PER_EMAIL_RATELIMIT_RATE = "100/m"
+          LOGISTRATION_RATELIMIT_RATE = "100/m"
+          LOGISTRATION_API_RATELIMIT = "100/m"
+
           ENABLE_COURSE_DISCOVERY = True
+          ENABLE_COURSEWARE_INDEX = True
           SKIP_EMAIL_VALIDATION = True
 
           # Releases before main still read these from FEATURES; main has
           # deprecated FEATURES in favour of top-level settings.
           if "FEATURES" in globals():
               FEATURES["ENABLE_COURSE_DISCOVERY"] = True
+              FEATURES["ENABLE_COURSEWARE_INDEX"] = True
               FEATURES["SKIP_EMAIL_VALIDATION"] = True
           """
               )
@@ -389,7 +403,10 @@ jobs:
           admin_password: ${{ env.ADMIN_PASSWORD }}
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}
-          exclude_features: ${{ inputs.exclude_features }}
+          # Always exclude the `@unit` project: those are pure-logic tests that
+          # need no target, and the "Lint, types & unit tests" job in ci.yml
+          # already runs them.
+          exclude_features: ${{ inputs.exclude_features }} @unit
           artifact_suffix: ${{ env.OPENEDX_RELEASE }}
 
       # Collect the LMS/Studio logs whatever the outcome (`always()`, so they

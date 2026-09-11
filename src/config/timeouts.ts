@@ -50,4 +50,52 @@ export const TIMEOUTS = {
    * handful of units takes minutes rather than seconds.
    */
   contentTest: 300_000,
+
+  /**
+   * Budget for a Studio course re-run to finish. The copy runs as a Celery task
+   * on the CMS worker; an empty course takes a few seconds, a populated one
+   * proportionally longer.
+   */
+  courseRerun: 120_000,
+
+  /**
+   * Budget for a course export or import task to reach its terminal state. Both
+   * run on the CMS worker; the export of an empty course took about two seconds
+   * when measured, so this is headroom for a populated course and a busy worker.
+   */
+  courseTransfer: 180_000,
+
+  /**
+   * Budget for the worker-scoped course fixture (`authoredCourse`) to provision
+   * its course: one Studio API call plus the search that makes it idempotent.
+   */
+  studioSetup: 60_000,
+
+  /**
+   * Budget for a Studio settings page to answer the write its save bar triggers
+   * (`PUT course_details`, `POST course_grading`). Comfortably above `action`
+   * because several authoring workers save at once on a shared CMS, and the save
+   * button is a stateful control that mounts with the save bar.
+   */
+  studioSettingsSave: 30_000,
+
+  /**
+   * Budget for an authoring change to become visible to a learner. The LMS
+   * serves learner-facing structure from the block-structure cache, rebuilt by a
+   * Celery task the platform schedules with a countdown
+   * (`BLOCK_STRUCTURES_SETTINGS.COURSE_PUBLISH_TASK_DELAY`, 30 s on Tutor);
+   * measured lags on an idle install ran from about one second (publishing a
+   * unit) to 29 s (a release-date or visibility change). CI shares one CMS
+   * worker between this task, re-runs, exports and grading, so this is four
+   * times the measured maximum. Every learner-side reading after an authoring
+   * change polls under this budget; none of them waits a fixed time.
+   */
+  contentPublish: 120_000,
+
+  /**
+   * Budget for a component editor's Save to be answered (`POST /xblock/<id>` with
+   * the block's content) — the CMS renders the block's author view in the same
+   * request, which is slow on a busy worker.
+   */
+  xblockEditorSave: 30_000,
 } as const;

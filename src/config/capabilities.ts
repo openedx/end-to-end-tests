@@ -16,6 +16,14 @@
  */
 export const CAPABILITIES = [
   'mfe-authn',
+  // The `frontend-base` shell: the MFEs are bundled into one application with a
+  // shared header/footer, replacing the one-MFE-per-app model with its
+  // `frontend-component-header`. Present from `main` onward (post-verawood). Gates
+  // the coverage that is *about* the shell's own chrome — a11y debt it carries,
+  // markup only it renders — while journeys through it stay ungated and rely on
+  // selector unions that match both headers (see
+  // `src/config/selectors/account-menu.ts`).
+  'frontend-base',
   'discussions',
   'teams',
   'notes',
@@ -38,6 +46,27 @@ export const CAPABILITIES = [
   // loudly rather than skip it.
   // See `src/steps/course.ts` for the two routes to a course.
   'catalog-search',
+  // Studio (the CMS) and the course-authoring MFE are present and the suite may
+  // author against them. Declaring it makes `CMS_BASE_URL` required (see
+  // `load.ts`) and enables the `author` role; leaving it undeclared skips the
+  // whole `tests/studio/` tree so an LMS-only target runs cleanly.
+  'studio',
+  // Content tagging: the taxonomy list in the authoring MFE and the tag drawers
+  // on outline items. Reported by Studio's home API as `taxonomies_enabled`.
+  'taxonomies',
+  // Optional component (XBlock) types an author can add to a unit. Each is a
+  // tile in the unit page's "Add component" bar and an entry in the CMS
+  // `container_handler` API's `component_templates`; a declared type that the
+  // target lacks must fail its spec, never skip it. All of these ship with
+  // edx-platform (and so with a stock Tutor image) and are declared for every
+  // release in `.ci/openedx-releases.json`; a provider that has removed one opts
+  // out by leaving it undeclared.
+  'ora', // Open Response Assessment (`openassessment`, edx-ora2)
+  'drag-and-drop-v2', // `drag-and-drop-v2` (xblock-drag-and-drop-v2)
+  'pdf-xblock', // `pdf` under the "Advanced" tile
+  'lti', // `lti_consumer` under the "Advanced" tile (no tool launch is asserted)
+  'scorm', // `scorm` under the "Advanced" tile
+  'edx-sga', // Staff Graded Assignment (`staffgradedxblock`) under the "Problem" tile
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -58,8 +87,13 @@ export type Capability = (typeof CAPABILITIES)[number];
  * screens. An install whose identity lives in an external service (a custom
  * `ACCOUNT_BACKEND`; see `src/accounts/README.md`) has nothing for those specs to
  * drive, and on a locked-down tenant they fail rather than skip.
+ *
+ * `frontend-base` is on by default because `main` — and every release cut from it
+ * — serves its MFEs in the shell; a named release still on the separate-MFE model
+ * (verawood and earlier) opts out with `-frontend-base`, which is what
+ * `.ci/openedx-releases.json` declares for them.
  */
-export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = ['mfe-authn'];
+export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = ['mfe-authn', 'frontend-base'];
 
 /** Marks an opt-out in `CAPABILITIES`, e.g. `-mfe-authn`. */
 export const CAPABILITY_OPT_OUT_PREFIX = '-';

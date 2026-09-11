@@ -11,3 +11,9 @@ export {
   type CompletionRecorder,
   type UnviewedBlock,
 } from './completion';
+export {
+  createCourseThroughStudioHome,
+  grantCourseCreatorThroughAdmin,
+  type StudioCourseCreation,
+} from './studio';
+export { satisfyPrerequisiteByScore, submitProblem } from './gating';

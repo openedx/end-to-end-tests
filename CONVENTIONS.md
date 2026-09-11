@@ -138,6 +138,44 @@ Avoid brittle selectors (deep CSS/XPath chains, nth-child, generated class names
   `ACCOUNT_BACKEND` decides how the account clears email validation, so specs stay
   the same across targets.
 
+## Authoring-to-learner round trips
+
+Studio specs that author content and then check what a learner sees follow one
+shape. Read `.private/studio-auth-resilience.md` for the session mechanics behind
+these rules.
+
+- **One test, both halves.** Author through `src/api/` (`buildSection`,
+  `authorProblem`/`authorHtml`/`authorVideo`, the `xblock`/`clipboard`/`cohorts`
+  clients), drive the one action under test through the page object, and assert
+  the learner's reading — Blocks API, course-home outline, `navigation`,
+  `progress`, `problem_check` — in the **same** test. The UI drives; the API
+  decides pass/fail.
+- **A content spec creates a section, never a course.** There is no
+  course-deletion API, so courses accumulate. Take a worker course from a fixture
+  (`contentCourse` / `futureCourse` for shared reads, `authoringCourse` for a
+  fresh per-test course) and build a uniquely-named **section** inside it. Two
+  content courses per worker is the budget; do not create a course in a spec body.
+- **Two actors, two contexts.** The learner is a different user, so it gets its
+  own browser context and `request` (`roundTripLearner(s)`, `futureCourseLearner`,
+  `authoringCourseLearner(s)`) — never sign a learner in on the author's `page`.
+- **Same user, browser + API in one test → `page.request`, not the `request`
+  fixture.** A separate `request` context for the author is evicted by the
+  browser's own session work and the heal cannot outrun it; `page.request` shares
+  the live browser jar. (See `tests/studio/home/course-lifecycle.spec.ts`.)
+- **LMS session-auth views (cohorts, instructor dashboard) need a fresh login.**
+  They are Django session-auth, so a JWT-only context is redirected to login and
+  the write surfaces as **HTTP 405**. After the browser authoring is done, open a
+  throwaway `playwright.request.newContext()`, `loginSession` as the worker author,
+  drive those calls there, and dispose it.
+- **Poll every learner reading after a publish.** The block-structure rebuild runs
+  on a delay (`COURSE_PUBLISH_TASK_DELAY`, ~30 s locally and longer on a shared CI
+  worker), so a learner read taken right after a publish can precede it. Poll under
+  `TIMEOUTS.contentPublish`, and give a round-trip spec the `TIMEOUTS.contentTest`
+  describe-level budget so the wait cannot trip the per-test timeout.
+- **Copy/paste is a server-side clipboard.** The content-staging API
+  (`src/api/clipboard.ts`) holds the clipboard per user with no browser grant, so
+  a copy can be an API call and the paste the UI action under test.
+
 ## Tags
 
 Domain decides the folder; everything else is a tag. Tags drive Playwright
@@ -152,8 +190,15 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   the `capabilityGate` fixture in `src/fixtures/` reads each test's own tags and
   skips it where that capability is not enabled, so the tag is the whole of the
   contract — while any other tag is only a filter. Most capabilities are off until
-  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces, currently `mfe-authn`)
-  are on unless turned off with `-mfe-authn`.
+  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces, currently `mfe-authn`
+  and `frontend-base`) are on unless turned off with a `-` prefix.
+
+  `@frontend-base` marks coverage that only makes sense in the `frontend-base`
+  shell (`main` onward): its chrome's a11y debt, markup only it renders. It is
+  **not** a version switch — a journey that merely passes through the shell stays
+  ungated and matches both headers with a selector union (see
+  `src/config/selectors/account-menu.ts`). Reach for the tag only when the two
+  models need mutually exclusive assertions.
 
   A capability gates the coverage that is _about_ the optional feature, not every
   spec that happens to pass through it. Where the feature is one of two routes to
@@ -176,6 +221,17 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   learner for that test and installs its session in place of the shared one, so
   parallel tests never share an enrollment. That costs one registration per test —
   see the README's rate-limit section.
+
+- **Author:** `@author` — the spec runs in the `studio-author` project (depends on
+  `setup`) as the worker's own author (`workerAuthor`), whose session is valid on
+  Studio and the LMS; the anonymous projects exclude it. A spec that signs a
+  browser in as the **admin** takes the `adminPage`/`newOrgCreator` fixtures,
+  which hold the cross-worker admin lock — never sign the admin in from a test
+  body. Every Studio spec also carries `@studio`, the
+  capability that gates the tree, and `@mfe-authoring`. Studio specs act on the
+  worker-scoped `authoredCourse` unless creating a course is the thing under test:
+  **there is no course-deletion API, so a Studio spec never creates a course it
+  does not have to.**
 
 Apply tags with the `tag` option:
 

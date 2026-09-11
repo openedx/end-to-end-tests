@@ -11,6 +11,8 @@ Contains:
 
 - `csrf.ts` — `fetchCsrfToken`: the `GET /csrf/api/v1/token` the authn MFE makes
   before a credentialed POST. Lands the `csrftoken` cookie in the request context.
+  Takes an `origin` (LMS by default) because the cookie is per host: a Studio
+  write needs a token from Studio.
 - `registration.ts` — `registerLearnerAccount`: creates a user via
   `POST /api/user/v1/account/registration/` (the authn MFE's `/register` path).
   Portable account seeding that needs no admin rights; on success the platform
@@ -28,10 +30,18 @@ Contains:
   course-state fixtures use.
 - `course-detail.ts` — `fetchCourseDetail`: the course's own name/org/number,
   so a spec can search or match on data the platform supplied rather than on
-  hard-coded copy.
+  hard-coded copy — plus dates, pacing, effort, visibility and media, the LMS-side
+  reading for what an author saved in Studio.
+- `course-metadata.ts` — `fetchCourseMetadata`: course-home tabs (in learner
+  order) and course access, the LMS-side reading for Pages & Resources toggles,
+  custom-page order and prerequisite gating.
 - `course-outline.ts` — `fetchCourseOutline` / `buildOutline` / `unitsContaining`:
   the Blocks API folded into sections → subsections → units with per-block
-  completion, which is what the completion steps and fixtures drive from.
+  completion, which is what the completion steps and fixtures drive from; plus
+  `fetchCourseNavigation` (the course-home navigation model, a gated subsection
+  present as a `lock`) and `fetchSequenceMetadata` (the learning MFE's
+  per-subsection reading, `undefined` when it is not served to the learner) — the
+  learner-side outcome the visibility round trips assert on.
 - `course-preflight.ts` — `assertCourseAccessible` / `courseKeySkipReason`:
   distinguishes "no `COURSE_KEY`" (fixtures skip) from "`COURSE_KEY` names a
   course the target lacks" (`CoursePreflightError`, the run fails).
@@ -39,6 +49,70 @@ Contains:
   passing threshold, completion counts — the numeric answers the course-home
   specs assert on.
 - `errors.ts` — `ApiError`, carrying status/url/body for actionable failures.
+
+### Studio clients
+
+Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
+`studioWriteHeaders`: Studio's CSRF token plus a Studio `Referer`) so a missing
+`CMS_BASE_URL` reads as configuration.
+
+- `studio-session.ts` — `establishStudioSession`: the silent OAuth handshake that
+  gives a request context holding an LMS session its Studio session too. The LMS
+  cookies alone get a `302 /login/` from every Studio URL and a `401` from every
+  Studio API; after this one `GET` they work. Success is judged by
+  `GET /api/user/v1/me` on Studio, not by a cookie name. Consumers reach it
+  through the account backend's `signInStudio` (`src/accounts/`), of which it is
+  the default, so an install with its own Studio IdP can replace it.
+- `studio-home.ts` — `fetchStudioHome` (course-creator status, org flags,
+  in-process re-runs) and `listStudioCourses` (the paginated list with the MFE's
+  search / sort / filter parameters; falls back to the v1 payload on releases
+  without the v2 endpoint).
+- `course-creator.ts` — `requestCourseCreator` (the API) and
+  `grantCourseCreator` (Studio's Django admin form, the only grant path on a
+  default install; needs a superuser session) — BTR TC-00310 as a mechanism.
+- `course-factory.ts` — `newCourseIdentity` (org + `E2E<run id><slot>` number:
+  Studio's uniqueness rule is org+number, so the run does not disambiguate),
+  `createCourse` (`POST /course/`; a duplicate is **HTTP 200 with `ErrMsg`**, so
+  success is "the body has `course_key`"), `ensureCourse` (idempotent per
+  identity, and the retry that absorbs `STUDIO-001`), `rerunCourse` /
+  `waitForRerun`.
+- `course-settings.ts` — Schedule & Details (`v1/course_details`, GET/PUT),
+  grading (`v1/course_grading`), Advanced Settings (`/settings/advanced`, the
+  legacy JSON view that answers on every release), and `fetchCourseSettingsFlags`
+  (`v1/course_settings`: whether the certificates-available-date and prerequisite
+  controls render on this target).
+- `course-team.ts`, `group-configurations.ts`, `certificates.ts`,
+  `course-apps.ts` (Pages & Resources toggles), `custom-pages.ts` (static-tab
+  create/rename/delete + reorder read, `v0/tabs`), `course-transfer.ts` (export
+  start/poll, import status), `course-checklists.ts` (validation and quality
+  behind the Launch and Best-practices checklists — served by the Studio origin),
+  `course-modes.ts` (LMS enrollment modes; `ensureCertificateBearingMode` adds the
+  `honor` mode a course needs before the Certificates form renders — staff only).
+- `xblock.ts` — the legacy `xblock_handler` client: `createXBlock`,
+  `updateXBlock`, `publishXBlock`, and the reads (`fetchXBlockOutline`,
+  `fetchXBlock`, `fetchCourseIndex`, `fetchContainer` / `fetchContainerChildren`,
+  `availableComponentTypes` / `advancedComponentTypes`). The one endpoint the whole
+  outline and every unit go through. Duplicate / delete / reorder / move and the
+  prerequisite gate are exercised through the outline page object's UI, not a
+  parallel API client, so the spec asserts the action the way an author takes it.
+- `course-content.ts` — `buildSection` and the `authorProblem` / `authorHtml` /
+  `authorVideo` builders (with the per-type problem templates surfaced by
+  `problemOlx`): the "a spec builds a section, not a course" helper layer, all
+  arrangement done through the xblock API so a spec body opens on the action under
+  test.
+- `clipboard.ts` — the content-staging clipboard client (`copyToClipboard`):
+  staged server-side per user, so a cross-course paste needs no browser clipboard
+  and no permission grant. The paste is a UI action the outline/unit page objects
+  drive.
+- `cohorts.ts` — the LMS instructor cohort client (`enableCohorts` /
+  `createCohort` / `linkCohortToGroup` / `addToCohort`). These are Django
+  **session**-auth LMS views, not JWT: a JWT-only context is redirected to login
+  and the write surfaces as **HTTP 405**, so drive them from a fresh
+  `loginSession` on a throwaway context
+  (see `.private/studio-auth-resilience.md` §2.4).
+- `search.ts` — `searchCourseDiscovery` (the LMS catalog-search index the
+  discovery page runs) and `reindexCourse` (Studio's `reindex_link`, global-staff
+  only — rebuilds the index so freshly authored content becomes findable).
 
 The auth primitives are what the default auth provider (`src/auth/`) and the
 account backends compose into a captured storage state; the course primitives

@@ -3,17 +3,38 @@ export type {
   AccountContext,
   AccountCredentials,
   ActivationContext,
+  GrantCourseCreatorContext,
   IdentityContext,
   RegistrationContext,
   SignInContext,
+  StudioSignInContext,
   UiSignInContext,
   UiSignOutContext,
 } from './types';
-export { accountSignIn, accountSignInThroughUi, accountSignOutThroughUi } from './auth-flows';
-export { defaultSignIn, defaultSignInThroughUi, defaultSignOutThroughUi } from './default-flows';
+export {
+  accountGrantCourseCreator,
+  accountSignIn,
+  accountSignInStudio,
+  accountSignInThroughUi,
+  accountSignOutThroughUi,
+} from './auth-flows';
+export {
+  defaultGrantCourseCreator,
+  defaultSignIn,
+  defaultSignInStudio,
+  defaultSignInThroughUi,
+  defaultSignOutThroughUi,
+} from './default-flows';
+export { AccountNotConfiguredError } from './errors';
+export { withAdminSession } from './admin-lock';
 export { AutomaticLoginBackend } from './automatic-backend';
 export { ManualActivationBackend } from './manual-backend';
 export { AccountPluginRegistry, initAccountBackends, resolveAccountBackend } from './registry';
 export { loadAccountBackendPlugin } from './plugin-loader';
-export { provisionLearnerAccount, provisionLearnerSession } from './provision';
+export {
+  provisionAuthorSession,
+  provisionLearnerAccount,
+  provisionLearnerSession,
+  reauthenticateStudioAuthor,
+} from './provision';
 export { promptOperator } from './prompt';

@@ -1,6 +1,6 @@
 ---
 name: openedx-e2e
-description: Work on the Open edX end-to-end Playwright suite in this repo — write or extend specs, run them against a local/remote/CI target, debug failures with live Playwright probes, and update tests without breaking older named releases. Use for any task touching tests/, src/pages, src/steps, src/api, src/config, playwright.config.ts, or the CI workflows here.
+description: Work on the Open edX end-to-end Playwright suite in this repo — write or extend specs, run them against a local/remote/CI target, debug failures with live Playwright probes or from GitHub Actions run artifacts, and update tests without breaking older named releases. Use for any task touching tests/, src/pages, src/steps, src/api, src/config, playwright.config.ts, or the CI workflows here.
 ---
 
 # Open edX end-to-end test suite
@@ -55,12 +55,25 @@ tests` (plus `config → auth → fixtures`). Never sideways or downward. Page
    mutable state, portable setup (public APIs / documented idempotent seeding).
 9. **Never commit** a real `.env` or `.auth/`.
 10. `npm run check` (typecheck + lint + format:check) must pass before pushing.
+11. **Studio sessions are fragile by platform design** (`PREVENT_CONCURRENT_LOGINS`,
+    two credentials, cache-evicted sessions, a 30/5m login limit). In a Studio
+    spec: same user in browser and API → `page.request`, never `request`; a
+    different user → its own context; LMS session-auth views (cohorts) → a fresh
+    `loginSession` on a throwaway context; shared accounts only under
+    `withAdminSession`; never probe `/api/user/v1/me` for liveness. Read
+    `references/studio-auth.md` before touching `tests/studio/` or anything that
+    signs in.
 
 ## Workflows
 
 Load the reference file for the task at hand:
 
 - **Writing or extending a spec** → `references/writing-tests.md`
+- **Anything under `tests/studio/`, or any code that signs in** → `references/studio-auth.md`
+  (sessions, eviction, rate limits, which context to use, failure signatures)
 - **Running the suite against an environment** → `references/running-tests.md`
 - **Debugging a failure (incl. live Playwright probes)** → `references/debugging.md`
+- **Debugging a GitHub Actions run from a run URL / PR** → `references/ci-artifacts.md`
+  (fetch + parse Playwright reports, suite reports and Tutor logs with
+  `scripts/ci_artifacts.py`)
 - **Changing tests for platform changes across named releases** → `references/releases.md`

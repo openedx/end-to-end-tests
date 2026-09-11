@@ -24,6 +24,7 @@ export {
 export { registrableDomain } from './domain';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
+export { RUN_ID_ENV, getRunId } from './run-id';
 export {
   ACCOUNT_MENU_SELECTORS,
   CATALOG_SEARCH_PATH,
@@ -40,6 +41,31 @@ export {
   progressTabLink,
   DASHBOARD_SELECTORS,
   COURSE_HOME_SELECTORS,
+  STUDIO_HOME_SELECTORS,
+  STUDIO_OUTLINE_SELECTORS,
+  STUDIO_OUTLINE_PAGE_SELECTORS,
+  outlineMenuItem,
+  sectionCardContaining,
+  subsectionCardContaining,
+  unitCardFor,
+  STUDIO_SHELL_SELECTORS,
+  STUDIO_GRADING_SELECTORS,
+  STUDIO_SCHEDULE_DETAILS_SELECTORS,
+  STUDIO_SETTINGS_SAVE_BAR_SELECTORS,
+  STUDIO_ADVANCED_SETTINGS_SELECTORS,
+  STUDIO_CERTIFICATES_SELECTORS,
+  STUDIO_COURSE_TEAM_SELECTORS,
+  STUDIO_GROUP_CONFIGURATIONS_SELECTORS,
+  STUDIO_EXPORT_SELECTORS,
+  STUDIO_IMPORT_SELECTORS,
+  STUDIO_STEPPER_STATE,
+  STUDIO_CHECKLISTS_SELECTORS,
+  LAUNCH_CHECKLIST_ITEMS,
+  STUDIO_PAGES_RESOURCES_SELECTORS,
+  STUDIO_CUSTOM_PAGES_SELECTORS,
+  STUDIO_UNIT_PAGE_SELECTORS,
+  STUDIO_EDITOR_SELECTORS,
+  COURSE_CREATOR_ADMIN_SELECTORS,
 } from './selectors';
 
 let cached: AppConfig | undefined;
@@ -88,11 +114,54 @@ function printRuntimeWarningsOnce(config: AppConfig): void {
  * Runtime advisories are printed once per run (see {@link WARNINGS_SHOWN_ENV}).
  * Fails fast with a {@link ConfigError} if the environment is invalid.
  */
-export function getConfig(): AppConfig {
+/** Loads `.env` into `process.env` once per process (idempotent). */
+function ensureDotenvLoaded(): void {
   if (!dotenvLoaded) {
     dotenv.config({ quiet: true });
     dotenvLoaded = true;
   }
+}
+
+/**
+ * Default worker counts when `WORKERS` is not set: a conservative 2 locally
+ * (a busy CMS worker evicts author Studio sessions under higher parallelism —
+ * see `references/studio-auth.md`), and the tuned 4 in CI.
+ */
+const DEFAULT_WORKERS = { local: 2, ci: 4 } as const;
+
+/**
+ * The Playwright worker count, from the `WORKERS` env var (`.env` or the
+ * environment) when set, else {@link DEFAULT_WORKERS}. A runner knob rather than
+ * installation config, so it is read straight from the environment (after `.env`
+ * is loaded) instead of going through the validated {@link AppConfig} — it must
+ * work even for `--project=unit`, which needs no other configuration.
+ *
+ * `WORKERS` must be a positive integer, or a Playwright percentage string like
+ * `"50%"` (passed through verbatim); anything else fails fast with a
+ * {@link ConfigError} rather than silently falling back.
+ *
+ * @param isCI whether the run is in CI (selects the default).
+ */
+export function resolveWorkerCount(isCI: boolean): number | string {
+  ensureDotenvLoaded();
+  const raw = process.env.WORKERS?.trim();
+  if (raw === undefined || raw === '') {
+    return isCI ? DEFAULT_WORKERS.ci : DEFAULT_WORKERS.local;
+  }
+  if (/^[1-9][0-9]*%$/.test(raw)) {
+    return raw;
+  }
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new ConfigError([
+      `WORKERS must be a positive integer or a percentage like "50%", got "${raw}".`,
+    ]);
+  }
+  return parsed;
+}
+
+export function getConfig(): AppConfig {
+  ensureDotenvLoaded();
   if (!cached) {
     cached = loadConfig(process.env);
     printRuntimeWarningsOnce(cached);
