@@ -9,7 +9,7 @@ import {
   isEnrolled,
   updateAdvancedSettings,
 } from '../../../src/api';
-import { getRunId } from '../../../src/config';
+import { getRunId, TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -227,26 +227,44 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
       const api = page.request;
       const { courseKey } = authoredCourse;
-      await updateAdvancedSettings(api, config, courseKey, { advanced_modules: [] });
+      // The Teams tab is driven by the course's `teams_configuration` (its
+      // `enabled` flag, or the presence of team sets — `TeamsConfig.is_enabled` in
+      // edx-platform), not by `advanced_modules`. A single open team set is the
+      // smallest configuration Studio accepts.
+      const teamsOff = { enabled: false, team_sets: [] };
+      await updateAdvancedSettings(api, config, courseKey, { teams_configuration: teamsOff });
+      const teamSet = {
+        id: `e2e-${getRunId()}`,
+        name: 'E2E team set',
+        description: 'Authored by the e2e suite.',
+        type: 'open',
+        max_team_size: 5,
+      };
+      const teamsOn = { enabled: true, team_sets: [teamSet] };
 
       await advancedSettingsPage.goto(courseKey);
-      await advancedSettingsPage.setField('advancedModules', ['teams']);
+      await advancedSettingsPage.setField('teamsConfiguration', teamsOn);
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
       await expect
-        .poll(() => settingValue(api, config, courseKey, 'advanced_modules'))
-        .toEqual(['teams']);
+        .poll(() => settingValue(api, config, courseKey, 'teams_configuration'))
+        .toMatchObject({ enabled: true, team_sets: [{ id: teamSet.id }] });
 
-      // A Teams tab appears in the learner's course navigation.
+      // A Teams tab appears in the learner's course navigation. The tab list comes
+      // off the CourseOverview, which the CMS worker refreshes on the publish the
+      // save triggers — so the reading is polled under the publish budget.
       const learner = await newLearner();
       await enrollInCourseViaApi(learner.request, config, courseKey);
       await expect
-        .poll(async () => {
-          const meta = await fetchCourseMetadata(learner.request, config, courseKey);
-          return meta.tabs.some((tab) => tab.tab_id === 'teams');
-        })
+        .poll(
+          async () => {
+            const meta = await fetchCourseMetadata(learner.request, config, courseKey);
+            return meta.tabs.some((tab) => tab.tab_id === 'teams');
+          },
+          { timeout: TIMEOUTS.contentPublish },
+        )
         .toBe(true);
 
-      await updateAdvancedSettings(api, config, courseKey, { advanced_modules: [] });
+      await updateAdvancedSettings(api, config, courseKey, { teams_configuration: teamsOff });
     },
   );
 });
