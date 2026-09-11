@@ -84,6 +84,13 @@ export {
   type XBlockWriteResult,
 } from './xblock';
 export {
+  CLIPBOARD_PATH,
+  copyToClipboard,
+  pasteFromClipboard,
+  readClipboard,
+  type Clipboard,
+} from './clipboard';
+export {
   DEFAULT_SECTION_SHAPE,
   SAMPLE_YOUTUBE_ID,
   authorHtml,

@@ -11,7 +11,7 @@ import {
   unitCardFor,
   type AppConfig,
 } from '../../config';
-import { XBLOCK_PATH, studioOrigin } from '../../api';
+import { CLIPBOARD_PATH, XBLOCK_PATH, studioOrigin } from '../../api';
 import { waitForWrite } from './wait-for-write';
 
 type OutlineLevel = 'section' | 'subsection' | 'unit';
@@ -222,9 +222,15 @@ export class StudioCourseOutlinePage {
 
   private async createChild(button: Locator): Promise<string> {
     await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
+    // Paste stages the copied OLX under the new parent, which is slower than a
+    // plain create under load, so allow the settings-save budget.
     const response = await waitForWrite(
       this.page,
-      { method: 'POST', predicate: (r) => r.url().endsWith(XBLOCK_PATH) },
+      {
+        method: 'POST',
+        predicate: (r) => r.url().endsWith(XBLOCK_PATH),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
       () => button.click(),
     );
     return locatorFromResponse(response);
@@ -296,6 +302,109 @@ export class StudioCourseOutlinePage {
     const disabled = await item.getAttribute('aria-disabled');
     await this.page.keyboard.press('Escape');
     return disabled !== 'true';
+  }
+
+  /**
+   * Duplicates a card through its 3-dot menu (Duplicate item) and returns the new
+   * block's usage key from the `POST /xblock/` the platform makes. The copy is
+   * inserted next to the source under the same parent.
+   */
+  async duplicate(card: Locator, level: OutlineLevel): Promise<string> {
+    await this.openMenu(card, level);
+    const response = await waitForWrite(
+      this.page,
+      { method: 'POST', predicate: (r) => r.url().endsWith(XBLOCK_PATH) },
+      () => card.locator(outlineMenuItem(level, 'duplicate')).click(),
+    );
+    return locatorFromResponse(response);
+  }
+
+  /**
+   * Deletes a card through its 3-dot menu (Delete item) and confirms the delete
+   * dialog, waiting for the `DELETE /xblock/<key>`.
+   */
+  async delete(card: Locator, level: OutlineLevel): Promise<void> {
+    await this.openMenu(card, level);
+    await card.locator(outlineMenuItem(level, 'delete')).click();
+    const confirm = this.page.locator(STUDIO_OUTLINE_PAGE_SELECTORS.dialogDangerButton);
+    await waitForWrite(
+      this.page,
+      {
+        method: 'DELETE',
+        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => confirm.click(),
+    );
+  }
+
+  /**
+   * Moves a card down (or up) one position among its siblings through its 3-dot
+   * menu, waiting for the reorder write (`PUT /xblock/<parent> {children}`). The
+   * deterministic counterpart to {@link reorderByKeyboard}: both send the same
+   * request.
+   */
+  async move(card: Locator, level: OutlineLevel, direction: 'up' | 'down'): Promise<void> {
+    await this.openMenu(card, level);
+    const item = card.locator(outlineMenuItem(level, direction === 'up' ? 'moveUp' : 'moveDown'));
+    await waitForWrite(
+      this.page,
+      {
+        method: 'PUT',
+        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => item.click(),
+    );
+  }
+
+  /**
+   * Copies a unit to the clipboard through its outline 3-dot menu's "Copy to
+   * clipboard" item, waiting for the content-staging write. The item is the unit
+   * menu's only entry with no test id (so it is anchored as such).
+   */
+  async copyUnitToClipboard(unitCard: Locator): Promise<void> {
+    await this.openMenu(unitCard, 'unit');
+    await waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => r.url().endsWith(CLIPBOARD_PATH),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => this.page.locator(STUDIO_OUTLINE_PAGE_SELECTORS.copyToClipboardItem).click(),
+    );
+  }
+
+  /**
+   * Pastes the unit currently on the clipboard into `subsectionCard`, via the
+   * outline's "Paste unit" button (which appears only while the clipboard holds a
+   * unit), and returns the new unit's usage key. The copy is staged beforehand
+   * through the content-staging API (`copyToClipboard`); this release's outline
+   * 3-dot menu has no Copy item — that lives on the unit page (TC-00204).
+   */
+  async pasteUnit(subsectionCard: Locator): Promise<string> {
+    await this.expand(subsectionCard, 'subsection');
+    // The "Paste unit" button is the last add button in the units container,
+    // present only while the clipboard holds a unit (New unit, Use … from
+    // library, then Paste unit). No test id distinguishes it, so it is the last.
+    const button = subsectionCard
+      .locator(STUDIO_OUTLINE_PAGE_SELECTORS.subsectionUnits)
+      .locator(STUDIO_OUTLINE_PAGE_SELECTORS.addChildButton)
+      .last();
+    await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
+    // Paste stages the copied OLX under the new parent, which is slower than a
+    // plain create under load, so allow the settings-save budget.
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => r.url().endsWith(XBLOCK_PATH),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => button.click(),
+    );
+    return locatorFromResponse(response);
   }
 
   /**

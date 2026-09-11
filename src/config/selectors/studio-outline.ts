@@ -36,6 +36,15 @@ export const STUDIO_OUTLINE_PAGE_SELECTORS = {
   subsectionEditField: '[data-testid="subsection-edit-field"]',
   unitEditField: '[data-testid="unit-edit-field"]',
 
+  /**
+   * A card menu's "Copy to clipboard" item. It is present on a **unit** card
+   * (whether the unit is a draft or published; some component types may not be
+   * copyable, but the suite's html/problem units are) and — alone among the menu
+   * items — carries no test id, so it is anchored as the menu's only untagged
+   * item. Stands in for the "Copy to clipboard" label.
+   */
+  copyToClipboardItem: '.dropdown-menu.show .pgn__dropdown-item:not([data-testid])',
+
   /** The 3-dot menu button on a card header. */
   sectionMenuButton: '[data-testid="section-card-header__menu-button"]',
   subsectionMenuButton: '[data-testid="subsection-card-header__menu-button"]',
