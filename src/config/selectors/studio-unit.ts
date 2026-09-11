@@ -60,4 +60,10 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
   componentIframe: 'iframe.xblock-container-iframe',
   /** The "Add component" tiles, one per offered block type, in API order. */
   addComponentButton: 'button.add-component-button',
+  /**
+   * The "Paste Component" button, shown in the add-component area while the
+   * clipboard holds a component. No test id; anchored by its class alongside the
+   * add-component tiles.
+   */
+  pasteComponentButton: 'button.btn-block',
 } as const;

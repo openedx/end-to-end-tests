@@ -42,4 +42,5 @@ export {
 export { STUDIO_PAGES_RESOURCES_SELECTORS } from './studio-pages-resources';
 export { STUDIO_CUSTOM_PAGES_SELECTORS } from './studio-custom-pages';
 export { STUDIO_UNIT_PAGE_SELECTORS } from './studio-unit';
+export { STUDIO_EDITOR_SELECTORS } from './studio-editors';
 export { COURSE_CREATOR_ADMIN_SELECTORS } from './django-admin';

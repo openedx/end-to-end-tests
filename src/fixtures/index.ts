@@ -22,6 +22,8 @@ import { StudioHomePage } from '../pages/studio/home/studio-home.page';
 import { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
 import { StudioOutlineConfigureDialog } from '../pages/studio/outline-configure.dialog';
 import { StudioUnitPage } from '../pages/studio/unit.page';
+import { StudioVideoEditor } from '../pages/studio/editors/video-editor';
+import { StudioTextEditor } from '../pages/studio/editors/text-editor';
 import { StudioAdvancedSettingsPage } from '../pages/studio/settings/advanced-settings.page';
 import { StudioCertificatesPage } from '../pages/studio/settings/certificates.page';
 import { StudioCourseTeamPage } from '../pages/studio/settings/course-team.page';
@@ -196,6 +198,10 @@ export interface TestFixtures {
   outlineConfigureDialog: StudioOutlineConfigureDialog;
   /** The unit (container) page object. */
   studioUnitPage: StudioUnitPage;
+  /** The video component editor page object. */
+  studioVideoEditor: StudioVideoEditor;
+  /** The text (TinyMCE) component editor page object. */
+  studioTextEditor: StudioTextEditor;
   /** Schedule & Details settings page object (authoring MFE). */
   scheduleDetailsPage: StudioScheduleDetailsPage;
   /** Grading settings page object (authoring MFE). */
@@ -936,6 +942,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   outlineConfigureDialog: pageObjectFixture(StudioOutlineConfigureDialog),
 
   studioUnitPage: pageObjectFixture(StudioUnitPage),
+
+  studioVideoEditor: pageObjectFixture(StudioVideoEditor),
+
+  studioTextEditor: pageObjectFixture(StudioTextEditor),
 
   scheduleDetailsPage: pageObjectFixture(StudioScheduleDetailsPage),
 

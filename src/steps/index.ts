@@ -16,4 +16,4 @@ export {
   grantCourseCreatorThroughAdmin,
   type StudioCourseCreation,
 } from './studio';
-export { satisfyPrerequisiteByScore } from './gating';
+export { satisfyPrerequisiteByScore, submitProblem } from './gating';

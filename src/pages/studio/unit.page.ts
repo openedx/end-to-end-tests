@@ -158,6 +158,61 @@ export class StudioUnitPage {
     return key;
   }
 
+  /**
+   * Enables or disables the unit's discussion through the Settings tab's "Enable
+   * discussion" checkbox, waiting for the republish it triggers.
+   */
+  async setDiscussionEnabled(enabled: boolean): Promise<void> {
+    await this.openSettings();
+    const checkbox = this.page.locator(this.s.discussionCheckbox);
+    if ((await checkbox.isChecked()) === enabled) return;
+    await waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PATCH'],
+        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => checkbox.setChecked(enabled),
+    );
+  }
+
+  // --- Components ----------------------------------------------------------
+
+  /** The "Add component" tiles, in the platform's `component_templates` order. */
+  addComponentTiles(): Locator {
+    return this.page.locator(this.s.addComponentButton);
+  }
+
+  /**
+   * Clicks the "Add component" tile at `index` (the type's position in the
+   * platform's `component_templates`, from `availableComponentTypes`). What
+   * follows depends on the type: a template modal (text), a type picker (problem),
+   * or an inline editor (video).
+   */
+  async openAddComponent(index: number): Promise<void> {
+    await this.addComponentTiles().nth(index).click();
+  }
+
+  /**
+   * Pastes the clipboard's component into this unit via the "Paste Component"
+   * button (shown while the clipboard holds a component), waiting for the write.
+   * Returns nothing — the caller re-reads the unit's children.
+   */
+  async pasteComponent(): Promise<void> {
+    const paste = this.page.locator(this.s.pasteComponentButton);
+    await paste.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
+    await waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => r.url().endsWith(XBLOCK_PATH),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => paste.click(),
+    );
+  }
+
   // --- Clipboard -----------------------------------------------------------
 
   /**

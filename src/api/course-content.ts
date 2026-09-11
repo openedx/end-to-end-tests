@@ -67,8 +67,9 @@ const PROBLEM_TEMPLATES: Readonly<Record<ProblemType, ProblemTemplate>> = {
       `<choice correct="false">E2E option B</choice>` +
       `<choice correct="true">E2E option C</choice>` +
       `</checkboxgroup></choiceresponse></problem>`,
-    correct: { inputSuffix: '2_1', values: ['choice_0', 'choice_2'] },
-    incorrect: { inputSuffix: '2_1', values: ['choice_1'] },
+    // Checkbox groups post repeated `input_<hash>_2_1[]` fields (the `[]` matters).
+    correct: { inputSuffix: '2_1[]', values: ['choice_0', 'choice_2'] },
+    incorrect: { inputSuffix: '2_1[]', values: ['choice_1'] },
   },
   optionresponse: {
     olx: (label) =>

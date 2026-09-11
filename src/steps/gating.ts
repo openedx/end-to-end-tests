@@ -7,6 +7,7 @@ import {
   fetchCsrfToken,
   primeCoursewareForLearner,
   type AuthoredProblem,
+  type ProblemAnswer,
 } from '../api';
 
 /**
@@ -69,4 +70,44 @@ export async function satisfyPrerequisiteByScore(
       { status: response.status(), url, body: JSON.stringify(body) },
     );
   }
+}
+
+/**
+ * Submits `answer` to an authored problem as `learner` and returns the platform's
+ * grade string (`"correct"` / `"incorrect"`). Used to check that each common
+ * problem type grades a right answer right and a wrong one wrong.
+ */
+export async function submitProblem(
+  learner: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  problem: AuthoredProblem,
+  answer: ProblemAnswer,
+): Promise<string | undefined> {
+  const hash = /block@([^/+]+)$/.exec(problem.usageKey)?.[1];
+  if (hash === undefined) {
+    throw new ApiError(`Could not read the block hash from "${problem.usageKey}".`, {
+      status: 0,
+      url: '',
+      body: '',
+    });
+  }
+  const inputName = `input_${hash}_${answer.inputSuffix}`;
+  const token = await fetchCsrfToken(learner, config);
+  const url =
+    `${config.baseUrls.lms}/courses/${courseKey}/xblock/${problem.usageKey}` +
+    `/handler/xmodule_handler/problem_check`;
+  const form = new URLSearchParams();
+  for (const value of answer.values) form.append(inputName, value);
+  const response = await learner.post(url, {
+    data: form.toString(),
+    headers: {
+      [CSRF_HEADER]: token,
+      Referer: config.baseUrls.lms,
+      'X-Requested-With': 'XMLHttpRequest',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  });
+  const body = (await response.json().catch(() => ({}))) as { success?: string };
+  return body.success;
 }
