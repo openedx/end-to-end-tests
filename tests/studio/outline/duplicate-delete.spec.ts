@@ -2,13 +2,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import {
-  buildSection,
-  fetchXBlockOutline,
-  type AuthoredSection,
-  type XBlockOutline,
-} from '../../../src/api';
+import { fetchXBlockOutline, type XBlockOutline } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { buildHtmlSection, firstUnitKey, learnerSees, only } from './outline-helpers';
 
 /**
  * Duplicating (TC-00162/163/164) and deleting (TC-00165/166/167) outline items,
@@ -31,14 +27,13 @@ test.describe(
       { annotation: testId('TC-00162') },
       async ({ page, config, studioCourseOutlinePage, contentCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const section = await built(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
           'dup-sec',
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -59,14 +54,13 @@ test.describe(
       { annotation: testId('TC-00163') },
       async ({ page, config, studioCourseOutlinePage, contentCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const section = await built(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
           'dup-sub',
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -86,14 +80,13 @@ test.describe(
       { annotation: testId('TC-00164') },
       async ({ page, config, studioCourseOutlinePage, contentCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const section = await built(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
           'dup-unit',
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -119,15 +112,14 @@ test.describe(
         roundTripLearner,
       }) => {
         void studioAuthorSession;
-        const section = await built(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
           'del-sec',
-          true,
+          { publish: true },
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
         await learnerSees(roundTripLearner, unitKey, true);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
@@ -151,16 +143,15 @@ test.describe(
         roundTripLearner,
       }) => {
         void studioAuthorSession;
-        const section = await built(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
           'del-sub',
-          true,
+          { publish: true },
         );
-        const subsectionKey = only(section.subsections);
-        const unitKey = only(section.units);
+        const subsectionKey = only(section.subsections, 'subsection').usageKey;
+        const unitKey = firstUnitKey(section);
         await learnerSees(roundTripLearner, unitKey, true);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
@@ -187,15 +178,14 @@ test.describe(
         roundTripLearner,
       }) => {
         void studioAuthorSession;
-        const section = await built(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
           'del-unit',
-          true,
+          { publish: true },
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
         await learnerSees(roundTripLearner, unitKey, true);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
@@ -230,36 +220,4 @@ async function exists(
   } catch {
     return false;
   }
-}
-
-async function learnerSees(
-  learner: { outline: () => Promise<{ units: readonly { id: string }[] }> },
-  unitKey: string,
-  present: boolean,
-): Promise<void> {
-  await expect
-    .poll(async () => (await learner.outline()).units.some((u) => u.id === unitKey), {
-      timeout: TIMEOUTS.contentPublish,
-    })
-    .toBe(present);
-}
-
-function built(
-  request: Parameters<typeof buildSection>[0],
-  config: Parameters<typeof buildSection>[1],
-  courseKey: string,
-  info: { testId: string },
-  tag: string,
-  publish = false,
-) {
-  return buildSection(request, config, courseKey, `E2E ${tag} ${info.testId.slice(-6)}`, {
-    subsections: [{ units: [{ blocks: ['html'] }] }],
-    publish,
-  });
-}
-
-function only(items: AuthoredSection['units'] | AuthoredSection['subsections']): string {
-  const [first] = items;
-  if (first === undefined) throw new Error('The section is missing an item.');
-  return first.usageKey;
 }

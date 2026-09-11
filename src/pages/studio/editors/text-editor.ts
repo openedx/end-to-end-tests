@@ -59,7 +59,7 @@ export class StudioTextEditor {
       this.page,
       {
         method: 'POST',
-        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
         timeout: TIMEOUTS.xblockEditorSave,
       },
       () => this.page.locator(this.s.saveButton).click(),

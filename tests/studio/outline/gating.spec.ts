@@ -11,6 +11,7 @@ import {
 } from '../../../src/api';
 import { satisfyPrerequisiteByScore } from '../../../src/steps';
 import { issue, testId } from '../../../src/reporting';
+import { firstUnitKey } from './outline-helpers';
 
 /**
  * Subsection prerequisite gating configured in Studio and enforced on the
@@ -76,7 +77,7 @@ test.describe(
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
         await outlineConfigureDialog.open(
-          studioCourseOutlinePage.subsection(only(prereq.units)),
+          studioCourseOutlinePage.subsection(firstUnitKey(prereq)),
           'subsection',
         );
         await outlineConfigureDialog.markAvailableAsPrerequisite();
@@ -179,7 +180,7 @@ test.describe(
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
         await outlineConfigureDialog.open(
-          studioCourseOutlinePage.subsection(only(prereq.units)),
+          studioCourseOutlinePage.subsection(firstUnitKey(prereq)),
           'subsection',
         );
         await outlineConfigureDialog.markAvailableAsPrerequisite();
@@ -258,10 +259,4 @@ async function completePrerequisite(
       },
     );
   }
-}
-
-function only(items: AuthoredSection['units']): string {
-  const [first] = items;
-  if (first === undefined) throw new Error('The section is missing a unit.');
-  return first.usageKey;
 }

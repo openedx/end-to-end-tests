@@ -2,9 +2,38 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { expect } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, createXBlock, publishXBlock, type CourseOutline } from '../../../src/api';
+import {
+  buildSection,
+  createXBlock,
+  publishXBlock,
+  type BlockSpec,
+  type CourseOutline,
+} from '../../../src/api';
 
 type Config = Parameters<typeof buildSection>[1];
+
+/**
+ * Builds a section with one unit in `courseKey` and returns the unit key. `label`
+ * names the section (a random suffix keeps it unique), `blocks` are the unit's
+ * components (default none), and `publish` publishes the unit (default false).
+ */
+export async function buildUnit(
+  request: APIRequestContext,
+  config: Config,
+  courseKey: string,
+  opts: { label?: string; blocks?: readonly BlockSpec[]; publish?: boolean } = {},
+): Promise<string> {
+  const section = await buildSection(
+    request,
+    config,
+    courseKey,
+    `E2E ${opts.label ?? 'unit'} ${Math.random().toString(36).slice(2, 8)}`,
+    { subsections: [{ units: [{ blocks: opts.blocks ?? [] }] }], publish: opts.publish ?? false },
+  );
+  const key = section.units[0]?.usageKey;
+  if (key === undefined) throw new Error('The section has no unit.');
+  return key;
+}
 
 /** Builds a section with one empty unit in `courseKey` and returns the unit key. */
 export async function emptyUnit(
@@ -13,16 +42,7 @@ export async function emptyUnit(
   courseKey: string,
   label: string,
 ): Promise<string> {
-  const section = await buildSection(
-    request,
-    config,
-    courseKey,
-    `E2E ${label} ${Math.random().toString(36).slice(2, 8)}`,
-    { subsections: [{ units: [{ blocks: [] }] }] },
-  );
-  const key = section.units[0]?.usageKey;
-  if (key === undefined) throw new Error('The section has no unit.');
-  return key;
+  return buildUnit(request, config, courseKey, { label });
 }
 
 /**

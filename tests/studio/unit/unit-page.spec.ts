@@ -1,9 +1,8 @@
-import type { APIRequestContext } from '@playwright/test';
-
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, fetchXBlockOutline, type AuthoredSection } from '../../../src/api';
+import { buildSection, fetchXBlockOutline } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { buildUnit } from '../components/component-helpers';
 
 /**
  * The unit (container) page's own actions: View live (TC-00197), Preview
@@ -26,7 +25,11 @@ test.describe(
       { annotation: testId('TC-00197') },
       async ({ page, config, studioUnitPage, authoringCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const unitKey = await unit(page.request, config, authoringCourse.courseKey, true);
+        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
+          label: 'unit',
+          blocks: ['html'],
+          publish: true,
+        });
 
         await studioUnitPage.goto(unitKey);
         const tab = await studioUnitPage.viewLive();
@@ -40,7 +43,11 @@ test.describe(
       { annotation: testId('TC-00198') },
       async ({ page, config, studioUnitPage, authoringCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const unitKey = await unit(page.request, config, authoringCourse.courseKey, false);
+        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
+          label: 'unit',
+          blocks: ['html'],
+          publish: false,
+        });
 
         await studioUnitPage.goto(unitKey);
         const tab = await studioUnitPage.preview();
@@ -55,7 +62,11 @@ test.describe(
       { annotation: testId('TC-00199') },
       async ({ page, config, studioUnitPage, authoringCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const unitKey = await unit(page.request, config, authoringCourse.courseKey, false);
+        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
+          label: 'unit',
+          blocks: ['html'],
+          publish: false,
+        });
 
         await studioUnitPage.goto(unitKey);
         const newUnitKey = await studioUnitPage.addUnit();
@@ -78,7 +89,11 @@ test.describe(
         authoringCourseLearner,
       }) => {
         void studioAuthorSession;
-        const unitKey = await unit(page.request, config, authoringCourse.courseKey, true);
+        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
+          label: 'unit',
+          blocks: ['html'],
+          publish: true,
+        });
         await expect
           .poll(
             async () =>
@@ -115,7 +130,11 @@ test.describe(
         authoringCourseLearner,
       }) => {
         void studioAuthorSession;
-        const unitKey = await unit(page.request, config, authoringCourse.courseKey, false);
+        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
+          label: 'unit',
+          blocks: ['html'],
+          publish: false,
+        });
         expect((await fetchXBlockOutline(page.request, config, unitKey)).published).toBe(false);
 
         await studioUnitPage.goto(unitKey);
@@ -153,22 +172,3 @@ test.describe(
     );
   },
 );
-
-/** Builds a section with one unit in `courseKey`, optionally published; returns the unit key. */
-async function unit(
-  request: APIRequestContext,
-  config: Parameters<typeof buildSection>[1],
-  courseKey: string,
-  publish: boolean,
-): Promise<string> {
-  const section: AuthoredSection = await buildSection(
-    request,
-    config,
-    courseKey,
-    `E2E unit ${Math.random().toString(36).slice(2, 8)}`,
-    { subsections: [{ units: [{ blocks: ['html'] }] }], publish },
-  );
-  const key = section.units[0]?.usageKey;
-  if (key === undefined) throw new Error('The section has no unit.');
-  return key;
-}

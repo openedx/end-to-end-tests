@@ -2,13 +2,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import {
-  buildSection,
-  fetchXBlockOutline,
-  courseUsageKey,
-  type AuthoredSection,
-} from '../../../src/api';
+import { buildSection, fetchXBlockOutline, courseUsageKey } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { firstUnitKey } from './outline-helpers';
 
 /**
  * Reordering sections (TC-00168), subsections (TC-00169) and units (TC-00170) in
@@ -61,7 +57,7 @@ test.describe(
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
         await studioCourseOutlinePage.move(
-          studioCourseOutlinePage.section(only(first.units)),
+          studioCourseOutlinePage.section(firstUnitKey(first)),
           'section',
           'down',
         );
@@ -158,10 +154,4 @@ async function siblingOrder(
 
 function shape() {
   return { subsections: [{ units: [{ blocks: ['html' as const] }] }] };
-}
-
-function only(items: AuthoredSection['units']): string {
-  const [first] = items;
-  if (first === undefined) throw new Error('The section is missing a unit.');
-  return first.usageKey;
 }

@@ -1,15 +1,13 @@
-import type { APIRequestContext } from '@playwright/test';
-
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import {
   availableComponentTypes,
-  buildSection,
   fetchContainer,
   fetchContainerChildren,
   fetchXBlock,
 } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { buildUnit } from './component-helpers';
 
 /**
  * Authoring a text component in the TinyMCE editor (TC-00217), covering a
@@ -38,7 +36,9 @@ test.describe(
         studioAuthorSession,
       }) => {
         void studioAuthorSession;
-        const unitKey = await emptyUnit(page.request, config, authoringCourse.courseKey);
+        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
+          label: 'text',
+        });
 
         await studioUnitPage.goto(unitKey);
         const types = availableComponentTypes(await fetchContainer(page.request, config, unitKey));
@@ -65,20 +65,3 @@ test.describe(
     );
   },
 );
-
-async function emptyUnit(
-  request: APIRequestContext,
-  config: Parameters<typeof buildSection>[1],
-  courseKey: string,
-): Promise<string> {
-  const section = await buildSection(
-    request,
-    config,
-    courseKey,
-    `E2E text ${Math.random().toString(36).slice(2, 8)}`,
-    { subsections: [{ units: [{ blocks: [] }] }] },
-  );
-  const key = section.units[0]?.usageKey;
-  if (key === undefined) throw new Error('The section has no unit.');
-  return key;
-}

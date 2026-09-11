@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
-import { studioJson, studioOrigin, studioWrite, STUDIO_JSON_ACCEPT } from './studio-origin';
+import { studioWrite } from './studio-origin';
 
 /** The user's server-side clipboard — what "Copy to clipboard" stages and "Paste" reads. */
 export const CLIPBOARD_PATH = '/api/content-staging/v1/clipboard/';
@@ -21,8 +21,9 @@ export interface Clipboard {
 /**
  * Copies a block to the user's server-side clipboard — the call the authoring
  * MFE's "Copy to clipboard" makes. It stages the block's OLX per user (no browser
- * clipboard, no permission grant), so a later {@link pasteFromClipboard} — in the
- * same or another course the user can edit — can insert it.
+ * clipboard, no permission grant), so a later paste — in the same or another
+ * course the user can edit — can insert it. The paste itself is a UI action the
+ * outline/unit page objects drive; the spec asserts on the resulting block.
  */
 export async function copyToClipboard(
   request: APIRequestContext,
@@ -37,38 +38,4 @@ export async function copyToClipboard(
     `Copying ${usageKey} to the clipboard`,
     { usage_key: usageKey },
   );
-}
-
-/** Reads the current clipboard (what "What's in my clipboard?" shows). */
-export async function readClipboard(
-  request: APIRequestContext,
-  config: AppConfig,
-): Promise<Clipboard> {
-  const response = await request.get(`${studioOrigin(config)}${CLIPBOARD_PATH}`, {
-    headers: STUDIO_JSON_ACCEPT,
-  });
-  return studioJson<Clipboard>(response, 'Reading the clipboard');
-}
-
-/**
- * Pastes the clipboard's staged block under `parentLocator`, returning the new
- * block's usage key. Equivalent to a "Paste" in the outline or unit page.
- */
-export async function pasteFromClipboard(
-  request: APIRequestContext,
-  config: AppConfig,
-  parentLocator: string,
-): Promise<string> {
-  const body = await studioWrite<{ locator?: string }>(
-    request,
-    config,
-    'POST',
-    '/xblock/',
-    `Pasting the clipboard under ${parentLocator}`,
-    { parent_locator: parentLocator, staged_content: 'clipboard' },
-  );
-  if (typeof body?.locator !== 'string') {
-    throw new Error(`Pasting the clipboard returned no locator: ${JSON.stringify(body)}`);
-  }
-  return body.locator;
 }

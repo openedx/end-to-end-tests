@@ -2,8 +2,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, fetchXBlockOutline, type AuthoredSection } from '../../../src/api';
+import { buildSection, fetchXBlockOutline } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { firstUnitKey, learnerSees, only } from './outline-helpers';
 
 /**
  * Configuring a subsection as graded (TC-00157) and confirming it counts toward
@@ -45,11 +46,11 @@ test.describe(
           `E2E grade ${test.info().testId.slice(-6)}`,
           { subsections: [{ units: [{ blocks: ['multiplechoiceresponse'] }] }], publish: true },
         );
-        const subsectionKey = only(section.subsections);
-        const unitKey = only(section.units);
+        const subsectionKey = only(section.subsections, 'subsection').usageKey;
+        const unitKey = firstUnitKey(section);
         const assignmentType = 'Homework';
 
-        await learnerSeesUnit(roundTripLearner, unitKey);
+        await learnerSees(roundTripLearner, unitKey);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -101,21 +102,4 @@ async function fetchLearnerProgress(
     section_scores?: { subsections: ProgressSubsection[] }[];
   };
   return body.section_scores ?? [];
-}
-
-async function learnerSeesUnit(
-  learner: { outline: () => Promise<{ units: readonly { id: string }[] }> },
-  unitKey: string,
-): Promise<void> {
-  await expect
-    .poll(async () => (await learner.outline()).units.some((u) => u.id === unitKey), {
-      timeout: TIMEOUTS.contentPublish,
-    })
-    .toBe(true);
-}
-
-function only(items: AuthoredSection['units'] | AuthoredSection['subsections']): string {
-  const [first] = items;
-  if (first === undefined) throw new Error('The section is missing an item.');
-  return first.usageKey;
 }

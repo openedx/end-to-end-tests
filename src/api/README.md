@@ -88,21 +88,22 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   behind the Launch and Best-practices checklists — served by the Studio origin),
   `course-modes.ts` (LMS enrollment modes; `ensureCertificateBearingMode` adds the
   `honor` mode a course needs before the Certificates form renders — staff only).
-- `xblock.ts` — the legacy `xblock_handler` CRUD client: `createXBlock`,
-  `updateXBlock`, `publishXBlock`, `duplicateXBlock`, `deleteXBlock`,
-  `reorderChildren`, `moveXBlock`, the prerequisite flags
-  (`setAvailableAsPrerequisite` / `requirePrerequisite`), and the reads
-  (`fetchXBlockOutline`, `fetchXBlock`, `fetchCourseIndex`, `fetchContainer` /
-  `fetchContainerChildren`, `availableComponentTypes`). The one endpoint the whole
-  outline and every unit go through.
+- `xblock.ts` — the legacy `xblock_handler` client: `createXBlock`,
+  `updateXBlock`, `publishXBlock`, and the reads (`fetchXBlockOutline`,
+  `fetchXBlock`, `fetchCourseIndex`, `fetchContainer` / `fetchContainerChildren`,
+  `availableComponentTypes` / `advancedComponentTypes`). The one endpoint the whole
+  outline and every unit go through. Duplicate / delete / reorder / move and the
+  prerequisite gate are exercised through the outline page object's UI, not a
+  parallel API client, so the spec asserts the action the way an author takes it.
 - `course-content.ts` — `buildSection` and the `authorProblem` / `authorHtml` /
   `authorVideo` builders (with the per-type problem templates surfaced by
   `problemOlx`): the "a spec builds a section, not a course" helper layer, all
   arrangement done through the xblock API so a spec body opens on the action under
   test.
-- `clipboard.ts` — the content-staging clipboard client (`copyToClipboard` /
-  `readClipboard` / `pasteFromClipboard`): staged server-side per user, so a
-  cross-course paste needs no browser clipboard and no permission grant.
+- `clipboard.ts` — the content-staging clipboard client (`copyToClipboard`):
+  staged server-side per user, so a cross-course paste needs no browser clipboard
+  and no permission grant. The paste is a UI action the outline/unit page objects
+  drive.
 - `cohorts.ts` — the LMS instructor cohort client (`enableCohorts` /
   `createCohort` / `linkCohortToGroup` / `addToCohort`). These are Django
   **session**-auth LMS views, not JWT: a JWT-only context is redirected to login

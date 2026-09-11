@@ -1,7 +1,8 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, fetchXBlockOutline, type AuthoredSection } from '../../../src/api';
+import { fetchXBlockOutline } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { buildHtmlSection, firstUnitKey, learnerSees, only } from './outline-helpers';
 
 /**
  * Section (TC-00153) and subsection (TC-00155) release date controlling learner
@@ -37,14 +38,14 @@ test.describe(
         roundTripLearner,
       }) => {
         void studioAuthorSession;
-        const section = await published(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
-          'sec',
+          'rel-sec',
+          { publish: true },
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -81,15 +82,15 @@ test.describe(
         roundTripLearner,
       }) => {
         void studioAuthorSession;
-        const section = await published(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
-          'sub',
+          'rel-sub',
+          { publish: true },
         );
-        const subsectionKey = only(section.subsections);
-        const unitKey = only(section.units);
+        const subsectionKey = only(section.subsections, 'subsection').usageKey;
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -118,34 +119,3 @@ test.describe(
     );
   },
 );
-
-async function learnerSees(
-  learner: { outline: () => Promise<{ units: readonly { id: string }[] }> },
-  unitKey: string,
-  present: boolean,
-): Promise<void> {
-  await expect
-    .poll(async () => (await learner.outline()).units.some((u) => u.id === unitKey), {
-      timeout: TIMEOUTS.contentPublish,
-    })
-    .toBe(present);
-}
-
-function published(
-  request: Parameters<typeof buildSection>[0],
-  config: Parameters<typeof buildSection>[1],
-  courseKey: string,
-  info: { testId: string },
-  tag: string,
-) {
-  return buildSection(request, config, courseKey, `E2E rel-${tag} ${info.testId.slice(-6)}`, {
-    subsections: [{ units: [{ blocks: ['html'] }] }],
-    publish: true,
-  });
-}
-
-function only(items: AuthoredSection['units'] | AuthoredSection['subsections']): string {
-  const [first] = items;
-  if (first === undefined) throw new Error('The section is missing an item.');
-  return first.usageKey;
-}

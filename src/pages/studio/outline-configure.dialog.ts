@@ -160,7 +160,7 @@ export class StudioOutlineConfigureDialog {
       this.page,
       {
         method: ['POST', 'PATCH'],
-        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => this.saveButton.click(),

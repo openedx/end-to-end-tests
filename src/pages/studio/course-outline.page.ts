@@ -131,7 +131,7 @@ export class StudioCourseOutlinePage {
       try {
         await this.subsectionCards
           .first()
-          .waitFor({ state: expanded ? 'visible' : 'hidden', timeout: 5000 });
+          .waitFor({ state: expanded ? 'visible' : 'hidden', timeout: TIMEOUTS.optionalOverlay });
         return;
       } catch {
         // Wrong direction or still settling; re-check and retry.
@@ -259,7 +259,7 @@ export class StudioCourseOutlinePage {
       this.page,
       {
         method: 'POST',
-        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => field.press('Enter'),
@@ -288,20 +288,11 @@ export class StudioCourseOutlinePage {
       this.page,
       {
         method: ['POST', 'PATCH'],
-        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => confirm.click(),
     );
-  }
-
-  /** Whether a card's menu offers an enabled Publish item (there are unpublished changes). */
-  async canPublish(card: Locator, level: OutlineLevel): Promise<boolean> {
-    await this.openMenu(card, level);
-    const item = card.locator(outlineMenuItem(level, 'publish'));
-    const disabled = await item.getAttribute('aria-disabled');
-    await this.page.keyboard.press('Escape');
-    return disabled !== 'true';
   }
 
   /**
@@ -331,7 +322,7 @@ export class StudioCourseOutlinePage {
       this.page,
       {
         method: 'DELETE',
-        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => confirm.click(),
@@ -351,7 +342,7 @@ export class StudioCourseOutlinePage {
       this.page,
       {
         method: 'PUT',
-        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => item.click(),

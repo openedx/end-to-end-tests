@@ -8,6 +8,7 @@ import {
   updateXBlock,
   COURSE_BLOCKS_PATH,
 } from '../../src/api';
+import { only } from './outline/outline-helpers';
 
 /**
  * The content layer's own contract (Epic 8, §5 step 1): the xblock client, the
@@ -177,14 +178,3 @@ test.describe(
     });
   },
 );
-
-/** The one element the default section shape puts at this level. */
-function only<T>(items: readonly T[]): T {
-  const [first] = items;
-  if (first === undefined || items.length !== 1) {
-    throw new Error(
-      `Expected exactly one item in the default section shape, found ${items.length}.`,
-    );
-  }
-  return first;
-}

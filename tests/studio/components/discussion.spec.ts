@@ -1,9 +1,8 @@
-import type { APIRequestContext } from '@playwright/test';
-
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, fetchXBlock } from '../../../src/api';
+import { fetchXBlock } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { buildUnit } from './component-helpers';
 
 /**
  * Toggling discussions on a unit (TC-00219).
@@ -25,7 +24,10 @@ test.describe(
       { annotation: testId('TC-00219') },
       async ({ page, config, studioUnitPage, authoringCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const unitKey = await unit(page.request, config, authoringCourse.courseKey);
+        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
+          label: 'disc',
+          blocks: ['html'],
+        });
 
         await studioUnitPage.goto(unitKey);
 
@@ -44,20 +46,3 @@ test.describe(
     );
   },
 );
-
-async function unit(
-  request: APIRequestContext,
-  config: Parameters<typeof buildSection>[1],
-  courseKey: string,
-): Promise<string> {
-  const section = await buildSection(
-    request,
-    config,
-    courseKey,
-    `E2E disc ${Math.random().toString(36).slice(2, 8)}`,
-    { subsections: [{ units: [{ blocks: ['html'] }] }] },
-  );
-  const key = section.units[0]?.usageKey;
-  if (key === undefined) throw new Error('The section has no unit.');
-  return key;
-}

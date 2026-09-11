@@ -2,13 +2,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import {
-  buildSection,
-  fetchCourseMetadata,
-  fetchXBlockOutline,
-  type AuthoredSection,
-} from '../../../src/api';
+import { fetchCourseMetadata, fetchXBlockOutline } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { buildHtmlSection, firstUnitKey } from './outline-helpers';
 
 /**
  * Publishing content in a **future-dated course** (its start is years away) and
@@ -42,14 +38,13 @@ test.describe(
         futureCourseLearner,
       }) => {
         void studioAuthorSession;
-        const section = await draft(
+        const section = await buildHtmlSection(
           page.request,
           config,
           futureCourse.courseKey,
-          test.info(),
-          'unit',
+          'fut-unit',
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(futureCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -72,14 +67,13 @@ test.describe(
         futureCourseLearner,
       }) => {
         void studioAuthorSession;
-        const section = await draft(
+        const section = await buildHtmlSection(
           page.request,
           config,
           futureCourse.courseKey,
-          test.info(),
-          'sub',
+          'fut-sub',
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(futureCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -105,14 +99,13 @@ test.describe(
         futureCourseLearner,
       }) => {
         void studioAuthorSession;
-        const section = await draft(
+        const section = await buildHtmlSection(
           page.request,
           config,
           futureCourse.courseKey,
-          test.info(),
-          'sec',
+          'fut-sec',
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(futureCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -144,22 +137,4 @@ async function expectCourseNotStarted(
     )
     .toBe('course_not_started');
   expect(await learner.navigation()).toBeUndefined();
-}
-
-function draft(
-  request: Parameters<typeof buildSection>[0],
-  config: Parameters<typeof buildSection>[1],
-  courseKey: string,
-  info: { testId: string },
-  tag: string,
-) {
-  return buildSection(request, config, courseKey, `E2E fut-${tag} ${info.testId.slice(-6)}`, {
-    subsections: [{ units: [{ blocks: ['html'] }] }],
-  });
-}
-
-function only(items: AuthoredSection['units']): string {
-  const [first] = items;
-  if (first === undefined) throw new Error('The section is missing a unit.');
-  return first.usageKey;
 }

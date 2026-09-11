@@ -1,7 +1,8 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, fetchXBlockOutline, type AuthoredSection } from '../../../src/api';
+import { fetchXBlockOutline } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { buildHtmlSection, firstUnitKey } from './outline-helpers';
 
 /**
  * Publishing outline items in Studio and confirming the learner can reach them —
@@ -34,14 +35,13 @@ test.describe(
         roundTripLearner,
       }) => {
         void studioAuthorSession;
-        const section = await draftSection(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
-          'unit',
+          'publish-unit',
         );
-        const unitKey = onlyUnit(section).usageKey;
+        const unitKey = firstUnitKey(section);
         expect((await fetchXBlockOutline(page.request, config, unitKey)).published).toBe(false);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
@@ -73,14 +73,13 @@ test.describe(
         roundTripLearner,
       }) => {
         void studioAuthorSession;
-        const section = await draftSection(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
-          'sub',
+          'publish-sub',
         );
-        const unitKey = onlyUnit(section).usageKey;
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -110,14 +109,13 @@ test.describe(
         roundTripLearner,
       }) => {
         void studioAuthorSession;
-        const section = await draftSection(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
-          'sec',
+          'publish-sec',
         );
-        const unitKey = onlyUnit(section).usageKey;
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -137,14 +135,13 @@ test.describe(
       { annotation: testId('TC-00171') },
       async ({ page, config, studioCourseOutlinePage, contentCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const section = await draftSection(
+        const section = await buildHtmlSection(
           page.request,
           config,
           contentCourse.courseKey,
-          test.info(),
-          'live',
+          'publish-live',
         );
-        const unitKey = onlyUnit(section).usageKey;
+        const unitKey = firstUnitKey(section);
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
@@ -160,22 +157,3 @@ test.describe(
     );
   },
 );
-
-function draftSection(
-  request: Parameters<typeof buildSection>[0],
-  config: Parameters<typeof buildSection>[1],
-  courseKey: string,
-  info: { testId: string },
-  tag: string,
-) {
-  return buildSection(request, config, courseKey, `E2E publish-${tag} ${info.testId.slice(-6)}`, {
-    subsections: [{ units: [{ blocks: ['html'] }] }],
-  });
-}
-
-/** The single unit the draft section shape holds. */
-function onlyUnit(section: AuthoredSection): AuthoredSection['units'][number] {
-  const [unit] = section.units;
-  if (unit === undefined) throw new Error('The draft section has no unit.');
-  return unit;
-}

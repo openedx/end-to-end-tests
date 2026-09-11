@@ -1,9 +1,8 @@
-import type { APIRequestContext } from '@playwright/test';
-
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, copyToClipboard, fetchContainerChildren } from '../../../src/api';
+import { copyToClipboard, fetchContainerChildren } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { buildUnit } from './component-helpers';
 
 /**
  * Copying a component from the unit page and pasting it into the same unit
@@ -26,7 +25,10 @@ test.describe(
       { annotation: testId('TC-00222') },
       async ({ page, config, studioUnitPage, authoringCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const unitKey = await unitWithHtml(page.request, config, authoringCourse.courseKey);
+        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
+          label: 'comp-clip',
+          blocks: ['html'],
+        });
 
         const before = await fetchContainerChildren(page.request, config, unitKey);
         expect(before).toHaveLength(1);
@@ -44,20 +46,3 @@ test.describe(
     );
   },
 );
-
-async function unitWithHtml(
-  request: APIRequestContext,
-  config: Parameters<typeof buildSection>[1],
-  courseKey: string,
-): Promise<string> {
-  const section = await buildSection(
-    request,
-    config,
-    courseKey,
-    `E2E comp-clip ${Math.random().toString(36).slice(2, 8)}`,
-    { subsections: [{ units: [{ blocks: ['html'] }] }] },
-  );
-  const key = section.units[0]?.usageKey;
-  if (key === undefined) throw new Error('The section has no unit.');
-  return key;
-}

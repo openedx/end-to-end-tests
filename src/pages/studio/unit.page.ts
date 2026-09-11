@@ -81,7 +81,7 @@ export class StudioUnitPage {
       this.page,
       {
         method: ['POST', 'PATCH'],
-        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => this.publishButton.click(),
@@ -105,7 +105,7 @@ export class StudioUnitPage {
       this.page,
       {
         method: ['POST', 'PATCH'],
-        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => toggle.nth(staffOnly ? 1 : 0).click(),
@@ -170,7 +170,7 @@ export class StudioUnitPage {
       this.page,
       {
         method: ['POST', 'PATCH'],
-        predicate: (r) => new RegExp(`${XBLOCK_PATH}block-v1:`).test(r.url()),
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => checkbox.setChecked(enabled),

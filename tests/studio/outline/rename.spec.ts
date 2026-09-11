@@ -1,7 +1,8 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, type AuthoredSection } from '../../../src/api';
+import { buildSection } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { firstUnitKey, only } from './outline-helpers';
 
 /**
  * Renaming an outline item in Studio and seeing the new name on the learner side
@@ -41,7 +42,7 @@ test.describe(
           label(test.info(), 'sec'),
           { subsections: [{ units: [{ blocks: ['html'] }] }], publish: true },
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
         const newName = `${label(test.info(), 'sec')} renamed`;
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
@@ -82,8 +83,8 @@ test.describe(
           label(test.info(), 'sub'),
           { subsections: [{ units: [{ blocks: ['html'] }] }], publish: true },
         );
-        const subsectionKey = only(section.subsections);
-        const unitKey = only(section.units);
+        const subsectionKey = only(section.subsections, 'subsection').usageKey;
+        const unitKey = firstUnitKey(section);
         const newName = `${label(test.info(), 'sub')} renamed`;
 
         await studioCourseOutlinePage.goto(contentCourse.courseKey);
@@ -124,7 +125,7 @@ test.describe(
           label(test.info(), 'unit'),
           { subsections: [{ units: [{ blocks: ['html'] }] }], publish: true },
         );
-        const unitKey = only(section.units);
+        const unitKey = firstUnitKey(section);
         const newName = `${label(test.info(), 'unit')} renamed`;
 
         // The learner already sees the unit under its original name.
@@ -156,11 +157,4 @@ test.describe(
 /** A name unique to this test and run, safe to match as the test's own data. */
 function label(info: { testId: string }, tag: string): string {
   return `E2E rename-${tag} ${info.testId.slice(-6)}`;
-}
-
-/** The usage key of the single item the rename shape puts at this level. */
-function only(items: AuthoredSection['units'] | AuthoredSection['subsections']): string {
-  const [first] = items;
-  if (first === undefined) throw new Error('The rename section is missing an item.');
-  return first.usageKey;
 }
