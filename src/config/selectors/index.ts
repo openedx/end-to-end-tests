@@ -15,6 +15,13 @@ export { COURSE_HOME_SELECTORS } from './course-home';
 export { STUDIO_HOME_SELECTORS } from './studio-home';
 export { STUDIO_OUTLINE_SELECTORS, STUDIO_SHELL_SELECTORS } from './studio-shell';
 export {
+  STUDIO_OUTLINE_PAGE_SELECTORS,
+  outlineMenuItem,
+  sectionCardContaining,
+  subsectionCardContaining,
+  unitCardFor,
+} from './studio-outline';
+export {
   STUDIO_GRADING_SELECTORS,
   STUDIO_SCHEDULE_DETAILS_SELECTORS,
   STUDIO_SETTINGS_SAVE_BAR_SELECTORS,
