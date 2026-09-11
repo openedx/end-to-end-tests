@@ -114,11 +114,54 @@ function printRuntimeWarningsOnce(config: AppConfig): void {
  * Runtime advisories are printed once per run (see {@link WARNINGS_SHOWN_ENV}).
  * Fails fast with a {@link ConfigError} if the environment is invalid.
  */
-export function getConfig(): AppConfig {
+/** Loads `.env` into `process.env` once per process (idempotent). */
+function ensureDotenvLoaded(): void {
   if (!dotenvLoaded) {
     dotenv.config({ quiet: true });
     dotenvLoaded = true;
   }
+}
+
+/**
+ * Default worker counts when `WORKERS` is not set: a conservative 2 locally
+ * (a busy CMS worker evicts author Studio sessions under higher parallelism —
+ * see `references/studio-auth.md`), and the tuned 4 in CI.
+ */
+const DEFAULT_WORKERS = { local: 2, ci: 4 } as const;
+
+/**
+ * The Playwright worker count, from the `WORKERS` env var (`.env` or the
+ * environment) when set, else {@link DEFAULT_WORKERS}. A runner knob rather than
+ * installation config, so it is read straight from the environment (after `.env`
+ * is loaded) instead of going through the validated {@link AppConfig} — it must
+ * work even for `--project=unit`, which needs no other configuration.
+ *
+ * `WORKERS` must be a positive integer, or a Playwright percentage string like
+ * `"50%"` (passed through verbatim); anything else fails fast with a
+ * {@link ConfigError} rather than silently falling back.
+ *
+ * @param isCI whether the run is in CI (selects the default).
+ */
+export function resolveWorkerCount(isCI: boolean): number | string {
+  ensureDotenvLoaded();
+  const raw = process.env.WORKERS?.trim();
+  if (raw === undefined || raw === '') {
+    return isCI ? DEFAULT_WORKERS.ci : DEFAULT_WORKERS.local;
+  }
+  if (/^[1-9][0-9]*%$/.test(raw)) {
+    return raw;
+  }
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new ConfigError([
+      `WORKERS must be a positive integer or a percentage like "50%", got "${raw}".`,
+    ]);
+  }
+  return parsed;
+}
+
+export function getConfig(): AppConfig {
+  ensureDotenvLoaded();
   if (!cached) {
     cached = loadConfig(process.env);
     printRuntimeWarningsOnce(cached);

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 import { authStateFile } from './src/auth';
-import { getConfigIfValid, TIMEOUTS } from './src/config';
+import { getConfigIfValid, resolveWorkerCount, TIMEOUTS } from './src/config';
 
 const isCI = Boolean(process.env.CI);
 
@@ -31,7 +31,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
-  workers: isCI ? 4 : 8,
+  // Configurable via the `WORKERS` env var (`.env` or the environment); defaults
+  // to 2 locally and 4 in CI. Kept low locally on purpose: a busy CMS worker
+  // evicts author Studio sessions under higher parallelism (see
+  // `references/studio-auth.md`), so more workers trade throughput for flakiness.
+  workers: resolveWorkerCount(isCI),
   timeout: TIMEOUTS.test,
   expect: { timeout: TIMEOUTS.expect },
 
