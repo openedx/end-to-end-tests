@@ -21,6 +21,7 @@ import {
 import { StudioHomePage } from '../pages/studio/home/studio-home.page';
 import { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
 import { StudioOutlineConfigureDialog } from '../pages/studio/outline-configure.dialog';
+import { StudioUnitPage } from '../pages/studio/unit.page';
 import { StudioAdvancedSettingsPage } from '../pages/studio/settings/advanced-settings.page';
 import { StudioCertificatesPage } from '../pages/studio/settings/certificates.page';
 import { StudioCourseTeamPage } from '../pages/studio/settings/course-team.page';
@@ -193,6 +194,8 @@ export interface TestFixtures {
   studioCourseOutlinePage: StudioCourseOutlinePage;
   /** The Configure dialog opened from an outline card (release dates, visibility, grading, prerequisites). */
   outlineConfigureDialog: StudioOutlineConfigureDialog;
+  /** The unit (container) page object. */
+  studioUnitPage: StudioUnitPage;
   /** Schedule & Details settings page object (authoring MFE). */
   scheduleDetailsPage: StudioScheduleDetailsPage;
   /** Grading settings page object (authoring MFE). */
@@ -931,6 +934,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   studioCourseOutlinePage: pageObjectFixture(StudioCourseOutlinePage),
 
   outlineConfigureDialog: pageObjectFixture(StudioOutlineConfigureDialog),
+
+  studioUnitPage: pageObjectFixture(StudioUnitPage),
 
   scheduleDetailsPage: pageObjectFixture(StudioScheduleDetailsPage),
 
