@@ -17,6 +17,11 @@ test.describe(
   'Course outline rename',
   { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@mfe-learning'] },
   () => {
+    // Round trips poll the learner under TIMEOUTS.contentPublish (longer than the
+    // default per-test budget), so the block-structure task's delay under load
+    // does not trip the test timeout.
+    test.describe.configure({ timeout: TIMEOUTS.contentTest });
+
     test(
       'renames a section and the learner sees the new name',
       { annotation: testId('TC-00144') },

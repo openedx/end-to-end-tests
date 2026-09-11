@@ -22,6 +22,11 @@ test.describe(
   'Course outline structure',
   { tag: ['@studio', '@author', '@mfe-authoring', '@mfe-learning'] },
   () => {
+    // Round trips poll the learner under TIMEOUTS.contentPublish (longer than the
+    // default per-test budget), so the block-structure task's delay under load
+    // does not trip the test timeout.
+    test.describe.configure({ timeout: TIMEOUTS.contentTest });
+
     test(
       'expands and collapses every section in the outline',
       { tag: '@regression', annotation: testId('TC-00142') },

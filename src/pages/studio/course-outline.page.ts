@@ -147,24 +147,25 @@ export class StudioCourseOutlinePage {
    * just-created, empty subsection) shows its "New …" button without expanding.
    */
   private async expand(card: Locator, level: 'section' | 'subsection'): Promise<void> {
-    const container = card.locator(
-      level === 'section'
-        ? STUDIO_OUTLINE_PAGE_SELECTORS.sectionSubsections
-        : STUDIO_OUTLINE_PAGE_SELECTORS.subsectionUnits,
-    );
-    if (
-      await container
-        .first()
-        .isVisible()
-        .catch(() => false)
-    )
-      return;
+    const container = card
+      .locator(
+        level === 'section'
+          ? STUDIO_OUTLINE_PAGE_SELECTORS.sectionSubsections
+          : STUDIO_OUTLINE_PAGE_SELECTORS.subsectionUnits,
+      )
+      .first();
+    await card.scrollIntoViewIfNeeded();
+    if (await container.isVisible().catch(() => false)) return;
     const expandButton =
       level === 'section'
         ? STUDIO_OUTLINE_PAGE_SELECTORS.sectionExpandButton
         : STUDIO_OUTLINE_PAGE_SELECTORS.subsectionExpandButton;
     const button = card.locator(expandButton);
-    if ((await button.count()) > 0) await button.click();
+    if ((await button.count()) === 0) return;
+    // In a large shared outline the click and its re-render lag, so wait for the
+    // child container to actually appear rather than assume one click sufficed.
+    await button.click();
+    await container.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
   }
 
   // --- Creation ------------------------------------------------------------
@@ -209,7 +210,7 @@ export class StudioCourseOutlinePage {
       .locator(STUDIO_OUTLINE_PAGE_SELECTORS.subsectionUnits)
       .locator(STUDIO_OUTLINE_PAGE_SELECTORS.addChildButton)
       .first();
-    await button.scrollIntoViewIfNeeded();
+    await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
     const unitKeyPattern = /container\/(block-v1:[^/?#]*type@vertical[^/?#]+)/;
     await Promise.all([this.page.waitForURL(unitKeyPattern), button.click()]);
     const key = unitKeyPattern.exec(this.page.url())?.[1];
@@ -220,7 +221,7 @@ export class StudioCourseOutlinePage {
   }
 
   private async createChild(button: Locator): Promise<string> {
-    await button.scrollIntoViewIfNeeded();
+    await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
     const response = await waitForWrite(
       this.page,
       { method: 'POST', predicate: (r) => r.url().endsWith(XBLOCK_PATH) },
@@ -272,7 +273,8 @@ export class StudioCourseOutlinePage {
    */
   async publish(card: Locator, level: OutlineLevel): Promise<void> {
     await this.openMenu(card, level);
-    await this.page.locator(outlineMenuItem(level, 'publish')).click();
+    // Menu items render one per card of this level; scope to the card.
+    await card.locator(outlineMenuItem(level, 'publish')).click();
     // The menu item opens a confirmation dialog; its primary button is what
     // actually fires the publish write.
     const confirm = this.page.locator(STUDIO_OUTLINE_PAGE_SELECTORS.dialogPrimaryButton);
@@ -290,7 +292,7 @@ export class StudioCourseOutlinePage {
   /** Whether a card's menu offers an enabled Publish item (there are unpublished changes). */
   async canPublish(card: Locator, level: OutlineLevel): Promise<boolean> {
     await this.openMenu(card, level);
-    const item = this.page.locator(outlineMenuItem(level, 'publish'));
+    const item = card.locator(outlineMenuItem(level, 'publish'));
     const disabled = await item.getAttribute('aria-disabled');
     await this.page.keyboard.press('Escape');
     return disabled !== 'true';

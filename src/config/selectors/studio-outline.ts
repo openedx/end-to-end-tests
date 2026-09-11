@@ -95,6 +95,55 @@ export const STUDIO_OUTLINE_PAGE_SELECTORS = {
   /** The destructive-confirm button of a delete dialog (Paragon danger variant). */
   dialogDangerButton: '[role="dialog"] button.btn-danger',
 
+  /**
+   * The Configure dialog opened from a card's menu ("Configure"). One dialog is
+   * open at a time, so its controls are page-scoped, not card-scoped. Sections
+   * have Basic + Visibility tabs; subsections add an Advanced tab; a unit's
+   * dialog is tab-less.
+   */
+  configureModal: '[data-testid="configure-modal"]',
+  configureSaveButton: '[data-testid="configure-save-button"]',
+  /** A dialog tab by its visible position, filtered to the shown (non-overflow) tabs. */
+  configureTab: '[role="dialog"] [role="tab"]:not(.pgn__tab_invisible)',
+
+  /**
+   * The release date/time control on the Basic tab (a subsection's dialog also
+   * has a due-date stack with the **same input ids**, so always scope inside the
+   * stack). The date is `MM/DD/YYYY`, the time `HH:MM` UTC, behind a
+   * react-datepicker committed with Enter — as on Schedule & Details.
+   */
+  releaseDateStack: '[data-testid="release-date-stack"]',
+  configureDateInput: 'input[name="state-date"]',
+  configureTimeInput: 'input[name="start-time"]',
+
+  /** The "Grade as" assignment-type select on a subsection's Basic tab. */
+  graderTypeSelect: '[data-testid="grader-type-select"]',
+
+  /** "Hide from learners" on a section's Visibility tab. */
+  sectionVisibilityCheckbox: '[data-testid="visibility-checkbox"]',
+  /**
+   * A subsection's Visibility tab radios: `show` (visible), `hideDue` (hide after
+   * due date), `hide` (hidden entirely). Stands in for the three radio labels.
+   */
+  subsectionVisibilityRadio: (value: 'show' | 'hideDue' | 'hide') =>
+    `input[name="subsectionVisibility"][value="${value}"]`,
+  /** "Hide from learners" on a unit's (tab-less) configure dialog. */
+  unitVisibilityCheckbox: '[data-testid="unit-visibility-checkbox"]',
+
+  /**
+   * Subsection prerequisite controls on the Advanced tab (present only when the
+   * course's `enable_subsection_gating` advanced setting is on). The "Make this
+   * subsection available as a prerequisite" checkbox has no test id and is the
+   * only checkbox on the tab (the special-exam controls are radios); the
+   * dependent side is a `<select>` of eligible prerequisites plus min-score and
+   * min-completion number inputs (both defaulting to 100).
+   */
+  availableAsPrerequisiteCheckbox:
+    '[role="dialog"] [role="tabpanel"]:not([hidden]) input[type="checkbox"]',
+  prerequisiteSelect: '[role="dialog"] select[id="prereqForm.select"]',
+  prerequisiteMinScore: 'input[name="prereqMinScore"]',
+  prerequisiteMinCompletion: 'input[name="prereqMinCompletion"]',
+
   /** The outline header's "View live" link into the LMS (`/jump_to/`). */
   viewLiveLink: 'a[href*="/jump_to/"]',
   /** "You haven't added any content to this course yet." — an empty outline. */

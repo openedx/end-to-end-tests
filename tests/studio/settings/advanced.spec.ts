@@ -249,15 +249,4 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       await updateAdvancedSettings(api, config, courseKey, { advanced_modules: [] });
     },
   );
-
-  // TC-00270 (subsection prerequisites) needs authored, graded subsections to gate
-  // against — course content this course does not have (Epic 8).
-  test.fixme(
-    'gates a subsection behind a prerequisite subsection',
-    { tag: '@regression', annotation: testId('TC-00270') },
-    async ({ request, config, authoredCourse }) => {
-      const settings = await fetchAdvancedSettings(request, config, authoredCourse.courseKey);
-      expect(settings['enable_subsection_gating']?.value).toBe(true);
-    },
-  );
 });
