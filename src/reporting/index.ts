@@ -26,3 +26,18 @@ export {
 } from './a11y';
 export { default as A11yReporter, type A11yReporterOptions } from './a11y-reporter';
 export { ISSUE_ANNOTATION_TYPE, issue, type IssueAnnotation } from './issue';
+export {
+  csvField,
+  flattenSteps,
+  slowestTests,
+  stepRowsToCsv,
+  testRowsToCsv,
+  STEP_COLUMNS,
+  TEST_COLUMNS,
+  type StepNode,
+  type StepTimingRow,
+  type TestTimingRow,
+  type TimingRunContext,
+  type TimingStatus,
+} from './timing';
+export { default as TimingReporter, type TimingReporterOptions } from './timing-reporter';
