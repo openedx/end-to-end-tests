@@ -335,6 +335,14 @@ jobs:
           PASSWORD_RESET_IP_RATE = "100/m"
           PASSWORD_RESET_EMAIL_RATE = "100/m"
 
+          # Login limits. The per-email default (30/5m) trips first: a worker's
+          # author signs in repeatedly across its Studio run and hits "Too many
+          # failed login attempts"; the per-IP default (100/5m) is shared by all
+          # workers. Both use self-resetting per-minute windows here.
+          LOGISTRATION_PER_EMAIL_RATELIMIT_RATE = "100/m"
+          LOGISTRATION_RATELIMIT_RATE = "100/m"
+          LOGISTRATION_API_RATELIMIT = "100/m"
+
           ENABLE_COURSE_DISCOVERY = True
           SKIP_EMAIL_VALIDATION = True
 

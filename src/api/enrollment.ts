@@ -7,6 +7,63 @@ import { ApiError } from './errors';
 /** Public enrollment API (`edx-platform/openedx/core/djangoapps/enrollments`). */
 export const ENROLLMENT_PATH = '/api/enrollment/v1/enrollment';
 
+/** Per-course enrollment facts: window, modes, invitation-only, pacing. */
+export const COURSE_ENROLLMENT_DETAILS_PATH = '/api/enrollment/v1/course';
+
+export interface CourseEnrollmentDetails {
+  readonly courseId: string;
+  readonly enrollmentStart: string | null;
+  readonly enrollmentEnd: string | null;
+  readonly courseStart: string | null;
+  readonly courseEnd: string | null;
+  readonly inviteOnly: boolean;
+  /** Mode slugs, e.g. `['audit']`. */
+  readonly courseModes: readonly string[];
+  /** `Instructor Paced` or `Self Paced`, as the platform words it. */
+  readonly pacingType: string;
+}
+
+interface RawCourseEnrollmentDetails {
+  readonly course_id?: string;
+  readonly enrollment_start?: string | null;
+  readonly enrollment_end?: string | null;
+  readonly course_start?: string | null;
+  readonly course_end?: string | null;
+  readonly invite_only?: boolean;
+  readonly course_modes?: readonly { readonly slug?: string }[];
+  readonly pacing_type?: string;
+}
+
+/**
+ * Reads the enrollment-relevant facts of a course — the LMS-side outcome of
+ * Studio's enrollment window, invitation-only and pacing settings.
+ */
+export async function fetchCourseEnrollmentDetails(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<CourseEnrollmentDetails> {
+  const url = `${config.baseUrls.lms}${COURSE_ENROLLMENT_DETAILS_PATH}/${courseKey}`;
+  const response = await request.get(url);
+  if (!response.ok()) {
+    throw new ApiError(
+      `Could not read enrollment details for "${courseKey}" (HTTP ${response.status()}).`,
+      { status: response.status(), url, body: await response.text() },
+    );
+  }
+  const raw = (await response.json()) as RawCourseEnrollmentDetails;
+  return {
+    courseId: raw.course_id ?? courseKey,
+    enrollmentStart: raw.enrollment_start ?? null,
+    enrollmentEnd: raw.enrollment_end ?? null,
+    courseStart: raw.course_start ?? null,
+    courseEnd: raw.course_end ?? null,
+    inviteOnly: raw.invite_only ?? false,
+    courseModes: (raw.course_modes ?? []).map((mode) => mode.slug ?? ''),
+    pacingType: raw.pacing_type ?? '',
+  };
+}
+
 interface RawEnrollment {
   readonly is_active?: boolean;
   readonly course_details?: { readonly course_id?: string };

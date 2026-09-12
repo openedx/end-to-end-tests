@@ -56,7 +56,7 @@ test.describe('Course catalog discovery', () => {
 
   test(
     'the page chrome labels its brand link',
-    { tag: '@regression', annotation: testId('TC-00014') },
+    { tag: ['@regression', '@frontend-base'], annotation: testId('TC-00014') },
     async ({ page, catalogPage }) => {
       // The frontend-base shell's header and footer each wrap the site logo in a
       // link with no accessible name, so every page served in that shell fails
@@ -67,6 +67,11 @@ test.describe('Course catalog discovery', () => {
       // and expects it to fail, so the day the shell is fixed this reports an
       // unexpected pass — the signal to drop the marker and those two baseline
       // entries from `src/a11y/baseline.ts`.
+      //
+      // Gated on `@frontend-base` because the defect is the shell's: the older
+      // `frontend-component-header` labels its logo, so on an install that has
+      // opted out the body would pass and `test.fail` would report that as a
+      // failure.
       test.fail(
         true,
         "BASE-001: the shell's header and footer brand links wrap an unlabelled logo image.",
