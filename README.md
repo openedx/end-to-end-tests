@@ -456,6 +456,9 @@ for the full mechanics.
 
 ## Contributing
 
+Start with [`DEVELOPER.md`](DEVELOPER.md), the condensed guide to writing a
+well-formed spec, with links into the detailed documents.
+
 - Write TypeScript under strict settings; `npm run check` must pass.
 - Keep configuration centralized in `src/config/` — never read `process.env`
   directly in specs.
