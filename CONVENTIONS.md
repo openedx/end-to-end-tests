@@ -219,6 +219,15 @@ The always-on coverage reporter maps each `test_id` to its outcome and reports
 annotation coverage every run, writing `test-results/btr-coverage.json` (a local
 file only — see `src/reporting/README.md` for the upload/sheet policy).
 
+## Timing report
+
+Every run also writes `test-results/timings-tests.csv` (one row per test attempt)
+and `test-results/timings-steps.csv` (one row per recorded step), each row stamped
+with the run's start time and target URL for import into a spreadsheet or
+database and comparison across runs. Nothing to do in a spec: Playwright records
+the durations; the reporter reshapes them. Wrapping a long flow in
+`test.step('…')` gives it a named row in the steps file.
+
 ## Known upstream defects
 
 When a test case describes behaviour the platform does not yet deliver, write the

@@ -161,10 +161,10 @@ collide. We never disable browser security to paper over cross-origin auth.
 
 Two `src/` modules support specs across every domain rather than a single layer:
 
-| Module           | Responsibility                                                                                                                                                                          |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/reporting/` | BTR `test_id` annotations + coverage reporter (`test-results/btr-coverage.json`), and the accessibility reporter that consolidates every scan into `test-results/a11y-violations.json`. |
-| `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline. Per-scan results are attached to each test and aggregated by the reporter above.             |
+| Module           | Responsibility                                                                                                                                                                                                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/reporting/` | BTR `test_id` annotations + coverage reporter (`test-results/btr-coverage.json`), the accessibility reporter that consolidates every scan into `test-results/a11y-violations.json`, and the timing reporter that writes per-test / per-step durations to `test-results/timings-*.csv`. |
+| `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline. Per-scan results are attached to each test and aggregated by the reporter above.                                                                                                            |
 
 Configuration lives in [`playwright.config.ts`](playwright.config.ts); timeouts
 are centralized in `src/config/timeouts.ts` (no fixed sleeps).
