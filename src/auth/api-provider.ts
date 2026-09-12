@@ -1,4 +1,10 @@
-import { accountSignIn, provisionLearnerSession } from '../accounts';
+import {
+  AccountNotConfiguredError,
+  accountSignIn,
+  accountSignInStudio,
+  provisionAuthorSession,
+  provisionLearnerSession,
+} from '../accounts';
 import type { AppConfig } from '../config';
 import { AuthNotConfiguredError } from './errors';
 import type { Role } from './roles';
@@ -26,6 +32,17 @@ import type { AuthContext, AuthProvider, StorageState } from './types';
  * - `instructor` — no default account exists; an installation supplies one by
  *   subclassing or swapping this provider. Reported as not-configured so the
  *   setup project skips it instead of failing the run.
+ * - `author` — provisions a fresh account, gives it a Studio session through the
+ *   silent OAuth handshake, and has the account backend grant course-creator
+ *   status (see `provisionAuthorSession`). Offered only when the `studio`
+ *   capability is declared. The default grant needs the admin account; without
+ *   one, and on an install that does not grant everyone, it reports
+ *   not-configured and the Studio specs skip with it.
+ *
+ * With `studio` declared, `staff` also completes the Studio handshake, so the
+ * one stored state covers Studio too. Every Studio sign-in goes through the
+ * backend's `signInStudio` (the stock OAuth handshake by default), so an install
+ * that fronts Studio with its own IdP replaces it once, for every role.
  */
 export class ApiAuthProvider implements AuthProvider {
   /**
@@ -38,6 +55,12 @@ export class ApiAuthProvider implements AuthProvider {
     const roles: Role[] = ['learner'];
     if (config.credentials.admin) {
       roles.push('staff');
+    }
+    if (config.capabilities.has('studio')) {
+      // Listed whenever Studio is declared: a configured-but-failing grant is a
+      // real failure, an absent admin on a gated install is a not-configured skip
+      // raised from authenticate() — same split as `staff`.
+      roles.push('author');
     }
     return roles;
   }
@@ -63,11 +86,31 @@ export class ApiAuthProvider implements AuthProvider {
               'ADMIN_PASSWORD to enable staff-role coverage.',
           );
         }
-        await accountSignIn({
-          config,
-          request,
-          credentials: { emailOrUsername: admin.username, password: admin.password },
-        });
+        const credentials = { emailOrUsername: admin.username, password: admin.password };
+        await accountSignIn({ config, request, credentials });
+        if (config.capabilities.has('studio')) {
+          await accountSignInStudio({ config, request, credentials });
+        }
+        break;
+      }
+
+      case 'author': {
+        if (!config.capabilities.has('studio')) {
+          throw new AuthNotConfiguredError(
+            'The "author" role needs Studio. Declare the "studio" capability (and set ' +
+              'CMS_BASE_URL) to enable Studio coverage.',
+          );
+        }
+        try {
+          await provisionAuthorSession(request, config);
+        } catch (error) {
+          // The account layer's "nothing to grant with" becomes the auth layer's
+          // "skip this role"; anything else is a real failure.
+          if (error instanceof AccountNotConfiguredError) {
+            throw new AuthNotConfiguredError(error.message);
+          }
+          throw error;
+        }
         break;
       }
 

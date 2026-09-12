@@ -152,8 +152,15 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   the `capabilityGate` fixture in `src/fixtures/` reads each test's own tags and
   skips it where that capability is not enabled, so the tag is the whole of the
   contract — while any other tag is only a filter. Most capabilities are off until
-  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces, currently `mfe-authn`)
-  are on unless turned off with `-mfe-authn`.
+  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces, currently `mfe-authn`
+  and `frontend-base`) are on unless turned off with a `-` prefix.
+
+  `@frontend-base` marks coverage that only makes sense in the `frontend-base`
+  shell (`main` onward): its chrome's a11y debt, markup only it renders. It is
+  **not** a version switch — a journey that merely passes through the shell stays
+  ungated and matches both headers with a selector union (see
+  `src/config/selectors/account-menu.ts`). Reach for the tag only when the two
+  models need mutually exclusive assertions.
 
   A capability gates the coverage that is _about_ the optional feature, not every
   spec that happens to pass through it. Where the feature is one of two routes to
@@ -176,6 +183,17 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   learner for that test and installs its session in place of the shared one, so
   parallel tests never share an enrollment. That costs one registration per test —
   see the README's rate-limit section.
+
+- **Author:** `@author` — the spec runs in the `studio-author` project (depends on
+  `setup`) as the worker's own author (`workerAuthor`), whose session is valid on
+  Studio and the LMS; the anonymous projects exclude it. A spec that signs a
+  browser in as the **admin** takes the `adminPage`/`newOrgCreator` fixtures,
+  which hold the cross-worker admin lock — never sign the admin in from a test
+  body. Every Studio spec also carries `@studio`, the
+  capability that gates the tree, and `@mfe-authoring`. Studio specs act on the
+  worker-scoped `authoredCourse` unless creating a course is the thing under test:
+  **there is no course-deletion API, so a Studio spec never creates a course it
+  does not have to.**
 
 Apply tags with the `tag` option:
 
@@ -200,6 +218,15 @@ test('signs in with valid credentials', { tag: '@smoke', annotation: testId('TC-
 The always-on coverage reporter maps each `test_id` to its outcome and reports
 annotation coverage every run, writing `test-results/btr-coverage.json` (a local
 file only — see `src/reporting/README.md` for the upload/sheet policy).
+
+## Timing report
+
+Every run also writes `test-results/timings-tests.csv` (one row per test attempt)
+and `test-results/timings-steps.csv` (one row per recorded step), each row stamped
+with the run's start time and target URL for import into a spreadsheet or
+database and comparison across runs. Nothing to do in a spec: Playwright records
+the durations; the reporter reshapes them. Wrapping a long flow in
+`test.step('…')` gives it a named row in the steps file.
 
 ## Known upstream defects
 

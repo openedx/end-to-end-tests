@@ -100,21 +100,41 @@ course content from the text rule because problem copy does not localize.
 ## Authentication and multi-origin sessions
 
 A single Open edX sign-in sets cookies scoped to the shared registrable parent
-domain, so one captured storage state authenticates the LMS, Studio, and every
-MFE origin. The default provider (`ApiAuthProvider`) captures the parent-domain
-cookie jar into one storage state. For the `learner` role it provisions an account
+domain, so one captured storage state authenticates the LMS and every MFE origin.
+Studio is the one exception: it keeps its **own** Django session, obtained through
+a silent OAuth handshake (`GET studio/login/` → LMS `/oauth2/authorize` → back to
+Studio) that needs no credentials or UI once the LMS session exists. The default
+provider performs that handshake for the authoring roles (`author`, `staff`) when
+`studio` is declared, so the same one storage state covers Studio too
+(`src/api/studio-session.ts`). The default provider (`ApiAuthProvider`) captures
+the resulting cookie jar into one storage state. For the `learner` role it provisions an account
 via the configured **account backend** (`src/accounts/`, selected by
 `ACCOUNT_BACKEND`) and captures the session that registration itself creates
 ("Automatic login on"), so no separate sign-in is needed — which is what lets it
 work against the default even when an install leaves accounts inactive until
 activation. The `staff` role signs in with the configured admin account through
 the backend's `signIn` hook, which by default is the login-session API
-(`GET /csrf/api/v1/token` → `POST .../login_session/`).
+(`GET /csrf/api/v1/token` → `POST .../login_session/`). The `author` role
+provisions a learner the same way, completes the Studio handshake, and has the
+backend's `grantCourseCreator` hook make it a course creator — by default the
+request-then-Django-admin flow of BTR TC-00310, using the admin account.
+
+The `studio-author` project does not reuse that author state directly: its
+`workerAuthor` fixture provisions one author per worker the same way and points the
+worker's `page` and `request` at it, because the platform's
+`PREVENT_CONCURRENT_LOGINS` ends a user's other sessions on each sign-in — so a
+shared author would have workers logging each other out. A browser spec normally
+completes Studio's SSO silently off the loaded state (no login); only when that
+stored session has decayed does `studioAuthorSession` fall back to a single UI
+re-login, refreshing the worker's state file. The single shared admin account is
+used only under a cross-worker lock (`withAdminSession`), reusing the `setup`
+session where it is still alive.
 
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
-used by `setup`), `signInThroughUi` and `signOutThroughUi` (what the login and
-logout specs drive). A backend ships as a plugin module listed in
+used by `setup`), `signInStudio` (the Studio half of every authoring session, the
+`cms-sso` handshake by default), `signInThroughUi` and `signOutThroughUi` (what
+the login and logout specs drive), and `grantCourseCreator`. A backend ships as a plugin module listed in
 `CUSTOM_ACCOUNT_BACKEND_PLUGINS`; see [`src/accounts/README.md`](src/accounts/README.md).
 
 `tests/global-setup.ts` runs once before any project: it clears `.auth/` so a
@@ -128,22 +148,23 @@ collide. We never disable browser security to paper over cross-origin auth.
 
 ## Playwright projects
 
-| Project       | Purpose                                                                                 |
-| ------------- | --------------------------------------------------------------------------------------- |
-| `unit`        | Pure logic tests (e.g. config validation). No browser or target. Tag: `@unit`.          |
-| `setup`       | Signs in once per role via the auth contract and writes `.auth/<role>.json`.            |
-| `smoke`       | Critical-path browser tests, anonymous. Tag: `@smoke` (excludes `@authenticated`).      |
-| `regression`  | Broader-depth browser tests, anonymous. Tag: `@regression` (excludes `@authenticated`). |
-| `lms-learner` | Authenticated tests reusing the captured learner state. Tag: `@authenticated`.          |
+| Project         | Purpose                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `unit`          | Pure logic tests (e.g. config validation). No browser or target. Tag: `@unit`.                     |
+| `setup`         | Signs in once per role via the auth contract and writes `.auth/<role>.json`.                       |
+| `smoke`         | Critical-path browser tests, anonymous. Tag: `@smoke` (excludes `@authenticated`, `@author`).      |
+| `regression`    | Broader-depth browser tests, anonymous. Tag: `@regression` (excludes `@authenticated`, `@author`). |
+| `lms-learner`   | Authenticated tests reusing the captured learner state. Tag: `@authenticated`.                     |
+| `studio-author` | Studio tests, each worker as an author of its own (LMS + Studio session). Tag: `@author`.          |
 
 ## Cross-cutting testing modules
 
 Two `src/` modules support specs across every domain rather than a single layer:
 
-| Module           | Responsibility                                                                                                                                                                          |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/reporting/` | BTR `test_id` annotations + coverage reporter (`test-results/btr-coverage.json`), and the accessibility reporter that consolidates every scan into `test-results/a11y-violations.json`. |
-| `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline. Per-scan results are attached to each test and aggregated by the reporter above.             |
+| Module           | Responsibility                                                                                                                                                                                                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/reporting/` | BTR `test_id` annotations + coverage reporter (`test-results/btr-coverage.json`), the accessibility reporter that consolidates every scan into `test-results/a11y-violations.json`, and the timing reporter that writes per-test / per-step durations to `test-results/timings-*.csv`. |
+| `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline. Per-scan results are attached to each test and aggregated by the reporter above.                                                                                                            |
 
 Configuration lives in [`playwright.config.ts`](playwright.config.ts); timeouts
 are centralized in `src/config/timeouts.ts` (no fixed sleeps).

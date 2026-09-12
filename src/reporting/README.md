@@ -1,7 +1,8 @@
 # `src/reporting/` — BTR test-case IDs & coverage
 
-**Single responsibility:** link specs to the BTR Release Test Plan and report
-annotation coverage every run.
+**Single responsibility:** turn what Playwright already knows about a run into
+the suite's local report files — BTR coverage, the accessibility backlog, and
+per-test / per-step timings.
 
 Contains:
 
@@ -39,13 +40,30 @@ Contains:
   `test-results/a11y-violations.json` — the working list of accessibility
   violations, tagged failing / baselined / below-threshold with the pages they
   appear on.
+- `timing.ts` — pure shaping (`flattenSteps`, `testRowsToCsv`, `stepRowsToCsv`)
+  of per-attempt test and step timings into flat CSV rows. No Playwright types,
+  so it is unit-tested directly.
+- `timing-reporter.ts` — the always-on reporter that writes two CSV files made
+  for import into a spreadsheet or database:
+
+  | File                             | One row per                                                                                                                                                |
+  | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `test-results/timings-tests.csv` | test **attempt** (retries kept, told apart by `retry`): project, file, title, BTR `test_ids`, tags, status, expected status, worker, start time, duration. |
+  | `test-results/timings-steps.csv` | recorded **step** at any depth: category (`pw:api`, `expect`, `hook`, `fixture`, `test.step`), ancestry `path`, failed flag, start time, duration.         |
+
+  Every row carries `run_started_at` (ISO, UTC) and `base_url`, so files from
+  many runs append into one table and compare across time and targets. Nothing
+  is measured here — Playwright records all of it for the HTML report; the
+  reporter only reshapes it. The step file is verbose by default (every
+  `pw:api` call); pass `stepCategories: ['test.step', 'hook']` in
+  `playwright.config.ts` for a coarser file.
 
 ## Policy
 
-Both reporters write **local files only**. Uploading them is a CI-only concern:
+All reporters write **local files only**. Uploading them is a CI-only concern:
 the shared `run-suite` composite action (used by both `run_tests_tutor.yml` and
-`run_tests_external.yml`) publishes `btr-coverage.json` and
-`a11y-violations.json` as a `suite-reports-*` build artifact alongside the full
+`run_tests_external.yml`) publishes `btr-coverage.json`,
+`a11y-violations.json` and `timings-*.csv` as a `suite-reports-*` build artifact alongside the full
 report bundle. Writing results to the BTR Release Test Plan sheet is not
 implemented; when it is, it will be a separate, manual, opt-in step — never on
 PR/push/schedule and never from a local machine.
