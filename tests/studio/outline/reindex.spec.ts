@@ -13,11 +13,13 @@ import { testId } from '../../../src/reporting';
  * reindexes the course through Studio's `reindex_link`, and the LMS catalog search
  * then finds the course by its (test-unique) name.
  *
- * Ungated core coverage: courseware indexing is a stock feature that CI forces on
- * (it is meant to be on by default; a plain Tutor `main` leaves it off only
- * because of the `FEATURES` flattening — the TUTOR-001 defect). A target with
- * indexing off has a `null` `reindex_link` and an empty catalog, so this spec
- * fails loudly there rather than skipping — that is the intended signal.
+ * Ungated core coverage: courseware indexing is a stock feature that is on by
+ * default, so this spec passes on any conformant target. A plain Tutor `main`
+ * currently (2026-09-13) leaves it off only because the `FEATURES` flattening
+ * transiently drops it (fix pending upstream); CI forces the setting as
+ * a stopgap until then. A target with indexing off has a `null` `reindex_link`
+ * and an empty catalog, so this spec fails loudly there rather than skipping —
+ * that is the intended signal, not a permanent CI-only status.
  *
  * The Reindex control is global-staff-only, so the reindex runs through the
  * `adminApi` session; the author half and the search read use their own sessions.
