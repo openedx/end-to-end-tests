@@ -12,6 +12,8 @@ import { loadConfig } from '../../src/config';
  */
 
 const LMS = 'http://local.openedx.io';
+const INBOX_ID = 'inbox-1';
+const INBOX_EMAIL = 'probe@openinbox.io';
 
 const config = () =>
   loadConfig({ LMS_BASE_URL: LMS, APPS_BASE_URL: 'http://apps.local.openedx.io' });
@@ -21,15 +23,27 @@ interface StubResponse {
   body?: unknown;
 }
 
-/** Records every request and answers from a URL-substring → response table. */
-function stubRequest(routes: { match: string; responses: StubResponse[] }[]) {
+interface Route {
+  method?: 'GET' | 'POST' | 'DELETE';
+  /** A string matches the end of the URL; a RegExp is tested against it. */
+  match: string | RegExp;
+  responses: StubResponse[];
+}
+
+const matches = (url: string, match: Route['match']) =>
+  typeof match === 'string' ? url.endsWith(match) : match.test(url);
+
+/** Records every request as `METHOD url` and answers from a route table. */
+function stubRequest(routes: Route[]) {
   const calls: string[] = [];
 
-  const answer = (url: string) => {
-    calls.push(url);
-    const route = routes.find((candidate) => url.includes(candidate.match));
+  const answer = (method: Route['method'], url: string) => {
+    calls.push(`${method} ${url}`);
+    const route = routes.find(
+      (candidate) => (candidate.method ?? 'GET') === method && matches(url, candidate.match),
+    );
     if (route === undefined) {
-      throw new Error(`Unexpected request: ${url}`);
+      throw new Error(`Unexpected request: ${method} ${url}`);
     }
     const next = route.responses.length > 1 ? route.responses.shift()! : route.responses[0]!;
     const status = next.status ?? 200;
@@ -42,17 +56,58 @@ function stubRequest(routes: { match: string; responses: StubResponse[] }[]) {
   };
 
   const request = {
-    get: (url: string) => Promise.resolve(answer(url)),
-    post: (url: string) => Promise.resolve(answer(url)),
+    get: (url: string) => Promise.resolve(answer('GET', url)),
+    post: (url: string) => Promise.resolve(answer('POST', url)),
+    delete: (url: string) => Promise.resolve(answer('DELETE', url)),
   } as unknown as APIRequestContext;
 
   return { request, calls };
 }
 
-const activationEmail = (key = 'abc123') => ({
+const ok = (data: unknown): StubResponse => ({ body: { success: true, data } });
+
+const inbox = (id = INBOX_ID, email = INBOX_EMAIL, createdAt = new Date().toISOString()) => ({
+  id,
+  email,
+  createdAt,
+});
+
+const summary = (id: string, subject: string, preview?: string) => ({ id, subject, preview });
+
+const activationEmail = (id: string, key = 'abc123') => ({
+  id,
   subject: 'Action Required: Activate your account',
   textBody: `Welcome! Please visit ${LMS}/activate/${key} to activate.`,
 });
+
+const createRoute = (...responses: StubResponse[]): Route => ({
+  method: 'POST',
+  match: '/v1/inboxes',
+  responses,
+});
+const listRoute = (...responses: StubResponse[]): Route => ({ match: '/v1/inboxes', responses });
+const emailsRoute = (...responses: StubResponse[]): Route => ({
+  match: `/v1/inboxes/${INBOX_ID}/emails`,
+  responses,
+});
+const emailRoute = (id: string, ...responses: StubResponse[]): Route => ({
+  match: `/v1/emails/${id}`,
+  responses,
+});
+const deleteRoute = (): Route => ({
+  method: 'DELETE',
+  match: /\/v1\/inboxes\/[^/]+$/,
+  responses: [ok(undefined)],
+});
+const activateRoute = (): Route => ({ match: /\/activate\//, responses: [{ body: 'ok' }] });
+
+/** A backend that already created `INBOX_EMAIL`, as `activate` expects. */
+async function backendWithInbox(extraRoutes: Route[]) {
+  const backend = new OpenInboxBackend();
+  const { request } = stubRequest([createRoute(ok(inbox()))]);
+  const identity = await backend.createIdentity({ config: config(), request });
+  return { backend, identity, ...stubRequest(extraRoutes) };
+}
 
 test.describe('findActivationLink', { tag: '@unit' }, () => {
   test('finds the link in a plain-text body', () => {
@@ -76,80 +131,127 @@ test.describe('OpenInboxBackend', { tag: '@unit' }, () => {
     delete process.env.OPENINBOX_POLL_TIMEOUT_MS;
   });
 
-  test('registers with the address of a freshly created inbox', async () => {
-    const { request, calls } = stubRequest([
-      { match: '/inbox', responses: [{ body: { email: 'probe@openinbox.io' } }] },
-    ]);
+  test('registers with the address of a freshly created v1 inbox', async () => {
+    const { request, calls } = stubRequest([createRoute(ok(inbox()))]);
 
     const identity = await new OpenInboxBackend().createIdentity({ config: config(), request });
 
-    expect(identity.email).toBe('probe@openinbox.io');
-    expect(calls[0]).toContain('/api/inbox');
+    expect(identity.email).toBe(INBOX_EMAIL);
+    expect(calls).toEqual(['POST https://api.openinbox.io/api/v1/inboxes']);
   });
 
   test('fails before registering when no API key is configured', async () => {
     delete process.env.OPENINBOX_API_KEY;
-    const { request } = stubRequest([{ match: '/inbox', responses: [{ body: {} }] }]);
+    const { request, calls } = stubRequest([createRoute(ok(inbox()))]);
 
     await expect(
       new OpenInboxBackend().createIdentity({ config: config(), request }),
     ).rejects.toThrow(/OPENINBOX_API_KEY is required/);
+    expect(calls).toEqual([]);
   });
 
   test('reports a failed inbox creation', async () => {
-    const { request } = stubRequest([
-      { match: '/inbox', responses: [{ status: 402, body: { error: 'plan required' } }] },
-    ]);
+    const { request } = stubRequest([createRoute({ status: 401, body: { error: 'bad key' } })]);
 
     await expect(
       new OpenInboxBackend().createIdentity({ config: config(), request }),
-    ).rejects.toThrow(/inbox creation failed \(HTTP 402\)/);
+    ).rejects.toThrow(/inbox creation failed \(HTTP 401\)/);
   });
 
-  test('polls until the activation email arrives, then visits its link', async () => {
-    const identity = newLearnerIdentity({ email: 'probe@openinbox.io' });
+  test('at the inbox cap, sweeps only stale inboxes and retries once', async () => {
+    const stale = inbox('old-1', 'old@openinbox.io', new Date(Date.now() - 600_000).toISOString());
+    const fresh = inbox('new-1', 'sibling@openinbox.io');
     const { request, calls } = stubRequest([
-      {
-        match: '/inbound/api/emails',
-        responses: [
-          { body: { emails: [] } },
-          { body: { emails: [{ subject: 'Welcome' }] } },
-          { body: { emails: [activationEmail('key-42')] } },
-        ],
-      },
-      { match: '/activate/', responses: [{ body: 'ok' }] },
+      createRoute({ status: 403, body: { message: 'Inbox limit reached' } }, ok(inbox())),
+      listRoute(ok([stale, fresh])),
+      deleteRoute(),
+    ]);
+
+    const identity = await new OpenInboxBackend().createIdentity({ config: config(), request });
+
+    expect(identity.email).toBe(INBOX_EMAIL);
+    expect(calls.filter((call) => call.startsWith('DELETE'))).toEqual([
+      'DELETE https://api.openinbox.io/api/v1/inboxes/old-1',
+    ]);
+    expect(calls.filter((call) => call.startsWith('POST'))).toHaveLength(2);
+  });
+
+  test('polls until the activation email arrives, visits its link, then deletes the inbox', async () => {
+    const { backend, identity, request, calls } = await backendWithInbox([
+      emailsRoute(
+        ok([]),
+        ok([summary('m1', 'Welcome', 'Thanks for joining')]),
+        ok([summary('m1', 'Welcome', 'Thanks for joining'), summary('m2', 'Activate')]),
+      ),
+      emailRoute('m1', ok({ id: 'm1', textBody: 'Thanks for joining us.' })),
+      emailRoute('m2', ok(activationEmail('m2', 'key-42'))),
+      activateRoute(),
+      deleteRoute(),
+    ]);
+
+    await backend.activate({ config: config(), request, identity });
+
+    expect(calls.filter((call) => call.endsWith('/emails'))).toHaveLength(3);
+    // Each message is fetched in full at most once: m1 is listed twice but
+    // inspected once.
+    expect(calls.filter((call) => call.includes('/v1/emails/'))).toEqual([
+      'GET https://api.openinbox.io/api/v1/emails/m1',
+      'GET https://api.openinbox.io/api/v1/emails/m2',
+    ]);
+    expect(calls.at(-2)).toBe(`GET ${LMS}/activate/key-42`);
+    expect(calls.at(-1)).toBe(`DELETE https://api.openinbox.io/api/v1/inboxes/${INBOX_ID}`);
+  });
+
+  test('takes the link from the listing preview without fetching the email', async () => {
+    const { backend, identity, request, calls } = await backendWithInbox([
+      emailsRoute(ok([summary('m1', 'Activate', `Visit ${LMS}/activate/key-7 now`)])),
+      activateRoute(),
+      deleteRoute(),
+    ]);
+
+    await backend.activate({ config: config(), request, identity });
+
+    expect(calls.some((call) => call.includes('/v1/emails/'))).toBe(false);
+    expect(calls).toContain(`GET ${LMS}/activate/key-7`);
+  });
+
+  test('finds the inbox by address when this instance did not create it', async () => {
+    const identity = newLearnerIdentity({ email: INBOX_EMAIL });
+    const { request, calls } = stubRequest([
+      listRoute(ok([inbox('other', 'other@openinbox.io'), inbox()])),
+      emailsRoute(ok([summary('m1', 'Activate', `${LMS}/activate/key-9`)])),
+      activateRoute(),
+      deleteRoute(),
     ]);
 
     await new OpenInboxBackend().activate({ config: config(), request, identity });
 
-    expect(calls.filter((url) => url.includes('/inbound/api/emails'))).toHaveLength(3);
-    expect(calls.at(-1)).toBe(`${LMS}/activate/key-42`);
-    expect(calls[0]).toContain(`inboxEmail=${encodeURIComponent(identity.email)}`);
+    expect(calls[0]).toBe('GET https://api.openinbox.io/api/v1/inboxes');
+    expect(calls.at(-1)).toBe(`DELETE https://api.openinbox.io/api/v1/inboxes/${INBOX_ID}`);
   });
 
-  test('times out with the subjects it did see', async () => {
+  test('times out with the subjects it did see, and still deletes the inbox', async () => {
     process.env.OPENINBOX_POLL_TIMEOUT_MS = '1';
-    const identity = newLearnerIdentity({ email: 'probe@openinbox.io' });
-    const { request } = stubRequest([
-      {
-        match: '/inbound/api/emails',
-        responses: [{ body: { emails: [{ subject: 'Course digest' }] } }],
-      },
+    const { backend, identity, request, calls } = await backendWithInbox([
+      emailsRoute(ok([summary('m1', 'Course digest', 'Your week')])),
+      emailRoute('m1', ok({ id: 'm1', textBody: 'Your week in review' })),
+      deleteRoute(),
     ]);
 
-    await expect(
-      new OpenInboxBackend().activate({ config: config(), request, identity }),
-    ).rejects.toThrow(/No activation link reached .*messages seen: Course digest/s);
+    await expect(backend.activate({ config: config(), request, identity })).rejects.toThrow(
+      /No activation link reached .*messages seen: Course digest/s,
+    );
+    expect(calls.at(-1)).toBe(`DELETE https://api.openinbox.io/api/v1/inboxes/${INBOX_ID}`);
   });
 
   test('reports a failed email poll', async () => {
-    const identity = newLearnerIdentity({ email: 'probe@openinbox.io' });
-    const { request } = stubRequest([
-      { match: '/inbound/api/emails', responses: [{ status: 401, body: { error: 'bad key' } }] },
+    const { backend, identity, request } = await backendWithInbox([
+      emailsRoute({ status: 401, body: { error: 'bad key' } }),
+      deleteRoute(),
     ]);
 
-    await expect(
-      new OpenInboxBackend().activate({ config: config(), request, identity }),
-    ).rejects.toThrow(/email poll failed \(HTTP 401\)/);
+    await expect(backend.activate({ config: config(), request, identity })).rejects.toThrow(
+      /email poll failed \(HTTP 401\)/,
+    );
   });
 });
