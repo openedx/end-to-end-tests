@@ -80,6 +80,15 @@ export const TIMEOUTS = {
   studioSettingsSave: 30_000,
 
   /**
+   * Budget for a heavy Studio content write to answer — a clipboard paste, which
+   * re-stages a whole unit's or component's OLX under a new parent. Measured well
+   * under `studioSettingsSave` on an idle install, but on the shared CI CMS a
+   * paste under load was seen to run past 30 s, so it gets its own roomier budget
+   * (a plain create still uses the shorter ones).
+   */
+  contentWrite: 60_000,
+
+  /**
    * Budget for an authoring change to become visible to a learner. The LMS
    * serves learner-facing structure from the block-structure cache, rebuilt by a
    * Celery task the platform schedules with a countdown

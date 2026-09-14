@@ -39,3 +39,17 @@ export async function waitForWrite(
   ]);
   return response;
 }
+
+/**
+ * Whether `response` is to a write (`POST` / `PUT` / `PATCH`). The Settings save
+ * bar's endpoints drift in both version and name across releases — `main`'s
+ * authoring MFE PATCHes `.../v3/authoring_grading/<key>/` and PUTs
+ * `.../v3/course_details/<key>/` where older releases POST `.../v1/course_grading`
+ * and PUT `.../v1/course_details` — so those page objects match the save by its
+ * resource and any write method rather than a fixed method+URL, using this
+ * predicate. The wait is page-scoped to one course, so a resource match is enough.
+ */
+export function isSettingsWrite(response: Response): boolean {
+  const method = response.request().method();
+  return method === 'POST' || method === 'PUT' || method === 'PATCH';
+}

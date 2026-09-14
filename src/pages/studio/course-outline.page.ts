@@ -154,6 +154,11 @@ export class StudioCourseOutlinePage {
           : STUDIO_OUTLINE_PAGE_SELECTORS.subsectionUnits,
       )
       .first();
+    // Under CI load the outline re-renders slowly after a create, so confirm the
+    // card is on the page (a generous budget) before scrolling to it — the scroll
+    // action's own timeout is short and would otherwise trip on a not-yet-settled
+    // card.
+    await card.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
     await card.scrollIntoViewIfNeeded();
     if (await container.isVisible().catch(() => false)) return;
     const expandButton =
@@ -223,13 +228,13 @@ export class StudioCourseOutlinePage {
   private async createChild(button: Locator): Promise<string> {
     await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
     // Paste stages the copied OLX under the new parent, which is slower than a
-    // plain create under load, so allow the settings-save budget.
+    // plain create under load, so allow the heavier content-write budget.
     const response = await waitForWrite(
       this.page,
       {
         method: 'POST',
         predicate: (r) => r.url().endsWith(XBLOCK_PATH),
-        timeout: TIMEOUTS.studioSettingsSave,
+        timeout: TIMEOUTS.contentWrite,
       },
       () => button.click(),
     );
@@ -385,13 +390,13 @@ export class StudioCourseOutlinePage {
       .last();
     await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
     // Paste stages the copied OLX under the new parent, which is slower than a
-    // plain create under load, so allow the settings-save budget.
+    // plain create under load, so allow the heavier content-write budget.
     const response = await waitForWrite(
       this.page,
       {
         method: 'POST',
         predicate: (r) => r.url().endsWith(XBLOCK_PATH),
-        timeout: TIMEOUTS.studioSettingsSave,
+        timeout: TIMEOUTS.contentWrite,
       },
       () => button.click(),
     );

@@ -207,7 +207,9 @@ export class StudioUnitPage {
       {
         method: 'POST',
         predicate: (r) => r.url().endsWith(XBLOCK_PATH),
-        timeout: TIMEOUTS.studioSettingsSave,
+        // A paste re-stages the copied OLX under this unit — heavier than a plain
+        // create on a busy CMS, so use the roomier content-write budget.
+        timeout: TIMEOUTS.contentWrite,
       },
       () => paste.click(),
     );

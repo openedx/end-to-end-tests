@@ -48,7 +48,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
       // integer the editor settled on as the value to expect back.
       const settled = await gradingPage.dragCutoff(50, 65);
       expect(settled).not.toBe(50);
-      expect((await gradingPage.save(courseKey)).status).toBe(200);
+      expect((await gradingPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => {
@@ -87,7 +87,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
       await gradingPage.addSegment();
       await expect(gradingPage.segments).toHaveCount(5);
       expect(await gradingPage.gradedSegmentNames()).toEqual(['A', 'B', 'C', 'D']);
-      expect((await gradingPage.save(courseKey)).status).toBe(200);
+      expect((await gradingPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => {
@@ -125,7 +125,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
       await expect(gradingPage.segments).toHaveCount(3);
       const remaining = await gradingPage.gradedSegmentNames();
       expect(remaining).toHaveLength(2);
-      expect((await gradingPage.save(courseKey)).status).toBe(200);
+      expect((await gradingPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => {
@@ -148,7 +148,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
 
       await gradingPage.goto(courseKey);
       await gradingPage.setGracePeriod('12:30');
-      expect((await gradingPage.save(courseKey)).status).toBe(200);
+      expect((await gradingPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => (await fetchGradingPolicy(api, config, courseKey)).grace_period)
@@ -188,7 +188,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
       await expect(gradingPage.assignmentTypes).toHaveCount(4);
       await gradingPage.addAssignmentType(quiz);
       await expect(gradingPage.assignmentTypes).toHaveCount(5);
-      expect((await gradingPage.save(courseKey)).status).toBe(200);
+      expect((await gradingPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => {
@@ -219,7 +219,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
       await expect(gradingPage.assignmentTypes).toHaveCount(4);
       await gradingPage.deleteAssignmentType('Lab');
       await expect(gradingPage.assignmentTypes).toHaveCount(3);
-      expect((await gradingPage.save(courseKey)).status).toBe(200);
+      expect((await gradingPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => {
@@ -244,7 +244,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
       await expect(gradingPage.saveBar).toHaveCount(0);
       await gradingPage.setGracePeriod('01:15');
       await expect(gradingPage.saveBar).toBeVisible();
-      expect((await gradingPage.save(courseKey)).status).toBe(200);
+      expect((await gradingPage.save()).status).toBe(200);
       await expect
         .poll(async () => (await fetchGradingPolicy(api, config, courseKey)).grace_period)
         .toEqual({ hours: 1, minutes: 15 });

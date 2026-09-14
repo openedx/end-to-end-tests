@@ -6,8 +6,8 @@ import {
   TIMEOUTS,
   type AppConfig,
 } from '../../../config';
-import { COURSE_DETAILS_PATH, studioOrigin } from '../../../api';
-import { waitForWrite } from '../wait-for-write';
+import { studioOrigin } from '../../../api';
+import { isSettingsWrite, waitForWrite } from '../wait-for-write';
 
 /** A UTC instant split the way the page's paired date and time fields take it. */
 export interface DateTimeFields {
@@ -221,10 +221,10 @@ export class StudioScheduleDetailsPage {
   }
 
   /**
-   * Presses "Save changes" and returns the status of the resulting
-   * `PUT course_details`, which is what decides whether the save took.
+   * Presses "Save changes" and returns the status of the resulting details-save
+   * write, which is what decides whether the save took.
    */
-  async save(courseKey: string): Promise<{ status: number }> {
+  async save(): Promise<{ status: number }> {
     // The save bar and its stateful button mount together when a field changes;
     // wait for the button before clicking so the click cannot miss it, and give
     // the write a budget above `action` for a busy shared CMS.
@@ -232,8 +232,11 @@ export class StudioScheduleDetailsPage {
     const response = await waitForWrite(
       this.page,
       {
-        method: 'PUT',
-        urlIncludes: `${COURSE_DETAILS_PATH}/${courseKey}`,
+        // The details-save endpoint drifts by version across releases: `main`'s
+        // authoring MFE PUTs `.../v3/course_details/<key>/`, older releases PUT
+        // `.../v1/course_details/<key>`. Match the resource with any write method
+        // (the wait is scoped to this page's own course). See `STUDIO-009`.
+        predicate: (r) => isSettingsWrite(r) && r.url().includes('/course_details/'),
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => this.saveButton.click(),
