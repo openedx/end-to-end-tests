@@ -66,8 +66,8 @@ The essentials:
 | ----------------------------------- | -------- | ------------------------------------------------------------------ |
 | `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                         |
 | `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`               |
-| `CMS_BASE_URL`                      | —        | Studio origin (only needed for Studio specs)                       |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither)                          |
+| `CMS_BASE_URL`                      | —        | Studio origin; required when `studio` is in `CAPABILITIES`         |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`    |
 | `ORG`                               | —        | Organization short code, e.g. `OpenedX`                            |
 | `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip |
 | `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install               |
@@ -86,12 +86,15 @@ applies when that variable is not already present in the environment.
 tagged `@discussions` runs only where `CAPABILITIES` names `discussions`. Stock
 surfaces a default installation ships invert that — they are on unless you turn
 them off with a `-` prefix, so a missing declaration never silently drops
-coverage you have. Today that is `mfe-authn`: the authn MFE owning accounts
-(native registration, password reset, its own screens). An install whose
-identity lives in an external service sets `CAPABILITIES=-mfe-authn`, and those
-specs skip with a reason instead of failing. Sign-in and sign-out coverage is
-not gated — it runs through the account backend's own UI flows, whatever those
-are.
+coverage you have. Today those are `mfe-authn` — the authn MFE owning accounts
+(native registration, password reset, its own screens) — and `frontend-base`,
+the shell that bundles the MFEs into one application with a shared header and
+footer (`main` onward). An install whose identity lives in an external service
+sets `CAPABILITIES=-mfe-authn`, and those specs skip with a reason instead of
+failing; a named release still on the separate-MFE model (verawood and earlier)
+sets `-frontend-base`, which skips the coverage about the shell's own chrome.
+Sign-in and sign-out coverage is not gated — it runs through the account
+backend's own UI flows, whatever those are.
 
 **Origin requirements.** All origins (LMS, Studio, MFEs) must share **one scheme**
 (all `http://` or all `https://`) and **one registrable parent domain** (e.g.
@@ -245,6 +248,10 @@ Tests are organized into Playwright **projects**:
   project loads the captured learner session; specs that change course state use
   the `courseLearner` fixture instead, which provisions a fresh learner per test
   (one registration each — see the rate limit below).
+- `studio-author` — Studio tests (`@author`, the `tests/studio/` tree); depends on
+  `setup`. Each worker provisions an **author of its own** (see "Studio coverage")
+  whose session is valid on Studio as well as the LMS. Runs only when the `studio`
+  capability is declared.
 
 Run a single project or filter by tag:
 
@@ -260,6 +267,51 @@ after `npm install`:
 ```sh
 npx playwright test --project=unit
 ```
+
+## Studio coverage
+
+Studio specs run when `CAPABILITIES` includes `studio` and `CMS_BASE_URL` is set
+(declaring one without the other fails configuration). Leave `studio` undeclared
+on an LMS-only target and the whole `tests/studio/` tree skips.
+
+**The `author` role.** The `setup` project provisions a fresh account, gives it a
+Studio session (Studio keeps its own session behind a silent OAuth handshake with
+the LMS — no second sign-in, no credentials; an install that fronts Studio with
+its own IdP replaces this through the account backend's `signInStudio`), and
+grants it course-creator status. The `studio-author` project then provisions
+**one such author per worker** (`workerAuthor`) and runs that worker's tests as
+it: the platform's `PREVENT_CONCURRENT_LOGINS` (on by default) ends a user's
+other sessions on every sign-in, and the browser specs sign the author in through
+the UI per test, so a single shared author would have each worker logging the
+others out mid-test. The admin is the one account that stays shared, so anything
+that signs in as the admin (the course-creator grant, the superuser-in-a-browser
+fixtures) runs under a cross-worker lock and reuses the `setup` session where it
+can — which also keeps admin sign-ins clear of the platform's **per-account
+login rate limit** (`LOGISTRATION_PER_EMAIL_RATELIMIT_RATE`, default `30/5m`;
+exceeded, sign-in answers `400` "Too many failed login attempts"). Repeated local
+runs within five minutes can still reach it; wait it out or raise the setting.
+On a default install (`ENABLE_CREATOR_GROUP` on) the only grant path is the Studio
+Django admin, so the default account backend signs in as `ADMIN_USERNAME` /
+`ADMIN_PASSWORD` (a superuser) to approve the request. Without an admin account
+the `author` role — and every Studio spec — skips, unless the install grants every
+user (then no admin is needed). Installs that gate course creation differently
+implement `grantCourseCreator` in an account backend plugin
+([`src/accounts/README.md`](src/accounts/README.md)).
+
+**Courses the suite creates.** There is no API to delete a course, so the suite
+keeps the count low: the settings specs share **one course per worker**
+(`authoredCourse`), and only the specs whose subject is course creation make
+their own. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
+`E2E` when `ORG` is unset). On a persistent target, purge them with the CMS
+management command — it prompts, so pipe `yes` into it:
+
+```sh
+yes | tutor local exec cms ./manage.py cms delete_course <course key>
+```
+
+then `./manage.py cms reindex_course --all --setup` if deleted courses still show
+in catalog search. CI's Tutor installs are ephemeral, so nothing accumulates
+there.
 
 ## Quality gates
 
@@ -373,6 +425,7 @@ tests/                 # specs, grouped by platform domain (lms/, studio/)
   lms/courseware/      # learning MFE: outline sidebar
   lms/dashboard/       # learner dashboard
   lms/landing.spec.ts  # proof-of-life smoke test
+  studio/              # authoring MFE + Studio APIs (bootstrap: author session, course factory)
   conventions/         # suite-wide rules enforced as tests (no displayed text)
   config/ api/ auth/ accounts/ a11y/ reporting/   # unit tests (@unit) per module
   auth.setup.ts        # auth setup project

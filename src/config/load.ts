@@ -31,7 +31,11 @@ export interface BaseUrls {
   readonly lms: string;
   /** Micro-frontend (MFE) host origin, e.g. `https://apps.example.com`. */
   readonly apps: string;
-  /** Studio/CMS origin; optional (Studio authenticates via the shared LMS session). */
+  /**
+   * Studio/CMS origin. Required when the `studio` capability is declared,
+   * optional otherwise. Studio authenticates through the LMS session by way of a
+   * silent OAuth handshake (see `src/api/studio-session.ts`).
+   */
   readonly studio?: string;
 }
 
@@ -273,6 +277,17 @@ export function loadConfig(env: Env = process.env): AppConfig {
     raw.CMS_BASE_URL === undefined ? undefined : parseUrl('CMS_BASE_URL', raw.CMS_BASE_URL, issues);
 
   const capabilities = parseCapabilities(raw.CAPABILITIES, issues);
+
+  // Studio coverage cannot run without a Studio origin, and a target that
+  // declares `studio` has one, so an undeclared URL is a configuration error
+  // rather than a silent skip (ADR-0002, "fail fast with a clear message").
+  if (capabilities.has('studio') && raw.CMS_BASE_URL === undefined) {
+    issues.push(
+      'CAPABILITIES declares "studio" but CMS_BASE_URL is not set. Set CMS_BASE_URL to the ' +
+        'Studio origin (e.g. https://studio.example.com), or remove "studio" from ' +
+        'CAPABILITIES to skip Studio coverage.',
+    );
+  }
 
   const customAccountBackendPlugins = parseCustomAccountBackendPlugins(
     raw.CUSTOM_ACCOUNT_BACKEND_PLUGINS,

@@ -86,13 +86,12 @@ jobs:
           if-no-files-found: ignore
 
   # Non-blocking Docker (Tutor) checks: provision a real Open edX install and
-  # run the smoke tests against it.
+  # run the tests against it.
   docker-main:
     name: 'Docker: main environment'
     uses: ./.github/workflows/run_tests_tutor.yml
     with:
       openedx_release: main
-      features: '@smoke'
 
   docker-last-release:
     name: 'Docker: last release (verawood)'
@@ -100,4 +99,3 @@ jobs:
     with:
       # Keep in sync with the newest non-"main" entry in .ci/openedx-releases.json.
       openedx_release: verawood
-      features: '@smoke'

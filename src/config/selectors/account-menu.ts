@@ -9,7 +9,9 @@ export const ACCOUNT_MENU_SELECTORS = {
   /**
    * The menu trigger — the sheet's account/avatar menu.
    *
-   * Two headers across the supported releases, so two shapes, matched as a union:
+   * Two headers across the supported releases, so two shapes, matched as a union
+   * rather than gated on the `frontend-base` capability: sign-out is a journey
+   * every release runs, so the selector must fit both.
    *
    * - up to and including **verawood** (`frontend-component-header`):
    *   `<button class="menu-trigger btn…" aria-label="Account menu for {username}">`,

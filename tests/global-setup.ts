@@ -3,7 +3,7 @@ import { rm } from 'node:fs/promises';
 
 import { initAccountBackends } from '../src/accounts';
 import { AUTH_STATE_DIR } from '../src/auth';
-import { getConfigIfValid } from '../src/config';
+import { getConfigIfValid, getRunId } from '../src/config';
 
 /**
  * Runs once in the main process before any project (including `setup`). Clears
@@ -22,8 +22,14 @@ import { getConfigIfValid } from '../src/config';
  * the node-only `unit` project must stay runnable on a fresh clone with no
  * `.env`. Anything that actually provisions an account resolves the backend
  * through `resolveAccountBackend()`, which fails fast on the same bad config.
+ *
+ * Finally it mints the run id (`getRunId`) that per-run test data — Studio course
+ * numbers in particular — is keyed on, so all workers share one value.
  */
 export default async function globalSetup(): Promise<void> {
+  // Mint the run id here, in the main process, so every worker inherits one value.
+  console.log(`[global-setup] Run id: ${getRunId()}`);
+
   if (existsSync(AUTH_STATE_DIR)) {
     await rm(AUTH_STATE_DIR, { recursive: true, force: true });
     console.log(`[global-setup] Cleared stale auth state in ${AUTH_STATE_DIR}/`);

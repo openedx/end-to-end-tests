@@ -28,8 +28,10 @@ export const A11Y_BASELINE: ReadonlySet<string> = new Set<string>([
   // The cost is real and deliberate: `image-alt` is *critical*, so baselining it
   // means a genuinely new unlabelled image elsewhere is reported but does not fail
   // the gate. Both entries come straight back out once the shell labels its brand
-  // link — the fixme in `tests/lms/catalog/discovery.spec.ts` starts passing at
-  // that point and is the signal to remove them.
+  // link — the `@frontend-base` test in `tests/lms/catalog/discovery.spec.ts`
+  // starts passing at that point and is the signal to remove them. Releases that
+  // opt out of `frontend-base` never trip these, so tolerating them there is
+  // harmless.
   'image-alt',
   'link-name',
 ]);

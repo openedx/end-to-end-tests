@@ -23,6 +23,20 @@ test.describe('ApiAuthProvider.availableRoles', { tag: '@unit' }, () => {
     expect(new ApiAuthProvider().availableRoles(config)).toEqual(['learner', 'staff']);
   });
 
+  test('adds the author role when studio is declared, even without an admin account', () => {
+    const config = loadConfig({
+      ...baseEnv,
+      CAPABILITIES: 'studio',
+      CMS_BASE_URL: 'http://studio.local.openedx.io',
+    });
+    expect(new ApiAuthProvider().availableRoles(config)).toEqual(['learner', 'author']);
+  });
+
+  test('never offers the author role without studio', () => {
+    const config = loadConfig({ ...baseEnv, ADMIN_USERNAME: 'edx', ADMIN_PASSWORD: 'secret' });
+    expect(new ApiAuthProvider().availableRoles(config)).not.toContain('author');
+  });
+
   test('never offers the instructor role by default', () => {
     const config = loadConfig({ ...baseEnv, ADMIN_USERNAME: 'edx', ADMIN_PASSWORD: 'secret' });
     expect(new ApiAuthProvider().availableRoles(config)).not.toContain('instructor');

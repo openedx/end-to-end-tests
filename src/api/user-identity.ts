@@ -28,7 +28,7 @@ const EMAIL_DOMAIN = 'example.com';
  * because Open edX rejects passwords too similar to it. A constant is fine: these
  * are throwaway accounts and the value is not what the tests exercise.
  */
-const DEFAULT_PASSWORD = 'Pl4ywright!Test';
+export const DEFAULT_PASSWORD = 'Pl4ywright!Test';
 
 /**
  * Builds a unique, deterministic-per-call learner identity.

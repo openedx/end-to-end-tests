@@ -1,9 +1,16 @@
 import type { APIRequestContext } from '@playwright/test';
 
-import { registerLearnerAccount, type LearnerIdentity } from '../api';
+import {
+  establishStudioSession,
+  fetchCourseCreatorStatus,
+  loginSession,
+  registerLearnerAccount,
+  type LearnerIdentity,
+} from '../api';
 import { hasAuthenticatedSession } from '../auth/preflight';
 import type { AppConfig } from '../config';
-import { accountSignIn } from './auth-flows';
+import type { AccountCredentials } from './types';
+import { accountGrantCourseCreator, accountSignIn, accountSignInStudio } from './auth-flows';
 import { resolveAccountBackend } from './registry';
 
 /**
@@ -68,4 +75,67 @@ export async function provisionLearnerSession(
   }
 
   return identity;
+}
+
+/**
+ * Provisions an **author** — a fresh account that can create courses in Studio —
+ * and leaves `request` holding a session valid on both the LMS and Studio.
+ *
+ * 1. {@link provisionLearnerSession}: register (and activate) the account; the
+ *    registration session is the LMS half.
+ * 2. `accountSignInStudio`: the backend's `signInStudio`, or by default the
+ *    silent OAuth handshake that gives Studio its own session
+ *    (`src/api/studio-session.ts`). Without it every Studio URL is a redirect to
+ *    `/login/` and every Studio API a 401.
+ * 3. If Studio does not already report the account as `granted` (it does on an
+ *    install with `ENABLE_CREATOR_GROUP` off), run the backend's
+ *    `grantCourseCreator` — by default TC-00310's request-then-admin-grant.
+ *
+ * The result is the `author` role's storage state, and what a spec that needs an
+ * author of its own (`courseAuthor`) gets. `options.adminStorageState` is handed
+ * to the grant so a caller that already holds an admin session (a worker, after
+ * `setup`) does not cost another admin sign-in.
+ */
+export async function provisionAuthorSession(
+  request: APIRequestContext,
+  config: AppConfig,
+  options: { readonly adminStorageState?: string } = {},
+): Promise<LearnerIdentity> {
+  const identity = await provisionLearnerSession(request, config);
+  await accountSignInStudio({
+    config,
+    request,
+    credentials: { emailOrUsername: identity.email, password: identity.password },
+  });
+
+  const status = await fetchCourseCreatorStatus(request, config);
+  if (status !== 'granted') {
+    await accountGrantCourseCreator({ config, request, identity, ...options });
+  }
+  return identity;
+}
+
+/**
+ * Re-authenticates `request` as the author from scratch — a fresh LMS sign-in
+ * followed by the Studio SSO handshake — so it again holds sessions the LMS and
+ * Studio both accept.
+ *
+ * This is the recovery the memory-constrained CI target needs: it evicts Django
+ * sessions from its shared cache spuriously, at any time, with no logout event.
+ * When that happens the silent SSO handshake alone cannot recover — it needs a
+ * live LMS session to trade for a Studio one, and that is gone too — so only a
+ * credential sign-in restores the context. (A sign-in on a context still holding
+ * the dead session cookies is accepted; the platform does not reject it the way it
+ * rejects one made on a *live* session.)
+ *
+ * Wired into {@link ensureCourse} as its `onSessionExpired` hook and used to
+ * confirm a freshly provisioned author can actually author.
+ */
+export async function reauthenticateStudioAuthor(
+  request: APIRequestContext,
+  config: AppConfig,
+  credentials: AccountCredentials,
+): Promise<void> {
+  await loginSession(request, config, credentials);
+  await establishStudioSession(request, config);
 }
