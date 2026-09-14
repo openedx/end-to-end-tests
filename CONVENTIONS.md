@@ -285,21 +285,28 @@ Two markers exist and they do different jobs:
 
 - **`test.fixme()` — a body that cannot run yet.** Nothing in the platform will
   flip it: the course content lacks what it needs, or the mechanism has no
-  automatable path (a third-party video player). Use the **declaration form** so
-  Playwright skips it before any fixture runs — an in-body `test.fixme(true, …)`
-  still provisions a learner, enrolls and fetches the outline, then skips, which
-  spends the registration rate limit for nothing. Say why in a comment above it:
+  automatable path (an ORA that needs peers, an LTI launch to a third party). Use
+  the **declaration form** so Playwright skips it before any fixture runs — an
+  in-body `test.fixme(true, …)` still provisions a learner, enrolls and fetches
+  the outline, then skips, which spends the registration rate limit for nothing.
+  Say why in a comment above it:
 
   ```ts
-  // The demo course's videos are YouTube-hosted; there is no player handle to drive.
+  // 100% completion is unreachable: the course holds ORA, LTI and custom-JS problems.
   test.fixme(
-    'completes a unit containing a video by watching it',
-    { tag: ['@smoke', '@authenticated'], annotation: testId('TC-00022') },
+    'completes every unit in the course',
+    { tag: ['@regression', '@authenticated'], annotation: testId('TC-00022') },
     async ({ courseOutline }) => {
       /* ... */
     },
   );
   ```
+
+  Before reaching for `fixme`, check whether the mechanism is drivable after all:
+  a video with an HTML5 source is completed through the platform's own `<video>`
+  element (`VideoBlock.watchToEnd`), with the bytes served from the suite's
+  bundled clip so no third-party host is involved. Only a YouTube-only video is
+  out of reach.
 
 The coverage reporter reads both the same way — an expected failure or a `fixme`
 counts as `skipped` for its BTR case, so a case with passing siblings shows as

@@ -13,14 +13,17 @@ export {
   fetchCourseNavigation,
   fetchCourseOutline,
   fetchSequenceMetadata,
+  hasHtml5Source,
   primeCoursewareForLearner,
   unitsContaining,
+  unitsWithHtml5Video,
   type CourseBlock,
   type CourseNavigation,
   type CourseOutline,
   type CourseUnit,
   type NavigationBlock,
   type SequenceMetadata,
+  type VideoStudentViewData,
 } from './course-outline';
 export {
   COURSE_PROGRESS_PATH,

@@ -36,6 +36,20 @@ export const COURSEWARE_SELECTORS = {
   /** A subsection row in the outline tray, and the control that expands it. */
   subsectionRow: 'li',
   subsectionTrigger: '.collapsible-trigger',
+
+  /**
+   * The video XBlock's player root inside a video block. Server-rendered class
+   * markup, as with CAPA (`src/config/selectors/capa.ts`): the block renders no
+   * test ID, and this element carries the `data-metadata` JSON the player itself
+   * is initialised from (`completionPercentage`, `sources`, `publishCompletionUrl`).
+   */
+  videoPlayer: '.video',
+  /**
+   * The HTML5 `<video>` element the player drives when the block has an HTML5
+   * source. A YouTube-only block renders a cross-origin iframe here instead, so
+   * this element's absence is what "not drivable" looks like in the DOM.
+   */
+  videoElement: 'video',
 } as const;
 
 /**
