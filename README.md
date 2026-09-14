@@ -93,6 +93,11 @@ footer (`main` onward). An install whose identity lives in an external service
 sets `CAPABILITIES=-mfe-authn`, and those specs skip with a reason instead of
 failing; a named release still on the separate-MFE model (verawood and earlier)
 sets `-frontend-base`, which skips the coverage about the shell's own chrome.
+The authoring suite adds opt-in capabilities for features and component types that
+are not on every install: `cohorts` and `courseware-navigation-sidebar`, and the
+component gates `ora`, `drag-and-drop-v2`, `pdf-xblock`, `lti`, `scorm` and
+`edx-sga` (the last two ship with the platform; the others may be plugins). The
+full vocabulary, with which ship by default, is in `.env.example`.
 Sign-in and sign-out coverage is not gated — it runs through the account
 backend's own UI flows, whatever those are.
 
@@ -300,8 +305,11 @@ implement `grantCourseCreator` in an account backend plugin
 
 **Courses the suite creates.** There is no API to delete a course, so the suite
 keeps the count low: the settings specs share **one course per worker**
-(`authoredCourse`), and only the specs whose subject is course creation make
-their own. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
+(`authoredCourse`), the authoring-to-learner round-trip specs share **two more
+per worker** (`contentCourse` and `futureCourse`, with `authoringCourse` giving a
+per-test course only where a spec needs isolation), and each builds a uniquely
+named **section** inside its course rather than a new course. Only the specs whose
+subject is course creation make their own. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
 `E2E` when `ORG` is unset). On a persistent target, purge them with the CMS
 management command — it prompts, so pipe `yes` into it:
 

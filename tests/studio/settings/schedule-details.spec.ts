@@ -82,7 +82,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       await scheduleDetailsPage.goto(courseKey);
       await expect(scheduleDetailsPage.selfPacedRadio).toBeChecked();
       await scheduleDetailsPage.setPacing('instructor');
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => ({
@@ -117,7 +117,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       await scheduleDetailsPage.goto(courseKey);
       await expect(scheduleDetailsPage.instructorPacedRadio).toBeChecked();
       await scheduleDetailsPage.setPacing('self');
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => ({
@@ -162,7 +162,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       await scheduleDetailsPage.goto(courseKey);
       await scheduleDetailsPage.setCourseStart(toDateTimeFields(PAST));
       await scheduleDetailsPage.setCourseEnd(toDateTimeFields(FAR_FUTURE));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await expect
         .poll(async () => {
           const studio = await fetchCourseDetails(api, config, courseKey);
@@ -183,7 +183,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       // Start in the future: the learner is kept out again.
       await scheduleDetailsPage.setCourseStart(toDateTimeFields(FUTURE));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await expect
         .poll(async () => {
           const lms = await fetchCourseDetail(api, config, courseKey);
@@ -196,7 +196,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // End in the past: the course is archived, and Studio Home files it so.
       await scheduleDetailsPage.setCourseStart(toDateTimeFields(PAST));
       await scheduleDetailsPage.setCourseEnd(toDateTimeFields(PAST_END));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       // The archived list is searched by course *number*, which a re-run of this
       // course (the lifecycle spec's, on the same worker) shares — so assert this
       // course is among the archived, not that it is the only one.
@@ -241,7 +241,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       const laterToday = hoursFromNow(2);
       await scheduleDetailsPage.goto(courseKey);
       await scheduleDetailsPage.setCourseStart(toDateTimeFields(laterToday));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await expect
         .poll(async () => {
           const lms = await fetchCourseDetail(api, config, courseKey);
@@ -254,7 +254,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // A couple of hours ago: started.
       const earlierToday = hoursFromNow(-2);
       await scheduleDetailsPage.setCourseStart(toDateTimeFields(earlierToday));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await expect
         .poll(async () => {
           const lms = await fetchCourseDetail(api, config, courseKey);
@@ -267,7 +267,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // Ended an hour ago: archived.
       const justEnded = hoursFromNow(-1);
       await scheduleDetailsPage.setCourseEnd(toDateTimeFields(justEnded));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       // Archived is searched by number, which a same-worker re-run shares (see the
       // dates case above): assert this course is among the archived, not the only.
       await expect
@@ -315,7 +315,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       await scheduleDetailsPage.goto(courseKey);
       await scheduleDetailsPage.setCertificateAvailableDate(toDateTimeFields(available));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
 
       await expect
         .poll(
@@ -375,7 +375,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // Window not yet open: a learner is refused.
       await scheduleDetailsPage.setEnrollmentStart(toDateTimeFields(FUTURE));
       await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(FAR_FUTURE));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await windowSaved(FUTURE, FAR_FUTURE);
       const tooEarly = await newLearner();
       await expect(enrollInCourseViaApi(tooEarly.request, config, courseKey)).rejects.toThrow(
@@ -386,7 +386,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // Window closed: a learner is refused.
       await scheduleDetailsPage.setEnrollmentStart(toDateTimeFields(PAST));
       await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(PAST_END));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await windowSaved(PAST, PAST_END);
       const tooLate = await newLearner();
       await expect(enrollInCourseViaApi(tooLate.request, config, courseKey)).rejects.toThrow(
@@ -397,7 +397,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // Open window: a learner can enroll. Only the end moves here, so the
       // enrollment start never advances; the enrollment is the test's last action.
       await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(FAR_FUTURE));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await windowSaved(PAST, FAR_FUTURE);
       const inTime = await newLearner();
       await enrollInCourseViaApi(inTime.request, config, courseKey);
@@ -451,7 +451,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // Opens two hours from now: enrollment has not started, so a learner is
       // refused — and the minute-precise start is what the LMS reports.
       await scheduleDetailsPage.setEnrollmentStart(toDateTimeFields(opensLater));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await windowSaved(opensLater, null);
       const tooEarly = await newLearner();
       await expect(enrollInCourseViaApi(tooEarly.request, config, courseKey)).rejects.toThrow(
@@ -462,7 +462,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // a learner is refused.
       await scheduleDetailsPage.setEnrollmentStart(toDateTimeFields(openedEarlier));
       await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(closedEarlier));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await windowSaved(openedEarlier, closedEarlier);
       const tooLate = await newLearner();
       await expect(enrollInCourseViaApi(tooLate.request, config, courseKey)).rejects.toThrow(
@@ -472,7 +472,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // Opened two hours ago and still open: a learner can enroll. Only the end
       // moves here, so the enrollment start never advances after the enrollment.
       await scheduleDetailsPage.setEnrollmentEnd(toDateTimeFields(FAR_FUTURE));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       await windowSaved(openedEarlier, FAR_FUTURE);
       const inTime = await newLearner();
       await enrollInCourseViaApi(inTime.request, config, courseKey);
@@ -502,7 +502,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       await expect(scheduleDetailsPage.courseImagePath).toHaveValue(
         new RegExp(fileName.replace(/[.-]/g, '\\$&')),
       );
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => {
@@ -533,7 +533,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       await scheduleDetailsPage.setIntroVideoId(videoId);
       // The page previews the video it will save (the rendering is the point here).
       await expect(scheduleDetailsPage.introVideoFrame).toHaveAttribute('src', new RegExp(videoId));
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => {
@@ -560,7 +560,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       await scheduleDetailsPage.goto(courseKey);
       await scheduleDetailsPage.setEffort('3:30');
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
 
       await expect
         .poll(async () => ({
@@ -594,7 +594,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       const { courseKey } = authoredCourse;
       await scheduleDetailsPage.goto(courseKey);
       await scheduleDetailsPage.choosePrerequisite(1);
-      expect((await scheduleDetailsPage.save(courseKey)).status).toBe(200);
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
       const details = await fetchCourseDetails(api, config, courseKey);
       expect(details.pre_requisite_courses).toHaveLength(1);
 

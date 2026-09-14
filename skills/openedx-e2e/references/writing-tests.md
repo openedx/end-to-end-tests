@@ -126,6 +126,24 @@ reporter writes `test-results/btr-coverage.json`.
   (`src/accounts/`) — never assume the target auto-activates. `ACCOUNT_BACKEND`
   decides how activation clears, so specs stay identical across targets.
 
+## Studio specs and sessions
+
+Studio tests run in the `studio-author` project as a per-worker author whose
+session can be evicted at any time by the platform (concurrent-login rule, Redis
+eviction). `references/studio-auth.md` has the full model; the non-negotiables:
+
+- Depend on `studioAuthorSession` for browser work and on a worker course
+  (`authoredCourse`, `contentCourse`, `futureCourse`) or `authoringCourse`.
+- API calls as the same author in a test that holds a browser session use
+  `page.request`, not the `request` fixture.
+- Other users (learners, admin) get their own context: `roundTripLearner`,
+  `adminPage` / `adminApi`. Never sign a second user in on the author's `page`.
+- LMS session-auth views (cohorts) need a fresh `loginSession` on a throwaway
+  request context, opened after the browser authoring is done.
+- New legacy CMS writes (`/course/`, `/xblock/`) go through `studioWrite`.
+- Never add an unconditional sign-in: the login limit is 30 per account per 5
+  minutes on a default install.
+
 ## Known upstream defects
 
 Write the spec against the **intended** behaviour, add `test.fixme(true, '<why>:

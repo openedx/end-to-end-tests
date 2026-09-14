@@ -18,6 +18,9 @@ export const AUTH_JWT_COOKIE = 'edx-jwt-cookie-header-payload';
 /** A cookie shape both Playwright's `StorageState` and `context.cookies()` satisfy. */
 type NamedCookie = { readonly name: string };
 
+/** A cookie shape carrying Playwright's expiry (`-1` for a session cookie). */
+type ExpiringCookie = NamedCookie & { readonly expires?: number };
+
 /**
  * Whether a set of cookies represents an authenticated session, judged by the
  * presence of the login JWT cookie. Use this rather than checking for
@@ -25,6 +28,42 @@ type NamedCookie = { readonly name: string };
  */
 export function hasAuthenticatedSession(cookies: ReadonlyArray<NamedCookie>): boolean {
   return cookies.some((cookie) => cookie.name === AUTH_JWT_COOKIE);
+}
+
+/**
+ * How long before the login JWT's expiry a stored session is already treated as
+ * needing a refresh. The JWT cookie is a ~1 h clock (`JWT_IN_COOKIE_EXPIRATION`);
+ * a request context built from a captured state cannot refresh it (no
+ * refresh-token cookie), and once it lapses the context is un-healable in place
+ * because `APIRequestContext` exposes no cookie mutation. Refreshing a little
+ * early keeps a context that a test picks up just before the boundary from
+ * lapsing mid-flight.
+ */
+export const JWT_REFRESH_MARGIN_MS = 5 * 60_000;
+
+/**
+ * Whether the login JWT in a captured storage state is still valid for at least
+ * {@link JWT_REFRESH_MARGIN_MS}. `false` when the cookie is absent (an anonymous
+ * or logged-out state) or within the margin of its expiry.
+ *
+ * A JWT stored as a **session cookie** (`expires` `-1`/absent) has no readable
+ * clock to pre-empt, so it counts as fresh: a decayed session behind it is
+ * recovered by the SSO handshake (`establishStudioSession`), which the live JWT
+ * still authorizes — the case this check exists to avoid is the JWT *itself*
+ * having lapsed, leaving nothing to authorize that handshake.
+ *
+ * Callers use it to refresh a worker author's state file **before** the per-test
+ * `request`/`page` contexts load it, spending a login only when the JWT is
+ * genuinely stale (about once an hour per worker) rather than on every test.
+ */
+export function storedJwtIsFresh(
+  cookies: ReadonlyArray<ExpiringCookie>,
+  now: number = Date.now(),
+): boolean {
+  const jwt = cookies.find((cookie) => cookie.name === AUTH_JWT_COOKIE);
+  if (jwt === undefined) return false;
+  if (jwt.expires === undefined || jwt.expires < 0) return true;
+  return jwt.expires * 1000 - now > JWT_REFRESH_MARGIN_MS;
 }
 
 /**

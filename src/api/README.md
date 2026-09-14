@@ -37,7 +37,11 @@ Contains:
   custom-page order and prerequisite gating.
 - `course-outline.ts` — `fetchCourseOutline` / `buildOutline` / `unitsContaining`:
   the Blocks API folded into sections → subsections → units with per-block
-  completion, which is what the completion steps and fixtures drive from.
+  completion, which is what the completion steps and fixtures drive from; plus
+  `fetchCourseNavigation` (the course-home navigation model, a gated subsection
+  present as a `lock`) and `fetchSequenceMetadata` (the learning MFE's
+  per-subsection reading, `undefined` when it is not served to the learner) — the
+  learner-side outcome the visibility round trips assert on.
 - `course-preflight.ts` — `assertCourseAccessible` / `courseKeySkipReason`:
   distinguishes "no `COURSE_KEY`" (fixtures skip) from "`COURSE_KEY` names a
   course the target lacks" (`CoursePreflightError`, the run fails).
@@ -84,6 +88,31 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   behind the Launch and Best-practices checklists — served by the Studio origin),
   `course-modes.ts` (LMS enrollment modes; `ensureCertificateBearingMode` adds the
   `honor` mode a course needs before the Certificates form renders — staff only).
+- `xblock.ts` — the legacy `xblock_handler` client: `createXBlock`,
+  `updateXBlock`, `publishXBlock`, and the reads (`fetchXBlockOutline`,
+  `fetchXBlock`, `fetchCourseIndex`, `fetchContainer` / `fetchContainerChildren`,
+  `availableComponentTypes` / `advancedComponentTypes`). The one endpoint the whole
+  outline and every unit go through. Duplicate / delete / reorder / move and the
+  prerequisite gate are exercised through the outline page object's UI, not a
+  parallel API client, so the spec asserts the action the way an author takes it.
+- `course-content.ts` — `buildSection` and the `authorProblem` / `authorHtml` /
+  `authorVideo` builders (with the per-type problem templates surfaced by
+  `problemOlx`): the "a spec builds a section, not a course" helper layer, all
+  arrangement done through the xblock API so a spec body opens on the action under
+  test.
+- `clipboard.ts` — the content-staging clipboard client (`copyToClipboard`):
+  staged server-side per user, so a cross-course paste needs no browser clipboard
+  and no permission grant. The paste is a UI action the outline/unit page objects
+  drive.
+- `cohorts.ts` — the LMS instructor cohort client (`enableCohorts` /
+  `createCohort` / `linkCohortToGroup` / `addToCohort`). These are Django
+  **session**-auth LMS views, not JWT: a JWT-only context is redirected to login
+  and the write surfaces as **HTTP 405**, so drive them from a fresh
+  `loginSession` on a throwaway context
+  (see `.private/studio-auth-resilience.md` §2.4).
+- `search.ts` — `searchCourseDiscovery` (the LMS catalog-search index the
+  discovery page runs) and `reindexCourse` (Studio's `reindex_link`, global-staff
+  only — rebuilds the index so freshly authored content becomes findable).
 
 The auth primitives are what the default auth provider (`src/auth/`) and the
 account backends compose into a captured storage state; the course primitives

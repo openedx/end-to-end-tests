@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
 import { CSRF_HEADER, fetchCsrfToken } from './csrf';
-import { ApiError } from './errors';
+import { ApiError, StudioSessionExpiredError } from './errors';
 
 /**
  * The Studio origin from config, or a clear error when none is set. Every Studio
@@ -81,6 +81,68 @@ export async function studioJson<T>(
     throw new ApiError(
       `${what} returned HTTP ${response.status()} with a non-JSON body: ${nonJsonPreview(text)}`,
       { status: response.status(), url, body: text.slice(0, 500) },
+    );
+  }
+}
+
+/**
+ * One credentialed write against a legacy Studio view (`/xblock/`, `/course/`,
+ * …), with the failure modes those views share turned into typed errors:
+ *
+ * - a `3xx` is the sign-in bounce of a gone Studio Django session (these views
+ *   authenticate by that session, not the JWT) → {@link StudioSessionExpiredError},
+ *   so a caller holding credentials can re-authenticate and retry. Redirects are
+ *   not followed: a followed one becomes a `GET` of the collection URL and a
+ *   misleading 404;
+ * - a `403` names the course the session may not edit;
+ * - a `2xx` with a non-JSON body (an overloaded CMS letting an HTML error page
+ *   through) is an {@link ApiError} marked `retryable`.
+ *
+ * Returns the parsed JSON, or `undefined` for an empty `204`.
+ */
+export async function studioWrite<T>(
+  request: APIRequestContext,
+  config: AppConfig,
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  what: string,
+  data?: unknown,
+): Promise<T> {
+  const url = `${studioOrigin(config)}${path}`;
+  const response = await request.fetch(url, {
+    method,
+    data,
+    headers: await studioWriteHeaders(request, config),
+    maxRedirects: 0,
+  });
+  const status = response.status();
+  const text = await response.text();
+  if (status >= 300 && status < 400) {
+    throw new StudioSessionExpiredError(what, { url, status });
+  }
+  if (status === 403) {
+    throw new ApiError(
+      `${what} was refused (HTTP 403): the session may not edit this course, or the ` +
+        'operation is limited to global staff.',
+      { status, url, body: text },
+    );
+  }
+  if (!response.ok()) {
+    throw new ApiError(`${what} failed (HTTP ${status}): ${nonJsonPreview(text)}`, {
+      status,
+      url,
+      body: text,
+    });
+  }
+  if (status === 204 || text.trim() === '') {
+    return undefined as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new ApiError(
+      `${what} returned HTTP ${status} with a non-JSON body: ${nonJsonPreview(text)}`,
+      { status, url, body: text.slice(0, 500), retryable: true },
     );
   }
 }

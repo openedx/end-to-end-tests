@@ -1,8 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { STUDIO_GRADING_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
-import { COURSE_GRADING_PATH, studioOrigin } from '../../../api';
-import { waitForWrite } from '../wait-for-write';
+import { studioOrigin } from '../../../api';
+import { isSettingsWrite, waitForWrite } from '../wait-for-write';
 
 /** One assignment type as the page's card takes it. */
 export interface AssignmentTypeFields {
@@ -176,16 +176,20 @@ export class StudioGradingPage {
   }
 
   /**
-   * Presses "Save changes" and returns the status of the resulting
-   * `POST course_grading`, which is what decides whether the save took.
+   * Presses "Save changes" and returns the status of the resulting grading-save
+   * write, which is what decides whether the save took.
    */
-  async save(courseKey: string): Promise<{ status: number }> {
+  async save(): Promise<{ status: number }> {
     await this.saveButton.waitFor({ state: 'visible' });
     const response = await waitForWrite(
       this.page,
       {
-        method: 'POST',
-        urlIncludes: `${COURSE_GRADING_PATH}/${courseKey}`,
+        // The grading-save endpoint drifts across releases: `main`'s authoring
+        // MFE PATCHes `.../v3/authoring_grading/<key>/`, while older releases POST
+        // `.../v1/course_grading/<key>`. Match the grading-save family by resource
+        // and any write method (the wait is scoped to this page's own course, so
+        // it cannot catch another course's save). See `STUDIO-009` in findings.
+        predicate: (r) => isSettingsWrite(r) && /\/(course|authoring)_grading\//.test(r.url()),
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => this.saveButton.click(),

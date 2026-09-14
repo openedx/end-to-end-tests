@@ -6,6 +6,7 @@ import {
   waitForCourseExport,
   waitForCourseImport,
 } from '../../../src/api';
+import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -19,6 +20,12 @@ import { testId } from '../../../src/reporting';
  * decides success; the page performs the upload and shows the outcome.
  */
 test.describe('Course Import', { tag: ['@studio', '@author', '@mfe-authoring'] }, () => {
+  // Export **and** import each run on the CMS worker under `TIMEOUTS.courseTransfer`;
+  // the default test budget is shorter than either waiter, so a busy worker
+  // (search-index fan-out after every publish) failed the test before the
+  // import task was even picked up.
+  test.describe.configure({ timeout: TIMEOUTS.contentTest });
+
   test(
     'imports an OLX tarball back into the course',
     { tag: '@regression', annotation: testId('TC-00309') },

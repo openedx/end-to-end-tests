@@ -54,6 +54,19 @@ export const CAPABILITIES = [
   // Content tagging: the taxonomy list in the authoring MFE and the tag drawers
   // on outline items. Reported by Studio's home API as `taxonomies_enabled`.
   'taxonomies',
+  // Optional component (XBlock) types an author can add to a unit. Each is a
+  // tile in the unit page's "Add component" bar and an entry in the CMS
+  // `container_handler` API's `component_templates`; a declared type that the
+  // target lacks must fail its spec, never skip it. All of these ship with
+  // edx-platform (and so with a stock Tutor image) and are declared for every
+  // release in `.ci/openedx-releases.json`; a provider that has removed one opts
+  // out by leaving it undeclared.
+  'ora', // Open Response Assessment (`openassessment`, edx-ora2)
+  'drag-and-drop-v2', // `drag-and-drop-v2` (xblock-drag-and-drop-v2)
+  'pdf-xblock', // `pdf` under the "Advanced" tile
+  'lti', // `lti_consumer` under the "Advanced" tile (no tool launch is asserted)
+  'scorm', // `scorm` under the "Advanced" tile
+  'edx-sga', // Staff Graded Assignment (`staffgradedxblock`) under the "Problem" tile
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];

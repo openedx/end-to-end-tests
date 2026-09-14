@@ -7,14 +7,20 @@ export { LOGIN_SESSION_PATH, loginSession, type LoginCredentials } from './login
 export { newLearnerIdentity, DEFAULT_PASSWORD, type LearnerIdentity } from './user-identity';
 export {
   COURSE_BLOCKS_PATH,
+  COURSE_NAVIGATION_PATH,
   buildOutline,
   COURSEWARE_SEQUENCE_PATH,
+  fetchCourseNavigation,
   fetchCourseOutline,
+  fetchSequenceMetadata,
   primeCoursewareForLearner,
   unitsContaining,
   type CourseBlock,
+  type CourseNavigation,
   type CourseOutline,
   type CourseUnit,
+  type NavigationBlock,
+  type SequenceMetadata,
 } from './course-outline';
 export {
   COURSE_PROGRESS_PATH,
@@ -39,7 +45,65 @@ export {
 } from './course-preflight';
 
 // Studio (CMS) — see `src/api/README.md`, "Studio clients".
-export { studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from './studio-origin';
+export { studioOrigin, studioWrite, studioWriteHeaders, STUDIO_JSON_ACCEPT } from './studio-origin';
+export {
+  XBLOCK_PATH,
+  XBLOCK_OUTLINE_PATH,
+  COURSE_INDEX_PATH,
+  CONTAINER_HANDLER_PATH,
+  containerChildrenPath,
+  advancedComponentTypes,
+  availableComponentTypes,
+  courseUsageKey,
+  createXBlock,
+  fetchContainer,
+  fetchContainerChildren,
+  fetchCourseIndex,
+  fetchXBlock,
+  fetchXBlockOutline,
+  publishXBlock,
+  updateXBlock,
+  type ComponentTemplate,
+  type ContainerChild,
+  type ContainerInfo,
+  type CourseIndex,
+  type CreateXBlockOptions,
+  type UpdateXBlockOptions,
+  type VisibilityState,
+  type XBlockCategory,
+  type XBlockDetail,
+  type XBlockMetadata,
+  type XBlockOutline,
+  type XBlockWriteResult,
+} from './xblock';
+export {
+  addToCohort,
+  createCohort,
+  enableCohorts,
+  linkCohortToGroup,
+  type Cohort,
+} from './cohorts';
+export { CLIPBOARD_PATH, copyToClipboard, type Clipboard } from './clipboard';
+export {
+  DEFAULT_SECTION_SHAPE,
+  SAMPLE_YOUTUBE_ID,
+  authorHtml,
+  authorProblem,
+  authorVideo,
+  buildSection,
+  problemOlx,
+  type AuthoredBlock,
+  type AuthoredProblem,
+  type AuthoredSection,
+  type AuthoredSubsection,
+  type AuthoredUnit,
+  type BlockSpec,
+  type ProblemAnswer,
+  type ProblemType,
+  type SectionShape,
+  type SubsectionShape,
+  type UnitShape,
+} from './course-content';
 export {
   STUDIO_LOGIN_PATH,
   STUDIO_ME_PATH,
@@ -172,3 +236,9 @@ export {
   type CourseMetadata,
   type CourseTab,
 } from './course-metadata';
+export {
+  COURSE_DISCOVERY_SEARCH_PATH,
+  reindexCourse,
+  searchCourseDiscovery,
+  type CourseDiscoveryHit,
+} from './search';

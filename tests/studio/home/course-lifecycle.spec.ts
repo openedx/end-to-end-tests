@@ -8,6 +8,7 @@ import {
   waitForRerun,
   type CourseIdentity,
 } from '../../../src/api';
+import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -26,6 +27,10 @@ const liveUrl = (courseKey: string) => new RegExp(`/courses/${courseKey.replace(
  * is spent for both the re-run and the archive case (§2.4 course budget).
  */
 test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'] }, () => {
+  // The re-run copy runs on the CMS worker under `TIMEOUTS.courseRerun`, longer
+  // than the default test budget.
+  test.describe.configure({ timeout: TIMEOUTS.contentTest });
+
   test(
     're-runs a course into a new run, and archives it once ended',
     { tag: '@regression', annotation: [testId('TC-00251'), testId('TC-00253')] },

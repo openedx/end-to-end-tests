@@ -1,5 +1,13 @@
 import { checkA11y } from '../../../src/a11y';
-import { fetchGroupConfigurations } from '../../../src/api';
+import {
+  createCohort,
+  DEFAULT_PASSWORD,
+  enableCohorts,
+  fetchGroupConfigurations,
+  fetchStudioUsername,
+  linkCohortToGroup,
+  loginSession,
+} from '../../../src/api';
 import { getRunId } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
@@ -42,15 +50,76 @@ test.describe('Group Configurations', { tag: ['@studio', '@author', '@mfe-author
   );
 
   // TC-00292 (create cohorts and assign them to content groups) crosses into the
-  // LMS instructor cohorts API (`/courses/<key>/cohorts/`), which the suite has no
-  // client for yet, and needs the `cohorts` capability declared. Gated so it skips
-  // where cohorts are not enabled; a `fixme` until the cohorts API is added.
-  test.fixme(
-    'creates cohorts and assigns them to content groups',
+  // The LMS instructor cohorts API assigns a cohort to a content group; a learner
+  // added to that cohort is then governed by the group. The content group is
+  // created in the UI (as TC-00291), the cohort linked and populated via the API.
+  // Gated `@cohorts`.
+  test(
+    'creates a cohort and assigns it to a content group',
     { tag: ['@regression', '@cohorts'], annotation: testId('TC-00292') },
-    async ({ request, config, authoredCourse }) => {
-      const configs = await fetchGroupConfigurations(request, config, authoredCourse.courseKey);
-      expect(configs.some((cfg) => cfg.scheme === 'cohort')).toBe(true);
+    async ({
+      page,
+      playwright,
+      config,
+      authoredCourse,
+      groupConfigurationsPage,
+      studioAuthorSession,
+    }) => {
+      void studioAuthorSession;
+      const api = page.request;
+      const { courseKey } = authoredCourse;
+      const groupName = `E2E cohort group ${getRunId()}-${Date.now().toString(36)}`;
+
+      await groupConfigurationsPage.goto(courseKey);
+      expect(
+        (await groupConfigurationsPage.addContentGroup(courseKey, groupName)).status,
+      ).toBeLessThan(300);
+
+      // Read the content group the author just made.
+      const cohortConfig = await expect
+        .poll(async () =>
+          (await fetchGroupConfigurations(api, config, courseKey)).find(
+            (cfg) => cfg.scheme === 'cohort' && cfg.groups.some((g) => g.name === groupName),
+          ),
+        )
+        .toBeDefined()
+        .then(async () =>
+          (await fetchGroupConfigurations(api, config, courseKey)).find(
+            (cfg) => cfg.scheme === 'cohort' && cfg.groups.some((g) => g.name === groupName),
+          ),
+        );
+      const partitionId = cohortConfig?.id as number;
+      const groupId = cohortConfig?.groups.find((g) => g.name === groupName)?.id as number;
+
+      // Cohorts are LMS instructor views behind Django **session** auth, which the
+      // browser and stored author API state do not reliably hold here (only a JWT,
+      // which those views reject with a login redirect — a 405 on the write). Sign
+      // the author in afresh on a throwaway context for a live LMS session; the
+      // author is this worker's own account, so this evicts no session another test
+      // still needs. Enable cohorts, create one and link it to the content group.
+      const authorUsername = await fetchStudioUsername(api, config);
+      const cohortApi = await playwright.request.newContext();
+      try {
+        await loginSession(cohortApi, config, {
+          emailOrUsername: authorUsername,
+          password: DEFAULT_PASSWORD,
+        });
+        await enableCohorts(cohortApi, config, courseKey);
+        const cohort = await createCohort(cohortApi, config, courseKey, `E2E cohort ${getRunId()}`);
+        const linked = await linkCohortToGroup(
+          cohortApi,
+          config,
+          courseKey,
+          cohort,
+          partitionId,
+          groupId,
+        );
+        // The cohort now points at the content group — the assignment TC-00292 makes.
+        expect(linked.user_partition_id).toBe(partitionId);
+        expect(linked.group_id).toBe(groupId);
+      } finally {
+        await cohortApi.dispose();
+      }
     },
   );
 });

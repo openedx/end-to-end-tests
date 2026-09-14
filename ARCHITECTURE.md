@@ -130,6 +130,16 @@ re-login, refreshing the worker's state file. The single shared admin account is
 used only under a cross-worker lock (`withAdminSession`), reusing the `setup`
 session where it is still alive.
 
+A `studio-author` round-trip test carries **two actors in two contexts**: the
+author on the worker's `page` (and `page.request`), and a learner the test
+provisions as a separate user with its own `browser.newContext()` plus `request`
+(`roundTripLearner`, `futureCourseLearner`, `authoringCourseLearner`). The author
+publishes; the learner reads. They never share a context — a session cookie for
+one user replayed with a JWT for another forces a logout — so a learner is never
+signed in on the author's `page`. Cohort and other LMS session-auth writes, which
+a JWT-only context cannot make, run on a third throwaway context signed in afresh
+as the author (see [`.private/studio-auth-resilience.md`](.private/studio-auth-resilience.md)).
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the
