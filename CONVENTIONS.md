@@ -202,7 +202,8 @@ tabId)` is the "this tab is offered" assertion.
   returns the response; a spec asserts that response's `results`, never a toast.
 - **Wait for the conjunction, never a clock.** `generate` hands back no task id
   and `instructor_tasks` lists only running tasks (`INSTR-002`), so a task is
-  done when none of its type is listed **and** its effect is readable
+  done when none of its type is listed **and** its effect is readable (for a
+  report: a download not in the listing taken before the request)
   (`waitForInstructorTask`, `waitForReport`, `waitForLearnerProgress`), under
   `TIMEOUTS.instructorTask`; every wait returns its last readings for the failure
   message rather than throwing.

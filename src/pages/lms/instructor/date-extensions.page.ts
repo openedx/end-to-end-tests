@@ -67,11 +67,4 @@ export class InstructorDateExtensionsPage extends InstructorDashboardPage {
       this.dialogConfirmButton().click(),
     );
   }
-
-  /** Types into the username filter of the table's control bar. */
-  async filterByUsername(username: string): Promise<void> {
-    await this.waitForApi({ method: 'GET', urlIncludes: '/unit_extensions?' }, () =>
-      this.main.locator(this.s.dataTableControlBar).locator('input').first().fill(username),
-    );
-  }
 }

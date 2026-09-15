@@ -1,6 +1,6 @@
 import type { Locator, Response } from '@playwright/test';
 
-import { INSTRUCTOR_TAB_IDS } from '../../../config';
+import { INSTRUCTOR_TAB_IDS, TIMEOUTS } from '../../../config';
 import { InstructorDashboardPage } from './dashboard.page';
 
 /** The "Enroll Learners" / "Add Beta Testers" modal, open. */
@@ -19,12 +19,7 @@ export class EnrollmentModal {
     await this.textarea.fill(identifiers.join('\n'));
   }
 
-  /** "Auto Enroll" — the first checkbox, checked by default. */
-  async setAutoEnroll(on: boolean): Promise<void> {
-    await this.checkboxes.nth(0).setChecked(on);
-  }
-
-  /** "Notify Users by Email" — the second checkbox, checked by default. */
+  /** "Notify Users by Email" — the second checkbox ("Auto Enroll" is the first), checked by default. */
   async setNotifyByEmail(on: boolean): Promise<void> {
     await this.checkboxes.nth(1).setChecked(on);
   }
@@ -106,25 +101,26 @@ export class InstructorEnrollmentsPage extends InstructorDashboardPage {
 
   /**
    * The row's overflow menu has one item — "Grant Beta Tester Role" or "Remove
-   * Beta Tester Role" depending on the row. Clicking it (and confirming the
-   * removal dialog when one opens) fires `beta_testers/modify`.
+   * Beta Tester Role" depending on the row. Granting posts at once; removing
+   * asks for confirmation first, so the dialog is given `optionalOverlay` to
+   * appear. Returns the `beta_testers/modify` response.
    */
   async toggleBetaTester(username: string): Promise<Response> {
     const row = this.rowFor(username);
     await row.locator(this.s.rowBetaTesterMenuButton).click();
-    await this.page.locator(this.s.rowMenuPopover).first().click();
+    const item = this.page.locator(this.s.rowMenuPopover).first();
+    await item.waitFor();
     return this.waitForApi({ method: 'POST', urlIncludes: '/beta_testers/modify' }, async () => {
-      // Granting is immediate; removing asks for confirmation first.
-      if (await this.dialog.count()) await this.dialogConfirmButton().click();
+      await item.click();
+      const confirm = this.dialogConfirmButton();
+      if (
+        await confirm.waitFor({ timeout: TIMEOUTS.optionalOverlay }).then(
+          () => true,
+          () => false,
+        )
+      ) {
+        await confirm.click();
+      }
     });
-  }
-
-  /** The row's "Unenroll" → confirm → `enrollments/modify`. */
-  async unenroll(username: string): Promise<Response> {
-    await this.rowFor(username).locator(this.s.rowUnenrollButton).click();
-    await this.dialog.waitFor();
-    return this.waitForApi({ method: 'POST', urlIncludes: '/enrollments/modify' }, () =>
-      this.dialogConfirmButton().click(),
-    );
   }
 }
