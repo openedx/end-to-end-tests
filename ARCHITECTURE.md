@@ -140,6 +140,16 @@ signed in on the author's `page`. Cohort and other LMS session-auth writes, whic
 a JWT-only context cannot make, run on a third throwaway context signed in afresh
 as the author (see [`.private/studio-auth-resilience.md`](.private/studio-auth-resilience.md)).
 
+The **instructor** persona is the same worker author: a course's creator holds
+the `instructor` and `staff` course roles on it (course-team membership is data,
+not a session role — see `src/auth/roles.ts`), the seeds add the `data_researcher`
+role, and the instructor-dashboard MFE's `/api/instructor/v2/` accepts the JWT, so
+`tests/lms/instructor/` runs in `studio-author` on `page` / `page.request` with a
+`roundTripLearner` as the second actor. The global `instructor` role stays
+installation-supplied. The one session-only write in that tree — enabling
+platform-wide certificate generation in the LMS Django admin — runs on a fresh
+admin `loginSession` context under the admin lock.
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the

@@ -127,14 +127,14 @@ Recipe in full: [CONVENTIONS › Adding a Feature spec](CONVENTIONS.md#adding-a-
 
 ## Tags and projects
 
-| Tag                      | Effect                                                                                                |
-| ------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `@smoke` / `@regression` | Stability tier; anonymous projects of the same name                                                   |
-| `@unit`                  | No browser or target; `unit` project                                                                  |
-| `@authenticated`         | `lms-learner` project with the captured learner session. Mutating course state? Take `courseLearner`. |
-| `@author`                | `studio-author` project, one author per worker. Always paired with `@studio` and `@mfe-authoring`.    |
-| `@<capability>`          | Must exist in `src/config/capabilities.ts`. The `capabilityGate` fixture skips it where undeclared.   |
-| `@mfe-*`                 | Filter only, except `@mfe-authn`, which is also a capability                                          |
+| Tag                      | Effect                                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@smoke` / `@regression` | Stability tier; anonymous projects of the same name                                                                                                                |
+| `@unit`                  | No browser or target; `unit` project                                                                                                                               |
+| `@authenticated`         | `lms-learner` project with the captured learner session. Mutating course state? Take `courseLearner`.                                                              |
+| `@author`                | `studio-author` project, one author per worker. Paired with `@studio` and the MFE tag (`@mfe-authoring`; `@mfe-instructor-dashboard` for `tests/lms/instructor/`). |
+| `@<capability>`          | Must exist in `src/config/capabilities.ts`. The `capabilityGate` fixture skips it where undeclared.                                                                |
+| `@mfe-*`                 | Filter only, except `@mfe-authn`, which is also a capability                                                                                                       |
 
 A capability gates coverage that is _about_ the optional feature, not every spec
 that passes through it. A gated spec must assert the feature's surface is
