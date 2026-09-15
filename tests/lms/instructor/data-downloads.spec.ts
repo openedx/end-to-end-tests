@@ -1,6 +1,6 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS, type InstructorReportType } from '../../../src/config';
-import { downloadReport } from '../../../src/api';
+import { downloadReport, listReports } from '../../../src/api';
 import { waitForReport } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
 import { testId } from '../../../src/reporting';
@@ -83,14 +83,14 @@ test.describe(
           const courseKey = contentCourse.courseKey;
           await instructorDataDownloads.gotoTab(courseKey);
 
-          const since = new Date();
+          const before = await listReports(page.request, config, courseKey);
           const queued = await instructorDataDownloads.generate(report.type);
           expect(queued.status()).toBe(200);
 
-          const outcome = await waitForReport(page.request, config, courseKey, report.type, since);
+          const outcome = await waitForReport(page.request, config, courseKey, report.type, before);
           expect(
             outcome.report,
-            `no ${report.type} report within ${outcome.elapsedMs} ms; tasks: ${JSON.stringify(outcome.tasks)}; same type: ${JSON.stringify(outcome.sameType)}; since ${since.toISOString()}`,
+            `no ${report.type} report within ${outcome.elapsedMs} ms; tasks: ${JSON.stringify(outcome.tasks)}; same type: ${JSON.stringify(outcome.sameType)}`,
           ).toBeDefined();
           const download = outcome.report as NonNullable<typeof outcome.report>;
           expect(download.report_type).toBe(report.type);
@@ -136,7 +136,7 @@ test.describe(
           .toBe(true);
         await instructorDataDownloads.gotoTab(courseKey);
 
-        const since = new Date();
+        const before = await listReports(page.request, config, courseKey);
         const queued = await instructorDataDownloads.generate('problem_responses', {
           problemLocation: problem.usageKey,
         });
@@ -146,11 +146,11 @@ test.describe(
           config,
           courseKey,
           'problem_responses',
-          since,
+          before,
         );
         expect(
           outcome.report,
-          `no problem_responses report within ${outcome.elapsedMs} ms; tasks: ${JSON.stringify(outcome.tasks)}; same type: ${JSON.stringify(outcome.sameType)}; since ${since.toISOString()}`,
+          `no problem_responses report within ${outcome.elapsedMs} ms; tasks: ${JSON.stringify(outcome.tasks)}; same type: ${JSON.stringify(outcome.sameType)}`,
         ).toBeDefined();
 
         const file = await downloadReport(

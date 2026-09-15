@@ -21,7 +21,6 @@ export {
   ensureDataResearcher,
   mintCertificateByException,
   waitForInstructorTask,
-  waitForLearnerProblem,
   waitForLearnerProgress,
   waitForReport,
   type CertificateMintOutcome,

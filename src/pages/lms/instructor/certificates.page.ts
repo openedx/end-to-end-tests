@@ -25,8 +25,8 @@ export class InstructorCertificatesPage extends InstructorDashboardPage {
 
   async gotoTab(courseKey: string): Promise<void> {
     await this.goto(courseKey, INSTRUCTOR_TAB_IDS.certificates);
-    // Either the tools render (issued-certificates request) or the disabled alert.
-    await Promise.race([this.issuedTab.waitFor(), this.disabledAlert.waitFor()]);
+    // Either the tools render or the disabled alert does.
+    await this.issuedTab.or(this.disabledAlert).first().waitFor();
   }
 
   /** Shown instead of the tools while platform-wide generation is off. */
@@ -44,30 +44,6 @@ export class InstructorCertificatesPage extends InstructorDashboardPage {
 
   get regenerateButton(): Locator {
     return this.main.locator(this.s.regenerateButton);
-  }
-
-  /**
-   * Overflow → "Student Generated Certificates" → sets the course toggle and
-   * saves. Save posts `certificates/toggle_generation` only when the state
-   * changed, so the response is `undefined` when it was already `on`.
-   */
-  async setStudentGeneratedCertificates(on: boolean): Promise<Response | undefined> {
-    await this.main.locator(this.s.certificatesMoreMenu).click();
-    await this.openMenuItems().first().click();
-    await this.dialog.waitFor();
-    const checkbox = this.dialog.locator(this.s.studentGeneratedCheckbox);
-    const changed = (await checkbox.isChecked()) !== on;
-    await checkbox.setChecked(on);
-    if (!changed) {
-      await this.closeDialog();
-      return undefined;
-    }
-    const response = await this.waitForApi(
-      { method: 'POST', urlIncludes: '/certificates/toggle_generation' },
-      () => this.dialogConfirmButton().click(),
-    );
-    await this.dialog.waitFor({ state: 'hidden' }).catch(() => undefined);
-    return response;
   }
 
   /**
@@ -107,19 +83,6 @@ export class InstructorCertificatesPage extends InstructorDashboardPage {
     );
     await modal.waitFor({ state: 'hidden' }).catch(() => undefined);
     return response;
-  }
-
-  /**
-   * "Regenerate Certificates" → its modal → confirm. The modal offers the
-   * student set / statuses; the default confirms what the filter shows.
-   * Returns the `POST certificates/regenerate` response (carries `task_id`).
-   */
-  async regenerate(): Promise<Response> {
-    await this.regenerateButton.click();
-    await this.dialog.waitFor();
-    return this.waitForApi({ method: 'POST', urlIncludes: '/certificates/regenerate' }, () =>
-      this.dialogConfirmButton().click(),
-    );
   }
 
   /** Picks a filter by its API value (items are in `INSTRUCTOR_CERTIFICATE_FILTERS` order). */

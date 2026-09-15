@@ -1,6 +1,11 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, fetchLearnerProblem, type QueuedGradingTask } from '../../../src/api';
+import {
+  buildSection,
+  fetchLearnerProblem,
+  firstProblem,
+  type QueuedGradingTask,
+} from '../../../src/api';
 import { submitProblem, waitForInstructorTask } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
 import { INSTRUCTOR_TAGS, label } from './helpers';
@@ -41,14 +46,7 @@ test.describe(
             publish: true,
           },
         );
-        const block = section.blocks.find((b) => b.type === 'problem');
-        if (block?.answers === undefined) throw new Error('The section has no problem block.');
-        const problem = {
-          usageKey: block.usageKey,
-          type: 'multiplechoiceresponse' as const,
-          ...block.answers,
-        };
-        const subsectionKey = section.subsections[0]?.usageKey ?? '';
+        const { subsectionKey, problem } = firstProblem(section);
         for (const learner of roundTripLearners) {
           await learner.prime(subsectionKey);
           expect(

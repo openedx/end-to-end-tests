@@ -3,6 +3,7 @@ import { TIMEOUTS } from '../../../src/config';
 import {
   downloadReport,
   listCertificateGenerationHistory,
+  listReports,
   listIssuedCertificates,
   type LearnerListResult,
 } from '../../../src/api';
@@ -204,14 +205,14 @@ test.describe(
         expect(minted.downloadable, JSON.stringify(minted)).toBe(true);
 
         await instructorDataDownloads.gotoTab(courseKey);
-        const since = new Date();
+        const before = await listReports(page.request, config, courseKey);
         expect((await instructorDataDownloads.generate('issued_certificates')).status()).toBe(200);
         const outcome = await waitForReport(
           page.request,
           config,
           courseKey,
           'issued_certificates',
-          since,
+          before,
         );
         expect(outcome.report, JSON.stringify(outcome)).toBeDefined();
         const file = await downloadReport(

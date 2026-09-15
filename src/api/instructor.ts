@@ -13,21 +13,14 @@ import { ApiError } from './errors';
  * role** (`CAN_RESEARCH`), which a course's creator does not hold until granted
  * ({@link grantCourseTeamRole}).
  *
- * Two dashboard actions still go through the legacy
- * `/courses/<key>/instructor/api/*` views (the MFE calls them the same way);
- * they are included here so the client covers what the UI does.
+ * Two dashboard actions (the enrollment-status check and the extension reset)
+ * still go through the legacy `/courses/<key>/instructor/api/*` views; the page
+ * objects wait on those URLs directly.
  */
 export const INSTRUCTOR_API_V2_PATH = '/api/instructor/v2/courses';
 
-/** Legacy instructor API the MFE still uses for two actions. */
-export const INSTRUCTOR_LEGACY_API_PATH = '/instructor/api';
-
 export function instructorApiBase(config: AppConfig, courseKey: string): string {
   return `${config.baseUrls.lms}${INSTRUCTOR_API_V2_PATH}/${courseKey}`;
-}
-
-function legacyBase(config: AppConfig, courseKey: string): string {
-  return `${config.baseUrls.lms}/courses/${courseKey}${INSTRUCTOR_LEGACY_API_PATH}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -190,11 +183,6 @@ export interface GradingActionResult {
   readonly learner: string;
   readonly problem_location: string;
   readonly message: string;
-}
-
-export interface GradedSubsection {
-  readonly subsection_id: string;
-  readonly display_name: string;
 }
 
 export interface UnitExtension {
@@ -396,31 +384,6 @@ export async function listReports(
   return body.downloads;
 }
 
-/**
- * Queues a report. The answer is only a localized status sentence — no task id —
- * so completion is observed through {@link listInstructorTasks} and
- * {@link listReports}. Needs the `data_researcher` role (or `issued_certificates`:
- * `VIEW_ISSUED_CERTIFICATES`).
- *
- * @throws {TaskAlreadyRunningError} when that report type is already running.
- */
-export async function generateReport(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  reportType: ReportType,
-  options: { readonly problemLocation?: string } = {},
-): Promise<void> {
-  await write(
-    request,
-    config,
-    'POST',
-    `${instructorApiBase(config, courseKey)}/reports/${reportType}/generate`,
-    `Generating the ${reportType} report of ${courseKey}`,
-    options.problemLocation ? { problem_location: options.problemLocation } : {},
-  );
-}
-
 /** Downloads a listed report as the caller; returns the raw response for content checks. */
 export async function downloadReport(
   request: APIRequestContext,
@@ -467,66 +430,6 @@ export async function listEnrollments(
   );
 }
 
-/**
- * Enrolls or unenrolls identifiers (usernames or e-mails). An e-mail with no
- * account ends with `after.allowed: true` — an invitation the pending-enrollments
- * report lists. `emailStudents` asks the platform to notify; delivery is not
- * something the suite can observe.
- */
-export async function modifyEnrollments(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  change: {
-    readonly identifiers: readonly string[];
-    readonly action: 'enroll' | 'unenroll';
-    readonly autoEnroll?: boolean;
-    readonly emailStudents?: boolean;
-    readonly reason?: string;
-  },
-): Promise<{ action: string; results: EnrollmentModifyResult[] }> {
-  return write(
-    request,
-    config,
-    'POST',
-    `${instructorApiBase(config, courseKey)}/enrollments/modify`,
-    `${change.action === 'enroll' ? 'Enrolling' : 'Unenrolling'} ${change.identifiers.join(', ')} in ${courseKey}`,
-    {
-      identifier: change.identifiers,
-      action: change.action,
-      auto_enroll: change.autoEnroll ?? false,
-      email_students: change.emailStudents ?? false,
-      reason: change.reason ?? '',
-    },
-  );
-}
-
-export async function modifyBetaTesters(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  change: {
-    readonly identifiers: readonly string[];
-    readonly action: 'add' | 'remove';
-    readonly autoEnroll?: boolean;
-    readonly emailStudents?: boolean;
-  },
-): Promise<{ action: string; results: BetaTesterModifyResult[] }> {
-  return write(
-    request,
-    config,
-    'POST',
-    `${instructorApiBase(config, courseKey)}/beta_testers/modify`,
-    `${change.action === 'add' ? 'Adding' : 'Removing'} beta testers ${change.identifiers.join(', ')} in ${courseKey}`,
-    {
-      identifier: change.identifiers,
-      action: change.action,
-      auto_enroll: change.autoEnroll ?? false,
-      email_students: change.emailStudents ?? false,
-    },
-  );
-}
-
 /** One learner's identity and enrollment state in the course. */
 export async function fetchInstructorLearner(
   request: APIRequestContext,
@@ -538,28 +441,6 @@ export async function fetchInstructorLearner(
     request,
     `${instructorApiBase(config, courseKey)}/learners/${encodeURIComponent(emailOrUsername)}`,
     `Reading learner ${emailOrUsername} in ${courseKey}`,
-  );
-}
-
-/**
- * The legacy enrollment-status check the dashboard's "Check Enrollment Status"
- * modal still calls. Its answer is a localized sentence; assert
- * {@link fetchInstructorLearner}'s `is_enrolled` instead. Returned so a spec can
- * confirm the call itself succeeded.
- */
-export async function fetchEnrollmentStatusLegacy(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  identifier: string,
-): Promise<{ enrollment_status: string; error: string }> {
-  return write(
-    request,
-    config,
-    'POST',
-    `${legacyBase(config, courseKey)}/get_student_enrollment_status`,
-    `Checking enrollment status of ${identifier} in ${courseKey}`,
-    { unique_student_identifier: identifier },
   );
 }
 
@@ -612,24 +493,6 @@ export async function resetAttempts(
   );
 }
 
-/** Rescores — always a task. */
-export async function rescoreProblem(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  problemUsageKey: string,
-  options: { readonly learner?: string; readonly onlyIfHigher?: boolean } = {},
-): Promise<QueuedGradingTask> {
-  return write(
-    request,
-    config,
-    'POST',
-    gradingUrl(config, courseKey, problemUsageKey, 'scores/rescore', options.learner),
-    `Rescoring ${problemUsageKey}${options.learner ? ` for ${options.learner}` : ' for all learners'}`,
-    options.onlyIfHigher ? { only_if_higher: true } : {},
-  );
-}
-
 /** Overrides one learner's score — answered `202` with the task it queued. */
 export async function overrideScore(
   request: APIRequestContext,
@@ -649,66 +512,9 @@ export async function overrideScore(
   );
 }
 
-/** Deletes one learner's state on a problem — synchronous and irreversible. */
-export async function deleteProblemState(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  problemUsageKey: string,
-  learner: string,
-): Promise<GradingActionResult> {
-  return write(
-    request,
-    config,
-    'DELETE',
-    gradingUrl(config, courseKey, problemUsageKey, 'state', learner),
-    `Deleting ${learner}'s state on ${problemUsageKey}`,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Date extensions
 // ---------------------------------------------------------------------------
-
-/** Graded subsections that carry a due date — what the extension modal offers. */
-export async function fetchGradedSubsections(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-): Promise<readonly GradedSubsection[]> {
-  const body = await get<{ items: GradedSubsection[] }>(
-    request,
-    `${instructorApiBase(config, courseKey)}/graded_subsections`,
-    `Listing graded subsections of ${courseKey}`,
-  );
-  return body.items;
-}
-
-export async function addDateExtension(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  extension: {
-    readonly subsectionUsageKey: string;
-    readonly dueDatetime: string;
-    readonly emailOrUsername: string;
-    readonly reason?: string;
-  },
-): Promise<void> {
-  await write(
-    request,
-    config,
-    'POST',
-    `${instructorApiBase(config, courseKey)}/change_due_date`,
-    `Extending ${extension.subsectionUsageKey} for ${extension.emailOrUsername}`,
-    {
-      block_id: extension.subsectionUsageKey,
-      due_datetime: extension.dueDatetime,
-      email_or_username: extension.emailOrUsername,
-      reason: extension.reason ?? '',
-    },
-  );
-}
 
 export async function listUnitExtensions(
   request: APIRequestContext,
@@ -724,32 +530,6 @@ export async function listUnitExtensions(
     `${instructorApiBase(config, courseKey)}/unit_extensions?${params}`,
     `Listing due-date extensions of ${courseKey}`,
   );
-}
-
-/** Removes a learner's extension — the legacy view the dashboard's Reset uses. */
-export async function resetDateExtension(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  subsectionUsageKey: string,
-  student: string,
-): Promise<void> {
-  const url = `${legacyBase(config, courseKey)}/reset_due_date`;
-  const token = await fetchCsrfToken(request, config);
-  const response = await request.post(url, {
-    data: { student, url: subsectionUsageKey },
-    headers: { [CSRF_HEADER]: token, Referer: config.baseUrls.lms },
-  });
-  if (!response.ok()) {
-    throw new ApiError(
-      `Resetting the extension for ${student} failed (HTTP ${response.status()}).`,
-      {
-        status: response.status(),
-        url,
-        body: await response.text(),
-      },
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -820,59 +600,6 @@ export async function grantCertificateException(
   );
 }
 
-export async function removeCertificateException(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  username: string,
-): Promise<void> {
-  await write(
-    request,
-    config,
-    'DELETE',
-    `${instructorApiBase(config, courseKey)}/certificates/exceptions`,
-    `Removing ${username}'s certificate exception`,
-    { username },
-  );
-}
-
-/**
- * Invalidates learners' certificates. A learner **without** a certificate is
- * reported under `errors`, with `200` — assert `success`, not the status.
- */
-export async function invalidateCertificates(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  learners: readonly string[],
-  notes: string,
-): Promise<LearnerListResult> {
-  return write(
-    request,
-    config,
-    'POST',
-    `${instructorApiBase(config, courseKey)}/certificates/invalidations`,
-    `Invalidating certificates of ${learners.join(', ')}`,
-    { learners, notes },
-  );
-}
-
-export async function revalidateCertificate(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  username: string,
-): Promise<void> {
-  await write(
-    request,
-    config,
-    'DELETE',
-    `${instructorApiBase(config, courseKey)}/certificates/invalidations`,
-    `Re-validating ${username}'s certificate`,
-    { username },
-  );
-}
-
 /**
  * Starts certificate (re)generation. `allowlisted_not_generated` is the
  * dashboard's "generate exception certificates" (BTR TC-00537). The one
@@ -915,20 +642,6 @@ export async function listCertificateGenerationHistory(
 // ---------------------------------------------------------------------------
 // Course team roles
 // ---------------------------------------------------------------------------
-
-/** Roles the caller may grant, as `{role, display_name}` (the name is localized). */
-export async function fetchCourseTeamRoles(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-): Promise<readonly { role: CourseTeamRoleV2; display_name: string }[]> {
-  const body = await get<{ results: { role: CourseTeamRoleV2; display_name: string }[] }>(
-    request,
-    `${instructorApiBase(config, courseKey)}/team/roles?editable=true`,
-    `Listing course-team roles of ${courseKey}`,
-  );
-  return body.results;
-}
 
 /**
  * Grants (`allow`) or revokes (`revoke`) a course-team role. A course instructor

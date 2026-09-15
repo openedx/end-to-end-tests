@@ -15,11 +15,6 @@ export class InstructorCourseInfoPage extends InstructorDashboardPage {
     return this.main.locator(this.s.courseInfoIdentifiers);
   }
 
-  /** The status chip; its Paragon variant follows `has_started` / `has_ended`. */
-  get statusBadge(): Locator {
-    return this.main.locator(this.s.courseStatusBadge);
-  }
-
   get upcomingBadge(): Locator {
     return this.main.locator(this.s.courseStatusBadgeUpcoming);
   }
