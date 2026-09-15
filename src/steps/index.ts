@@ -17,3 +17,14 @@ export {
   type StudioCourseCreation,
 } from './studio';
 export { satisfyPrerequisiteByScore, submitProblem } from './gating';
+export {
+  ensureDataResearcher,
+  mintCertificateByException,
+  waitForInstructorTask,
+  waitForLearnerProblem,
+  waitForLearnerProgress,
+  waitForReport,
+  type CertificateMintOutcome,
+  type PollOutcome,
+  type TaskWaitOutcome,
+} from './instructor';
