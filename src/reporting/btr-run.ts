@@ -344,6 +344,9 @@ export interface CiEnv {
   readonly GITHUB_SHA?: string;
   /** Set by the workflows when a `test_ref` other than the workflow's branch was checked out. */
   readonly BTR_TEST_REF?: string;
+  /** Release the run-suite action was told the target runs (external targets). */
+  readonly BTR_RELEASE?: string;
+  /** Release the Tutor workflow provisioned. */
   readonly OPENEDX_RELEASE?: string;
 }
 
@@ -369,6 +372,6 @@ export function ciMetaFromEnv(env: CiEnv, checkedOutSha?: string): CiMeta | null
     eventName: env.GITHUB_EVENT_NAME ?? '',
     ref: env.BTR_TEST_REF || env.GITHUB_REF_NAME || '',
     sha: checkedOutSha || env.GITHUB_SHA || '',
-    release: env.OPENEDX_RELEASE || null,
+    release: env.BTR_RELEASE || env.OPENEDX_RELEASE || null,
   };
 }
