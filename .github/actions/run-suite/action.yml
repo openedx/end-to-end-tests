@@ -192,8 +192,10 @@ runs:
         retention-days: 14
         if-no-files-found: ignore
 
-    # Upload BTR and A11y artifacts. Uploaded even when tests fail.
-    - name: Upload suite reports (a11y backlog + BTR coverage + timings)
+    # Upload BTR and A11y artifacts. Uploaded even when tests fail. btr-run.json
+    # is the input to the results-sheet publisher, so a failed publish can be
+    # redone from the artifact.
+    - name: Upload suite reports (a11y backlog + BTR coverage + BTR run detail + timings)
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
@@ -201,6 +203,7 @@ runs:
         path: |
           test-results/a11y-violations.json
           test-results/btr-coverage.json
+          test-results/btr-run.json
           test-results/timings-tests.csv
           test-results/timings-steps.csv
         retention-days: 30
