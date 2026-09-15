@@ -313,6 +313,10 @@ test.describe('ciMetaFromEnv', { tag: '@unit' }, () => {
     expect(meta?.sha).toBe('def456');
   });
 
+  test('prefers the release the run-suite action declares', () => {
+    expect(ciMetaFromEnv({ ...env, BTR_RELEASE: 'ulmo' })?.release).toBe('ulmo');
+  });
+
   test('reads a missing release as null', () => {
     expect(ciMetaFromEnv({ ...env, OPENEDX_RELEASE: '' })?.release).toBeNull();
   });

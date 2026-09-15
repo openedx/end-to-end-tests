@@ -59,6 +59,30 @@ inputs:
   artifact_suffix:
     description: 'Suffix distinguishing this run''s uploaded artifacts from other callers (e.g. release or environment name).'
     required: true
+  btr_release:
+    description: 'Open edX release the target runs (main, verawood, …). Recorded in the BTR run report; required when btr_sheet_url is set.'
+    required: false
+    default: ''
+  btr_test_ref:
+    description: 'Git ref of this repo that was checked out, when it differs from the workflow''s branch. Recorded in the BTR run report.'
+    required: false
+    default: ''
+  btr_sheet_url:
+    description: 'Google Sheets URL of the per-release BTR results spreadsheet. Empty = do not publish.'
+    required: false
+    default: ''
+  btr_sheet_credentials:
+    description: 'Service-account JSON key with Editor access to btr_sheet_url. Pass via secrets in the caller.'
+    required: false
+    default: ''
+  btr_update_latest:
+    description: 'Whether this run may overwrite the sheet''s "Latest" tab (true for an unfiltered run of the default branch).'
+    required: false
+    default: 'true'
+  btr_environment:
+    description: 'GitHub Environment name for external-target runs; shown as the sheet''s Target and in the run tab title.'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -147,6 +171,8 @@ runs:
     # scheme is fully transparent for arbitrary secret bytes), so a password
     # containing "#" would be silently truncated. Passing them as real
     # process env vars below avoids any file-parsing/escaping concerns.
+    # BTR_RELEASE / BTR_TEST_REF feed the btr-run reporter's run metadata
+    # (src/reporting/btr-run-reporter.ts); DOMAINS doubles as its path filter.
     - name: Run tests
       shell: bash
       env:
@@ -155,6 +181,8 @@ runs:
         EXCLUDE_FEATURES: ${{ inputs.exclude_features }}
         ADMIN_USERNAME: ${{ inputs.admin_username }}
         ADMIN_PASSWORD: ${{ inputs.admin_password }}
+        BTR_RELEASE: ${{ inputs.btr_release }}
+        BTR_TEST_REF: ${{ inputs.btr_test_ref }}
       run: |
         set -euo pipefail
         args=()
@@ -180,6 +208,35 @@ runs:
       if: ${{ !cancelled() }}
       shell: bash
       run: node scripts/job-summary.mjs
+
+    # Opt-in: only when the caller resolved a sheet for this release (see the
+    # "Resolve BTR results sheet" step in the workflows). Its failure is visible
+    # on this step alone; the test outcome above is unaffected. A failed publish
+    # can be redone from the suite-reports artifact's btr-run.json.
+    - name: Publish BTR results to Google Sheet
+      if: ${{ !cancelled() && inputs.btr_sheet_url != '' }}
+      shell: bash
+      env:
+        BTR_SHEET_URL: ${{ inputs.btr_sheet_url }}
+        BTR_RELEASE: ${{ inputs.btr_release }}
+        BTR_UPDATE_LATEST: ${{ inputs.btr_update_latest }}
+        BTR_ENVIRONMENT: ${{ inputs.btr_environment }}
+        BTR_SHEET_CREDENTIALS: ${{ inputs.btr_sheet_credentials }}
+      run: |
+        set -euo pipefail
+        if [ -z "$BTR_RELEASE" ]; then
+          echo "::error::btr_sheet_url is set but btr_release is empty; the publisher needs the release to pick the sheet's identity."
+          exit 1
+        fi
+        if [ -z "$BTR_SHEET_CREDENTIALS" ]; then
+          echo "::error::btr_sheet_url is set but no credentials were passed. Add the BTR_SHEET_CREDENTIALS secret (a service-account JSON key) to the repository or Environment."
+          exit 1
+        fi
+        node scripts/publish-btr-sheet.mts \
+          --release "$BTR_RELEASE" \
+          --sheet "$BTR_SHEET_URL" \
+          --update-latest "${BTR_UPDATE_LATEST:-true}" \
+          --environment "$BTR_ENVIRONMENT"
 
     - name: Upload Playwright report
       if: ${{ !cancelled() }}
