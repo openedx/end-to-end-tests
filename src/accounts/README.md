@@ -167,7 +167,7 @@ optional flows optional.
 ```sh
 CUSTOM_ACCOUNT_BACKEND_PLUGINS=./plugins/openinbox.plugin.ts
 ACCOUNT_BACKEND=openinbox
-OPENINBOX_API_KEY=...           # required; reading an inbox needs a paid plan
+OPENINBOX_API_KEY=...           # required; the OpenInbox API needs a paid plan
 # OPENINBOX_BASE_URL, OPENINBOX_POLL_TIMEOUT_MS, OPENINBOX_POLL_INTERVAL_MS
 ```
 
@@ -175,6 +175,12 @@ Plugins have no config-schema hook, so it reads its own settings from the
 environment and fails with a clear message when the key is missing — before an
 account is registered, not after. The target must genuinely send activation
 email.
+
+It uses only OpenInbox's authenticated `/v1` API. Paid plans cap concurrent
+inboxes. A run provisions many accounts, so each inbox is deleted as soon as
+its activation link has been visited — or the wait for it has given up — and,
+if a run still hits the cap, inboxes older than `OPENINBOX_POLL_TIMEOUT_MS`
+are deleted as leftovers of an interrupted run before retrying.
 
 `tests/accounts/openinbox.spec.ts` tests it with a stubbed request context,
 so no key and no network are needed to run the suite's own tests.
