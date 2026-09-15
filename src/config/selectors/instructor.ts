@@ -66,20 +66,40 @@ export const INSTRUCTOR_REPORT_ROWS = {
 
 export type InstructorReportType = keyof typeof INSTRUCTOR_REPORT_ROWS;
 
+/**
+ * The Certificates tab's filter dropdown items, in rendered order, as the
+ * `filter` values of `certificates/issued` they select (labels are localized).
+ */
+export const INSTRUCTOR_CERTIFICATE_FILTERS = [
+  'all', // "All Learners"
+  'received', // "Received"
+  'not_received', // "Not Received"
+  'audit_passing', // "Audit - Passing"
+  'audit_not_passing', // "Audit - Not Passing"
+  'error', // "Error State"
+  'granted_exceptions', // "Granted Exceptions"
+  'invalidated', // "Invalidated"
+] as const;
+
 export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   // ---- shell -------------------------------------------------------------
   /** The dashboard's content region; every tab renders inside it. */
-  main: '#main-content',
+  main: '#main-content', // page objects scope every tab anchor below under this
   /** The tab navigation (a Paragon `Navbar`); its links are the tab ids' URLs. */
   tabNav: '#instructor-nav',
   /** The link of the tab currently shown. */
   activeTabLink: '#instructor-nav a.nav-link.active',
-  /** Any Paragon modal the dashboard opens (all carry `role="dialog"`). */
+  /** Any Paragon modal the dashboard opens (all carry `role="dialog"`); page objects scope the modal anchors below under it. */
   dialog: '[role="dialog"]',
-  /** A modal's footer, whose last primary button is the confirming action. */
-  dialogFooter: '.pgn__modal-footer',
-  dialogPrimaryButton: '.pgn__modal-footer button.btn-primary',
-  dialogSubmitButton: '.pgn__modal-footer button[type="submit"]',
+  /**
+   * A modal's confirming action: its **last** primary button (Cancel is
+   * tertiary). Not footer-scoped — the reset-extension dialog renders its
+   * buttons in an `ActionRow` without a `ModalDialog.Footer`.
+   */
+  dialogPrimaryButton: 'button.btn-primary',
+  /** The Paragon modal's corner close button. */
+  dialogCloseButton: '.pgn__modal-close-button',
+  dialogSubmitButton: 'button[type="submit"]',
   /** Any open Paragon dropdown menu and its items. */
   openDropdownMenu: '.dropdown-menu.show',
   dropdownItem: '.dropdown-item',
@@ -95,40 +115,40 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
 
   // ---- Course Info -------------------------------------------------------
   /** The course card: org / course id / run spans, then the title and status. */
-  courseInfoCard: '#main-content .pgn__card-section',
-  courseInfoIdentifiers: '#main-content .pgn__card-section .x-small span',
+  courseInfoCard: '.pgn__card-section',
+  courseInfoIdentifiers: '.pgn__card-section .x-small span',
   /**
    * The course status chip. Its variant class follows the API's
    * `has_started` / `has_ended`: `badge-success` ("Active"), `badge-warning`
    * ("Upcoming"), and another variant once ended.
    */
-  courseStatusBadge: '#main-content .badge',
-  courseStatusBadgeUpcoming: '#main-content .badge.badge-warning',
-  courseStatusBadgeActive: '#main-content .badge.badge-success',
+  courseStatusBadge: '.badge',
+  courseStatusBadgeUpcoming: '.badge.badge-warning',
+  courseStatusBadgeActive: '.badge.badge-success',
   /**
    * The enrollment counters ("All Enrollments", "Staff / Admin", "Learners",
    * then one per enrollment mode), each a `.flex-row` with the number in `p.lead`.
    */
-  enrollmentCounter: '#main-content .pgn__hstack .flex-row',
+  enrollmentCounter: '.pgn__hstack .flex-row',
   enrollmentCounterValue: 'p.lead',
 
   // ---- Enrollments -------------------------------------------------------
   /** "+ Enroll Learners" — the primary button in the tab header. */
-  enrollLearnersButton: '#main-content button.btn-primary',
+  enrollLearnersButton: 'button.btn-primary',
   /** "+ Add Beta Testers" — the outline button beside it. */
-  addBetaTestersButton: '#main-content button.btn-outline-primary',
+  addBetaTestersButton: 'button.btn-outline-primary',
   /** The overflow icon button whose one item is "Check Enrollment Status". */
   checkEnrollmentStatusMenu: '#check-enrollment-status-menu',
   /** Enroll / Add Beta Testers modals: the identifiers textarea. */
-  identifiersTextarea: '[role="dialog"] textarea[name="identifier"]',
+  identifiersTextarea: 'textarea[name="identifier"]',
   /**
    * The two modal checkboxes, both checked by default: "Auto Enroll" then
    * "Notify Users by Email".
    */
-  modalCheckbox: '[role="dialog"] input[type="checkbox"]',
+  modalCheckbox: 'input[type="checkbox"]',
   /** Check Enrollment Status modal: the one text input and the primary button. */
-  statusModalInput: '[role="dialog"] input.form-control',
-  statusModalCheckButton: '[role="dialog"] .pgn__modal-body button.btn-primary',
+  statusModalInput: 'input.form-control',
+  statusModalCheckButton: '.pgn__modal-body button.btn-primary',
   /** The beta-tester filter above the table. */
   betaTesterFilter: 'select[name="isBetaTester"]',
   /** Per row: "Unenroll" link-button and the beta-tester overflow icon button. */
@@ -139,41 +159,46 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
 
   // ---- Grading -----------------------------------------------------------
   /** "Single Learner" / "All Learners" — the two buttons of the toggle group, in that order. */
-  gradingScopeGroup: '#main-content [role="group"].btn-group',
-  /** "Specify Learner" input (`data-testid` from the MFE) and its Select button. */
-  learnerField: '[data-testid="specify-learner-field"]',
+  gradingScopeGroup: '[role="group"].btn-group',
+  /**
+   * "Specify Learner": the form group holding `input[name=emailOrUsername]` and
+   * its Select button. (The MFE's `specify-learner-field` test id exists only in
+   * its unit tests, not in the rendered page.)
+   */
+  learnerField: '.pgn__form-group:has(input[name="emailOrUsername"])',
   learnerInput: 'input[name="emailOrUsername"]',
   /**
-   * "Problem location" input (`data-testid` from the MFE); the input itself has
-   * no `name`, only a placeholder.
+   * "Problem location": the form group whose text input has **no `name`** (only
+   * a placeholder) — the one such input on the tab — and its Select button.
    */
-  problemField: '[data-testid="specify-problem-field"]',
-  problemInput: '[data-testid="specify-problem-field"] input',
+  problemField: '.pgn__form-group:has(input[type="text"]:not([name]))',
+  problemInput: 'input[type="text"]:not([name])',
   /** The Select button beside either field: the button inside the field container. */
   fieldSelectButton: 'button.btn-primary',
   /**
    * The action cards, in order. Single learner: Reset Attempts, Rescore
    * Submission (two buttons: rescore, rescore-if-higher), Override Score (a number
    * input + button), Delete History, Task Status. All learners: Reset Attempts,
-   * Rescore Submission, Task Status.
+   * Rescore Submission, Task Status. Only the action cards are `horizontal`
+   * — the scope toggle above them is a plain `Card` and must not be counted.
    */
-  actionCard: '#main-content .pgn__card',
+  actionCard: '.pgn__card.horizontal',
   actionCardButton: 'button.btn-primary',
   /** Override Score card: the new score. */
   overrideScoreInput: 'input[name="Score"]',
   /** Header: "View Gradebook" link, the overflow dropdown, and the Studio grading link. */
-  gradebookLink: '#main-content a.btn[href*="/gradebook/"]',
-  studioGradingLink: '#main-content a[target="_blank"][href*="/settings/grading"]',
+  gradebookLink: 'a.btn[href*="/gradebook/"]',
+  studioGradingLink: 'a[target="_blank"][href*="/settings/grading"]',
 
   // ---- Date Extensions ---------------------------------------------------
   /** "+ Add Individual Extension" — the primary button beside the table controls. */
-  addExtensionButton: '#main-content button.btn-primary',
+  addExtensionButton: 'button.btn-primary',
   /** Add-extension modal fields. */
-  extensionLearnerInput: '[role="dialog"] input[name="emailOrUsername"]',
-  extensionSubsectionSelect: '[role="dialog"] select[name="blockId"]',
-  extensionDateInput: '[role="dialog"] input[name="dueDate"]',
-  extensionTimeInput: '[role="dialog"] input[name="dueTime"]',
-  extensionReasonInput: '[role="dialog"] input[name="reason"]',
+  extensionLearnerInput: 'input[name="emailOrUsername"]',
+  extensionSubsectionSelect: 'select[name="blockId"]',
+  extensionDateInput: 'input[name="dueDate"]',
+  extensionTimeInput: 'input[name="dueTime"]',
+  extensionReasonInput: 'input[name="reason"]',
   /** Per row: "Reset" link-button in the last column, then a confirm modal. */
   rowResetExtensionButton: 'button.btn-link',
 
@@ -181,13 +206,13 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   /** The "Generate Reports" section heading (the one `id` the tab has). */
   generateReportsHeading: '#generate-reports',
   /** The report-group tabs; keyed by the non-localized `data-rb-event-key`. */
-  reportTabList: '#main-content [role="tablist"]',
-  reportTab: (tabKey: string) => `#main-content [role="tab"][data-rb-event-key="${tabKey}"]`,
+  reportTabList: '[role="tablist"]',
+  reportTab: (tabKey: string) => `[role="tab"][data-rb-event-key="${tabKey}"]`,
   /** The visible panel and its report rows' buttons, in `INSTRUCTOR_REPORT_ROWS` order. */
-  activeReportPanel: '#main-content [role="tabpanel"].active',
+  activeReportPanel: '[role="tabpanel"].active',
   reportRowButton: 'button.btn-primary',
   /** The problem-location input in the Problem Responses row. */
-  problemResponsesInput: '#main-content [role="tabpanel"].active input',
+  problemResponsesInput: '[role="tabpanel"].active input',
   /** "Available Reports" table: the download link-button in a row. */
   reportDownloadButton: 'button.btn-link.btn-sm',
 
@@ -196,16 +221,16 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
    * Shown instead of the tab's tools when platform-wide certificate generation
    * is off ("Certificate management features are not enabled…").
    */
-  certificatesDisabledAlert: '#main-content [role="alert"].alert-warning',
+  certificatesDisabledAlert: '[role="alert"].alert-warning',
   /** The header overflow menu; its item opens the "Student Generated Certificates" modal. */
   certificatesMoreMenu: '#certificates-more-menu',
   /** That modal's one checkbox: enable student-generated certificates for the course. */
-  studentGeneratedCheckbox: '[role="dialog"] input[type="checkbox"]',
+  studentGeneratedCheckbox: 'input[type="checkbox"]',
   /**
    * The two header buttons, in order: "Invalidate Certificate", then "Grant
    * Exception(s)". Both `.text-nowrap`, neither has an id.
    */
-  certificatesHeaderButton: '#main-content .text-nowrap.btn',
+  certificatesHeaderButton: '.text-nowrap.btn',
   /** Issued / Generation History toggle and panels. */
   issuedTab: '#certificates-tab-issued',
   historyTab: '#certificates-tab-history',
@@ -214,7 +239,8 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   /** Toolbar: username/e-mail search, the status filter dropdown, "Regenerate Certificates". */
   certificatesSearchInput: 'input[name="searchfield-input"]',
   certificatesFilterDropdown: '#filter-dropdown',
-  regenerateButton: '#main-content button.btn-outline-primary.text-nowrap',
+  /** "Regenerate Certificates" ("Generate Certificates" while none exist) — the only `flex-shrink-0` outline button. */
+  regenerateButton: 'button.btn-outline-primary.flex-shrink-0',
   /** Grant-exceptions modal: Individual / Bulk tabs, then the learner and notes fields. */
   grantExceptionsModal: '[role="dialog"].grant-exceptions-modal',
   grantExceptionsIndividualTab: '#grant-exceptions-tabs-tab-single',
