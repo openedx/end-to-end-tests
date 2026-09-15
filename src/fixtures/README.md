@@ -66,4 +66,14 @@ Rules:
   session-auth, not JWT: drive them from a fresh `loginSession` on a throwaway
   context, not the author's JWT-only session (see the `api/` README /
   `studio-auth-resilience.md`).
+- **The instructor is the author.** The `instructor*` page fixtures bind the
+  dashboard's tab page objects to the author's `page`; `contentCourse`'s seed
+  grants the author the `data_researcher` role and lets beta testers in early;
+  `gradedProblemWithWrongAnswer` arranges a graded problem a `roundTripLearner`
+  has answered wrong (through `page.request`, after `studioAuthorSession`).
+- **Certificates need a course, a learner and the platform switch.**
+  `certificateCourse` (worker) is seeded so certificates can be issued;
+  `certificateLearner` enrolls a fresh learner `honor` on its first enrollment;
+  `certificateGenerationEnabled` flips the platform-wide switch through a fresh
+  admin `loginSession` under the admin lock, and skips without an admin account.
 - This is the only layer that reaches across all the others.

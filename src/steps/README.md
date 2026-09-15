@@ -12,6 +12,12 @@ can reuse — e.g.:
   the New Course form, submit, follow the MFE to the new outline),
   `grantCourseCreatorThroughAdmin`, and the Studio-SSO helpers
   (`establishStudioBrowserSession` / `signInToStudioThroughUi`).
+- `instructor.ts` — the instructor-dashboard waits and flows: `waitForInstructorTask`
+  / `waitForReport` / `waitForLearnerProgress` / `waitForLearnerProblem` (bounded
+  polls that return their last readings instead of throwing, so a spec's failure
+  names what the platform said), `ensureDataResearcher` (the course role report
+  generation needs) and `mintCertificateByException` (allowlist → regenerate →
+  the learner's own certificate status).
 - `gating.ts` — `satisfyPrerequisiteByScore` (answer a prerequisite problem
   correctly through the LMS `problem_check` handler so a score-gated subsection
   unlocks) and `submitProblem` (submit an answer and return the platform's grade).
