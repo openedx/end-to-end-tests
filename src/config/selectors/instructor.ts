@@ -106,23 +106,13 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   /** A Paragon `DataTable` and its parts. */
   dataTable: '.pgn__data-table',
   dataTableRow: '.pgn__data-table tbody tr[role="row"]',
-  dataTableEmpty: '.pgn__data-table-empty',
-  dataTableControlBar: '[data-testid="table-control-bar"]',
   /** The "Pending Tasks" collapsible every tab appends (presence only). */
   pendingTasks: '.pgn_collapsible .collapsible-trigger',
   /** Inline field error under a learner / problem field ("Could not find …"). */
   fieldError: '.text-danger-500',
 
   // ---- Course Info -------------------------------------------------------
-  /** The course card: org / course id / run spans, then the title and status. */
-  courseInfoCard: '.pgn__card-section',
   courseInfoIdentifiers: '.pgn__card-section .x-small span',
-  /**
-   * The course status chip. Its variant class follows the API's
-   * `has_started` / `has_ended`: `badge-success` ("Active"), `badge-warning`
-   * ("Upcoming"), and another variant once ended.
-   */
-  courseStatusBadge: '.badge',
   courseStatusBadgeUpcoming: '.badge.badge-warning',
   courseStatusBadgeActive: '.badge.badge-success',
   /**
@@ -151,8 +141,6 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   statusModalCheckButton: '.pgn__modal-body button.btn-primary',
   /** The beta-tester filter above the table. */
   betaTesterFilter: 'select[name="isBetaTester"]',
-  /** Per row: "Unenroll" link-button and the beta-tester overflow icon button. */
-  rowUnenrollButton: 'button.btn-link',
   rowBetaTesterMenuButton: 'button.btn-icon',
   /** The popover the row menu opens; its single item grants or removes the role. */
   rowMenuPopover: '.popover .dropdown-item',
@@ -205,8 +193,6 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   // ---- Data Downloads ----------------------------------------------------
   /** The "Generate Reports" section heading (the one `id` the tab has). */
   generateReportsHeading: '#generate-reports',
-  /** The report-group tabs; keyed by the non-localized `data-rb-event-key`. */
-  reportTabList: '[role="tablist"]',
   reportTab: (tabKey: string) => `[role="tab"][data-rb-event-key="${tabKey}"]`,
   /** The visible panel and its report rows' buttons, in `INSTRUCTOR_REPORT_ROWS` order. */
   activeReportPanel: '[role="tabpanel"].active',
@@ -222,10 +208,6 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
    * is off ("Certificate management features are not enabled…").
    */
   certificatesDisabledAlert: '[role="alert"].alert-warning',
-  /** The header overflow menu; its item opens the "Student Generated Certificates" modal. */
-  certificatesMoreMenu: '#certificates-more-menu',
-  /** That modal's one checkbox: enable student-generated certificates for the course. */
-  studentGeneratedCheckbox: 'input[type="checkbox"]',
   /**
    * The two header buttons, in order: "Invalidate Certificate", then "Grant
    * Exception(s)". Both `.text-nowrap`, neither has an id.
@@ -234,8 +216,6 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   /** Issued / Generation History toggle and panels. */
   issuedTab: '#certificates-tab-issued',
   historyTab: '#certificates-tab-history',
-  issuedPanel: '#certificates-tabpanel-issued',
-  historyPanel: '#certificates-tabpanel-history',
   /** Toolbar: username/e-mail search, the status filter dropdown, "Regenerate Certificates". */
   certificatesSearchInput: 'input[name="searchfield-input"]',
   certificatesFilterDropdown: '#filter-dropdown',

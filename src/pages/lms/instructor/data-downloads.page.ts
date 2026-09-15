@@ -52,11 +52,6 @@ export class InstructorDataDownloadsPage extends InstructorDashboardPage {
     );
   }
 
-  /** Rows of the "Available Reports" table. */
-  get reportRows(): Locator {
-    return this.rows();
-  }
-
   /** The download link-button of the row naming a report. */
   downloadButtonFor(reportName: string): Locator {
     return this.rowFor(reportName).locator(this.s.reportDownloadButton);

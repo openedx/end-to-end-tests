@@ -5,7 +5,6 @@ import {
   fetchCourseProgress,
   fetchInstructorCourse,
   fetchInstructorTask,
-  fetchLearnerProblem,
   grantCertificateException,
   grantCourseTeamRole,
   listInstructorTasks,
@@ -14,7 +13,6 @@ import {
   type CourseProgress,
   type InstructorTask,
   type LearnerListResult,
-  type LearnerProblem,
   type ReportDownload,
   type ReportType,
 } from '../api';
@@ -29,6 +27,9 @@ import {
  */
 
 const POLL_INTERVAL_MS = 1_000;
+
+/** `tasks/<id>` states after which a task will not change again (measured: `completed`). */
+const TERMINAL_TASK_STATES = new Set(['completed', 'failed', 'error', 'revoked']);
 
 /** The outcome of a bounded poll: whether the condition held, and the last readings. */
 export interface PollOutcome<T> {
@@ -87,16 +88,19 @@ export async function waitForInstructorTask<T>(
 }
 
 /**
- * Waits for a report queued at or after `since` to appear in the downloads
- * list (and for the task list to clear). `report` is `undefined` when it did
- * not within the budget; `tasks` then says whether it was still running.
+ * Waits for a report of `reportType` that was **not in `before`** — the
+ * downloads listing taken just before the request — to appear (and for the task
+ * list to clear). Diffing against the earlier listing rather than comparing
+ * clocks tolerates skew between the runner and the LMS worker and same-minute
+ * reports of the same type. `report` is `undefined` when none appeared within
+ * the budget; `tasks` and `sameType` then say what the platform showed.
  */
 export async function waitForReport(
   instructor: APIRequestContext,
   config: AppConfig,
   courseKey: string,
   reportType: ReportType,
-  since: Date,
+  before: readonly ReportDownload[],
 ): Promise<{
   report: ReportDownload | undefined;
   tasks: readonly InstructorTask[];
@@ -104,9 +108,8 @@ export async function waitForReport(
   sameType: readonly ReportDownload[];
   elapsedMs: number;
 }> {
-  // `date_generated` is minute-resolution, so allow the minute `since` fell in.
-  const floor = Math.floor(since.getTime() / 60_000) * 60_000;
-  const isNew = (download: ReportDownload) => Date.parse(download.date_generated) >= floor;
+  const known = new Set(before.map((download) => download.report_name));
+  const isNew = (download: ReportDownload) => !known.has(download.report_name);
   const outcome = await waitForInstructorTask(instructor, config, courseKey, {
     reading: async () =>
       (await listReports(instructor, config, courseKey)).filter(
@@ -137,23 +140,6 @@ export async function waitForLearnerProgress(
   timeoutMs: number = TIMEOUTS.instructorTask,
 ): Promise<PollOutcome<CourseProgress>> {
   return pollUntil(() => fetchCourseProgress(learner, config, courseKey), settled, timeoutMs);
-}
-
-/** Polls the instructor's view of one learner's problem state until `settled`. */
-export async function waitForLearnerProblem(
-  instructor: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  problemUsageKey: string,
-  username: string,
-  settled: (problem: LearnerProblem) => boolean,
-  timeoutMs: number = TIMEOUTS.instructorTask,
-): Promise<PollOutcome<LearnerProblem>> {
-  return pollUntil(
-    () => fetchLearnerProblem(instructor, config, courseKey, problemUsageKey, username),
-    settled,
-    timeoutMs,
-  );
 }
 
 /**
@@ -230,8 +216,7 @@ export async function mintCertificateByException(
   });
   const task = await pollUntil(
     () => fetchInstructorTask(instructor, config, courseKey, taskId),
-    (status) =>
-      status.state !== 'pending' && status.state !== 'in_progress' && status.state !== 'PROGRESS',
+    (status) => TERMINAL_TASK_STATES.has(status.state),
     TIMEOUTS.instructorTask,
   );
   const progress = await waitForLearnerProgress(

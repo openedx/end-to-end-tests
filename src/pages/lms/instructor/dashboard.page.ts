@@ -73,15 +73,6 @@ export class InstructorDashboardPage {
     return waitForWrite(this.page, { timeout: TIMEOUTS.navigation, ...match }, action);
   }
 
-  /** Reads a JSON response body; `undefined` when it is not JSON. */
-  protected async json<T>(response: Response): Promise<T | undefined> {
-    try {
-      return (await response.json()) as T;
-    } catch {
-      return undefined;
-    }
-  }
-
   /** The open dialog's confirming action — its footer's last primary button. */
   protected dialogConfirmButton(): Locator {
     return this.dialog.locator(this.s.dialogPrimaryButton).last();

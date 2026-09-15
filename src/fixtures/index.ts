@@ -36,7 +36,6 @@ import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
-import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
 import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.page';
 import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
 import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
@@ -74,6 +73,9 @@ import {
   fetchStudioHome,
   fetchCourseSettingsFlags,
   ensureCertificateBearingMode,
+  fetchCertificateConfiguration,
+  fetchCertificateGenerationEnabled,
+  firstProblem,
   ensureCertificateGenerationEnabled,
   createCertificate,
   setCertificateActive,
@@ -237,8 +239,6 @@ export interface TestFixtures {
   groupConfigurationsPage: StudioGroupConfigurationsPage;
   /** Certificates page object (authoring MFE). */
   certificatesPage: StudioCertificatesPage;
-  /** The instructor dashboard MFE's shell (tab nav, dialogs) on the author's page. */
-  instructorDashboard: InstructorDashboardPage;
   /** Instructor dashboard tab page objects, on the author's page. */
   instructorCourseInfo: InstructorCourseInfoPage;
   instructorEnrollments: InstructorEnrollmentsPage;
@@ -1023,7 +1023,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
             });
             // Report generation on the instructor dashboard needs the course
             // `data_researcher` role, which the creator does not get by default.
-            await ensureDataResearcher(request, config, courseKey);
+            // The grant goes through the v2 instructor API, which only exists
+            // where the dashboard MFE does (verawood onward) — a worker seed is not
+            // protected by the test-level capability gate, so guard it here.
+            if (config.capabilities.has('instructor-dashboard')) {
+              await ensureDataResearcher(request, config, courseKey);
+            }
           },
         ),
       );
@@ -1062,28 +1067,35 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
             grace_period: null,
             minimum_grade_credit: 0.8,
           });
-          await ensureDataResearcher(request, config, courseKey);
+          if (config.capabilities.has('instructor-dashboard')) {
+            await ensureDataResearcher(request, config, courseKey);
+          }
           // A certificate-bearing mode needs the staff session; without one the
           // course is still seeded and `certificateGenerationEnabled` skips.
+          // (`ensureCertificateBearingMode` answers whether it *added* a mode;
+          // either way the mode exists once it returns.)
           let certificateBearingMode = false;
           const staffState = authStateFile('staff');
           if (config.credentials.admin !== undefined && isUsableStateFile(staffState)) {
             const staff = await playwright.request.newContext({ storageState: staffState });
             try {
-              certificateBearingMode = await ensureCertificateBearingMode(staff, config, courseKey);
+              await ensureCertificateBearingMode(staff, config, courseKey);
+              certificateBearingMode = true;
             } finally {
               await staff.dispose();
             }
           }
-          await createCertificate(request, config, courseKey, {
-            name: `E2E certificate ${getRunId()}`,
-            signatories: [
-              { name: 'E2E Signatory', title: 'Instructor', organization: identity.org },
-            ],
-          }).catch((error: unknown) => {
-            // A re-seed finds the certificate already there.
-            if (!(error instanceof ApiError)) throw error;
-          });
+          // Studio never refuses a duplicate certificate, so a re-seed must check
+          // before creating rather than rely on an error.
+          const existing = await fetchCertificateConfiguration(request, config, courseKey);
+          if (existing.certificates.length === 0) {
+            await createCertificate(request, config, courseKey, {
+              name: `E2E certificate ${getRunId()}`,
+              signatories: [
+                { name: 'E2E Signatory', title: 'Instructor', organization: identity.org },
+              ],
+            });
+          }
           await setCertificateActive(request, config, courseKey, true);
           await setCourseCertificateGeneration(request, config, courseKey, true);
           const section = await buildSection(
@@ -1098,26 +1110,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
               publish: true,
             },
           );
-          const problemBlock = section.blocks.find((block) => block.type === 'problem');
-          const subsection = section.subsections[0];
-          if (
-            subsection === undefined ||
-            problemBlock === undefined ||
-            problemBlock.answers === undefined
-          ) {
-            throw new Error(
-              `The certificate course's section has no problem block (${courseKey}).`,
-            );
-          }
-          seeded = {
-            subsectionKey: subsection.usageKey,
-            problem: {
-              usageKey: problemBlock.usageKey,
-              type: 'multiplechoiceresponse',
-              ...problemBlock.answers,
-            },
-            certificateBearingMode,
-          };
+          seeded = { ...firstProblem(section), certificateBearingMode };
         },
       );
       if (seeded === undefined) {
@@ -1438,7 +1431,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
-  instructorDashboard: pageObjectFixture(InstructorDashboardPage),
   instructorCourseInfo: pageObjectFixture(InstructorCourseInfoPage),
   instructorEnrollments: pageObjectFixture(InstructorEnrollmentsPage),
   instructorGrading: pageObjectFixture(InstructorGradingPage),
@@ -1446,7 +1438,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   instructorDataDownloads: pageObjectFixture(InstructorDataDownloadsPage),
   instructorCertificates: pageObjectFixture(InstructorCertificatesPage),
 
-  certificateGenerationEnabled: async ({ playwright, config, certificateCourse }, use) => {
+  certificateGenerationEnabled: async ({ page, playwright, config, certificateCourse }, use) => {
     const admin = config.credentials.admin;
     base.skip(
       admin === undefined || !certificateCourse.certificateBearingMode,
@@ -1454,24 +1446,38 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         'the Django admin and the honor course mode needs a staff session. Set ' +
         'ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
     );
-    // A Django-admin write needs the admin's *session* cookie: sign in afresh on a
-    // throwaway context, under the admin lock (PREVENT_CONCURRENT_LOGINS).
-    await withAdminSession(async () => {
-      const session = await playwright.request.newContext();
-      try {
-        await loginSession(session, config, {
-          emailOrUsername: (admin as NonNullable<typeof admin>).username,
-          password: (admin as NonNullable<typeof admin>).password,
-        });
-        await ensureCertificateGenerationEnabled(session, config, certificateCourse.courseKey);
-      } finally {
-        await session.dispose();
-      }
-    });
+    // The switch is platform-wide and usually already on after the first test of a
+    // run: read it as the author first (a JWT read), and only when it is off pay
+    // for an admin sign-in — every credential login counts against the per-account
+    // rate limit and evicts the admin's other LMS session.
+    if (
+      !(await fetchCertificateGenerationEnabled(page.request, config, certificateCourse.courseKey))
+    ) {
+      // A Django-admin write needs the admin's *session* cookie: sign in afresh on a
+      // throwaway context, under the admin lock (PREVENT_CONCURRENT_LOGINS).
+      await withAdminSession(async () => {
+        const session = await playwright.request.newContext();
+        try {
+          await loginSession(session, config, {
+            emailOrUsername: (admin as NonNullable<typeof admin>).username,
+            password: (admin as NonNullable<typeof admin>).password,
+          });
+          await ensureCertificateGenerationEnabled(session, config, certificateCourse.courseKey);
+        } finally {
+          await session.dispose();
+        }
+      });
+    }
     await use();
   },
 
-  certificateLearner: async ({ playwright, browser, config, certificateCourse }, use) => {
+  certificateLearner: async (
+    { playwright, browser, config, certificateCourse, certificateGenerationEnabled },
+    use,
+  ) => {
+    // Depends on the skip above: without an admin there is no honor mode to
+    // enroll into, and the spec must skip rather than fail here.
+    void certificateGenerationEnabled;
     const learner = await provisionRoundTripLearner(
       playwright,
       browser,
@@ -1506,21 +1512,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         publish: true,
       },
     );
-    const subsection = section.subsections[0];
-    const problemBlock = section.blocks.find((block) => block.type === 'problem');
-    if (
-      subsection === undefined ||
-      problemBlock === undefined ||
-      problemBlock.answers === undefined
-    ) {
-      throw new Error(`The graded section ${section.usageKey} has no problem block.`);
-    }
-    const subsectionKey = subsection.usageKey;
-    const problem: AuthoredProblem = {
-      usageKey: problemBlock.usageKey,
-      type: 'multiplechoiceresponse',
-      ...problemBlock.answers,
-    };
+    const { subsectionKey, problem } = firstProblem(section);
     // A due date a week out: what the extension case extends, harmless otherwise.
     const due = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     await updateXBlock(author, config, subsectionKey, { metadata: { due } });
