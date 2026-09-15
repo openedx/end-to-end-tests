@@ -118,3 +118,23 @@ The auth primitives are what the default auth provider (`src/auth/`) and the
 account backends compose into a captured storage state; the course primitives
 are what specs assert on ("the UI drives the action; the API decides the
 outcome").
+
+### Instructor clients
+
+- `instructor.ts` — the LMS `/api/instructor/v2/courses/<key>/…` API the
+  instructor-dashboard MFE is built on (`verawood` onward): the dashboard model
+  (`fetchInstructorCourse`: identifiers, counts, the caller's `permissions`, the
+  tabs it may see), in-flight tasks and one task by id, reports (`listReports`,
+  `downloadReport` with `resolveReportUrl` — `generate` itself is a UI action
+  here and returns no task id, see `INSTR-002`), the enrollment list and
+  learner / per-problem readings, the two grading writes the seeds and steps
+  need (`resetAttempts`, `overrideScore`), extensions (`listUnitExtensions`),
+  the certificate reads and the writes the certificate step composes, and
+  `grantCourseTeamRole` (report generation needs `data_researcher`). Only what
+  a page object, step, fixture or spec calls is here; the rest of the surface
+  is driven through the dashboard and asserted on the response it returns. DRF views that accept the JWT, so the author's
+  `page.request` drives them. A `400 "already running"` is a
+  `TaskAlreadyRunningError`.
+- `certificate-generation-config.ts` — `ensureCertificateGenerationEnabled`: the
+  platform-wide certificate switch, which has no REST API — only the LMS Django
+  admin, session-auth, so it takes a fresh admin `loginSession` context.

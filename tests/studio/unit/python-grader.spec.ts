@@ -1,5 +1,5 @@
 import { test } from '../../../src/fixtures';
-import { issue, testId } from '../../../src/reporting';
+import { issue, knownGap, testId } from '../../../src/reporting';
 
 /**
  * A custom Python-graded problem (TC-00203) — a `<script type="loncapa/python">`
@@ -22,6 +22,7 @@ test.describe(
         annotation: [
           testId('TC-00203'),
           issue('https://github.com/openedx/end-to-end-tests/issues/39'),
+          knownGap('Needs the codejail sandbox, which a default Open edX install does not ship'),
         ],
       },
       () => {

@@ -1,4 +1,4 @@
-// Renders the suite's local JSON reports (accessibility backlog + BTR coverage)
+// Renders the suite's local JSON reports (BTR run results + coverage, a11y backlog)
 // as Markdown into the GitHub Actions job summary, so the failing/baselined counts
 // are visible on the run page without downloading artifacts. Falls back to stdout
 // when GITHUB_STEP_SUMMARY is not set (local use). Reads only already-produced,
@@ -18,9 +18,38 @@ function pct(ratio) {
 }
 
 const coverage = readJson('test-results/btr-coverage.json');
+const run = readJson('test-results/btr-run.json');
 const a11y = readJson('test-results/a11y-violations.json');
 
 const lines = ['## E2E suite reports', ''];
+
+if (run) {
+  const t = run.totals ?? {};
+  const v = run.verdicts ?? {};
+  const seconds = Math.round((run.run?.durationMs ?? 0) / 1000);
+  lines.push(
+    '### BTR results',
+    '',
+    `- **${run.run?.status ?? 'unknown'}** in ${seconds}s — ` +
+      `${t.passed ?? 0} passed · ${t.failed ?? 0} failed · ${t.skipped ?? 0} skipped · ${t.flaky ?? 0} flaky`,
+    `- **${run.cases?.length ?? 0}** BTR case(s): ${v.verified ?? 0} verified · ${v.partial ?? 0} partial · ` +
+      `${v.unverified ?? 0} unverified · ${v.failed ?? 0} failed`,
+    '',
+  );
+  const attention = (run.cases ?? []).filter((c) => c.verdict !== 'verified');
+  if (attention.length > 0) {
+    lines.push('| BTR case | Result | Notes |', '| --- | --- | --- |');
+    for (const c of attention) {
+      const notes = (c.tests ?? [])
+        .filter((test) => test.note)
+        .map((test) => ((c.tests?.length ?? 0) > 1 ? `${test.title}: ${test.note}` : test.note))
+        .join('<br>')
+        .replace(/\|/g, '\\|');
+      lines.push(`| \`${c.testId}\` | ${c.verdict} | ${notes} |`);
+    }
+    lines.push('');
+  }
+}
 
 if (coverage) {
   lines.push(
@@ -55,7 +84,7 @@ if (a11y) {
   }
 }
 
-if (!coverage && !a11y) {
+if (!coverage && !run && !a11y) {
   lines.push('_No suite reports found (no browser specs produced reports this run)._', '');
 }
 

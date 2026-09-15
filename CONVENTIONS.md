@@ -176,6 +176,50 @@ these rules.
   (`src/api/clipboard.ts`) holds the clipboard per user with no browser grant, so
   a copy can be an API call and the paste the UI action under test.
 
+## Instructor-dashboard round trips
+
+The LMS instructor dashboard is the instructor-dashboard MFE
+(`/instructor-dashboard/<course>/<tab_id>`, `verawood` onward — gated by the
+default-on `instructor-dashboard` capability, which older releases opt out of).
+Its specs live in `tests/lms/instructor/` and follow the authoring round-trip
+rules above, plus:
+
+- **The instructor is the worker author.** A course's creator holds its
+  `instructor` and `staff` course roles, so instructor specs run in
+  `studio-author` on the worker's `page`; the learner is a `roundTripLearner`.
+  The seeds also grant the author the course `data_researcher` role, which
+  report generation requires and a creator does not get by default.
+- **The v2 instructor API accepts the JWT.** `/api/instructor/v2/…` rides
+  `page.request` — no throwaway `loginSession` context, unlike the cohort views.
+  The **Django admin** is still session-auth: the platform-wide certificate switch
+  is flipped on a fresh admin `loginSession` context under `withAdminSession`.
+- **Reach a tab by URL, prove it by its link.** Tab titles are localized; the
+  API's `tabs[].tab_id` and URL are not. `instructorDashboard.tabLink(courseKey,
+tabId)` is the "this tab is offered" assertion.
+- **The request an action fires is the discriminator.** The MFE ships no test
+  ids (`INSTR-001`), so several controls are located by position. Every
+  page-object action waits for the exact instructor-API request it must cause and
+  returns the response; a spec asserts that response's `results`, never a toast.
+- **Wait for the conjunction, never a clock.** `generate` hands back no task id
+  and `instructor_tasks` lists only running tasks (`INSTR-002`), so a task is
+  done when none of its type is listed **and** its effect is readable (for a
+  report: a download not in the listing taken before the request)
+  (`waitForInstructorTask`, `waitForReport`, `waitForLearnerProgress`), under
+  `TIMEOUTS.instructorTask`; every wait returns its last readings for the failure
+  message rather than throwing.
+- **A report about content needs the collected block structure.** Publish, then
+  wait until the learner's Blocks API serves the unit before queuing a
+  problem-responses report; queued earlier, the task fails with no trace
+  (`INSTR-007`).
+- **The learner's oracles** are `progress` (`subsections[].problem_scores`,
+  `num_points_earned`, `due` — extensions included; `certificate_data.cert_status`),
+  `isEnrolled`, and the Blocks API (beta early access). The course-home dates API
+  does not list the assignment (`INSTR-004`).
+- **Certificates** use the worker `certificateCourse` and a per-test
+  `certificateLearner` enrolled `honor` on its first enrollment (an existing
+  audit enrollment is not moved). Specs are tagged `@certificates` and take
+  `certificateGenerationEnabled`, which skips without an admin account.
+
 ## Tags
 
 Domain decides the folder; everything else is a tag. Tags drive Playwright
@@ -209,7 +253,8 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   spec should assert the feature's surface is really present, so a target that
   declares a capability it does not have fails rather than passing vacuously.
 
-- **MFE / subsystem:** `@mfe-account`, `@mfe-learning`, `@mfe-authoring`, … —
+- **MFE / subsystem:** `@mfe-account`, `@mfe-learning`, `@mfe-authoring`,
+  `@mfe-instructor-dashboard`, … —
   filters the suite to one micro-frontend. `@mfe-authn` is also a capability, so
   apply it only to coverage that genuinely needs the authn MFE — not to specs
   that drive sign-in through the account backend's flows.
@@ -253,9 +298,12 @@ import { testId } from '../../../src/reporting';
 test('signs in with valid credentials', { tag: '@smoke', annotation: testId('TC-00003') }, ...);
 ```
 
-The always-on coverage reporter maps each `test_id` to its outcome and reports
-annotation coverage every run, writing `test-results/btr-coverage.json` (a local
-file only — see `src/reporting/README.md` for the upload/sheet policy).
+Two always-on reporters read the annotation: the coverage reporter maps each
+`test_id` to its outcome and reports annotation coverage every run
+(`test-results/btr-coverage.json`), and the run-detail reporter records per-case
+specs, notes and timing with the run's metadata (`test-results/btr-run.json`).
+Both are local files; CI opt-in publishing to the per-release BTR results sheets
+is described in `src/reporting/README.md`.
 
 ## Timing report
 
@@ -313,7 +361,10 @@ Two markers exist and they do different jobs:
 The coverage reporter reads both the same way — an expected failure or a `fixme`
 counts as `skipped` for its BTR case, so a case with passing siblings shows as
 `partial` — and treats an unexpected pass as a failure so a stale marker is
-visible. Do **not** instead soften the assertion to match the buggy behaviour, and
+visible. A declarative `test.fixme` carries no reason Playwright can report, so
+add `knownGap('why')` beside the `testId` and `issue` annotations; the results
+sheet then says why the case is held back instead of "fixme (no reason
+recorded)". Do **not** instead soften the assertion to match the buggy behaviour, and
 do not work around a defect with `force`. Where a workaround is genuinely needed
 to reach _other_ coverage, put it in the page object with a comment naming the
 issue, and keep a separate `test.fail` test on the broken path itself.

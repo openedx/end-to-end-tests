@@ -12,6 +12,12 @@ name: External Target E2E Test
 #     GitHub Environment (Settings > Environments), referenced via the
 #     `environment` input below. Environment secrets are only exposed to runs
 #     that select that environment, and can require manual approval.
+#
+# BTR results sheet: when `openedx_release` is given, the run publishes its
+# BTR-tagged results to the Google Sheet named by the BTR_SHEET_URL_<RELEASE>
+# variable (an Environment-scoped variable overrides the repository one), using
+# the BTR_SHEET_CREDENTIALS secret (Environment or repository). See
+# src/reporting/README.md.
 
 on:
   workflow_dispatch:
@@ -71,6 +77,14 @@ on:
         description: 'Feature/tags to exclude, space-separated (e.g. "@unit"). Empty = exclude nothing.'
         type: string
         default: ''
+      openedx_release:
+        description: 'Open edX release the target runs (a key of .ci/openedx-releases.json, e.g. verawood). Enables publishing BTR results to that release''s sheet. Empty = do not publish.'
+        type: string
+        default: ''
+      btr_sheet_url:
+        description: 'Override: publish BTR results to this Google Sheet instead of the release''s BTR_SHEET_URL_<RELEASE> variable. Requires openedx_release.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -104,9 +118,23 @@ jobs:
           DOMAINS: ${{ inputs.domains }}
           FEATURES: ${{ inputs.features }}
           EXCLUDE_FEATURES: ${{ inputs.exclude_features }}
+          OPENEDX_RELEASE: ${{ inputs.openedx_release }}
+          BTR_SHEET_URL: ${{ inputs.btr_sheet_url }}
         run: |
           set -euo pipefail
           fail() { echo "::error::$1"; exit 1; }
+
+          if [ -n "$OPENEDX_RELEASE" ]; then
+            jq -e --arg r "$OPENEDX_RELEASE" '.[$r]' .ci/openedx-releases.json >/dev/null 2>&1 || \
+              fail "openedx_release '${OPENEDX_RELEASE}' is not a key of .ci/openedx-releases.json"
+          fi
+          if [ -n "$BTR_SHEET_URL" ]; then
+            [ -n "$OPENEDX_RELEASE" ] || fail "btr_sheet_url requires openedx_release, so the publisher knows which release the sheet is for"
+            case "$BTR_SHEET_URL" in
+              https://docs.google.com/spreadsheets/d/*) ;;
+              *) fail "btr_sheet_url must look like https://docs.google.com/spreadsheets/d/<id>/…, got '${BTR_SHEET_URL}'" ;;
+            esac
+          fi
 
           if ! gh api "repos/${GITHUB_REPOSITORY}/environments/${ENVIRONMENT}" >/dev/null 2>&1; then
             fail "environment '${ENVIRONMENT}' does not exist on ${GITHUB_REPOSITORY}. Create it under Settings > Environments."
@@ -162,6 +190,40 @@ jobs:
 
           echo "All inputs valid."
 
+      # Which sheet (if any) this run publishes to. `vars` here includes the
+      # selected Environment's variables, which override repository ones.
+      - name: Resolve BTR results sheet
+        id: btr
+        env:
+          OPENEDX_RELEASE: ${{ inputs.openedx_release }}
+          OVERRIDE_URL: ${{ inputs.btr_sheet_url }}
+          VARS_JSON: ${{ toJSON(vars) }}
+          TEST_REF: ${{ inputs.test_ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          FILTERED: ${{ inputs.domains != '' || inputs.features != '' || inputs.exclude_features != '' }}
+        run: |
+          set -euo pipefail
+          URL=""
+          if [ -n "$OPENEDX_RELEASE" ]; then
+            VAR_NAME="BTR_SHEET_URL_${OPENEDX_RELEASE^^}"
+            URL="${OVERRIDE_URL:-$(jq -r --arg k "$VAR_NAME" '.[$k] // empty' <<< "$VARS_JSON")}"
+            if [ -z "$URL" ]; then
+              echo "::notice::No BTR results sheet for '${OPENEDX_RELEASE}': set the ${VAR_NAME} variable (repository or Environment) or the btr_sheet_url input to publish."
+            fi
+          else
+            echo "openedx_release not given; BTR results are not published."
+          fi
+          REF="${TEST_REF:-$GITHUB_REF_NAME}"
+          UPDATE_LATEST=false
+          if [ "$FILTERED" != "true" ] && [ "$REF" = "$DEFAULT_BRANCH" ]; then
+            UPDATE_LATEST=true
+          fi
+          {
+            echo "sheet_url=${URL}"
+            echo "update_latest=${UPDATE_LATEST}"
+          } >> "$GITHUB_OUTPUT"
+          [ -n "$URL" ] && echo "Publishing to ${URL} (update Latest: ${UPDATE_LATEST}, ref: ${REF})" || true
+
       - name: Run E2E suite
         uses: ./.github/actions/run-suite
         with:
@@ -179,3 +241,9 @@ jobs:
           features: ${{ inputs.features }}
           exclude_features: ${{ inputs.exclude_features }}
           artifact_suffix: ${{ inputs.environment }}
+          btr_release: ${{ inputs.openedx_release }}
+          btr_test_ref: ${{ inputs.test_ref }}
+          btr_sheet_url: ${{ steps.btr.outputs.sheet_url }}
+          btr_update_latest: ${{ steps.btr.outputs.update_latest }}
+          btr_environment: ${{ inputs.environment }}
+          btr_sheet_credentials: ${{ secrets.BTR_SHEET_CREDENTIALS }}

@@ -358,3 +358,25 @@ async function authorBlock(
     answers: { correct: problem.correct, incorrect: problem.incorrect },
   };
 }
+
+/**
+ * The first problem of a built section together with its subsection — what the
+ * grading, extension and certificate arrangements need from a
+ * `gradedAs` section holding one problem.
+ *
+ * @throws {Error} when the section has no problem block.
+ */
+export function firstProblem(section: AuthoredSection): {
+  readonly subsectionKey: string;
+  readonly problem: AuthoredProblem;
+} {
+  const subsection = section.subsections[0];
+  const block = section.blocks.find((candidate) => candidate.type === 'problem');
+  if (subsection === undefined || block === undefined || block.answers === undefined) {
+    throw new Error(`The section ${section.usageKey} has no problem block.`);
+  }
+  return {
+    subsectionKey: subsection.usageKey,
+    problem: { usageKey: block.usageKey, type: 'multiplechoiceresponse', ...block.answers },
+  };
+}

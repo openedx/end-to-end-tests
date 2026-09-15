@@ -107,4 +107,17 @@ export const TIMEOUTS = {
    * request, which is slow on a busy worker.
    */
   xblockEditorSave: 30_000,
+
+  /**
+   * Budget for an instructor-dashboard background task (report generation,
+   * rescore, score override, certificate generation) to finish and for its
+   * effect to be readable. These run on the LMS Celery worker: measured on an
+   * idle install, every report on a course of a few learners was listed within
+   * a second of being queued, a rescore or override landed in about one second,
+   * and a certificate reached `downloadable` in 2.3 s — but a per-learner report
+   * on the 697-learner demo course took 3 min 43 s, and CI shares the worker
+   * with grading and publishing. Suite courses hold a handful of learners, so
+   * this is ample headroom; readings poll under it and report their last value.
+   */
+  instructorTask: 120_000,
 } as const;

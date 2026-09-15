@@ -1,7 +1,7 @@
 import { checkA11y } from '../../../src/a11y';
 import { fetchGradingPolicy, updateGradingPolicy, type GradingPolicy } from '../../../src/api';
 import { expect, test } from '../../../src/fixtures';
-import { testId } from '../../../src/reporting';
+import { knownGap, testId } from '../../../src/reporting';
 
 /**
  * Grading (authoring MFE), on the worker's own course.
@@ -160,7 +160,15 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
   // with a due date in the course — content this course does not have (Epic 8).
   test.fixme(
     'a grace period keeps a late submission gradable',
-    { tag: '@regression', annotation: testId('TC-00287') },
+    {
+      tag: '@regression',
+      annotation: [
+        testId('TC-00287'),
+        knownGap(
+          'Needs a graded problem with a due date; grace-period grading is not yet driven end to end',
+        ),
+      ],
+    },
     async ({ request, config, authoredCourse }) => {
       const policy = await fetchGradingPolicy(request, config, authoredCourse.courseKey);
       expect(policy.grace_period).not.toBeNull();

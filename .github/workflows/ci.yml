@@ -30,6 +30,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Verify openedx_release choices match .ci/openedx-releases.json
+        env:
+          VARS_JSON: ${{ toJSON(vars) }}
         run: |
           set -euo pipefail
           WORKFLOW_OPTIONS=$(yq -o=json '.on.workflow_dispatch.inputs.openedx_release.options' .github/workflows/run_tests_tutor.yml | jq -c 'sort')
@@ -42,6 +44,15 @@ jobs:
             exit 1
           fi
           echo "OK: both list the same releases ($WORKFLOW_OPTIONS)"
+
+          # Advisory only: a release without a BTR_SHEET_URL_<RELEASE> repository
+          # variable runs fine, it just never publishes BTR results.
+          for release in $(jq -r 'keys[]' .ci/openedx-releases.json); do
+            VAR_NAME="BTR_SHEET_URL_${release^^}"
+            if [ -z "$(jq -r --arg k "$VAR_NAME" '.[$k] // empty' <<< "$VARS_JSON")" ]; then
+              echo "::warning::No ${VAR_NAME} repository variable: scheduled/manual '${release}' runs will not publish BTR results."
+            fi
+          done
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
