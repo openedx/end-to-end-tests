@@ -447,6 +447,7 @@ src/
   pages/{lms,studio}/  # page objects, one per surface, in the spec's domain folder
   steps/               # reusable multi-page business flows
   fixtures/            # composition root (config + pages + api + auth + skips)
+    assets/            # bundled media served in place of course-hosted sources
   reporting/           # BTR test_id annotations, coverage + a11y reporters
   a11y/                # @axe-core/playwright WCAG 2.2 AA gate
 plugins/               # example account-backend plugin (openinbox)
