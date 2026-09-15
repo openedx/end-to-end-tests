@@ -35,8 +35,32 @@ export interface CourseProgress {
   /** Certificate status enum (e.g. `audit_passing`, `downloadable`), not copy. */
   readonly certificateStatus: string | undefined;
   readonly certificateDownloadUrl: string | null | undefined;
+  /** Set once a web certificate exists (`/certificates/<uuid>`). */
+  readonly certificateWebViewUrl: string | null | undefined;
+  /**
+   * Every graded-or-not subsection with the learner's points on it, in outline
+   * order — the learner-side oracle for an instructor's grade adjustment
+   * (`problem_scores`, `num_points_earned`) and due-date extension (`due`).
+   */
+  readonly subsections: readonly ProgressSubsection[];
   /** Untouched payload, for assertions the typed view does not cover yet. */
   readonly raw: unknown;
+}
+
+/** One subsection row of `section_scores[].subsections[]`. */
+export interface ProgressSubsection {
+  readonly block_key: string;
+  readonly display_name: string;
+  readonly assignment_type: string | null;
+  readonly has_graded_assignment: boolean;
+  /** The due date **as this learner sees it**, extensions included. */
+  readonly due: string | null;
+  readonly num_points_earned: number;
+  readonly num_points_possible: number;
+  readonly percent_graded: number;
+  readonly problem_scores: readonly { earned: number; possible: number }[];
+  readonly override: unknown;
+  readonly learner_has_access: boolean;
 }
 
 interface RawProgress {
@@ -47,7 +71,12 @@ interface RawProgress {
   };
   course_grade?: { percent?: number; is_passing?: boolean; letter_grade?: string | null };
   grading_policy?: { grade_range?: Record<string, number> };
-  certificate_data?: { cert_status?: string; download_url?: string | null };
+  certificate_data?: {
+    cert_status?: string;
+    download_url?: string | null;
+    cert_web_view_url?: string | null;
+  };
+  section_scores?: { subsections?: ProgressSubsection[] }[];
 }
 
 /** Total units the API accounts for — the denominator for "course complete". */
@@ -103,6 +132,8 @@ export async function fetchCourseProgress(
     passingThreshold: minimumGradeBound(body.grading_policy?.grade_range),
     certificateStatus: body.certificate_data?.cert_status,
     certificateDownloadUrl: body.certificate_data?.download_url,
+    certificateWebViewUrl: body.certificate_data?.cert_web_view_url,
+    subsections: (body.section_scores ?? []).flatMap((section) => section.subsections ?? []),
     raw: body,
   };
 }

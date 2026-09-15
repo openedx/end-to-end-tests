@@ -107,6 +107,10 @@ export async function isEnrolled(
  * jar, which is why the token must be fetched with the *same* context.
  *
  * Idempotent: re-enrolling an already-enrolled user is accepted by the platform.
+ * `mode` picks the enrollment track (`honor`, `verified`, …) for a **new**
+ * enrollment only — the mode must already exist on the course, and an existing
+ * enrollment is not moved to another track by a second call. Omitted, the
+ * platform's default track (`audit`) applies.
  *
  * @throws {ApiError} when enrollment is refused (e.g. enrollment is closed).
  */
@@ -114,11 +118,15 @@ export async function enrollInCourseViaApi(
   request: APIRequestContext,
   config: AppConfig,
   courseKey: string,
+  options: { readonly mode?: string } = {},
 ): Promise<void> {
   const token = await fetchCsrfToken(request, config);
   const url = `${config.baseUrls.lms}${ENROLLMENT_PATH}`;
   const response = await request.post(url, {
-    data: { course_details: { course_id: courseKey } },
+    data: {
+      course_details: { course_id: courseKey },
+      ...(options.mode ? { mode: options.mode } : {}),
+    },
     headers: { [CSRF_HEADER]: token, Referer: config.baseUrls.lms },
   });
 
