@@ -120,4 +120,29 @@ export const TIMEOUTS = {
    * this is ample headroom; readings poll under it and report their last value.
    */
   instructorTask: 120_000,
+
+  /**
+   * Budget for a content-library item (block, unit, collection) to show up in
+   * the library MFE's search results after it is created or edited. Library
+   * search is Meilisearch, indexed by the CMS on write: on an idle install a
+   * new block was searchable on the first poll, but CI's single Celery worker
+   * also runs publishes, re-runs and exports, so this is headroom for the
+   * indexing task to be picked up late. Readings poll under it.
+   */
+  librarySearch: 60_000,
+
+  /**
+   * Budget for a course block linked to a library item to report an update
+   * (`ready_to_sync`) after the library item is published. Measured at 1.4 s on
+   * an idle install (the link is recomputed on publish, synchronously enough);
+   * the budget covers a loaded CMS. Readings poll under it.
+   */
+  librarySync: 30_000,
+
+  /**
+   * Budget for a legacy-library → v2-library migration task to reach a terminal
+   * state. Runs on the CMS Celery worker: a two-block legacy library migrated
+   * in 4.1 s when measured; sized like `courseRerun`, which shares the worker.
+   */
+  libraryMigration: 120_000,
 } as const;
