@@ -97,7 +97,13 @@ The authoring suite adds opt-in capabilities for features and component types th
 are not on every install: `cohorts` and `courseware-navigation-sidebar`, and the
 component gates `ora`, `drag-and-drop-v2`, `pdf-xblock`, `lti`, `scorm` and
 `edx-sga` (the last two ship with the platform; the others may be plugins). The
-full vocabulary, with which ship by default, is in `.env.example`.
+instructor-dashboard suite adds the default-on `instructor-dashboard` (the LMS
+instructor dashboard as its MFE, `verawood` onward — ulmo and earlier opt out
+with `-instructor-dashboard`) and the opt-in `certificates` (course certificates
+can be issued; the platform-wide switch is turned on through the admin account,
+so that coverage skips without one). `analytics` is reserved for the
+Superset/Aspects reports and has no specs yet. The full vocabulary, with which
+ship by default, is in `.env.example`.
 Sign-in and sign-out coverage is not gated — it runs through the account
 backend's own UI flows, whatever those are.
 
@@ -307,8 +313,10 @@ implement `grantCourseCreator` in an account backend plugin
 keeps the count low: the settings specs share **one course per worker**
 (`authoredCourse`), the authoring-to-learner round-trip specs share **two more
 per worker** (`contentCourse` and `futureCourse`, with `authoringCourse` giving a
-per-test course only where a spec needs isolation), and each builds a uniquely
-named **section** inside its course rather than a new course. Only the specs whose
+per-test course only where a spec needs isolation), the instructor-dashboard
+certificate specs share **one more** (`certificateCourse`, set up so certificates
+can be issued), and each builds a uniquely named **section** inside its course
+rather than a new course. Only the specs whose
 subject is course creation make their own. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
 `E2E` when `ORG` is unset). On a persistent target, purge them with the CMS
 management command — it prompts, so pipe `yes` into it:
@@ -469,6 +477,8 @@ tests/                 # specs, grouped by platform domain (lms/, studio/)
   lms/course-home/     # learning MFE: outline, progress, unit/course completion
   lms/courseware/      # learning MFE: outline sidebar
   lms/dashboard/       # learner dashboard
+  lms/instructor/      # instructor dashboard MFE: course info, enrollments, grading,
+                       #   date extensions, data downloads, certificates
   lms/landing.spec.ts  # proof-of-life smoke test
   studio/              # authoring MFE + Studio APIs (bootstrap: author session, course factory)
   conventions/         # suite-wide rules enforced as tests (no displayed text)

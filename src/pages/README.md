@@ -22,6 +22,12 @@ Page objects live in the same platform-domain folder as the specs that use them,
 - `pages/studio/editors/text-editor.ts` and `video-editor.ts` drive the text
   (TinyMCE) and video component editors the add-component tiles open
 
+- `pages/lms/instructor/dashboard.page.ts` is the instructor-dashboard MFE's shell
+  (reach a tab by URL, prove it by its nav link, wait for the instructor-API
+  request an action fires); the tab page objects (`course-info`, `enrollments`,
+  `grading`, `date-extensions`, `data-downloads`, `certificates`) build on it and
+  return the response of every write they trigger
+
 A component rendered _inside_ a surface — an XBlock in a unit — is a `*.block.ts`
 object beside its page (`courseware/problem.block.ts`), constructed with the
 page's content frame and the block ID.
