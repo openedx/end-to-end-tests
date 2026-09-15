@@ -3,7 +3,13 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 
 import type { FullConfig, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 
-import { summarizeA11yViolations, type A11yOccurrence, type A11yStatus } from './a11y';
+import {
+  A11Y_ATTACHMENT_PREFIX,
+  parseA11yAttachment,
+  summarizeA11yViolations,
+  type A11yOccurrence,
+  type A11yStatus,
+} from './a11y';
 
 export interface A11yReporterOptions {
   /** Where to write the aggregated JSON. Relative paths resolve from the config dir. */
@@ -11,17 +17,7 @@ export interface A11yReporterOptions {
 }
 
 const DEFAULT_OUTPUT = 'test-results/a11y-violations.json';
-const ATTACHMENT_PREFIX = 'a11y-violations';
 const STATUSES: readonly A11yStatus[] = ['failing', 'baselined', 'belowThreshold'];
-
-/** Shape of a single axe violation inside a `checkA11y` attachment. */
-interface AttachmentViolation {
-  id?: string;
-  impact?: string | null;
-  help?: string;
-  helpUrl?: string;
-  nodes?: unknown[];
-}
 
 /**
  * Always-on reporter that consolidates every `checkA11y` scan into a single,
@@ -50,20 +46,18 @@ export default class A11yReporter implements Reporter {
     const testTitle = test.titlePath().slice(1).join(' › ');
 
     for (const attachment of result.attachments) {
-      if (!attachment.name.startsWith(ATTACHMENT_PREFIX) || !attachment.body) {
+      if (!attachment.name.startsWith(A11Y_ATTACHMENT_PREFIX) || !attachment.body) {
         continue;
       }
 
-      let parsed: { url?: string } & Partial<Record<A11yStatus, AttachmentViolation[]>>;
-      try {
-        parsed = JSON.parse(attachment.body.toString('utf8')) as typeof parsed;
-      } catch {
+      const parsed = parseA11yAttachment(attachment.body.toString('utf8'));
+      if (!parsed) {
         continue;
       }
 
-      const url = parsed.url ?? '(unknown)';
+      const url = parsed.url;
       for (const status of STATUSES) {
-        for (const v of parsed[status] ?? []) {
+        for (const v of parsed[status]) {
           this.occurrences.push({
             ruleId: v.id ?? '(unknown)',
             impact: v.impact ?? null,

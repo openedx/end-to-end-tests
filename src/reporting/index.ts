@@ -6,6 +6,7 @@ export {
 } from './test-id';
 export {
   finalAttempts,
+  normalizeStatus,
   summarizeCoverage,
   verdictFor,
   type CoverageSummary,
@@ -18,7 +19,12 @@ export {
 } from './coverage';
 export { default as CoverageReporter, type CoverageReporterOptions } from './coverage-reporter';
 export {
+  A11Y_ATTACHMENT_PREFIX,
+  describeA11yViolation,
+  parseA11yAttachment,
   summarizeA11yViolations,
+  type A11yAttachment,
+  type A11yAttachmentViolation,
   type A11ySummary,
   type A11yRuleSummary,
   type A11yOccurrence,
@@ -41,3 +47,24 @@ export {
   type TimingStatus,
 } from './timing';
 export { default as TimingReporter, type TimingReporterOptions } from './timing-reporter';
+export { KNOWN_GAP_ANNOTATION_TYPE, knownGap, type KnownGapAnnotation } from './known-gap';
+export {
+  BTR_RUN_SCHEMA_VERSION,
+  casesFrom,
+  ciMetaFromEnv,
+  errorSnippet,
+  finalTests,
+  noteFor,
+  summarizeRun,
+  totalsFrom,
+  type Annotation,
+  type BtrRun,
+  type CiEnv,
+  type CiMeta,
+  type RunAttempt,
+  type RunCase,
+  type RunMeta,
+  type RunTest,
+  type RunTotals,
+} from './btr-run';
+export { default as BtrRunReporter, type BtrRunReporterOptions } from './btr-run-reporter';

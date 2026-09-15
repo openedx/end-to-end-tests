@@ -33,6 +33,21 @@ Contains:
   attempt (`finalAttempts`); and a `test.fail()` expected failure counts as
   `skipped` (a known gap, like a `fixme`) while an _unexpected pass_ counts as
   `failed`, so a stale marker shows up in the report as well as in the run.
+- `known-gap.ts` — the `known_gap` annotation. `knownGap('why')` records the
+  reason a declarative `test.fixme` is held back, so the run report (and the
+  results sheet) can say why instead of "fixme (no reason recorded)".
+- `btr-run.ts` — pure aggregation (`summarizeRun`) for the **run detail**
+  report: one row per BTR case with the specs and projects that drive it, every
+  test's final status, summed duration and attempt count, and a one-line note
+  (skip reason, fixme/known gap + issue link, `test.fail` reading, first line of
+  the error, or failing a11y rules — see `noteFor`). Plus run metadata: start,
+  duration, Playwright's overall status, the filter used, and in CI the run
+  link, workflow, ref, commit and Open edX release (`ciMetaFromEnv`).
+- `btr-run-reporter.ts` — the always-on reporter that adapts run events onto
+  `summarizeRun` and writes `test-results/btr-run.json`. Same normalisations as
+  the coverage reporter (`normalizeStatus`, last attempt wins); reads
+  `GITHUB_*`, `OPENEDX_RELEASE`, `BTR_TEST_REF`, `DOMAINS`, `LMS_BASE_URL` from
+  the environment and the checked-out commit from `git rev-parse HEAD`.
 - `a11y.ts` — pure aggregation (`summarizeA11yViolations`) that rolls per-scan
   violations up per rule (worst impact first; de-duplicated across retries).
 - `a11y-reporter.ts` — the always-on reporter that reads each test's
@@ -60,13 +75,14 @@ Contains:
 
 ## Policy
 
-All reporters write **local files only**. Uploading them is a CI-only concern:
-the shared `run-suite` composite action (used by both `run_tests_tutor.yml` and
-`run_tests_external.yml`) publishes `btr-coverage.json`,
-`a11y-violations.json` and `timings-*.csv` as a `suite-reports-*` build artifact alongside the full
-report bundle. Writing results to the BTR Release Test Plan sheet is not
-implemented; when it is, it will be a separate, manual, opt-in step — never on
-PR/push/schedule and never from a local machine.
+All reporters write **local files only**. Uploading them is a CI-only
+concern: the shared `run-suite` composite action (used by both
+`run_tests_tutor.yml` and `run_tests_external.yml`) publishes
+`btr-coverage.json`, `btr-run.json`, `a11y-violations.json` and
+`timings-*.csv` as a `suite-reports-*` build artifact alongside the full
+report bundle. Publishing `btr-run.json` to the per-release BTR results sheets
+is a separate, opt-in CI step (in progress); it never runs on PR/push and never
+from a local machine against a real sheet.
 
 Infrastructure projects (`setup`, `unit`) are excluded from coverage so the
 numbers reflect the user-facing scenarios the BTR plan tracks. Note this relies
