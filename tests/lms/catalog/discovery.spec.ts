@@ -1,6 +1,6 @@
 import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
-import { issue, testId } from '../../../src/reporting';
+import { issue, knownGap, testId } from '../../../src/reporting';
 import { catalogSearchTermFor, locateCourseInCatalog } from '../../../src/steps';
 
 /**
@@ -235,7 +235,15 @@ test.describe('Course catalog discovery', () => {
   // want, and should be re-enabled alongside a course that passes it.
   test.fixme(
     "the About page's course content distinguishes links without colour",
-    { tag: ['@regression', '@authenticated'], annotation: testId('TC-00018') },
+    {
+      tag: ['@regression', '@authenticated'],
+      annotation: [
+        testId('TC-00018'),
+        knownGap(
+          'Demo course overview HTML has a colour-only link (axe link-in-text-block, WCAG 1.4.1): a content fix, not a platform one',
+        ),
+      ],
+    },
     async ({ page, config, catalogPage, courseAboutPage, courseDetail, courseKey }) => {
       await locateCourseInCatalog(
         catalogPage,
