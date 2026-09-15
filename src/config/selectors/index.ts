@@ -48,9 +48,12 @@ export {
   COURSE_CREATOR_ADMIN_SELECTORS,
 } from './django-admin';
 export {
+  INSTRUCTOR_CERTIFICATE_FILTERS,
   INSTRUCTOR_DASHBOARD_SELECTORS,
   INSTRUCTOR_REPORT_ROWS,
   INSTRUCTOR_TAB_IDS,
   instructorTabLink,
   instructorTabPath,
+  type InstructorReportType,
+  type InstructorTabId,
 } from './instructor';

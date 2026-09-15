@@ -67,11 +67,14 @@ export {
   STUDIO_EDITOR_SELECTORS,
   COURSE_CREATOR_ADMIN_SELECTORS,
   CERTIFICATE_GENERATION_ADMIN_SELECTORS,
+  INSTRUCTOR_CERTIFICATE_FILTERS,
   INSTRUCTOR_DASHBOARD_SELECTORS,
   INSTRUCTOR_REPORT_ROWS,
   INSTRUCTOR_TAB_IDS,
   instructorTabLink,
   instructorTabPath,
+  type InstructorReportType,
+  type InstructorTabId,
 } from './selectors';
 
 let cached: AppConfig | undefined;
