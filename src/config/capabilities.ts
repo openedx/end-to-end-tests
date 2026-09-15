@@ -31,7 +31,27 @@ export const CAPABILITIES = [
   'badges',
   'credly-badges',
   'cohorts',
+  // Content libraries v2 (Learning Core): the library-authoring MFE
+  // (`/library/<lib key>` inside the authoring app), the `/api/libraries/v2/`
+  // CMS API, and the course side of reuse — "Library Content" in a unit's
+  // add-component bar, library units/sections in the outline, and the
+  // `/api/contentstore/v2/downstreams/` sync API. Both `main` and `verawood`
+  // ship all of it, containers included, so `.ci/openedx-releases.json`
+  // declares it for them; `ulmo` and earlier are left undeclared and the
+  // `tests/studio/library/` tree skips there. Studio's home API reports it as
+  // `libraries_v2_enabled`. Team management is *not* covered by this
+  // capability: where the admin console MFE is configured (`ADMIN_CONSOLE_URL`)
+  // the library MFE hands "Manage team" to it, which is the `rbac` epic's
+  // surface. Deleting a library that ever held a container fails on the
+  // platform (`LIB-001`), so the fixtures tear down best-effort.
   'content-libraries',
+  // Legacy (modulestore, `library-v1:`) content libraries and the tool that
+  // migrates them into v2 libraries (`/api/modulestore_migrator/v1/`). Legacy
+  // libraries are deprecated and hidden once an installation enables the
+  // `contentstore.new_studio_mfe.disable_legacy_libraries` waffle flag; a
+  // default install (measured on `main`) still creates them, so `main` and
+  // `verawood` declare this. Gates only the BTR migration cases.
+  'content-libraries-v1',
   // The learning MFE's in-course outline sidebar, behind the
   // `courseware.enable_navigation_sidebar` waffle flag. Its counterpart covers the
   // installations that keep the older in-course navigation instead.
