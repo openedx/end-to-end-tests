@@ -100,19 +100,27 @@ export async function waitForReport(
 ): Promise<{
   report: ReportDownload | undefined;
   tasks: readonly InstructorTask[];
+  /** Every download of that type when the wait stopped, for a failure message. */
+  sameType: readonly ReportDownload[];
   elapsedMs: number;
 }> {
   // `date_generated` is minute-resolution, so allow the minute `since` fell in.
   const floor = Math.floor(since.getTime() / 60_000) * 60_000;
+  const isNew = (download: ReportDownload) => Date.parse(download.date_generated) >= floor;
   const outcome = await waitForInstructorTask(instructor, config, courseKey, {
     reading: async () =>
-      (await listReports(instructor, config, courseKey)).find(
-        (download) =>
-          download.report_type === reportType && Date.parse(download.date_generated) >= floor,
+      (await listReports(instructor, config, courseKey)).filter(
+        (download) => download.report_type === reportType,
       ),
-    settled: (report) => report !== undefined,
+    settled: (sameType) => sameType.some(isNew),
   });
-  return { report: outcome.last.reading, tasks: outcome.last.tasks, elapsedMs: outcome.elapsedMs };
+  const sameType = outcome.last.reading;
+  return {
+    report: sameType.find(isNew),
+    tasks: outcome.last.tasks,
+    sameType,
+    elapsedMs: outcome.elapsedMs,
+  };
 }
 
 /**
@@ -126,7 +134,7 @@ export async function waitForLearnerProgress(
   config: AppConfig,
   courseKey: string,
   settled: (progress: CourseProgress) => boolean,
-  timeoutMs = TIMEOUTS.instructorTask,
+  timeoutMs: number = TIMEOUTS.instructorTask,
 ): Promise<PollOutcome<CourseProgress>> {
   return pollUntil(() => fetchCourseProgress(learner, config, courseKey), settled, timeoutMs);
 }
@@ -139,7 +147,7 @@ export async function waitForLearnerProblem(
   problemUsageKey: string,
   username: string,
   settled: (problem: LearnerProblem) => boolean,
-  timeoutMs = TIMEOUTS.instructorTask,
+  timeoutMs: number = TIMEOUTS.instructorTask,
 ): Promise<PollOutcome<LearnerProblem>> {
   return pollUntil(
     () => fetchLearnerProblem(instructor, config, courseKey, problemUsageKey, username),
