@@ -36,6 +36,14 @@ import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
+import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
+import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.page';
+import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
+import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
+import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
+import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
+import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
+import { ensureDataResearcher, submitProblem } from '../steps';
 import {
   AUTH_STATE_DIR,
   authStateFile,
@@ -66,6 +74,14 @@ import {
   fetchStudioHome,
   fetchCourseSettingsFlags,
   ensureCertificateBearingMode,
+  ensureCertificateGenerationEnabled,
+  createCertificate,
+  setCertificateActive,
+  setCourseCertificateGeneration,
+  updateGradingPolicy,
+  updateXBlock,
+  loginSession,
+  type AuthoredProblem,
   courseKeySkipReason,
   enrollInCourseViaApi,
   fetchCourseDetail,
@@ -221,6 +237,38 @@ export interface TestFixtures {
   groupConfigurationsPage: StudioGroupConfigurationsPage;
   /** Certificates page object (authoring MFE). */
   certificatesPage: StudioCertificatesPage;
+  /** The instructor dashboard MFE's shell (tab nav, dialogs) on the author's page. */
+  instructorDashboard: InstructorDashboardPage;
+  /** Instructor dashboard tab page objects, on the author's page. */
+  instructorCourseInfo: InstructorCourseInfoPage;
+  instructorEnrollments: InstructorEnrollmentsPage;
+  instructorGrading: InstructorGradingPage;
+  instructorDateExtensions: InstructorDateExtensionsPage;
+  instructorDataDownloads: InstructorDataDownloadsPage;
+  instructorCertificates: InstructorCertificatesPage;
+  /**
+   * Makes sure the **platform** allows certificate generation
+   * (`CertificateGenerationConfiguration`, off on a default install). It has no
+   * REST API, only the LMS Django admin, which needs a live admin Django
+   * session: a throwaway context signed in with `loginSession` under the admin
+   * lock. Skips with a reason when no admin account is configured — "not
+   * configured", as `courseKey` distinguishes it from "misconfigured".
+   */
+  certificateGenerationEnabled: void;
+  /**
+   * A learner of the test's own in {@link WorkerFixtures.certificateCourse},
+   * enrolled in the **honor** track on its first enrollment (the platform does
+   * not move an existing audit enrollment), so a certificate can be generated
+   * for it. Own browser and request contexts, disposed at test end.
+   */
+  certificateLearner: RoundTripLearner;
+  /**
+   * The arrangement the gradebook cases start from: a published graded section
+   * with a single-choice problem in the content course, a due date on its
+   * subsection, and a {@link roundTripLearner} who has already submitted the
+   * **wrong** answer. The instructor's adjustment is then the test's own act.
+   */
+  gradedProblemWithWrongAnswer: GradedProblemSetup;
   /** Course Export page object (authoring MFE). */
   exportPage: StudioExportPage;
   /** Course Import page object (authoring MFE). */
@@ -446,6 +494,18 @@ export interface WorkerFixtures {
    * paste. One per worker.
    */
   futureCourse: AuthoredCourse;
+  /**
+   * One course per worker set up so certificates can be issued: start in the
+   * past, end in the future, certificates shown as soon as earned
+   * (`certificates_display_behavior: early_no_info` — `PUT course_details`
+   * ignores `self_paced`, PLAT-006), an `honor` mode, an active Studio
+   * certificate, student-generated certificates on, a grading policy of one
+   * assignment type at 100 %, one graded section with a single-choice problem,
+   * and the `data_researcher` role for the worker author. Specs share it **by
+   * learner**: each test provisions its own ({@link TestFixtures.certificateLearner}),
+   * so allowlist and invalidation state never crosses tests.
+   */
+  certificateCourse: CertificateCourse;
 }
 
 /** What {@link WorkerFixtures.workerAuthor} holds. */
@@ -459,6 +519,28 @@ export interface WorkerAuthor {
 export interface AuthoredCourse extends CourseIdentity {
   /** The course's Studio URL (redirects to the authoring MFE where applicable). */
   readonly studioUrl: string;
+}
+
+/** What {@link TestFixtures.gradedProblemWithWrongAnswer} hands a spec. */
+export interface GradedProblemSetup {
+  readonly section: AuthoredSection;
+  /** The graded subsection (carries the due date). */
+  readonly subsectionKey: string;
+  readonly problem: AuthoredProblem;
+  /** The due date set on the subsection (ISO). */
+  readonly due: string;
+  /** The learner who answered wrong; its `progress` is the learner-side oracle. */
+  readonly learner: RoundTripLearner;
+}
+
+/** What {@link WorkerFixtures.certificateCourse} hands a spec. */
+export interface CertificateCourse extends AuthoredCourse {
+  /** The one graded subsection (100 % of the grade). */
+  readonly subsectionKey: string;
+  /** Its single-choice problem, with the answers that pass and fail. */
+  readonly problem: AuthoredProblem;
+  /** Whether a certificate-bearing (`honor`) mode could be added — needs the staff session. */
+  readonly certificateBearingMode: boolean;
 }
 
 /** What {@link TestFixtures.courseLearner} hands a spec. */
@@ -515,6 +597,8 @@ function pageObjectFixture<T>(
  * release-date specs place their own dates on either side of it.
  */
 export const CONTENT_COURSE_START = '2000-01-01T00:00:00Z';
+/** End date of the certificate course: far enough out never to matter. */
+export const CERTIFICATE_COURSE_END = '2100-01-01T00:00:00Z';
 
 /**
  * Provisions one worker-scoped course as the worker's author — the body every
@@ -605,10 +689,11 @@ async function provisionRoundTripLearner(
   browser: Browser,
   config: AppConfig,
   courseKey: string,
+  options: { readonly mode?: string } = {},
 ): Promise<RoundTripLearner> {
   const request = await playwright.request.newContext();
   const identity = await provisionLearnerSession(request, config);
-  await enrollInCourseViaApi(request, config, courseKey);
+  await enrollInCourseViaApi(request, config, courseKey, options);
   const context = await browser.newContext();
   await context.addCookies((await request.storageState()).cookies);
   const page = await context.newPage();
@@ -931,13 +1016,117 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
             });
             await updateAdvancedSettings(request, config, courseKey, {
               enable_subsection_gating: true,
+              // Beta testers may see content up to a year before its release
+              // (the instructor dashboard's beta-tester case); Epic 8's fixed
+              // 2100 release dates stay out of reach.
+              days_early_for_beta: 365,
             });
+            // Report generation on the instructor dashboard needs the course
+            // `data_researcher` role, which the creator does not get by default.
+            await ensureDataResearcher(request, config, courseKey);
           },
         ),
       );
     },
-    // Two extra Studio writes on top of the create.
+    // Three extra Studio/LMS writes on top of the create.
     { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
+  ],
+
+  certificateCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}K`,
+        'certificates',
+      );
+      let seeded:
+        Pick<CertificateCourse, 'subsectionKey' | 'problem' | 'certificateBearingMode'> | undefined;
+      const course = await provisionWorkerCourse(
+        playwright,
+        workerAuthor,
+        identity,
+        async (request, courseKey) => {
+          // Every write is idempotent, so a restarted worker re-seeds harmlessly.
+          await updateCourseDetails(request, config, courseKey, {
+            start_date: CONTENT_COURSE_START,
+            end_date: CERTIFICATE_COURSE_END,
+            certificates_display_behavior: 'early_no_info',
+          });
+          await updateGradingPolicy(request, config, courseKey, {
+            graders: [
+              { type: 'Homework', min_count: 1, drop_count: 0, short_label: 'HW', weight: 100 },
+            ],
+            grade_cutoffs: { Pass: 0.5 },
+            grace_period: null,
+            minimum_grade_credit: 0.8,
+          });
+          await ensureDataResearcher(request, config, courseKey);
+          // A certificate-bearing mode needs the staff session; without one the
+          // course is still seeded and `certificateGenerationEnabled` skips.
+          let certificateBearingMode = false;
+          const staffState = authStateFile('staff');
+          if (config.credentials.admin !== undefined && isUsableStateFile(staffState)) {
+            const staff = await playwright.request.newContext({ storageState: staffState });
+            try {
+              certificateBearingMode = await ensureCertificateBearingMode(staff, config, courseKey);
+            } finally {
+              await staff.dispose();
+            }
+          }
+          await createCertificate(request, config, courseKey, {
+            name: `E2E certificate ${getRunId()}`,
+            signatories: [
+              { name: 'E2E Signatory', title: 'Instructor', organization: identity.org },
+            ],
+          }).catch((error: unknown) => {
+            // A re-seed finds the certificate already there.
+            if (!(error instanceof ApiError)) throw error;
+          });
+          await setCertificateActive(request, config, courseKey, true);
+          await setCourseCertificateGeneration(request, config, courseKey, true);
+          const section = await buildSection(
+            request,
+            config,
+            courseKey,
+            `E2E certificate ${getRunId()} W${workerInfo.parallelIndex}`,
+            {
+              subsections: [
+                { gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] },
+              ],
+              publish: true,
+            },
+          );
+          const problemBlock = section.blocks.find((block) => block.type === 'problem');
+          const subsection = section.subsections[0];
+          if (
+            subsection === undefined ||
+            problemBlock === undefined ||
+            problemBlock.answers === undefined
+          ) {
+            throw new Error(
+              `The certificate course's section has no problem block (${courseKey}).`,
+            );
+          }
+          seeded = {
+            subsectionKey: subsection.usageKey,
+            problem: {
+              usageKey: problemBlock.usageKey,
+              type: 'multiplechoiceresponse',
+              ...problemBlock.answers,
+            },
+            certificateBearingMode,
+          };
+        },
+      );
+      if (seeded === undefined) {
+        throw new Error(`The certificate course ${identity.courseKey} was not seeded.`);
+      }
+      await use({ ...course, ...seeded });
+    },
+    // Around ten Studio/LMS writes on top of the create.
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 3 },
   ],
 
   futureCourse: [
@@ -1247,6 +1436,103 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await disposeRoundTripLearner(learner);
     }
+  },
+
+  instructorDashboard: pageObjectFixture(InstructorDashboardPage),
+  instructorCourseInfo: pageObjectFixture(InstructorCourseInfoPage),
+  instructorEnrollments: pageObjectFixture(InstructorEnrollmentsPage),
+  instructorGrading: pageObjectFixture(InstructorGradingPage),
+  instructorDateExtensions: pageObjectFixture(InstructorDateExtensionsPage),
+  instructorDataDownloads: pageObjectFixture(InstructorDataDownloadsPage),
+  instructorCertificates: pageObjectFixture(InstructorCertificatesPage),
+
+  certificateGenerationEnabled: async ({ playwright, config, certificateCourse }, use) => {
+    const admin = config.credentials.admin;
+    base.skip(
+      admin === undefined || !certificateCourse.certificateBearingMode,
+      'Certificates need the administrator: the platform-wide certificate switch lives in ' +
+        'the Django admin and the honor course mode needs a staff session. Set ' +
+        'ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
+    );
+    // A Django-admin write needs the admin's *session* cookie: sign in afresh on a
+    // throwaway context, under the admin lock (PREVENT_CONCURRENT_LOGINS).
+    await withAdminSession(async () => {
+      const session = await playwright.request.newContext();
+      try {
+        await loginSession(session, config, {
+          emailOrUsername: (admin as NonNullable<typeof admin>).username,
+          password: (admin as NonNullable<typeof admin>).password,
+        });
+        await ensureCertificateGenerationEnabled(session, config, certificateCourse.courseKey);
+      } finally {
+        await session.dispose();
+      }
+    });
+    await use();
+  },
+
+  certificateLearner: async ({ playwright, browser, config, certificateCourse }, use) => {
+    const learner = await provisionRoundTripLearner(
+      playwright,
+      browser,
+      config,
+      certificateCourse.courseKey,
+      { mode: 'honor' },
+    );
+    try {
+      await use(learner);
+    } finally {
+      await disposeRoundTripLearner(learner);
+    }
+  },
+
+  gradedProblemWithWrongAnswer: async (
+    { page, config, contentCourse, roundTripLearner, studioAuthorSession },
+    use,
+    testInfo,
+  ) => {
+    void studioAuthorSession;
+    // Same user in browser and API → `page.request` (a separate `request` context
+    // is evicted by the browser's own Studio session work; see
+    // tests/studio/home/course-lifecycle.spec.ts).
+    const author = page.request;
+    const section = await buildSection(
+      author,
+      config,
+      contentCourse.courseKey,
+      sectionLabel(testInfo, 1),
+      {
+        subsections: [{ gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] }],
+        publish: true,
+      },
+    );
+    const subsection = section.subsections[0];
+    const problemBlock = section.blocks.find((block) => block.type === 'problem');
+    if (
+      subsection === undefined ||
+      problemBlock === undefined ||
+      problemBlock.answers === undefined
+    ) {
+      throw new Error(`The graded section ${section.usageKey} has no problem block.`);
+    }
+    const subsectionKey = subsection.usageKey;
+    const problem: AuthoredProblem = {
+      usageKey: problemBlock.usageKey,
+      type: 'multiplechoiceresponse',
+      ...problemBlock.answers,
+    };
+    // A due date a week out: what the extension case extends, harmless otherwise.
+    const due = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    await updateXBlock(author, config, subsectionKey, { metadata: { due } });
+    await roundTripLearner.prime(subsectionKey);
+    await submitProblem(
+      roundTripLearner.request,
+      config,
+      section.courseKey,
+      problem,
+      problem.incorrect,
+    );
+    await use({ section, subsectionKey, problem, due, learner: roundTripLearner });
   },
 
   authoringCourse: async ({ playwright, workerAuthor }, use, testInfo) => {
