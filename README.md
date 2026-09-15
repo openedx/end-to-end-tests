@@ -358,14 +358,15 @@ Triggers:
 
 - **`workflow_dispatch`** — run on demand with:
 
-  | Input              | Description                                                                                                                                   |
-  | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `openedx_release`  | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`. |
-  | `test_ref`         | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                |
-  | `domains`          | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                              |
-  | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                         |
-  | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                           |
-  | `capabilities`     | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.              |
+  | Input              | Description                                                                                                                                                     |
+  | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `openedx_release`  | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`.                   |
+  | `test_ref`         | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                                  |
+  | `domains`          | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                                                |
+  | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                                           |
+  | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                             |
+  | `capabilities`     | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.                                |
+  | `btr_sheet_url`    | Override: publish BTR results to this Google Sheet instead of the release's `BTR_SHEET_URL_<RELEASE>` variable (see [BTR results sheets](#btr-results-sheets)). |
 
 - **`schedule`** — automatically at **09:00 UTC (5am US Eastern in daylight
   time), Mondays and Fridays**,
@@ -402,25 +403,57 @@ Credentials are sourced from a **GitHub Environment** (Settings → Environments
 rather than hard-coded, so different targets (and their approval/protection
 rules) stay isolated from each other:
 
-| Input                      | Description                                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                     |
-| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                 |
-| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                              |
-| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                            |
-| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                             |
-| `org`                      | Organization short code.                                                                                     |
-| `course_key`               | Default course for course-completion specs.                                                                  |
-| `capabilities`             | Comma-separated capabilities enabled on the target.                                                          |
-| `account_backend`          | `automatic` (default; works on the default install, see above) or `manual` (interactive — not usable in CI). |
-| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                           |
-| `domains` / `features`     | Same filters as above.                                                                                       |
-| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.          |
+| Input                      | Description                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                                                    |
+| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                                                |
+| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                                                             |
+| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                                                           |
+| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                                                            |
+| `org`                      | Organization short code.                                                                                                                    |
+| `course_key`               | Default course for course-completion specs.                                                                                                 |
+| `capabilities`             | Comma-separated capabilities enabled on the target.                                                                                         |
+| `account_backend`          | `automatic` (default; works on the default install, see above) or `manual` (interactive — not usable in CI).                                |
+| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                                          |
+| `domains` / `features`     | Same filters as above.                                                                                                                      |
+| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                         |
+| `openedx_release`          | Release the target runs (a key of `.ci/openedx-releases.json`). Enables publishing to that release's BTR results sheet. Empty = no publish. |
+| `btr_sheet_url`            | Override sheet URL for this run; requires `openedx_release`.                                                                                |
 
 To run it against your own installation: create a GitHub Environment (e.g.
 `staging`) with `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets (and any required
 approval rule), then trigger the workflow with that environment name and your
 target's base URLs.
+
+### BTR results sheets
+
+Every run writes `test-results/btr-run.json`: one row per BTR Release Test Plan
+case exercised (spec, result, notes, timing) plus the run's metadata. Scheduled
+and manually dispatched runs can **publish** that file to a Google Sheet, one
+spreadsheet per Open edX release, kept separate from the manually maintained
+BTR sheet. Each publish overwrites the sheet's `Latest` tab (for an unfiltered
+run of the default branch), appends a row to the `Runs` index, and adds a
+timestamped tab that is kept for comparison over time. PR and push runs never
+publish.
+
+To enable it for a release, in the repository (or a fork, or a provider's
+deployment):
+
+1. Create a Google Cloud **service account**, download a JSON key, and store the
+   key's text as the `BTR_SHEET_CREDENTIALS` secret (repository-wide, or on the
+   GitHub Environment an external target uses).
+2. Create an **empty Google Sheet** per release and share each one with the
+   service account's `client_email` as an **Editor**.
+3. Set a repository variable **`BTR_SHEET_URL_<RELEASE>`** per sheet, with the
+   release upper-cased: `BTR_SHEET_URL_MAIN`, `BTR_SHEET_URL_VERAWOOD`, … An
+   Environment-scoped variable of the same name overrides the repository one
+   for `run_tests_external.yml` runs.
+
+The first publish bootstraps the sheet (tabs, headers, title). A sheet
+remembers its release and refuses runs for another one, so a mis-set variable
+cannot mix releases. `ci.yml` warns (without failing) about releases that have
+no variable. Details and the local re-publish command:
+[`src/reporting/README.md`](src/reporting/README.md#publishing-to-the-btr-results-sheets).
 
 ## Project structure
 
@@ -447,7 +480,7 @@ src/
   pages/{lms,studio}/  # page objects, one per surface, in the spec's domain folder
   steps/               # reusable multi-page business flows
   fixtures/            # composition root (config + pages + api + auth + skips)
-  reporting/           # BTR test_id annotations, coverage + a11y reporters
+  reporting/           # BTR test_id annotations, coverage + run-detail + a11y reporters
   a11y/                # @axe-core/playwright WCAG 2.2 AA gate
 plugins/               # example account-backend plugin (openinbox)
 .ci/                   # per-release CI configuration (openedx-releases.json)

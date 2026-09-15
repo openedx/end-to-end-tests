@@ -13,7 +13,7 @@ suffixed with the release:
 | Artifact                      | Contents                                                                                                                                                                                                             |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `playwright-report-<release>` | `playwright-report/` (HTML report; `index.html` embeds the machine-readable report as a base64 zip; `data/` holds screenshots, videos, traces, `error-context.md`) and `test-results/` (one dir per failed attempt). |
-| `suite-reports-<release>`     | `btr-coverage.json` (test_id → outcome) and `a11y-violations.json` (failing / baselined rules).                                                                                                                      |
+| `suite-reports-<release>`     | `btr-coverage.json` (test_id → outcome), `btr-run.json` (per-case specs/notes/timing + run metadata; input to the BTR results-sheet publisher) and `a11y-violations.json` (failing / baselined rules).               |
 | `tutor-logs-<release>`        | `docker ps -a` plus `tutor local logs <service>` for `lms`, `cms`, `lms-worker`, `cms-worker`, `mfe`, `caddy`. Lines are prefixed `<service>-1                                                                       | `.  |
 
 Two things bite when reading them by hand: a **re-run attempt re-uploads

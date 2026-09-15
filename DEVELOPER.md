@@ -140,7 +140,9 @@ A capability gates coverage that is _about_ the optional feature, not every spec
 that passes through it. A gated spec must assert the feature's surface is
 present, so a wrongly declared capability fails rather than passing vacuously.
 Add `annotation: testId('TC-0000X')` for any BTR Release Test Plan case; the
-test reporter writes `test-results/btr-coverage.json`.
+reporters write `test-results/btr-coverage.json` and `test-results/btr-run.json`,
+and CI can publish the latter to the per-release BTR results sheets
+(`src/reporting/README.md`).
 Details: [CONVENTIONS › Tags](CONVENTIONS.md#tags).
 
 ## Accounts and sessions
@@ -203,7 +205,8 @@ honest. `test.fail()` for a defect you expect fixed; the body runs and an
 unexpected pass fails the run, which is the signal to drop the marker.
 `test.fixme()` in declaration form for a body that cannot run yet, so no fixture
 provisions an account for nothing. Add an `issue(...)` annotation beside the
-`testId`. Never soften the assertion or reach for `force`.
+`testId`, and a `knownGap('why')` annotation so the BTR results sheet can say why
+the case is held back. Never soften the assertion or reach for `force`.
 [CONVENTIONS › Known upstream defects](CONVENTIONS.md#known-upstream-defects).
 
 ## Accessibility

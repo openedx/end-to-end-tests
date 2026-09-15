@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-import { summarizeA11yViolations, type A11yOccurrence } from '../../src/reporting';
+import {
+  describeA11yViolation,
+  parseA11yAttachment,
+  summarizeA11yViolations,
+  type A11yOccurrence,
+} from '../../src/reporting';
 
 const occ = (over: Partial<A11yOccurrence>): A11yOccurrence => ({
   ruleId: 'color-contrast',
@@ -59,5 +64,35 @@ test.describe('summarizeA11yViolations', { tag: '@unit' }, () => {
     const summary = summarizeA11yViolations([]);
     expect(summary.totals).toEqual({ failing: 0, baselined: 0, belowThreshold: 0, rules: 0 });
     expect(summary.byRule).toEqual([]);
+  });
+});
+
+test.describe('parseA11yAttachment', { tag: '@unit' }, () => {
+  test('reads the lists checkA11y writes and defaults the missing ones', () => {
+    const parsed = parseA11yAttachment(
+      JSON.stringify({
+        url: 'http://x/y',
+        failing: [{ id: 'color-contrast', impact: 'serious', help: 'Contrast', nodes: [1, 2] }],
+      }),
+    );
+    expect(parsed).toEqual({
+      url: 'http://x/y',
+      failing: [{ id: 'color-contrast', impact: 'serious', help: 'Contrast', nodes: [1, 2] }],
+      baselined: [],
+      belowThreshold: [],
+    });
+  });
+
+  test('returns null for malformed bodies', () => {
+    expect(parseA11yAttachment('not json')).toBeNull();
+    expect(parseA11yAttachment('[]')).toBeNull();
+    expect(parseA11yAttachment('null')).toBeNull();
+  });
+
+  test('describes a violation as id (impact): help', () => {
+    expect(
+      describeA11yViolation({ id: 'color-contrast', impact: 'serious', help: 'Contrast' }),
+    ).toBe('color-contrast (serious): Contrast');
+    expect(describeA11yViolation({ id: 'region' })).toBe('region');
   });
 });

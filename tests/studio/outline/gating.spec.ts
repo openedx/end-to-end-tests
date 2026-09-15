@@ -10,7 +10,7 @@ import {
   type AuthoredSection,
 } from '../../../src/api';
 import { satisfyPrerequisiteByScore } from '../../../src/steps';
-import { issue, testId } from '../../../src/reporting';
+import { issue, knownGap, testId } from '../../../src/reporting';
 import { firstUnitKey } from './outline-helpers';
 
 /**
@@ -145,6 +145,9 @@ test.describe(
         annotation: [
           testId('TC-00160'),
           issue('https://github.com/openedx/end-to-end-tests/issues/39'),
+          knownGap(
+            'PLAT-008: completion-only subsection gating is shown by Studio but not enforced by the LMS',
+          ),
         ],
       },
       async ({

@@ -19,10 +19,14 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
 
-    "noEmit": true
+    "noEmit": true,
+    // Lets the Node-run publisher (`scripts/**/*.mts`, executed natively by Node
+    // 24's type stripping) import sibling modules with their real extension.
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src/**/*.ts",
+    "scripts/**/*.mts",
     "tests/**/*.ts",
     "plugins/**/*.ts",
     "playwright.config.ts",

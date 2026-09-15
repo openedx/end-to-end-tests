@@ -1,7 +1,7 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import { advancedComponentTypes, fetchContainer } from '../../../src/api';
-import { issue, testId } from '../../../src/reporting';
+import { issue, knownGap, testId } from '../../../src/reporting';
 import { addComponentAndSeeAsLearner, emptyUnit } from './component-helpers';
 
 /**
@@ -52,6 +52,7 @@ test.describe(
         annotation: [
           testId('TC-00512'),
           issue('https://github.com/openedx/end-to-end-tests/issues/39'),
+          knownGap('A PDF block from a content library needs v2 libraries coverage (deferred)'),
         ],
       },
       () => {

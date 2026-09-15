@@ -253,9 +253,12 @@ import { testId } from '../../../src/reporting';
 test('signs in with valid credentials', { tag: '@smoke', annotation: testId('TC-00003') }, ...);
 ```
 
-The always-on coverage reporter maps each `test_id` to its outcome and reports
-annotation coverage every run, writing `test-results/btr-coverage.json` (a local
-file only — see `src/reporting/README.md` for the upload/sheet policy).
+Two always-on reporters read the annotation: the coverage reporter maps each
+`test_id` to its outcome and reports annotation coverage every run
+(`test-results/btr-coverage.json`), and the run-detail reporter records per-case
+specs, notes and timing with the run's metadata (`test-results/btr-run.json`).
+Both are local files; CI opt-in publishing to the per-release BTR results sheets
+is described in `src/reporting/README.md`.
 
 ## Timing report
 
@@ -313,7 +316,10 @@ Two markers exist and they do different jobs:
 The coverage reporter reads both the same way — an expected failure or a `fixme`
 counts as `skipped` for its BTR case, so a case with passing siblings shows as
 `partial` — and treats an unexpected pass as a failure so a stale marker is
-visible. Do **not** instead soften the assertion to match the buggy behaviour, and
+visible. A declarative `test.fixme` carries no reason Playwright can report, so
+add `knownGap('why')` beside the `testId` and `issue` annotations; the results
+sheet then says why the case is held back instead of "fixme (no reason
+recorded)". Do **not** instead soften the assertion to match the buggy behaviour, and
 do not work around a defect with `force`. Where a workaround is genuinely needed
 to reach _other_ coverage, put it in the page object with a comment naming the
 issue, and keep a separate `test.fail` test on the broken path itself.
