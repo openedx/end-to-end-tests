@@ -23,6 +23,7 @@ npm run report                       # HTML report: trace, screenshot, video, a1
 npx playwright show-trace test-results/<…>/trace.zip
 cat test-results/a11y-violations.json   # all scans, grouped by rule
 cat test-results/btr-coverage.json      # test_id → outcome
+cat test-results/btr-run.json           # per-case specs, notes, timing + run metadata
 ```
 
 `trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`,
