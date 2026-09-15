@@ -40,6 +40,12 @@ export interface StudioHome {
   readonly rerunCreatorStatus: boolean;
   readonly taxonomiesEnabled: boolean;
   readonly librariesEnabled: boolean;
+  /** Legacy (`library-v1:`) libraries can be created — the `content-libraries-v1` surface. */
+  readonly librariesV1Enabled: boolean;
+  /** Content libraries v2 (the library-authoring MFE) — the `content-libraries` surface. */
+  readonly librariesV2Enabled: boolean;
+  /** Organizations the user may create v2 libraries in. */
+  readonly allowedOrganizationsForLibraries: readonly string[];
   /** Studio's display name, e.g. `My Open edX - Studio`. */
   readonly studioName: string;
   readonly platformName: string;
@@ -61,6 +67,9 @@ interface RawStudioHome {
   readonly rerun_creator_status?: boolean;
   readonly taxonomies_enabled?: boolean;
   readonly libraries_enabled?: boolean;
+  readonly libraries_v1_enabled?: boolean;
+  readonly libraries_v2_enabled?: boolean;
+  readonly allowed_organizations_for_libraries?: readonly string[];
   readonly studio_name?: string;
   readonly platform_name?: string;
   readonly in_process_course_actions?: readonly RawInProcessCourseAction[];
@@ -97,6 +106,9 @@ export async function fetchStudioHome(
     rerunCreatorStatus: raw.rerun_creator_status ?? false,
     taxonomiesEnabled: raw.taxonomies_enabled ?? false,
     librariesEnabled: raw.libraries_enabled ?? false,
+    librariesV1Enabled: raw.libraries_v1_enabled ?? false,
+    librariesV2Enabled: raw.libraries_v2_enabled ?? false,
+    allowedOrganizationsForLibraries: raw.allowed_organizations_for_libraries ?? [],
     studioName: raw.studio_name ?? '',
     platformName: raw.platform_name ?? '',
     inProcessCourseActions: (raw.in_process_course_actions ?? []).map(toAction),
