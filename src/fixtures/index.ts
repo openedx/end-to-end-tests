@@ -107,6 +107,11 @@ import {
   updateGradingPolicy,
   updateXBlock,
   loginSession,
+  fetchAuthoringMfeConfig,
+  agreementTypesIn,
+  acceptAgreement,
+  ensureAgreement,
+  type AgreementGating,
   type AuthoredProblem,
   courseKeySkipReason,
   enrollInCourseViaApi,
@@ -562,6 +567,26 @@ export interface TestFixtures {
    * (shared session), for the content-tagging API oracles and cleanup.
    */
   taxonomyAdmin: TaxonomyAdmin;
+  /**
+   * The upload-agreement gating declared for this installation, with its
+   * `UserAgreement` rows seeded (admin, under the lock). Skips without a
+   * configured admin, the `upload-agreements` capability or an empty gating map.
+   * The agreement cases take it; it is worker-scoped and idempotent.
+   */
+  uploadAgreements: UploadAgreements;
+  /**
+   * Accepts every configured upload-agreement type for the test's author (its own
+   * JWT `POST agreement_record`), so a gated install never blocks the author's
+   * uploads. A no-op — never a skip — where nothing is gated, so the Files upload
+   * specs can take it unconditionally.
+   */
+  acceptedUploadAgreements: void;
+}
+
+/** What {@link TestFixtures.uploadAgreements} hands a spec: the gating map and its types. */
+export interface UploadAgreements {
+  readonly gating: AgreementGating;
+  readonly types: readonly string[];
 }
 
 /** What {@link TestFixtures.taxonomyAdmin} hands a spec: the admin's taxonomy pages and API session. */
@@ -2180,6 +2205,61 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         await context.close();
       }
     });
+  },
+
+  uploadAgreements: async ({ playwright, config }, use) => {
+    const admin = config.credentials.admin;
+    base.skip(
+      !config.capabilities.has('upload-agreements') || admin === undefined,
+      'Upload agreements are not declared for this installation, or no administrator is ' +
+        'configured (the agreement rows are seeded through the LMS Django admin).',
+    );
+    const probe = await playwright.request.newContext();
+    let gating;
+    try {
+      gating = (await fetchAuthoringMfeConfig(probe, config)).agreementGating;
+    } finally {
+      await probe.dispose();
+    }
+    const types = agreementTypesIn(gating);
+    base.skip(types.length === 0, 'No AGREEMENT_GATING is configured on this installation.');
+
+    // Seed a UserAgreement row per type through the LMS admin (idempotent), on a
+    // fresh LMS session under the admin lock (PREVENT_CONCURRENT_LOGINS).
+    await withAdminSession(async () => {
+      const session = await playwright.request.newContext();
+      try {
+        await loginSession(session, config, {
+          emailOrUsername: (admin as NonNullable<typeof admin>).username,
+          password: (admin as NonNullable<typeof admin>).password,
+        });
+        for (const type of types) {
+          await ensureAgreement(session, config, {
+            type,
+            name: `E2E ${type}`,
+            summary: `E2E agreement ${type}`,
+            url: `${config.baseUrls.lms}/e2e-agreement/${type}`,
+          });
+        }
+      } finally {
+        await session.dispose();
+      }
+    });
+    await use({ gating, types });
+  },
+
+  acceptedUploadAgreements: async ({ page, config }, use) => {
+    // The author accepts every gated type with its own JWT; a no-op where nothing
+    // is gated (or the config is unreadable), so any Files upload spec can take it.
+    try {
+      const gating = (await fetchAuthoringMfeConfig(page.request, config)).agreementGating;
+      for (const type of agreementTypesIn(gating)) {
+        await acceptAgreement(page.request, config, type);
+      }
+    } catch {
+      // A target without the agreements app or MFE config simply has no gating.
+    }
+    await use();
   },
 
   authoringTaxonomy: async ({ playwright, config }, use, testInfo) => {
