@@ -286,6 +286,18 @@ export class StudioCourseOutlinePage {
       .waitFor();
   }
 
+  /**
+   * Opens the tag drawer for a card through its "Manage tags" kebab item. This
+   * selects the card and opens the Align sidebar's embedded drawer — the reliable
+   * opener at every level, including units (which a plain card click cannot
+   * select, AUTH-002). Waits for the drawer to render.
+   */
+  async openManageTags(card: Locator, level: OutlineLevel): Promise<void> {
+    await this.openMenu(card, level);
+    await card.locator(outlineMenuItem(level, 'manageTags')).click();
+    await this.page.locator('#content-tags-drawer').waitFor();
+  }
+
   private async openMenu(card: Locator, level: OutlineLevel): Promise<void> {
     await card.locator(MENU_BUTTON[level]).click();
   }

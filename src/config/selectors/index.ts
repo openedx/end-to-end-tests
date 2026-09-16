@@ -22,6 +22,7 @@ export {
   unitCardFor,
 } from './studio-outline';
 export { STUDIO_SIDEBAR_SELECTORS, type SidebarPageKey } from './studio-sidebar';
+export { TAG_DRAWER_SELECTORS, encodedTagValue } from './tag-drawer';
 export {
   STUDIO_GRADING_SELECTORS,
   STUDIO_SCHEDULE_DETAILS_SELECTORS,

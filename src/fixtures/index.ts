@@ -34,6 +34,7 @@ import { StudioScheduleDetailsPage } from '../pages/studio/settings/schedule-det
 import { StudioPagesResourcesPage } from '../pages/studio/pages-resources/pages-resources.page';
 import { StudioCustomPagesPage } from '../pages/studio/custom-pages/custom-pages.page';
 import { AuthoringSidebar } from '../pages/studio/sidebar/authoring-sidebar.page';
+import { TagDrawer } from '../pages/studio/sidebar/tag-drawer.page';
 import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
@@ -283,6 +284,8 @@ export interface TestFixtures {
   studioUnitPage: StudioUnitPage;
   /** The Verawood authoring sidebar (outline and unit page). */
   authoringSidebar: AuthoringSidebar;
+  /** The content tag drawer (embedded in the Align sidebar). */
+  tagDrawer: TagDrawer;
   /** The video component editor page object. */
   studioVideoEditor: StudioVideoEditor;
   /** The text (TinyMCE) component editor page object. */
@@ -1597,6 +1600,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   studioUnitPage: pageObjectFixture(StudioUnitPage),
 
   authoringSidebar: pageObjectFixture(AuthoringSidebar),
+
+  tagDrawer: pageObjectFixture(TagDrawer),
 
   studioVideoEditor: pageObjectFixture(StudioVideoEditor),
 
