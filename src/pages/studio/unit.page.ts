@@ -258,6 +258,21 @@ export class StudioUnitPage {
   }
 
   /**
+   * Selects a component card inside the unit's iframe by clicking its header —
+   * the Verawood interaction that shows the component's Info in the unit-page
+   * sidebar (with a Back button and the component's own overflow menu). The
+   * header is server-rendered inside the legacy container iframe and carries the
+   * block's `data-usage-id` (our own key, not localized copy).
+   */
+  async selectComponent(usageKey: string): Promise<void> {
+    await this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`.xblock-header-primary[data-usage-id="${usageKey}"]`)
+      .first()
+      .click();
+  }
+
+  /**
    * "Edit" in a component's iframe header — opens the MFE's editor dialog for
    * that component (the text editor for an html block), the way an author
    * overrides a library-sourced component's content in the course.
