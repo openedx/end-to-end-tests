@@ -65,6 +65,7 @@ export {
   LIBRARY_SELECTORS,
   LIBRARY_TABS,
   courseLibrariesPath,
+  createLibraryPath,
   legacyMigrationPath,
   libraryCollectionPath,
   libraryContainerPath,

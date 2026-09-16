@@ -1,6 +1,11 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { STUDIO_UNIT_PAGE_SELECTORS, TIMEOUTS, type AppConfig } from '../../config';
+import {
+  COURSE_LIBRARY_SYNC_SELECTORS,
+  STUDIO_UNIT_PAGE_SELECTORS,
+  TIMEOUTS,
+  type AppConfig,
+} from '../../config';
 import { CLIPBOARD_PATH, XBLOCK_PATH, studioOrigin } from '../../api';
 import { waitForWrite } from './wait-for-write';
 
@@ -213,6 +218,27 @@ export class StudioUnitPage {
       },
       () => paste.click(),
     );
+  }
+
+  // --- Library content -----------------------------------------------------
+
+  /**
+   * The "Update available" action in the header of an upstream-linked block
+   * inside the components iframe (present only while the library item has a
+   * newer published version). Clicking it opens the preview-changes modal in
+   * this page. Anchored inside the iframe's block wrapper for `usageKey`.
+   */
+  iframeUpdateAvailableButton(usageKey: string): Locator {
+    return this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`[data-usage-id="${usageKey}"]`)
+      .locator(COURSE_LIBRARY_SYNC_SELECTORS.iframeUpdateAvailableButton)
+      .first();
+  }
+
+  async openUpdateAvailable(usageKey: string): Promise<void> {
+    await this.iframeUpdateAvailableButton(usageKey).click();
+    await this.page.locator(COURSE_LIBRARY_SYNC_SELECTORS.previewModal).waitFor();
   }
 
   // --- Clipboard -----------------------------------------------------------
