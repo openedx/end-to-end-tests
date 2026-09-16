@@ -9,28 +9,23 @@ import {
 } from '../../../src/api';
 import { TIMEOUTS, encodedTagValue, type AppConfig } from '../../../src/config';
 import type { AuthoringSidebar } from '../../../src/pages/studio/sidebar/authoring-sidebar.page';
-import type { StudioCourseOutlinePage } from '../../../src/pages/studio/course-outline.page';
+import type { StudioUnitPage } from '../../../src/pages/studio/unit.page';
 import type { TagDrawer } from '../../../src/pages/studio/sidebar/tag-drawer.page';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 import { TAG } from '../../../src/steps';
 
 /**
- * The outline tag drawer at every level — section, subsection and course (BTR
- * TC-00176–00196). Each level runs the same seven behaviours: view the enabled
- * taxonomies, search, browse nested children, add a parent, add a child (parent
- * implied), delete a parent, delete a child (parent removed). The oracle after
- * every Save is the `object_tags` API (values and implicit counts).
- *
- * A fresh per-test course (`authoringCourse`) holds one section, so the drawer
- * opens on an unambiguous card; the taxonomy is the worker-seeded `workerTaxonomy`.
- * Section/subsection drawers open from the card's "Manage tags" kebab; the course
- * drawer opens from the Align rail (the course is selected by default).
+ * The tag drawer reached from the **unit page** (BTR TC-00223–00236): the unit's
+ * own tags (nothing selected) and a selected component's tags. Both open from the
+ * unit page's Align rail — the same embedded drawer as the outline. The seven
+ * behaviours and the `object_tags` oracle match `tag-drawer-outline.spec.ts`; only
+ * the surface and the tagged object differ.
  */
-type Level = 'section' | 'subsection' | 'unit' | 'course';
+type Surface = 'component' | 'unit-page';
 
-interface LevelSpec {
-  readonly level: Level;
+interface SurfaceSpec {
+  readonly surface: Surface;
   readonly ids: {
     readonly view: string;
     readonly search: string;
@@ -42,110 +37,72 @@ interface LevelSpec {
   };
 }
 
-const LEVELS: readonly LevelSpec[] = [
+const SURFACES: readonly SurfaceSpec[] = [
   {
-    level: 'section',
+    surface: 'component',
     ids: {
-      view: 'TC-00176',
-      search: 'TC-00177',
-      browse: 'TC-00178',
-      addParent: 'TC-00179',
-      addChild: 'TC-00180',
-      deleteParent: 'TC-00181',
-      deleteChild: 'TC-00182',
+      view: 'TC-00223',
+      search: 'TC-00224',
+      browse: 'TC-00225',
+      addParent: 'TC-00226',
+      addChild: 'TC-00227',
+      deleteParent: 'TC-00228',
+      deleteChild: 'TC-00229',
     },
   },
   {
-    level: 'subsection',
+    surface: 'unit-page',
     ids: {
-      view: 'TC-00183',
-      search: 'TC-00184',
-      browse: 'TC-00185',
-      addParent: 'TC-00186',
-      addChild: 'TC-00187',
-      deleteParent: 'TC-00188',
-      deleteChild: 'TC-00189',
-    },
-  },
-  {
-    level: 'unit',
-    ids: {
-      view: 'TC-00205',
-      search: 'TC-00206',
-      browse: 'TC-00207',
-      addParent: 'TC-00208',
-      addChild: 'TC-00209',
-      deleteParent: 'TC-00210',
-      deleteChild: 'TC-00211',
-    },
-  },
-  {
-    level: 'course',
-    ids: {
-      view: 'TC-00190',
-      search: 'TC-00191',
-      browse: 'TC-00192',
-      addParent: 'TC-00193',
-      addChild: 'TC-00194',
-      deleteParent: 'TC-00195',
-      deleteChild: 'TC-00196',
+      view: 'TC-00230',
+      search: 'TC-00231',
+      browse: 'TC-00232',
+      addParent: 'TC-00233',
+      addChild: 'TC-00234',
+      deleteParent: 'TC-00235',
+      deleteChild: 'TC-00236',
     },
   },
 ];
 
-interface DrawerContext {
+interface UnitDrawerContext {
   readonly page: Page;
   readonly config: AppConfig;
   readonly courseKey: string;
-  readonly outline: StudioCourseOutlinePage;
+  readonly unitPage: StudioUnitPage;
   readonly sidebar: AuthoringSidebar;
   readonly drawer: TagDrawer;
   readonly taxonomyId: number;
 }
 
-/**
- * Builds a section, resolves the object for `level`, optionally pre-seeds tags on
- * it, then opens its tag drawer and returns the object's usage/course key.
- */
+/** Builds a unit with components, resolves the object for `surface`, optionally seeds tags, opens the drawer. */
 async function prepare(
-  ctx: DrawerContext,
-  level: Level,
+  ctx: UnitDrawerContext,
+  surface: Surface,
   label: string,
   seedTags: readonly string[] = [],
 ): Promise<string> {
   const section = await buildSection(ctx.page.request, ctx.config, ctx.courseKey, label);
-  const objectId =
-    level === 'section'
-      ? section.usageKey
-      : level === 'subsection'
-        ? (section.subsections[0]?.usageKey ?? '')
-        : level === 'unit'
-          ? (section.units[0]?.usageKey ?? '')
-          : ctx.courseKey; // a course is tagged by its course key, not a block usage key
+  const unit = section.units[0];
+  const component = section.blocks[0];
+  if (unit === undefined || component === undefined) {
+    throw new Error('buildSection produced no unit with a component.');
+  }
+  const objectId = surface === 'component' ? component.usageKey : unit.usageKey;
   if (seedTags.length > 0) {
     await setObjectTags(ctx.page.request, ctx.config, objectId, ctx.taxonomyId, seedTags);
   }
-  await ctx.outline.goto(ctx.courseKey);
-  await ctx.outline.waitForCourse(ctx.courseKey);
-  if (level === 'section') {
-    await ctx.outline.openManageTags(ctx.outline.sectionCards.first(), 'section');
-  } else if (level === 'subsection') {
-    await ctx.outline.setAllExpanded(true);
-    await ctx.outline.openManageTags(ctx.outline.subsectionCards.first(), 'subsection');
-  } else if (level === 'unit') {
-    await ctx.outline.setAllExpanded(true);
-    await ctx.outline.openManageTags(ctx.outline.unitCards.first(), 'unit');
-  } else {
-    // The course is the default selection; the Align rail shows its drawer.
-    await ctx.sidebar.openPage('align');
+  await ctx.unitPage.goto(unit.usageKey);
+  if (surface === 'component') {
+    await ctx.unitPage.selectComponent(component.usageKey);
   }
+  await ctx.sidebar.openPage('align');
   await ctx.drawer.waitOpen();
   return objectId;
 }
 
-for (const { level, ids } of LEVELS) {
+for (const { surface, ids } of SURFACES) {
   test.describe(
-    `Tag drawer — ${level}`,
+    `Tag drawer — ${surface}`,
     { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@taxonomies'] },
     () => {
       test.describe.configure({ timeout: TIMEOUTS.contentTest });
@@ -158,22 +115,22 @@ for (const { level, ids } of LEVELS) {
           config,
           workerTaxonomy,
           authoringCourse,
-          studioCourseOutlinePage,
+          studioUnitPage,
           authoringSidebar,
           tagDrawer,
           studioAuthorSession,
         }) => {
           void studioAuthorSession;
-          const ctx: DrawerContext = {
+          const ctx: UnitDrawerContext = {
             page,
             config,
             courseKey: authoringCourse.courseKey,
-            outline: studioCourseOutlinePage,
+            unitPage: studioUnitPage,
             sidebar: authoringSidebar,
             drawer: tagDrawer,
             taxonomyId: workerTaxonomy.taxonomy.id,
           };
-          await prepare(ctx, level, `E2E view ${test.info().testId.slice(-6)}`);
+          await prepare(ctx, surface, `E2E view ${test.info().testId.slice(-6)}`);
           await tagDrawer.beginEditing();
           expect(await tagDrawer.taxonomyNames()).toContain(workerTaxonomy.taxonomy.name);
         },
@@ -187,23 +144,23 @@ for (const { level, ids } of LEVELS) {
           config,
           workerTaxonomy,
           authoringCourse,
-          studioCourseOutlinePage,
+          studioUnitPage,
           authoringSidebar,
           tagDrawer,
           studioAuthorSession,
         }) => {
           void studioAuthorSession;
-          const ctx: DrawerContext = {
+          const ctx: UnitDrawerContext = {
             page,
             config,
             courseKey: authoringCourse.courseKey,
-            outline: studioCourseOutlinePage,
+            unitPage: studioUnitPage,
             sidebar: authoringSidebar,
             drawer: tagDrawer,
             taxonomyId: workerTaxonomy.taxonomy.id,
           };
           const name = workerTaxonomy.taxonomy.name;
-          await prepare(ctx, level, `E2E search ${test.info().testId.slice(-6)}`);
+          await prepare(ctx, surface, `E2E search ${test.info().testId.slice(-6)}`);
           await tagDrawer.beginEditing();
           await tagDrawer.openTagSelector(name);
           await tagDrawer.searchTags(name, 'Parent One');
@@ -221,23 +178,23 @@ for (const { level, ids } of LEVELS) {
           config,
           workerTaxonomy,
           authoringCourse,
-          studioCourseOutlinePage,
+          studioUnitPage,
           authoringSidebar,
           tagDrawer,
           studioAuthorSession,
         }) => {
           void studioAuthorSession;
-          const ctx: DrawerContext = {
+          const ctx: UnitDrawerContext = {
             page,
             config,
             courseKey: authoringCourse.courseKey,
-            outline: studioCourseOutlinePage,
+            unitPage: studioUnitPage,
             sidebar: authoringSidebar,
             drawer: tagDrawer,
             taxonomyId: workerTaxonomy.taxonomy.id,
           };
           const name = workerTaxonomy.taxonomy.name;
-          await prepare(ctx, level, `E2E browse ${test.info().testId.slice(-6)}`);
+          await prepare(ctx, surface, `E2E browse ${test.info().testId.slice(-6)}`);
           await tagDrawer.beginEditing();
           await tagDrawer.openTagSelector(name);
           await tagDrawer.expandTagChildren(name, TAG.parentOne);
@@ -255,23 +212,23 @@ for (const { level, ids } of LEVELS) {
           config,
           workerTaxonomy,
           authoringCourse,
-          studioCourseOutlinePage,
+          studioUnitPage,
           authoringSidebar,
           tagDrawer,
           studioAuthorSession,
         }) => {
           void studioAuthorSession;
-          const ctx: DrawerContext = {
+          const ctx: UnitDrawerContext = {
             page,
             config,
             courseKey: authoringCourse.courseKey,
-            outline: studioCourseOutlinePage,
+            unitPage: studioUnitPage,
             sidebar: authoringSidebar,
             drawer: tagDrawer,
             taxonomyId: workerTaxonomy.taxonomy.id,
           };
           const name = workerTaxonomy.taxonomy.name;
-          const objectId = await prepare(ctx, level, `E2E addp ${test.info().testId.slice(-6)}`);
+          const objectId = await prepare(ctx, surface, `E2E addp ${test.info().testId.slice(-6)}`);
           await tagDrawer.beginEditing();
           await tagDrawer.openTagSelector(name);
           await tagDrawer.checkTag(name, TAG.parentOne);
@@ -296,23 +253,23 @@ for (const { level, ids } of LEVELS) {
           config,
           workerTaxonomy,
           authoringCourse,
-          studioCourseOutlinePage,
+          studioUnitPage,
           authoringSidebar,
           tagDrawer,
           studioAuthorSession,
         }) => {
           void studioAuthorSession;
-          const ctx: DrawerContext = {
+          const ctx: UnitDrawerContext = {
             page,
             config,
             courseKey: authoringCourse.courseKey,
-            outline: studioCourseOutlinePage,
+            unitPage: studioUnitPage,
             sidebar: authoringSidebar,
             drawer: tagDrawer,
             taxonomyId: workerTaxonomy.taxonomy.id,
           };
           const name = workerTaxonomy.taxonomy.name;
-          const objectId = await prepare(ctx, level, `E2E addc ${test.info().testId.slice(-6)}`);
+          const objectId = await prepare(ctx, surface, `E2E addc ${test.info().testId.slice(-6)}`);
           await tagDrawer.beginEditing();
           await tagDrawer.openTagSelector(name);
           await tagDrawer.expandTagChildren(name, TAG.parentOne);
@@ -341,23 +298,23 @@ for (const { level, ids } of LEVELS) {
           config,
           workerTaxonomy,
           authoringCourse,
-          studioCourseOutlinePage,
+          studioUnitPage,
           authoringSidebar,
           tagDrawer,
           studioAuthorSession,
         }) => {
           void studioAuthorSession;
-          const ctx: DrawerContext = {
+          const ctx: UnitDrawerContext = {
             page,
             config,
             courseKey: authoringCourse.courseKey,
-            outline: studioCourseOutlinePage,
+            unitPage: studioUnitPage,
             sidebar: authoringSidebar,
             drawer: tagDrawer,
             taxonomyId: workerTaxonomy.taxonomy.id,
           };
           const name = workerTaxonomy.taxonomy.name;
-          const objectId = await prepare(ctx, level, `E2E delp ${test.info().testId.slice(-6)}`, [
+          const objectId = await prepare(ctx, surface, `E2E delp ${test.info().testId.slice(-6)}`, [
             TAG.parentTwo,
           ]);
           await tagDrawer.beginEditing();
@@ -375,23 +332,23 @@ for (const { level, ids } of LEVELS) {
           config,
           workerTaxonomy,
           authoringCourse,
-          studioCourseOutlinePage,
+          studioUnitPage,
           authoringSidebar,
           tagDrawer,
           studioAuthorSession,
         }) => {
           void studioAuthorSession;
-          const ctx: DrawerContext = {
+          const ctx: UnitDrawerContext = {
             page,
             config,
             courseKey: authoringCourse.courseKey,
-            outline: studioCourseOutlinePage,
+            unitPage: studioUnitPage,
             sidebar: authoringSidebar,
             drawer: tagDrawer,
             taxonomyId: workerTaxonomy.taxonomy.id,
           };
           const name = workerTaxonomy.taxonomy.name;
-          const objectId = await prepare(ctx, level, `E2E delc ${test.info().testId.slice(-6)}`, [
+          const objectId = await prepare(ctx, surface, `E2E delc ${test.info().testId.slice(-6)}`, [
             TAG.childOneB,
           ]);
           await tagDrawer.beginEditing();
