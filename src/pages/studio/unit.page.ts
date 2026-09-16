@@ -135,7 +135,27 @@ export class StudioUnitPage {
    */
   async pasteAsNewUnit(): Promise<string> {
     const button = this.page.locator(this.s.sequenceActionButton).nth(1);
-    await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
+    // The paste button renders off the MFE's clipboard state. After "Copy to
+    // Clipboard" the MFE does not re-fetch the clipboard (measured: only the
+    // initial GET and the copy's POST), it updates state from the POST — which
+    // lands late or not at all on a slow target (verawood CI waited 30s for
+    // nothing). Give it a moment, then reload: a fresh page load issues the
+    // clipboard GET, and the button follows deterministically.
+    const appeared = await button
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.optionalOverlay })
+      .then(() => true)
+      .catch(() => false);
+    if (!appeared) {
+      await Promise.all([
+        this.page.waitForResponse(
+          (r) => r.url().endsWith(CLIPBOARD_PATH) && r.request().method() === 'GET',
+          { timeout: TIMEOUTS.navigation },
+        ),
+        this.page.reload(),
+      ]);
+      await this.header.waitFor();
+      await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
+    }
     return this.clickAndReadUnit(button);
   }
 

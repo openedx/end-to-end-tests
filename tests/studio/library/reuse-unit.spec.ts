@@ -38,7 +38,15 @@ test.describe(
       'a published library unit added to the outline reaches the learner with its components',
       { annotation: testId('TC-00347') },
       async (
-        { page, config, studioAuthorSession, resyncStudioAuthor, workerLibrary, contentCourse, roundTripLearnerLater },
+        {
+          page,
+          config,
+          studioAuthorSession,
+          resyncStudioAuthor,
+          workerLibrary,
+          contentCourse,
+          roundTripLearnerLater,
+        },
         testInfo,
       ) => {
         void studioAuthorSession;

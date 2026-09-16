@@ -84,7 +84,14 @@ test.describe('Library public read access', { tag: ['@regression', ...LIBRARY_TA
   test(
     'a member without the manage-team right sees the switch read-only, off and on',
     { annotation: [testId('TC-00423'), testId('TC-00424')] },
-    async ({ page, config, studioAuthorSession, resyncStudioAuthor, authoringLibrary, studioColleague }) => {
+    async ({
+      page,
+      config,
+      studioAuthorSession,
+      resyncStudioAuthor,
+      authoringLibrary,
+      studioColleague,
+    }) => {
       void studioAuthorSession;
       await resyncStudioAuthor();
       const member = await studioColleague({
@@ -109,7 +116,15 @@ test.describe('Library public read access', { tag: ['@regression', ...LIBRARY_TA
     'the course picker offers a library to unaffiliated users only while public read is on',
     { annotation: [testId('TC-00425'), testId('TC-00426')] },
     async (
-      { page, config, studioAuthorSession, resyncStudioAuthor, authoringLibrary, contentCourse, studioColleague },
+      {
+        page,
+        config,
+        studioAuthorSession,
+        resyncStudioAuthor,
+        authoringLibrary,
+        contentCourse,
+        studioColleague,
+      },
       testInfo,
     ) => {
       void studioAuthorSession;
