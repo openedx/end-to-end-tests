@@ -373,11 +373,25 @@ export const COURSE_LIBRARY_SYNC_SELECTORS = {
   /** The preview-changes modal (`PreviewLibraryXBlockChanges`) and its old / new tabs. */
   previewModal: '[role="dialog"].lib-preview-xblock-changes-modal',
   compareTab: (key: 'old' | 'new') => `#preview-version-toggle-tab-${key}`,
-  /** Footer: "Accept changes" (stateful primary) and "Ignore changes" (tertiary; "Keep course content" appears as another tertiary when the block is customized). */
+  /**
+   * Footer, untouched block: "Accept changes" (primary) and "Ignore changes"
+   * (tertiary). Footer, block customized in the course: the primary becomes
+   * "Keep course content" and the single tertiary is "Update to published
+   * library content" (the sync); the modal body then also carries a "has local
+   * edits" alert, which is how a caller tells the two footers apart.
+   */
   acceptButton:
     '[role="dialog"].lib-preview-xblock-changes-modal .pgn__modal-footer button.btn-primary',
   ignoreButton:
     '[role="dialog"].lib-preview-xblock-changes-modal .pgn__modal-footer button.btn-tertiary:last-child',
+  localEditsAlert:
+    '[role="dialog"].lib-preview-xblock-changes-modal .pgn__modal-body .alert, [role="dialog"].lib-preview-xblock-changes-modal .pgn__modal-body [role="alert"]',
+  customizedSyncButton:
+    '[role="dialog"].lib-preview-xblock-changes-modal .pgn__modal-footer button.btn-tertiary',
+  keepCourseContentButton:
+    '[role="dialog"].lib-preview-xblock-changes-modal .pgn__modal-footer button.btn-primary',
+  /** The primary ("Keep course content") confirm in the keep-course-content `AlertModal`; the discard confirm reuses `ignoreConfirmButton` (danger). */
+  confirmPrimaryButton: '[role="dialog"].pgn__alert-modal .pgn__modal-footer button.btn-primary',
   /**
    * The "Ignore these changes?" confirmation (`AlertModal variant=warning`) that
    * Ignore opens — from the preview modal and from a Review-tab card alike:

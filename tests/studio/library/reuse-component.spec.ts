@@ -124,6 +124,11 @@ test.describe(
         void studioAuthorSession;
         const { text } = workerLibrary.blocks;
         const marker = label('synced', testInfo.testId);
+        // Our own markers, hoisted so the learner-side assertions read a variable,
+        // never a literal (ARCHITECTURE.md: locators never depend on displayed text).
+        const v1 = `${marker} v1`;
+        const v2 = `${marker} v2`;
+        const v3 = `${marker} v3`;
         // Re-sync once, before the course structure and before any learner.
         await resyncStudioAuthor();
         const section = await buildSection(
@@ -140,7 +145,7 @@ test.describe(
           page.request,
           config,
           text.id,
-          libraryOlx.html(text.display_name, `${marker} v1`),
+          libraryOlx.html(text.display_name, v1),
         );
         await commitLibrary(page.request, config, workerLibrary.libraryKey);
         const imported = await reuseInCourse(page.request, config, {
@@ -153,14 +158,14 @@ test.describe(
         const learner = await roundTripLearnerLater();
         await learner.prime(subsectionKey);
         await learner.unitPage.goto(contentCourse.courseKey, subsectionKey, unitKey);
-        await expect(learner.unitPage.block(imported.locator)).toContainText(`${marker} v1`);
+        await expect(learner.unitPage.block(imported.locator)).toContainText(v1);
 
         // A published library edit becomes available; accept it from the unit page.
         await setLibraryBlockOlx(
           page.request,
           config,
           text.id,
-          libraryOlx.html(text.display_name, `${marker} v2`),
+          libraryOlx.html(text.display_name, v2),
         );
         await publishLibraryBlock(page.request, config, text.id);
         expect((await waitForSyncAvailable(page.request, config, imported.locator)).satisfied).toBe(
@@ -176,14 +181,14 @@ test.describe(
         expect(accepted.version_synced).toBe(accepted.version_available);
         await publishXBlock(page.request, config, unitKey);
         await learner.unitPage.goto(contentCourse.courseKey, subsectionKey, unitKey);
-        await expect(learner.unitPage.block(imported.locator)).toContainText(`${marker} v2`);
+        await expect(learner.unitPage.block(imported.locator)).toContainText(v2);
 
         // The next edit is declined from the unit page and the learner keeps v2.
         await setLibraryBlockOlx(
           page.request,
           config,
           text.id,
-          libraryOlx.html(text.display_name, `${marker} v3`),
+          libraryOlx.html(text.display_name, v3),
         );
         await publishLibraryBlock(page.request, config, text.id);
         expect((await waitForSyncAvailable(page.request, config, imported.locator)).satisfied).toBe(
@@ -197,7 +202,7 @@ test.describe(
         expect(declined.version_declined).toBe(declined.version_available);
         await publishXBlock(page.request, config, unitKey);
         await learner.unitPage.goto(contentCourse.courseKey, subsectionKey, unitKey);
-        await expect(learner.unitPage.block(imported.locator)).toContainText(`${marker} v2`);
+        await expect(learner.unitPage.block(imported.locator)).toContainText(v2);
       },
     );
   },
