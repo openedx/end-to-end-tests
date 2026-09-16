@@ -409,3 +409,13 @@ export {
   type AgreementRecord,
   type UserAgreement,
 } from './agreements';
+export {
+  fetchAssets,
+  fetchAllAssets,
+  uploadAsset,
+  setAssetLock,
+  deleteAsset,
+  assetStudioUrl,
+  type CourseAsset,
+  type AssetQuery,
+} from './assets';

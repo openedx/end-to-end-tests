@@ -37,6 +37,7 @@ import { AuthoringSidebar } from '../pages/studio/sidebar/authoring-sidebar.page
 import { TagDrawer } from '../pages/studio/sidebar/tag-drawer.page';
 import { TaxonomyListPage } from '../pages/studio/taxonomies/taxonomy-list.page';
 import { TaxonomyDetailPage } from '../pages/studio/taxonomies/taxonomy-detail.page';
+import { FilesPage } from '../pages/studio/files/files.page';
 import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
@@ -270,6 +271,8 @@ export interface TestFixtures {
   authoringSidebar: AuthoringSidebar;
   /** The content tag drawer (embedded in the Align sidebar). */
   tagDrawer: TagDrawer;
+  /** The Studio Files page (course assets). */
+  filesPage: FilesPage;
   /** The video component editor page object. */
   studioVideoEditor: StudioVideoEditor;
   /** The text (TinyMCE) component editor page object. */
@@ -1601,6 +1604,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   authoringSidebar: pageObjectFixture(AuthoringSidebar),
 
   tagDrawer: pageObjectFixture(TagDrawer),
+  filesPage: pageObjectFixture(FilesPage),
 
   studioVideoEditor: pageObjectFixture(StudioVideoEditor),
 
