@@ -36,3 +36,11 @@ export {
   type LibraryShape,
 } from './library';
 export { pollUntil, type PollOutcome } from './poll';
+export {
+  TAG,
+  acceptUploadAgreements,
+  seedTaxonomy,
+  tagObject,
+  taxonomyImportFile,
+  waitForTagCount,
+} from './tagging';

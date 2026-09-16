@@ -71,9 +71,39 @@ export const CAPABILITIES = [
   // `load.ts`) and enables the `author` role; leaving it undeclared skips the
   // whole `tests/studio/` tree so an LMS-only target runs cleanly.
   'studio',
-  // Content tagging: the taxonomy list in the authoring MFE and the tag drawers
-  // on outline items. Reported by Studio's home API as `taxonomies_enabled`.
+  // Content tagging: the taxonomy list/detail pages in the authoring MFE
+  // (`/taxonomies`, `ENABLE_TAGGING_TAXONOMY_PAGES`) and the tag drawers on
+  // outline items, unit-page components and the Align sidebar. Reported by
+  // Studio's home API as `taxonomies_enabled`; declared for `main`/`verawood`,
+  // undeclared on `ulmo` and earlier. **Managing** taxonomies (import, assign to
+  // an org, export, delete) is restricted to a taxonomy admin (staff/superuser),
+  // so the specs that drive the taxonomy pages seed and act as the admin under
+  // the admin lock and skip without an admin account — like `certificates`.
+  // **Tagging** an object (the drawers) needs write access to that object's
+  // course: on `main`/`verawood` course object-tags go through openedx-authz
+  // (`COURSES_MANAGE_TAGS`, the `authz.enable_course_authoring` flag), granted to
+  // a course's creator at creation, so the worker author tags only courses it
+  // created this run.
   'taxonomies',
+  // The Verawood authoring sidebar: the Info / Add / Align / Help rail on the
+  // course-outline page and the Info / Add / Align rail on the unit page
+  // (`src/generic/sidebar`, the `CourseAuthoring*SidebarSlot`s). Present on
+  // `main` and `verawood`; `ulmo` and earlier render neither the outline
+  // Info/Add/Align pages nor the unit-page sidebar, so they leave it undeclared
+  // and the sidebar specs skip. Not a version switch — the tag drawer opens from
+  // the card kebab on every release and stays ungated beyond `taxonomies`; this
+  // gates only the coverage that is *about* the sidebar rail and its panels.
+  'authoring-sidebar',
+  // File/video upload agreements: the authoring MFE blocks the Files (and Videos)
+  // upload controls behind a banner until the user accepts each configured
+  // agreement, driven by the `AGREEMENT_GATING` MFE-config map
+  // ({ "upload"|"upload.files"|"upload.videos": type|[types] }) and the LMS
+  // `/api/agreements/v1/` API. The gating map is site configuration read from
+  // `/api/mfe_config/v1` (cached ~5 min), so it cannot be toggled per run: an
+  // install declares this only when it has configured the map (CI sets it in the
+  // Tutor patch), and the specs read the map, seed the matching `UserAgreement`
+  // rows via Django admin, and skip where it is absent or no admin is configured.
+  'upload-agreements',
   // Optional component (XBlock) types an author can add to a unit. Each is a
   // tile in the unit page's "Add component" bar and an entry in the CMS
   // `container_handler` API's `component_templates`; a declared type that the
