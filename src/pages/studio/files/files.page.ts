@@ -63,17 +63,13 @@ export class FilesPage {
       .waitFor({ timeout: TIMEOUTS.navigation });
   }
 
-  /** One asset's card / its 3-dot menu button / its list row, by asset id. */
+  /** One asset's card / its 3-dot menu button, by asset id. */
   card(assetId: string): Locator {
     return this.page.locator(this.s.card(assetId));
   }
 
   itemMenuButton(assetId: string): Locator {
     return this.page.locator(this.s.itemMenu(assetId));
-  }
-
-  rowFor(assetId: string): Locator {
-    return this.page.locator(this.s.rowFor(assetId));
   }
 
   /** Types into the name search (client-side filter). */

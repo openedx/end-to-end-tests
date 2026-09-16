@@ -161,3 +161,20 @@ outcome").
   `addLegacyLibraryBlock`, `listLegacyLibraries`) and the modulestore migrator
   (`startMigration`, `fetchMigration` — `undefined` on the retrieve-404 race a
   caller polls through — `isMigrationSettled`).
+- `tagging.ts` — the content-tagging API (`content_tagging/v1/`): taxonomy
+  lifecycle (`listTaxonomies`, `importTaxonomy`, `setTaxonomyOrgs`,
+  `deleteTaxonomy`, `listTaxonomyTags`) and object tags (`fetchObjectTags`,
+  `setObjectTags`, `fetchObjectTagCounts`) — the tag drawer's oracle.
+- `mfe-config.ts` — `fetchAuthoringMfeConfig`: the authoring MFE's `/api/mfe_config`
+  (the normalized `AGREEMENT_GATING` map, tagging/assets flags); `agreementTypesIn`.
+- `agreements.ts` — the upload-agreement record API (`fetchAgreementRecord`,
+  `acceptAgreement`, `listAgreements`): `is_current` is the gating oracle.
+- `agreements-admin.ts` — `ensureAgreement` / `bumpAgreementUpdated`: seed and
+  edit `UserAgreement` rows through the LMS Django admin (no REST API), on a
+  `loginSession` context.
+- `assets.ts` — the Studio Files API (`/assets/<key>/`): `fetchAssets`,
+  `uploadAsset`, `setAssetLock`, `deleteAsset` — the course asset oracle.
+- `textbooks.ts` — course PDF textbooks (`fetchTextbooks`, `createTextbook`,
+  `deleteTextbook`); the learner effect is read via `fetchCourseMetadata` tabs.
+- `course-updates.ts` — `fetchCourseUpdates` / `fetchHandouts`: the Course
+  Updates page's `course_info_update` and handouts-xblock oracles.

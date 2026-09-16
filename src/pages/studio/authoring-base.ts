@@ -27,22 +27,6 @@ export async function authoringCourseBaseUrl(
 }
 
 /**
- * The authoring MFE's mount base (e.g. `${APPS}/authoring`), derived from the
- * course redirect above by stripping its `/course/<key>` tail. Used by the MFE
- * pages that are **not** course-scoped and have no Studio alias — the taxonomy
- * list and detail pages (`/taxonomies`, `/taxonomy/<id>`). Any course the caller
- * owns serves only to resolve the release-varying mount.
- */
-export async function authoringMfeBaseUrl(
-  page: Page,
-  config: AppConfig,
-  courseKeyForRedirect: string,
-): Promise<string> {
-  const courseBase = await authoringCourseBaseUrl(page, config, courseKeyForRedirect);
-  return courseBase.replace(/\/course\/.*$/, '');
-}
-
-/**
  * The authoring MFE's mount base derived from the Studio-home redirect rather
  * than a course — for the taxonomy pages, whose only actor is the admin (who owns
  * no course). Studio `/home` redirects to the MFE home on the apps origin; this
