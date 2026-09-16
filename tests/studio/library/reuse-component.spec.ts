@@ -11,9 +11,10 @@ import {
   publishLibraryBlock,
   publishXBlock,
   setLibraryBlockOlx,
+  importLibraryContent,
 } from '../../../src/api';
 import { testId } from '../../../src/reporting';
-import { reuseInCourse, waitForLearnerBlock, waitForSyncAvailable } from '../../../src/steps';
+import { waitForLearnerBlock, waitForSyncAvailable } from '../../../src/steps';
 import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, label } from './helpers';
 
 /**
@@ -148,7 +149,7 @@ test.describe(
           libraryOlx.html(text.display_name, v1),
         );
         await commitLibrary(page.request, config, workerLibrary.libraryKey);
-        const imported = await reuseInCourse(page.request, config, {
+        const imported = await importLibraryContent(page.request, config, {
           parentLocator: unitKey,
           category: 'html',
           libraryContentKey: text.id,

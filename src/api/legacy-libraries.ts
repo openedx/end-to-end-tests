@@ -12,8 +12,8 @@ import { createXBlock } from './xblock';
  * (`POST /library/`, course-creator gated) and cannot be deleted through any
  * API (`DELETE` → `405`), so a spec creates as few as it can.
  */
-export const LEGACY_LIBRARY_PATH = '/library/';
-export const STUDIO_HOME_LIBRARIES_PATH = '/api/contentstore/v1/home/libraries';
+const LEGACY_LIBRARY_PATH = '/library/';
+const STUDIO_HOME_LIBRARIES_PATH = '/api/contentstore/v1/home/libraries';
 export const MIGRATOR_PATH = '/api/modulestore_migrator/v1/';
 
 export interface LegacyLibraryCreation {
@@ -24,12 +24,11 @@ export interface LegacyLibraryCreation {
 }
 
 /** The key Studio assigns: `library-v1:<org>+<number>`. */
-export function legacyLibraryKeyFor(org: string, number: string): string {
-  return `library-v1:${org}+${number}`;
-}
 
 /** The root block every legacy library's content hangs off. */
-export function legacyLibraryRootUsageKey(libraryKey: string): string {
+
+/** The root usage key of a legacy library — the parent every legacy block is created under. */
+function legacyLibraryRootUsageKey(libraryKey: string): string {
   return `lib-block-v1:${libraryKey.slice('library-v1:'.length)}+type@library+block@library`;
 }
 
@@ -105,7 +104,7 @@ export async function listLegacyLibraries(
 // --- migration -------------------------------------------------------------------
 
 /** `Pending`, `In Progress`, `Succeeded` or `Failed` (the platform's `state_text` vocabulary). */
-export type MigrationState = string;
+export type MigrationState = 'Not Started' | 'In Progress' | 'Succeeded' | 'Failed' | (string & {});
 
 export interface MigrationTask {
   readonly uuid: string;
@@ -168,26 +167,6 @@ export async function startMigration(
 }
 
 /** Queues the migration of several legacy libraries into one v2 library. */
-export async function startBulkMigration(
-  request: APIRequestContext,
-  config: AppConfig,
-  sourceLibraryKeys: readonly string[],
-  targetLibraryKey: string,
-  options: MigrationOptions = {},
-): Promise<readonly MigrationTask[]> {
-  const body = await studioWrite<unknown>(
-    request,
-    config,
-    'POST',
-    `${MIGRATOR_PATH}bulk_migration/`,
-    `Migrating ${sourceLibraryKeys.length} legacy libraries into ${targetLibraryKey}`,
-    { sources: sourceLibraryKeys, target: targetLibraryKey, ...migrationBody(options) },
-  );
-  if (Array.isArray(body)) {
-    return body as readonly MigrationTask[];
-  }
-  return [body as MigrationTask];
-}
 
 /**
  * Reads a migration task. Returns `undefined` while the task is not yet visible:

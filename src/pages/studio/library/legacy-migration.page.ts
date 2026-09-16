@@ -1,6 +1,6 @@
-import type { Locator, Page, Response } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
-import { MIGRATOR_PATH } from '../../../api';
+import { MIGRATOR_PATH, type MigrationTask } from '../../../api';
 import {
   LEGACY_MIGRATION_SELECTORS,
   TIMEOUTS,
@@ -42,10 +42,10 @@ export class LegacyMigrationPage {
   /** Ticks the legacy library whose card shows `displayName`. */
   async selectLegacyLibrary(displayName: string): Promise<void> {
     await this.page
-      .locator('[role="group"] > *, .pgn__form-control-set > *')
+      .locator(this.s.legacyLibraryCard)
       .filter({ hasText: displayName })
       .first()
-      .locator('input[type="checkbox"]')
+      .locator(this.s.legacyLibraryCardCheckbox)
       .check();
   }
 
@@ -70,8 +70,8 @@ export class LegacyMigrationPage {
   }
 
   /** "Confirm", waiting for the migration request; returns its response. */
-  async confirm(): Promise<Response> {
-    return waitForWrite(
+  async confirm(): Promise<MigrationTask[]> {
+    const response = await waitForWrite(
       this.page,
       {
         method: 'POST',
@@ -80,5 +80,8 @@ export class LegacyMigrationPage {
       },
       () => this.page.locator(this.s.footerPrimaryButton).last().click(),
     );
+    // One source answers with a task, several (`bulk_migration/`) with a list.
+    const body = (await response.json()) as MigrationTask | MigrationTask[];
+    return Array.isArray(body) ? body : [body];
   }
 }

@@ -222,6 +222,10 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
       ).toBe(true);
       // Step two publishes.
       await libraryPage.sidebar.openPublishConfirmation();
+      await checkA11y(page, {
+        label: 'library-publish-confirm',
+        additionalBaseline: LIBRARY_A11Y_BASELINE,
+      });
       await libraryPage.sidebar.confirmPublish();
       expect(
         (await fetchLibraryBlock(page.request, config, block.id)).has_unpublished_changes,
@@ -239,8 +243,7 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
 
       await libraryPage.goto(authoringLibrary.id, 'components');
       await libraryPage.cardFor(title).first().waitFor();
-      await libraryPage.openCardMenu(title);
-      await page.locator('.dropdown-menu.show .dropdown-item:last-child').click();
+      await libraryPage.openCardDelete(title);
       await libraryPage.cancelDialog();
       expect((await listLibraryBlocks(page.request, config, authoringLibrary.id)).count).toBe(1);
 

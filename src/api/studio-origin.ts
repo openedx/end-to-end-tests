@@ -58,29 +58,55 @@ export function nonJsonPreview(text: string): string {
   return text.slice(0, 200).replace(/\s+/g, ' ').trim();
 }
 
+/** How {@link studioJson} reads a client's responses. */
+export interface StudioJsonOptions {
+  /** A `204` or empty `2xx` body is a success and reads as `undefined` (deletes, publishes). */
+  readonly allowEmpty?: boolean;
+  /** What a `403` means for this client, appended to its message (the v2 library API: "not a member…"). */
+  readonly forbiddenHint?: string;
+}
+
 /**
  * Reads a JSON body from a Studio response or throws an {@link ApiError} naming
  * the request. Shared by the Studio clients so their success paths stay short.
+ * A `5xx` or a non-JSON `2xx` body is marked `retryable` (an overloaded CMS
+ * letting an HTML error page through); a `4xx` is a real rejection.
  */
 export async function studioJson<T>(
   response: Awaited<ReturnType<APIRequestContext['fetch']>>,
   what: string,
+  options: StudioJsonOptions = {},
 ): Promise<T> {
   const url = response.url();
+  const status = response.status();
+  const text = await response.text();
+  if (status === 403 && options.forbiddenHint !== undefined) {
+    throw new ApiError(
+      `${what} was refused (HTTP 403): ${options.forbiddenHint}. ${nonJsonPreview(text)}`,
+      {
+        status,
+        url,
+        body: text,
+      },
+    );
+  }
   if (!response.ok()) {
-    throw new ApiError(`${what} failed (HTTP ${response.status()}).`, {
-      status: response.status(),
+    throw new ApiError(`${what} failed (HTTP ${status}): ${nonJsonPreview(text)}`, {
+      status,
       url,
-      body: await response.text(),
+      body: text,
+      retryable: status >= 500,
     });
   }
-  const text = await response.text();
+  if (options.allowEmpty === true && (status === 204 || text.trim() === '')) {
+    return undefined as T;
+  }
   try {
     return JSON.parse(text) as T;
   } catch {
     throw new ApiError(
-      `${what} returned HTTP ${response.status()} with a non-JSON body: ${nonJsonPreview(text)}`,
-      { status: response.status(), url, body: text.slice(0, 500) },
+      `${what} returned HTTP ${status} with a non-JSON body: ${nonJsonPreview(text)}`,
+      { status, url, body: text.slice(0, 500), retryable: true },
     );
   }
 }

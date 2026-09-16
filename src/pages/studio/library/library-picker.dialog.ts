@@ -48,17 +48,11 @@ export class LibraryPickerDialog {
    * `searchTerm` (the library's title) to filter the list down to it first.
    */
   async selectLibrary(libraryKey: string, searchTerm?: string): Promise<void> {
-    if (searchTerm !== undefined) {
-      const input = this.page.locator(this.s.librarySearchInput);
-      await input.fill(searchTerm);
-      await input.press('Enter');
-    }
+    if (searchTerm !== undefined) await this.searchLibraries(searchTerm);
     // The radio input is visually hidden behind its card; clicking the card selects it.
     const card = this.page
-      .locator('[role="dialog"] .pgn__card')
-      .filter({
-        has: this.page.locator(`input[name="selected-library"][value="${libraryKey}"]`),
-      })
+      .locator(this.s.libraryCard)
+      .filter({ has: this.page.locator(this.s.libraryRadioInput(libraryKey)) })
       .first();
     // A just-seeded library can lag in the picker's index; wait on the search
     // budget rather than the click's default before selecting it.

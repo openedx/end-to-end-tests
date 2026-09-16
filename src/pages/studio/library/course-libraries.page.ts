@@ -55,16 +55,22 @@ export class CourseLibrariesPage {
    */
   async waitForReviewCard(courseKey: string, title: string): Promise<void> {
     const card = this.reviewCardFor(title).first();
-    const deadline = Date.now() + TIMEOUTS.libraryMigration;
+    const deadline = Date.now() + TIMEOUTS.libraryReviewIndex;
+    const appears = () =>
+      card
+        .waitFor({ timeout: TIMEOUTS.optionalOverlay })
+        .then(() => true)
+        .catch(() => false);
     await this.goto(courseKey, 'review');
-    for (;;) {
-      if (await card.isVisible().catch(() => false)) return;
+    // Each pass gives the freshly loaded tab a short, condition-based wait for
+    // the card, then reloads it: a tab loaded before the index caught up shows
+    // "all up to date" and does not refresh itself.
+    while (!(await appears())) {
       if (Date.now() > deadline) break;
-      await this.page.waitForTimeout(3_000);
       await this.goto(courseKey, 'review');
     }
     // One last wait so the failure is the card locator, not a silent fall-through.
-    await card.waitFor({ timeout: TIMEOUTS.librarySearch });
+    await card.waitFor({ timeout: TIMEOUTS.optionalOverlay });
   }
 
   /** "Review Updates" on a card — opens the preview-changes modal. */

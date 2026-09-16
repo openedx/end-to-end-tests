@@ -53,13 +53,6 @@ export interface DownstreamListRow {
 }
 
 /** One row of `GET downstreams/<course>/summary` — per source library. */
-export interface DownstreamSummaryRow {
-  readonly upstream_context_key: string;
-  readonly upstream_context_title: string;
-  readonly ready_to_sync_count: number;
-  readonly total_count: number;
-  readonly last_published_at: string | null;
-}
 
 export interface ImportLibraryContentOptions {
   /** The course block the new block goes under: a vertical for a component, a sequential for a unit, a chapter for a subsection, the course for a section. */
@@ -162,18 +155,6 @@ export async function listDownstreams(
   return page.results;
 }
 
-export async function fetchDownstreamSummary(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-): Promise<readonly DownstreamSummaryRow[]> {
-  const response = await request.get(
-    `${studioOrigin(config)}${DOWNSTREAMS_PATH}${encodeURIComponent(courseKey)}/summary`,
-    { headers: STUDIO_JSON_ACCEPT },
-  );
-  return studioJson(response, `Reading the library sync summary of ${courseKey}`);
-}
-
 /** Applies the library's latest published version to the course block ("Accept changes"). */
 export async function acceptSync(
   request: APIRequestContext,
@@ -205,16 +186,3 @@ export async function declineSync(
 }
 
 /** Severs the link; the course block keeps its content. */
-export async function unlinkDownstream(
-  request: APIRequestContext,
-  config: AppConfig,
-  usageKey: string,
-): Promise<void> {
-  await studioWrite<void>(
-    request,
-    config,
-    'DELETE',
-    `${DOWNSTREAMS_PATH}${usageKey}`,
-    `Unlinking ${usageKey} from its library item`,
-  );
-}

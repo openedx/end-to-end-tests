@@ -13,9 +13,10 @@ import {
   publishLibraryBlock,
   publishXBlock,
   setLibraryBlockOlx,
+  importLibraryContent,
 } from '../../../src/api';
 import { testId } from '../../../src/reporting';
-import { reuseInCourse, waitForLearnerBlock, waitForSyncAvailable } from '../../../src/steps';
+import { waitForLearnerBlock, waitForSyncAvailable } from '../../../src/steps';
 import { LIBRARY_TAGS, authorTextBlock, label } from './helpers';
 
 /**
@@ -72,7 +73,7 @@ test.describe(
         );
         const unitKey = section.units[0]?.usageKey ?? '';
         const subsectionKey = section.subsections[0]?.usageKey ?? '';
-        const imported = await reuseInCourse(page.request, config, {
+        const imported = await importLibraryContent(page.request, config, {
           parentLocator: unitKey,
           category: 'html',
           libraryContentKey: block.id,
@@ -168,7 +169,7 @@ test.describe(
           category: 'sequential',
           displayName: 'Subsection',
         });
-        const imported = await reuseInCourse(page.request, config, {
+        const imported = await importLibraryContent(page.request, config, {
           parentLocator: sequential,
           category: 'vertical',
           libraryContentKey: unit.id,
@@ -230,7 +231,7 @@ test.describe(
           },
         );
         const unitKey = section.units[0]?.usageKey ?? '';
-        const imported = await reuseInCourse(page.request, config, {
+        const imported = await importLibraryContent(page.request, config, {
           parentLocator: unitKey,
           category: 'html',
           libraryContentKey: block.id,

@@ -1,5 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 
+import { pollUntil, type PollOutcome } from './poll';
 import { TIMEOUTS, type AppConfig, type LibraryContainerType } from '../config';
 import {
   addCollectionItems,
@@ -11,7 +12,7 @@ import {
   createLibraryContainer,
   fetchDownstream,
   fetchMigration,
-  importLibraryContent,
+  isMigrationSettled,
   libraryOlx,
   newLibrarySlug,
   setLibraryBlockOlx,
@@ -19,8 +20,6 @@ import {
   type ContentLibrary,
   type CourseOutline,
   type DownstreamLink,
-  type ImportLibraryContentOptions,
-  type ImportedLibraryContent,
   type LibraryBlock,
   type LibraryCollection,
   type LibraryContainer,
@@ -37,28 +36,7 @@ import {
  * spec's failure message can show the readings (`PLAT-009`'s lesson).
  */
 
-const POLL_INTERVAL_MS = 1_000;
-
 /** The outcome of a bounded poll: whether the condition held, and the last reading. */
-export interface LibraryPollOutcome<T> {
-  readonly satisfied: boolean;
-  readonly last: T;
-  readonly elapsedMs: number;
-}
-
-async function pollUntil<T>(
-  read: () => Promise<T>,
-  satisfied: (reading: T) => boolean,
-  timeoutMs: number,
-): Promise<LibraryPollOutcome<T>> {
-  const started = Date.now();
-  let last = await read();
-  while (!satisfied(last) && Date.now() - started < timeoutMs) {
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    last = await read();
-  }
-  return { satisfied: satisfied(last), last, elapsedMs: Date.now() - started };
-}
 
 // --- authoring a library -------------------------------------------------------
 
@@ -124,7 +102,7 @@ function olxFor(spec: LibraryBlockSpec): string | undefined {
     case 'pdf':
       return libraryOlx.pdf(spec.displayName, spec.content ?? '');
     case 'problem':
-      return `<problem display_name="${spec.displayName}"><multiplechoiceresponse><choicegroup type="MultipleChoice"><choice correct="true">Yes</choice><choice correct="false">No</choice></choicegroup></multiplechoiceresponse></problem>`;
+      return libraryOlx.problem(spec.displayName);
   }
 }
 
@@ -231,33 +209,12 @@ export async function authorLibrary(
   return { library, libraryKey, blocks, units, subsections, sections, collections };
 }
 
-// --- reuse in a course -----------------------------------------------------------
-
-/**
- * Imports a library item into a course as the author — the legacy `/xblock/`
- * write behind the "Library Content" picker. Drive it on `page.request`: it
- * shares the browser's live Studio session, which `studioAuthorSession` keeps
- * alive. Do **not** re-run the SSO handshake here — on a context whose LMS
- * session has lapsed (a second learner was provisioned) the handshake replaces
- * a still-good `studio_session_id` with an anonymous one and the write then
- * 302s (Epic 10 measured this).
- */
-export async function reuseInCourse(
-  request: APIRequestContext,
-  config: AppConfig,
-  options: ImportLibraryContentOptions,
-): Promise<ImportedLibraryContent> {
-  // `request` must already hold a live Studio session; the caller (a spec on
-  // `page.request`, kept clean of library v2 writes) provides it.
-  return importLibraryContent(request, config, options);
-}
-
 /** Polls a course block's library link until the library has a newer published version for it. */
 export async function waitForSyncAvailable(
   request: APIRequestContext,
   config: AppConfig,
   downstreamKey: string,
-): Promise<LibraryPollOutcome<DownstreamLink>> {
+): Promise<PollOutcome<DownstreamLink>> {
   return pollUntil(
     () => fetchDownstream(request, config, downstreamKey),
     (link) => link.ready_to_sync,
@@ -270,10 +227,10 @@ export async function waitForMigration(
   request: APIRequestContext,
   config: AppConfig,
   uuid: string,
-): Promise<LibraryPollOutcome<MigrationTask | undefined>> {
+): Promise<PollOutcome<MigrationTask | undefined>> {
   return pollUntil(
     () => fetchMigration(request, config, uuid),
-    (task) => task !== undefined && ['succeeded', 'failed'].includes(task.state.toLowerCase()),
+    (task) => task !== undefined && isMigrationSettled(task),
     TIMEOUTS.libraryMigration,
   );
 }
@@ -287,7 +244,7 @@ export async function waitForMigration(
 export async function waitForLearnerBlock(
   readOutline: () => Promise<CourseOutline>,
   usageKey: string,
-): Promise<LibraryPollOutcome<readonly string[]>> {
+): Promise<PollOutcome<readonly string[]>> {
   return pollUntil(
     async () => {
       const outline = await readOutline();

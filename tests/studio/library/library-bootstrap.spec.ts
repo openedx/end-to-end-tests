@@ -1,6 +1,6 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { reuseInCourse, waitForMigration, waitForSyncAvailable } from '../../../src/steps';
+import { waitForMigration, waitForSyncAvailable } from '../../../src/steps';
 import {
   DEFAULT_COURSE_ORG,
   LibraryDeleteRestrictedError,
@@ -36,6 +36,7 @@ import {
   publishLibraryBlock,
   setLibraryBlockOlx,
   startMigration,
+  importLibraryContent,
 } from '../../../src/api';
 
 /**
@@ -138,7 +139,7 @@ test.describe(
         category: 'vertical',
         displayName: 'Unit',
       });
-      const imported = await reuseInCourse(request, config, {
+      const imported = await importLibraryContent(request, config, {
         parentLocator: vertical,
         category: 'html',
         libraryContentKey: text.id,

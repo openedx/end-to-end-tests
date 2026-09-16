@@ -234,10 +234,12 @@ behind the opt-in `content-libraries-v1`. Their specs live in
   creators** provisioned per test (`studioColleague`) on their own contexts:
   `allow_public_read` grants a plain learner nothing (measured), so a learner is
   never the "other user" of an access case.
-- **The v2 API accepts the JWT; the legacy writes do not.** Library reads and
-  writes ride `page.request`. Legacy `POST /library/` and the course-side
-  `POST /xblock/` (the import, the section build) are session-authed and 302 to
-  sign-in when the Studio session is gone.
+- **Everything here is Studio-session-authed.** The v2 API answered the
+  author's Studio session cookie with no JWT in the jar (measured, plan §1.2),
+  so library reads and writes ride `page.request` — the browser's own session.
+  Legacy `POST /library/` and the course-side `POST /xblock/` (the import, the
+  section build) are session-authed too, and 302 to sign-in when that session
+  is gone.
 - **Never run the API SSO handshake from a spec.** v2 library writes rotate the
   Studio session on the context that makes them, and `establishStudioSession`
   _corrupts_ a session whose LMS half a provisioned learner has left stale — a

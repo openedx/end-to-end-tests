@@ -10,7 +10,7 @@
  * Measured live on Tutor `main` (2026-09-15, `frontend-app-authoring`
  * `87cba01f`-era shell build). The MFE ships very few test ids in the library
  * tree (the card / sidebar kebab toggles, the sidebar, the block preview
- * iframe, two error alerts) — recorded as `LIB-003` — and every button label,
+ * iframe, two error alerts) — recorded as `LIB-005` — and every button label,
  * tab title and menu item is localized. So the anchors are Paragon tab
  * `eventKey`s (`data-rb-event-key`, not localized), `name` / `id` attributes,
  * the few test ids, structural containers (a button's position in a known
@@ -98,8 +98,6 @@ export const LIBRARY_SELECTORS = {
   unitPage: '.library-unit-page',
   /** A section / subsection landing page's child list. */
   containerChildren: '.library-container-children',
-  /** The breadcrumb links above a container page (library, then parents). */
-  breadcrumbLink: '.sub-header-breadcrumbs a',
 
   /**
    * The header's action buttons, in order: the Info button ("Library Info" /
@@ -118,12 +116,9 @@ export const LIBRARY_SELECTORS = {
 
   /** One content tab (Paragon `Tabs`), by its non-localized `eventKey`. */
   tab: (tab: LibraryTab) => `a[role="tab"][data-rb-event-key="${tab}"]`,
-  /** The active tab's panel — where the cards render. */
-  activeTabPanel: '[role="tabpanel"].active',
 
   /** The search box (Paragon `SearchField`) inside the library page and its clear ("×") button. */
   searchInput: '.library-authoring-page input[name="searchfield-input"][role="searchbox"]',
-  searchClearButton: '.library-authoring-page button.pgn__searchfield__iconbutton-reset',
   /** The "Sort" dropdown toggle and its open menu's items. */
   sortToggle: '#search-sort-toggle',
   sortMenuItem: '.dropdown-menu.show[aria-labelledby="search-sort-toggle"] .dropdown-item',
@@ -163,8 +158,8 @@ export const LIBRARY_SELECTORS = {
    */
   cardTitle:
     '.pgn__card-section .h3, .pgn__card-header-title-sm, .pgn__card-header-title-md, .inplace-text-editor-label',
-  /** The status badge on a card ("Published" / "Draft" / "Unpublished changes"); variant class tells which. */
-  cardBadge: '.badge',
+  /** Just the component / container cards' body title — one element per card, for order assertions. */
+  cardBodyTitle: '.pgn__card-section .h3',
   /** The card kebab toggles — the test ids the MFE ships. */
   componentCardMenuToggle: '[data-testid="component-card-menu-toggle"]',
   containerCardMenuToggle: '[data-testid="container-card-menu-toggle"]',
@@ -195,8 +190,6 @@ export const LIBRARY_SELECTORS = {
   menuLastItem: '.dropdown-menu.show .dropdown-item:last-child',
   menuRemoveItem: '.dropdown-menu.show .dropdown-divider ~ .dropdown-item:not(:last-child)',
 
-  /** The item sidebar's kebab (container info) — "Copy to clipboard", "Delete". */
-  containerInfoMenuToggle: '[data-testid="container-info-menu-toggle"]',
   /** Item-sidebar tabs by `eventKey` (component: preview/manage/usage/details; container: manage/usage/settings/details; collection: manage/details). */
   sidebarTab: (key: 'preview' | 'manage' | 'usage' | 'details' | 'settings') =>
     `[data-testid="library-sidebar"] a[role="tab"][data-rb-event-key="${key}"]`,
@@ -224,7 +217,6 @@ export const LIBRARY_SELECTORS = {
   hierarchyRow: '.content-hierarchy .hierarchy-row',
   hierarchyRowText: '.content-hierarchy .hierarchy-row .text',
   hierarchySelectedRow: '.content-hierarchy .hierarchy-row.selected',
-  hierarchyPublishStatus: '.content-hierarchy .publish-status',
   /** The component preview iframe (Preview tab, unit page cards, preview-changes modal). */
   blockPreview: '[data-testid="block-preview"]',
   /**
@@ -239,14 +231,9 @@ export const LIBRARY_SELECTORS = {
   manageCollectionsOption: (collectionKey: string) =>
     `.pgn__selectable_box:has(input[name="selectedCollections"][value="${collectionKey}"])`,
   manageCollectionsConfirm: 'button.pgn__stateful-btn.btn-primary',
-  /** Manage tab: the collapsible sections ("Tags", "Collections") and "Add to Collection". */
-  manageCollapsibleTrigger: '[data-testid="library-sidebar"] .collapsible-trigger',
   manageAddToCollectionButton:
     '[data-testid="library-sidebar"] [role="tabpanel"] button.btn-primary',
 
-  /** Library Info sidebar: "Publish All" (stateful primary) and "Discard Changes" (link). */
-  publishAllButton: '[data-testid="library-sidebar"] button.pgn__stateful-btn.btn-primary',
-  discardChangesButton: '[data-testid="library-sidebar"] button.btn-link',
   /** The public-read switch (`PublicReadToggle`, `Form.Switch`) — "Allow public read". */
   publicReadSwitch: '[data-testid="library-sidebar"] input[role="switch"]',
   /** "Manage team" / "Manage Access": a link into the admin console when configured, else a button opening the team modal. */
@@ -283,18 +270,19 @@ export const LIBRARY_SELECTORS = {
   /** Its Save (primary) and close controls. */
   editorSaveButton:
     '[role="dialog"].pgn__modal-xl .pgn__modal-footer button.btn-primary, [role="dialog"].pgn__modal-xl button.btn-primary:not(.btn-outline-primary)',
-  editorCloseButton: '[role="dialog"].pgn__modal-xl .pgn__modal-close-button',
 
-  /** A unit page's footer: "Add New Content" then "Add Existing Content". */
-  unitFooterButton: '.library-unit-page button.btn-block',
-  unitFooter: { addNew: 0, addExisting: 1 },
-
-  /** The confirm dialog for a delete/remove (Paragon `DeleteModal`) and its footer buttons. */
+  /**
+   * A Paragon modal dialog and, scoped *inside* one (`dialog.locator(...)`),
+   * its controls: the "name your new …" text field and its submit, and a
+   * confirmation's confirm (primary / danger) and cancel (default / tertiary).
+   */
   deleteModal: '[role="dialog"]',
-  deleteModalConfirm:
-    '[role="dialog"] .pgn__modal-footer button.btn-primary, [role="dialog"] .pgn__modal-footer button.btn-danger',
-  deleteModalCancel:
-    '[role="dialog"] .pgn__modal-footer button.btn-default, [role="dialog"] .pgn__modal-footer button.btn-tertiary',
+  dialogNameInput: 'input.form-control',
+  dialogSubmitButton: 'button[type="submit"], .pgn__modal-footer button.btn-primary',
+  dialogConfirmButton:
+    '.pgn__modal-footer button.btn-primary, .pgn__modal-footer button.btn-danger',
+  dialogCancelButton:
+    '.pgn__modal-footer button.btn-default, .pgn__modal-footer button.btn-tertiary',
 
   /** Inline title editor (`ContainerEditableTitle` / card titles): label, pencil, input. */
   inplaceTitleLabel: '.inplace-text-editor-label',
@@ -304,12 +292,10 @@ export const LIBRARY_SELECTORS = {
   /** Create-library form (`/library/create`). */
   createTitleInput: 'form input[name="title"]',
   createOrgInput: 'form input[name="org"][role="combobox"]',
-  createOrgMenuButton: 'form [data-testid="autosuggest-iconbutton"]',
   createOrgOption: (org: string) =>
     `.pgn__form-autosuggest__dropdown [id="${org}"], .pgn__form-autosuggest__dropdown button:has(> :not(:empty))`,
   createSlugInput: 'form input[name="slug"]',
   createSubmitButton: 'form button[type="submit"]',
-  createArchiveDropzone: '[data-testid="library-archive-dropzone"]',
 
   /**
    * Studio Home: the "New library" action — an `<a>` to `/library/create` on
@@ -324,6 +310,8 @@ export const LIBRARY_SELECTORS = {
 
   /** The MFE's toast ("Content pasted successfully." …), which overlays the lower sidebar while shown. */
   toast: '#toast-root .toast.show',
+  /** A toast's close control — Paragon's icon button; its `aria-label` is localized, so the class, not the label. */
+  toastCloseButton: '#toast-root .toast.show button.btn-icon',
   /** Error views the library MFE renders for a bad key / no access. */
   notFoundAlert: '[data-testid="notFoundAlert"]',
   permissionDeniedAlert: '[data-testid="permissionDeniedAlert"]',
@@ -335,19 +323,24 @@ export const LIBRARY_SELECTORS = {
  * Add sidebar) — first `SelectLibrary` (a radio card per library the user may
  * reuse from), then the embedded library page with an "Add" button per card.
  */
+/** A library's hidden radio on the picker's first step, relative to its card. */
+const libraryRadioInput = (libraryKey: string): string =>
+  `input[name="selected-library"][value="${libraryKey}"]`;
+
 export const LIBRARY_PICKER_SELECTORS = {
   modal: '[role="dialog"].pgn__modal-xl',
   /** A library's radio in `SelectLibrary`, by library key. */
-  libraryRadio: (libraryKey: string) =>
-    `[role="dialog"] input[name="selected-library"][value="${libraryKey}"]`,
+  libraryRadio: (libraryKey: string) => `[role="dialog"] ${libraryRadioInput(libraryKey)}`,
+  /** The same radio, relative to its card — for filtering {@link libraryCard} by `has`. */
+  libraryRadioInput,
   /** The library search field on the first step. */
   librarySearchInput: '[role="dialog"] input[name="searchfield-input"]',
+  /** A library's radio card on step one; the radio itself (`libraryRadio`) is visually hidden behind it. */
+  libraryCard: '[role="dialog"] .pgn__card',
   /** The embedded library page (second step) and the per-card "Add" button. */
   embeddedPage: '[role="dialog"] .library-authoring-page',
   card: '[role="dialog"] .library-authoring-page .pgn__card',
   cardAddButton: 'button.btn-outline-primary',
-  /** "Change Library" — the breadcrumb back to step one. */
-  changeLibraryLink: '[role="dialog"] .sub-header-breadcrumbs a',
   /** In multiple-select mode (inside a library): the footer's primary button adds the selection. */
   footerConfirm: '[role="dialog"] .pgn__modal-footer button.btn-primary',
   closeButton: '[role="dialog"] button.pgn__modal-close-button',
@@ -365,8 +358,6 @@ export const COURSE_LIBRARY_SYNC_SELECTORS = {
    * preview-changes modal in the parent page.
    */
   iframeUpdateAvailableButton: 'button.library-sync-button.action-button',
-  /** The same block's library indicator icon in the header (present whether or not an update exists). */
-  iframeLibraryIcon: '.library-info-icon',
   /** A block's "Edit" action in the iframe header — opens the MFE editor dialog for that block. */
   iframeEditButton: 'button.edit-button',
 
@@ -402,15 +393,11 @@ export const COURSE_LIBRARY_SYNC_SELECTORS = {
 
   /** The course Libraries page: tabs and the Review tab's item cards. */
   librariesTab: (key: 'all' | 'review') => `#course-library-tabs-tab-${key}`,
-  reviewPane: '#course-library-tabs-tabpane-review',
-  allPane: '#course-library-tabs-tabpane-all',
   reviewItemCard: '#course-library-tabs-tabpane-review .pgn__card',
   /** Per card: "Review Updates" (outline), "Ignore" (tertiary), "Update" (stateful primary). */
   reviewCardReviewButton: 'button.btn-outline-primary',
   reviewCardIgnoreButton: 'button.btn-tertiary',
   reviewCardUpdateButton: 'button.btn-primary',
-  /** The card's link to the course unit holding the block (`/container/<vertical>`). */
-  reviewCardUnitLink: 'a[href*="/container/"]',
 } as const;
 
 /**
@@ -420,13 +407,13 @@ export const COURSE_LIBRARY_SYNC_SELECTORS = {
 export const LEGACY_MIGRATION_SELECTORS = {
   stepperStep: '.pgn__stepper-header-step',
   activeStep: '.pgn__stepper-header-step-active',
-  /** The legacy-library checkboxes on step one (one per library card, in list order). */
-  legacyLibraryCheckbox: '[role="group"] input[type="checkbox"], .pgn__form-checkbox-input',
   /** The step's search field ("Search legacy libraries"). */
   searchInput: 'input[name="searchfield-input"]',
   /** A destination library's radio on step two, by `lib:` key. */
   destinationRadio: (key: string) => `input[type="radio"][value="${key}"]`,
   /** The step footer: "Cancel" (outline) then "Next" / "Confirm" (primary). */
   footerPrimaryButton: 'button.btn-primary',
-  footerCancelButton: 'button.btn-outline-primary',
+  /** A legacy-library row on step one (a `Form.Checkbox` set) and the checkbox inside it. */
+  legacyLibraryCard: '[role="group"] > *, .pgn__form-control-set > *',
+  legacyLibraryCardCheckbox: 'input[type="checkbox"]',
 } as const;
