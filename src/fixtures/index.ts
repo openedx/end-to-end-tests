@@ -33,6 +33,7 @@ import { StudioGroupConfigurationsPage } from '../pages/studio/settings/group-co
 import { StudioScheduleDetailsPage } from '../pages/studio/settings/schedule-details.page';
 import { StudioPagesResourcesPage } from '../pages/studio/pages-resources/pages-resources.page';
 import { StudioCustomPagesPage } from '../pages/studio/custom-pages/custom-pages.page';
+import { AuthoringSidebar } from '../pages/studio/sidebar/authoring-sidebar.page';
 import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
@@ -280,6 +281,8 @@ export interface TestFixtures {
   outlineConfigureDialog: StudioOutlineConfigureDialog;
   /** The unit (container) page object. */
   studioUnitPage: StudioUnitPage;
+  /** The Verawood authoring sidebar (outline and unit page). */
+  authoringSidebar: AuthoringSidebar;
   /** The video component editor page object. */
   studioVideoEditor: StudioVideoEditor;
   /** The text (TinyMCE) component editor page object. */
@@ -1592,6 +1595,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   outlineConfigureDialog: pageObjectFixture(StudioOutlineConfigureDialog),
 
   studioUnitPage: pageObjectFixture(StudioUnitPage),
+
+  authoringSidebar: pageObjectFixture(AuthoringSidebar),
 
   studioVideoEditor: pageObjectFixture(StudioVideoEditor),
 
