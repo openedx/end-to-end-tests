@@ -883,10 +883,20 @@ async function disposeRoundTripLearner(learner: RoundTripLearner): Promise<void>
  * session-only write cannot. The SSO handshake rebuilds the Studio session off
  * this context's login JWT (the JWT authorizes the `cms-sso` OAuth flow), so it
  * recovers an evicted session on its own **as long as the JWT is still valid**.
- * Idempotent: a no-op when the session is already live.
  *
- * The one case it cannot heal is a **lapsed JWT** (a worker run past the ~1 h
- * clock): there is then nothing to authorize the handshake, and no clean context
+ * The handshake runs **only after a write has actually 302'd**, never up front.
+ * Measured (Epic 10): a Studio session that is live for `/xblock/` writes can
+ * still have a *stale LMS half* — a sibling fixture provisioning a learner
+ * leaves it so — and the SSO handshake then does not no-op on it but replaces
+ * the working Studio session with a dead one, so the very write it was meant to
+ * protect 302s (content-bootstrap's "hiding a subsection" flaked exactly this
+ * way on both releases). No cheap Studio GET distinguishes the two states on an
+ * API context (measured: the JWT-tolerant legacy reads answer 200 either way),
+ * so the write itself is the probe: build, and on the typed 302 rebuild the
+ * session and retry once.
+ *
+ * The one case the handshake cannot heal is a **lapsed JWT** (a worker run past
+ * the ~1 h clock): there is then nothing to authorize it, and no clean context
  * to sign into here. That is pre-empted upstream — the `storageState` fixture
  * refreshes the state file before this context is built once the stored JWT is
  * stale — so if it is still hit, the session is genuinely gone: surface it as
@@ -894,10 +904,19 @@ async function disposeRoundTripLearner(learner: RoundTripLearner): Promise<void>
  * context and retry" signal) rather than a bare handshake error, so a retry's
  * heal is reached and the failure reads correctly.
  */
-async function establishAuthorWriteSession(
+async function buildWithAuthorWriteSession<T>(
   request: APIRequestContext,
   config: AppConfig,
-): Promise<void> {
+  build: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await build();
+  } catch (error) {
+    if (!(error instanceof StudioSessionExpiredError)) throw error;
+  }
+  // The first write 302'd: the Studio session is gone (cache eviction). A dead
+  // session dies on its first write, so nothing was created — rebuild off the
+  // JWT and retry the whole build once.
   try {
     await establishStudioSession(request, config);
   } catch (error) {
@@ -906,6 +925,7 @@ async function establishAuthorWriteSession(
       status: error instanceof ApiError ? error.status : 0,
     });
   }
+  return build();
 }
 
 /** A library slug unique to this run and `scope` (a worker slot or a test id): lowercase, `[a-z0-9-]`. */
@@ -1230,7 +1250,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     //   * the stored login JWT has lapsed (or is within the refresh margin) —
     //     a worker whose Studio run outlives the ~1 h JWT. While the JWT is live a
     //     decayed session behind it needs no refresh here (the SSO handshake in
-    //     `establishAuthorWriteSession` rebuilds it off the JWT); once the JWT
+    //     `buildWithAuthorWriteSession` rebuilds it off the JWT); once the JWT
     //     itself lapses there is nothing left to authorize that handshake, and the
     //     author-write fixtures (`ownSection`, `authorSection`) would otherwise
     //     throw at setup. `storedSessionNeedsRefresh` reads the file to decide.
@@ -1640,14 +1660,15 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   ownSection: async ({ request, config, contentCourse }, use, testInfo) => {
-    await establishAuthorWriteSession(request, config);
     await use(
-      await buildSection(
-        request,
-        config,
-        contentCourse.courseKey,
-        sectionLabel(testInfo, 0),
-        DEFAULT_SECTION_SHAPE,
+      await buildWithAuthorWriteSession(request, config, () =>
+        buildSection(
+          request,
+          config,
+          contentCourse.courseKey,
+          sectionLabel(testInfo, 0),
+          DEFAULT_SECTION_SHAPE,
+        ),
       ),
     );
   },
@@ -1656,13 +1677,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     let ordinal = 0;
     await use(async (shape = DEFAULT_SECTION_SHAPE, label) => {
       ordinal += 1;
-      await establishAuthorWriteSession(request, config);
-      return buildSection(
-        request,
-        config,
-        contentCourse.courseKey,
-        label ?? sectionLabel(testInfo, ordinal),
-        shape,
+      return buildWithAuthorWriteSession(request, config, () =>
+        buildSection(
+          request,
+          config,
+          contentCourse.courseKey,
+          label ?? sectionLabel(testInfo, ordinal),
+          shape,
+        ),
       );
     });
   },
@@ -2002,14 +2024,20 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
-  legacyLibrary: async ({ page, config, studioAuthorSession }, use, testInfo) => {
+  legacyLibrary: async ({ page, config, studioAuthorSession, resyncStudioAuthor }, use, testInfo) => {
     void studioAuthorSession;
     base.skip(
       !config.capabilities.has('content-libraries-v1'),
       'Legacy (v1) content libraries are not declared for this installation (content-libraries-v1).',
     );
     const request = page.request;
-    await establishStudioSession(request, config);
+    // The legacy `/library/` writes below are session-authed like `/xblock/`.
+    // Re-sync through the browser, not the API SSO handshake: under
+    // `fullyParallel` a prior test on this worker may have seeded a library
+    // (rotating this session) or provisioned a learner (leaving its LMS half
+    // stale), and the API handshake corrupts a stale session instead of healing
+    // it — measured as "Creating legacy library … 302" in CI on both releases.
+    await resyncStudioAuthor();
     const home = await fetchStudioHome(request, config);
     if (!home.librariesV1Enabled) {
       throw new Error(
