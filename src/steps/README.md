@@ -18,6 +18,14 @@ can reuse — e.g.:
   names what the platform said), `ensureDataResearcher` (the course role report
   generation needs) and `mintCertificateByException` (allowlist → regenerate →
   the learner's own certificate status).
+- `library.ts` — the content-library flows: `authorLibrary(shape)` (a library
+  with its components, units / subsections / sections and collections in one
+  call, published by default — the `buildSection` of libraries), `reuseInCourse`
+  (import a library item into a course on a session-authenticated context),
+  and the bounded waits `waitForSyncAvailable` (a course block's link reports a
+  newer library version), `waitForMigration` (a legacy-library migration task
+  settles) and `waitForLearnerBlock` (a learner's outline lists a block), each
+  returning its last reading rather than throwing.
 - `gating.ts` — `satisfyPrerequisiteByScore` (answer a prerequisite problem
   correctly through the LMS `problem_check` handler so a score-gated subsection
   unlocks) and `submitProblem` (submit an answer and return the platform's grade).
