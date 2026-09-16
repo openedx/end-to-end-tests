@@ -280,6 +280,42 @@ behind the opt-in `content-libraries-v1`. Their specs live in
 - **a11y.** One gate per new surface; the library MFE's serious debt is
   `LIBRARY_A11Y_BASELINE` (`LIB-004`), applied to library scans only.
 
+## Tagging, the authoring sidebar, and course files
+
+Epic 11 covers the Verawood authoring sidebar, content tagging, the Files page,
+textbooks, updates and upload agreements. A few rules keep this coverage
+deployment-agnostic and stable.
+
+- **The admin owns taxonomies.** Managing a taxonomy (import, assign to an org,
+  export, delete) is staff-only, so it runs under the admin-session lock
+  (`withAdminSession`). Two fixtures serve it: `workerTaxonomy` seeds a shared
+  taxonomy for the tag-drawer specs, and `taxonomyAdmin` signs the admin into
+  Studio in its own browser (its `page.request` is the same session, used for the
+  content-tagging API and cleanup). Never combine `taxonomyAdmin` with a fixture
+  that re-takes the admin lock (`workerTaxonomy`, `authoringTaxonomy`) in one
+  test — the lock is not reentrant and the two deadlock; the taxonomy-page cases
+  seed their own taxonomies through the UI instead.
+
+- **`object_tags` is the tag oracle.** The UI drives the tag drawer; the
+  `content_tagging/v1/object_tags/` API decides whether a tag stuck. A course is
+  tagged by its **course key**, a block by its usage key. The drawer opens from a
+  card's "Manage tags" kebab (outline) or the Align rail (unit page / component);
+  a component's drawer is reached through the unit page's legacy iframe.
+
+- **The Files page filters client-side.** Search, sort and the type filter act
+  over the already-loaded asset set, so the oracle is the rendered card/row count
+  for the test's own uploads (keyed by asset id, an attribute) alongside the
+  `/assets/<key>/` API. Cards carry `grid-card-<assetId>`; list rows expose no
+  per-asset attribute, so they assert by count. The sort/filter modal's radios
+  are hidden behind a clickable `.pgn__selectable_box`.
+
+- **Upload agreements are gated statically.** `AGREEMENT_GATING` is an MFE-config
+  value the LMS serves (five-minute cache), so it cannot be toggled per run; CI
+  declares it and the suite only seeds the rows (`uploadAgreements`, LMS Django
+  admin) and accepts them (`acceptedUploadAgreements`, the author's own
+  `POST agreement_record`). `agreement_record.is_current` is the oracle. Any Files
+  upload spec takes `acceptedUploadAgreements` so a gated install never blocks it.
+
 ## Tags
 
 Domain decides the folder; everything else is a tag. Tags drive Playwright

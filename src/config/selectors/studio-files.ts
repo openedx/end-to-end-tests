@@ -30,10 +30,8 @@ export const STUDIO_FILES_SELECTORS = {
   card: (assetId: string): string => `[data-testid="grid-card-${assetId}"]`,
   itemMenu: (assetId: string): string => `[id="file-menu-dropdown-${assetId}"]`,
 
-  /** List-view rows; one row by the asset id its menu button carries. */
+  /** List-view rows (asserted by count; rows expose no per-asset attribute). */
   rows: '[data-testid="data-table-container"] tbody tr.pgn__data-table-row',
-  rowFor: (assetId: string): string =>
-    `[data-testid="data-table-container"] tbody tr:has([id="file-menu-dropdown-${assetId}"])`,
 
   /** Selection checkboxes: the header "select all" and the per-row cell boxes. */
   selectAllCheckbox: '[data-testid="datatable-select-column-checkbox-header"]',

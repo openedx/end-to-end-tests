@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test';
+import { request, type APIRequestContext } from '@playwright/test';
 
 import {
   acceptAgreement,
@@ -40,7 +40,6 @@ async function withAdmin(
   work: (session: APIRequestContext) => Promise<void>,
 ): Promise<void> {
   const admin = config.credentials.admin as NonNullable<typeof config.credentials.admin>;
-  const { request } = await import('@playwright/test');
   await withAdminSession(async () => {
     const session = await request.newContext();
     try {
