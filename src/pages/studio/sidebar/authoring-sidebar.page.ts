@@ -1,6 +1,13 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { STUDIO_SIDEBAR_SELECTORS, type AppConfig, type SidebarPageKey } from '../../../config';
+import {
+  STUDIO_SIDEBAR_SELECTORS,
+  TIMEOUTS,
+  type AppConfig,
+  type SidebarPageKey,
+} from '../../../config';
+import { XBLOCK_PATH } from '../../../api';
+import { waitForWrite } from '../wait-for-write';
 
 /**
  * The Verawood authoring sidebar as a region of whichever page hosts it — the
@@ -26,6 +33,7 @@ export class AuthoringSidebar {
   readonly itemMenuButton: Locator;
   readonly backButton: Locator;
   readonly publishButton: Locator;
+  readonly unitPublishButton: Locator;
   readonly taxonomySectionMenu: Locator;
 
   constructor(
@@ -42,6 +50,7 @@ export class AuthoringSidebar {
     this.itemMenuButton = page.locator(this.s.itemMenuButton);
     this.backButton = page.locator(this.s.backButton);
     this.publishButton = page.locator(this.s.publishButton);
+    this.unitPublishButton = page.locator(this.s.unitPublishButton);
     this.taxonomySectionMenu = page.locator(this.s.taxonomySectionMenu);
   }
 
@@ -93,10 +102,58 @@ export class AuthoringSidebar {
     return this.page.locator('.dropdown-menu.show .dropdown-item');
   }
 
-  /** The panel's documentation links (their `href`s) — the Help-content oracle. */
-  async helpLinkHrefs(): Promise<string[]> {
+  /** A panel tab by its non-localized element id (see the selector helpers). */
+  tab(id: string): Locator {
+    return this.page.locator(`#${id}`);
+  }
+
+  /** Clicks a panel tab by its element id and waits for it to be selected. */
+  async openTab(id: string): Promise<void> {
+    await this.tab(id).click();
+    await this.tab(id).and(this.page.locator('[aria-selected="true"]')).waitFor();
+  }
+
+  /** The `href`s of the links currently rendered in the panel (the Settings-tab links). */
+  async panelLinkHrefs(): Promise<string[]> {
     const links = await this.page.locator(this.s.helpLink).all();
     const hrefs = await Promise.all(links.map((l) => l.getAttribute('href')));
     return hrefs.filter((h): h is string => h !== null);
+  }
+
+  /**
+   * Publishes the selected item from the Info panel's Publish button (present
+   * only while the item has unpublished changes), waiting for the `POST /xblock/`
+   * the publish fires. Retries the click once if the first press produces no
+   * request — under a loaded CMS the button can be pressed before its handler is
+   * wired, and a lost click leaves the item unpublished.
+   */
+  async publish(): Promise<void> {
+    await this.clickPublish(this.publishButton);
+  }
+
+  /** Publishes the unit from the unit-page publish-controls widget (with the same retry). */
+  async publishUnit(): Promise<void> {
+    await this.clickPublish(this.unitPublishButton);
+  }
+
+  private async clickPublish(button: Locator): Promise<void> {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await waitForWrite(
+          this.page,
+          {
+            method: ['POST', 'PATCH'],
+            urlIncludes: `${XBLOCK_PATH}block-v1:`,
+            timeout: TIMEOUTS.contentWrite,
+          },
+          () => button.click(),
+        );
+        return;
+      } catch (error) {
+        // The button may have already gone (the publish landed) — then we are done.
+        if (!(await button.isVisible())) return;
+        if (attempt === 1) throw error;
+      }
+    }
   }
 }

@@ -175,7 +175,7 @@ test.describe(
 
         // Course-level Help renders contextual documentation links.
         await authoringSidebar.openPage('help');
-        expect((await authoringSidebar.helpLinkHrefs()).length).toBeGreaterThan(0);
+        expect((await authoringSidebar.panelLinkHrefs()).length).toBeGreaterThan(0);
 
         // Selecting a section and reopening Help still renders contextual links
         // (the per-level difference is in the localized descriptions, which the
@@ -185,7 +185,7 @@ test.describe(
           'section',
         );
         await authoringSidebar.openPage('help');
-        expect((await authoringSidebar.helpLinkHrefs()).length).toBeGreaterThan(0);
+        expect((await authoringSidebar.panelLinkHrefs()).length).toBeGreaterThan(0);
       },
     );
   },
