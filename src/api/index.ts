@@ -419,3 +419,11 @@ export {
   type CourseAsset,
   type AssetQuery,
 } from './assets';
+export {
+  fetchTextbooks,
+  createTextbook,
+  deleteTextbook,
+  type Textbook,
+  type TextbookChapter,
+} from './textbooks';
+export { fetchCourseUpdates, fetchHandouts, type CourseUpdate } from './course-updates';

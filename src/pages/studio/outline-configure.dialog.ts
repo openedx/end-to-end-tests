@@ -128,6 +128,25 @@ export class StudioOutlineConfigureDialog {
     await this.setChecked(this.page.locator(this.s.unitVisibilityCheckbox), hidden);
   }
 
+  /** Closes the dialog without saving (Escape), for read-only tab inspection. */
+  async close(): Promise<void> {
+    await this.page.keyboard.press('Escape');
+    await this.modal.waitFor({ state: 'detached' });
+  }
+
+  // --- Tabs and Advanced-tab presence --------------------------------------
+
+  /** How many tabs the open dialog shows (a section 2, a subsection 3, a unit 0). */
+  async tabCount(): Promise<number> {
+    return this.page.locator(this.s.configureTab).count();
+  }
+
+  /** Whether the subsection Advanced tab offers the "available as a prerequisite" checkbox. */
+  async prerequisiteCheckboxVisible(): Promise<boolean> {
+    await this.openTab(2);
+    return this.page.locator(this.s.availableAsPrerequisiteCheckbox).isVisible();
+  }
+
   // --- Prerequisites (subsection Advanced tab) -----------------------------
 
   /** Marks a subsection "available as a prerequisite" (Advanced tab). */
