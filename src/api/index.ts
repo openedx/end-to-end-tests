@@ -374,3 +374,41 @@ export {
   type MigrationOptions,
   type MigrationTask,
 } from './legacy-libraries';
+export {
+  TAGGING_BASE,
+  deleteTaxonomy,
+  fetchObjectTagCounts,
+  fetchObjectTags,
+  fetchTaxonomy,
+  importTaxonomy,
+  listTaxonomies,
+  listTaxonomyTags,
+  objectTagsExportUrl,
+  setObjectTags,
+  setTaxonomyOrgs,
+  tagCountFor,
+  taxonomyExportUrl,
+  taxonomyTemplateUrl,
+  type AppliedTag,
+  type ImportTaxonomyOptions,
+  type ListTaxonomiesOptions,
+  type ObjectTaxonomyTags,
+  type Taxonomy,
+  type TaxonomyList,
+  type TaxonomyTag,
+} from './tagging';
+export {
+  MFE_CONFIG_PATH,
+  agreementTypesIn,
+  fetchAuthoringMfeConfig,
+  type AgreementGating,
+  type AuthoringMfeConfig,
+} from './mfe-config';
+export {
+  AGREEMENTS_BASE,
+  acceptAgreement,
+  fetchAgreementRecord,
+  listAgreements,
+  type AgreementRecord,
+  type UserAgreement,
+} from './agreements';

@@ -43,7 +43,14 @@ import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
 import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
-import { authorLibrary, ensureDataResearcher, submitProblem, type AuthoredLibrary } from '../steps';
+import {
+  authorLibrary,
+  ensureDataResearcher,
+  seedTaxonomy,
+  submitProblem,
+  taxonomyImportFile,
+  type AuthoredLibrary,
+} from '../steps';
 import {
   CourseLibrariesPage,
   CreateLibraryPage,
@@ -120,11 +127,15 @@ import {
   libraryKeyFor,
   listCollections,
   listLibraryBlocks,
+  deleteTaxonomy,
+  importTaxonomy,
+  setTaxonomyOrgs,
   type ContentLibrary,
   type LibraryAccessLevel,
   type LibraryBlock,
   type LibraryCollection,
   type LibraryContainer,
+  type Taxonomy,
 } from '../api';
 import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
@@ -509,6 +520,31 @@ export interface TestFixtures {
    * install with `ENABLE_CREATOR_GROUP`, one course-creator grant per call.
    */
   studioColleague: (options?: StudioColleagueOptions) => Promise<StudioColleague>;
+  /**
+   * A taxonomy seeded once per worker (idempotent by a worker-unique name),
+   * imported and assigned to the worker's org by the **admin** under the admin
+   * lock. Its tags are the {@link TAG} tree. Shared by the drawer and Align
+   * specs, which scope to it by name so other workers' taxonomies in the same
+   * org do not confuse them. Skips when `taxonomies` is undeclared or no admin
+   * account is configured (managing a taxonomy is staff-only) — like
+   * {@link TestFixtures.certificateGenerationEnabled}. Not torn down: it is
+   * shared across the worker's tests and reused by a later run through its name.
+   */
+  workerTaxonomy: WorkerTaxonomy;
+  /**
+   * A per-test taxonomy of the test's own, for the cases that re-import or
+   * delete one (TC-00262/00264). Imported and org-assigned by the admin under
+   * the lock; deleted best-effort at test end. Skips like {@link workerTaxonomy}.
+   */
+  authoringTaxonomy: WorkerTaxonomy;
+}
+
+/** What {@link TestFixtures.workerTaxonomy} / {@link TestFixtures.authoringTaxonomy} hand a spec. */
+export interface WorkerTaxonomy {
+  /** The seeded taxonomy (id, name, tag values live under `TAG`). */
+  readonly taxonomy: Taxonomy;
+  /** The org it is assigned to — the org whose courses' drawers list it. */
+  readonly org: string;
 }
 
 /** What {@link TestFixtures.seededLibrary} hands a spec: the seeded library and its items by role. */
@@ -943,6 +979,25 @@ async function buildWithAuthorWriteSession<T>(
 /** A library slug unique to this run and `scope` (a worker slot or a test id): lowercase, `[a-z0-9-]`. */
 function librarySlug(scope: string): string {
   return `e2e-${getRunId()}-${scope}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
+
+/**
+ * Gate for the taxonomy fixtures: managing a taxonomy (import, assign org,
+ * delete) is staff-only, so the coverage skips without a declared `taxonomies`
+ * capability or a configured admin account — the `certificateGenerationEnabled`
+ * shape. Returns the org the taxonomy is assigned to (the worker's content org).
+ */
+function requireTaxonomyAdmin(config: AppConfig): string {
+  base.skip(
+    !config.capabilities.has('taxonomies'),
+    'Content tagging is not declared for this installation (taxonomies).',
+  );
+  base.skip(
+    config.credentials.admin === undefined || !isUsableStateFile(authStateFile('staff')),
+    'Taxonomy management needs the administrator: importing and assigning a taxonomy is ' +
+      'staff-only. Set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
+  );
+  return config.org ?? DEFAULT_COURSE_ORG;
 }
 
 /**
@@ -2038,6 +2093,64 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       await use(library);
     } finally {
       await deleteLibraryBestEffort(request, config, library.id, testInfo);
+    }
+  },
+
+  workerTaxonomy: async ({ playwright, config }, use, testInfo) => {
+    const org = requireTaxonomyAdmin(config);
+    const seeded = await withAdminSession(async () => {
+      const admin = await playwright.request.newContext({ storageState: authStateFile('staff') });
+      try {
+        await establishStudioSession(admin, config);
+        return await seedTaxonomy(admin, config, {
+          name: `E2E ${getRunId()} W${testInfo.workerIndex}`,
+          org,
+        });
+      } finally {
+        await admin.dispose();
+      }
+    });
+    await use({ taxonomy: seeded, org });
+  },
+
+  authoringTaxonomy: async ({ playwright, config }, use, testInfo) => {
+    const org = requireTaxonomyAdmin(config);
+    const name = `E2E ${getRunId()} ${testInfo.testId.slice(-6)}R${testInfo.retry}`;
+    let taxonomy: Taxonomy | undefined;
+    await withAdminSession(async () => {
+      const admin = await playwright.request.newContext({ storageState: authStateFile('staff') });
+      try {
+        await establishStudioSession(admin, config);
+        taxonomy = await importTaxonomy(admin, config, {
+          name,
+          description: 'E2E suite taxonomy',
+          file: taxonomyImportFile(),
+        });
+        await setTaxonomyOrgs(admin, config, taxonomy.id, [org]);
+      } finally {
+        await admin.dispose();
+      }
+    });
+    try {
+      await use({ taxonomy: taxonomy as Taxonomy, org });
+    } finally {
+      const created = taxonomy;
+      if (created !== undefined) {
+        await withAdminSession(async () => {
+          const admin = await playwright.request.newContext({
+            storageState: authStateFile('staff'),
+          });
+          try {
+            await establishStudioSession(admin, config);
+            await deleteTaxonomy(admin, config, created.id);
+          } catch {
+            // Best-effort teardown: a run-unique name means a leftover never
+            // collides, and a later run reuses it by name.
+          } finally {
+            await admin.dispose();
+          }
+        });
+      }
     }
   },
 
