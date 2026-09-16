@@ -1,6 +1,8 @@
+import { setObjectTags } from '../../../src/api';
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { knownGap, testId } from '../../../src/reporting';
+import { testId } from '../../../src/reporting';
+import { TAG } from '../../../src/steps';
 import { LIBRARY_TAGS } from './helpers';
 
 /**
@@ -10,8 +12,8 @@ import { LIBRARY_TAGS } from './helpers';
  * (the seeded library's items), never a suite-side search client.
  * Every assertion is a `toHaveCount`, which retries while the index answers.
  *
- * TC-00329 (refine by tags) needs an org taxonomy and tagged content — the
- * tagging client is Epic 11's — and is a declared gap here.
+ * TC-00329 (refine by tags) tags one seeded block with an org taxonomy, then
+ * refines the search by that tag; the taxonomy fixture gates it on an admin.
  */
 test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
@@ -128,21 +130,36 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
     },
   );
 
-  // Refining by tags needs a taxonomy assigned to the org and a tagged block;
-  // the tagging client lands with Epic 11 (taxonomies).
-  test.fixme(
+  test(
     'refines results by tags and clears the filter',
-    {
-      tag: '@taxonomies',
-      annotation: [
-        testId('TC-00329'),
-        knownGap(
-          'Needs an org taxonomy and tagged library content — the tagging client is Epic 11 work',
-        ),
-      ],
-    },
-    () => {
-      // Intentionally empty until the tagging client exists.
+    { tag: '@taxonomies', annotation: testId('TC-00329') },
+    async ({ page, config, studioAuthorSession, workerLibrary, workerTaxonomy, libraryPage }) => {
+      void studioAuthorSession;
+      const { text } = workerLibrary.blocks;
+      // Tag one seeded block through the API; the UI drives the refinement, the
+      // search index decides the card set. The taxonomy is assigned to the
+      // library's org, so it surfaces as the root facet on the library search;
+      // selecting that taxonomy node filters to the content tagged in it.
+      await setObjectTags(page.request, config, text.id, workerTaxonomy.taxonomy.id, [
+        TAG.parentOne,
+      ]);
+
+      await libraryPage.goto(workerLibrary.libraryKey, 'components');
+      await expect(libraryPage.cards).toHaveCount(Object.keys(workerLibrary.blocks).length, {
+        timeout: TIMEOUTS.librarySearch,
+      });
+
+      await libraryPage.toggleTagFilterByValue(workerTaxonomy.taxonomy.name);
+      await expect(libraryPage.cardFor(text.display_name)).toHaveCount(1, {
+        timeout: TIMEOUTS.librarySearch,
+      });
+      await expect(libraryPage.cards).toHaveCount(1, { timeout: TIMEOUTS.librarySearch });
+
+      await libraryPage.clearFilter('tags');
+      await libraryPage.dismissMenu();
+      await expect(libraryPage.cards).toHaveCount(Object.keys(workerLibrary.blocks).length, {
+        timeout: TIMEOUTS.librarySearch,
+      });
     },
   );
 });
