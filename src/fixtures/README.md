@@ -76,4 +76,15 @@ Rules:
   `certificateLearner` enrolls a fresh learner `honor` on its first enrollment;
   `certificateGenerationEnabled` flips the platform-wide switch through a fresh
   admin `loginSession` under the admin lock, and skips without an admin account.
+- **The library admin is the author, and libraries are seeded per test.**
+  `workerLibrary` (a published text / problem / video / PDF block, a unit, a
+  subsection, a section and a collection) and the empty `authoringLibrary` are
+  built on `page.request` and torn down best-effort (`LIB-001`);
+  `legacyLibrary` needs `content-libraries-v1`. Second actors are course
+  creators from `studioColleague`. Because v2 writes rotate the Studio session
+  and the API SSO handshake corrupts a stale one, library specs call
+  `resyncStudioAuthor()` (a browser re-sync) before their course writes and take
+  their learner from the deferred `roundTripLearnerLater` /
+  `authoringCourseLearnerLater`; `ownSection` / `authorSection` build first and
+  handshake only on a 302 (`buildWithAuthorWriteSession`).
 - This is the only layer that reaches across all the others.

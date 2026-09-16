@@ -101,9 +101,14 @@ instructor-dashboard suite adds the default-on `instructor-dashboard` (the LMS
 instructor dashboard as its MFE, `verawood` onward — ulmo and earlier opt out
 with `-instructor-dashboard`) and the opt-in `certificates` (course certificates
 can be issued; the platform-wide switch is turned on through the admin account,
-so that coverage skips without one). `analytics` is reserved for the
-Superset/Aspects reports and has no specs yet. The full vocabulary, with which
-ship by default, is in `.env.example`.
+so that coverage skips without one). The content-libraries suite adds
+`content-libraries` (the v2 library-authoring MFE and `/api/libraries/v2/` —
+`tests/studio/library/`; declared on `main` and `verawood`) and the opt-in
+`content-libraries-v1` (legacy `library-v1:` libraries and their migration into
+v2; an install that has disabled the legacy library index leaves it
+undeclared). `analytics` is reserved for the Superset/Aspects reports and has no
+specs yet. The full vocabulary, with which ship by default, is in
+`.env.example`.
 Sign-in and sign-out coverage is not gated — it runs through the account
 backend's own UI flows, whatever those are.
 
@@ -317,7 +322,13 @@ per-test course only where a spec needs isolation), the instructor-dashboard
 certificate specs share **one more** (`certificateCourse`, set up so certificates
 can be issued), and each builds a uniquely named **section** inside its course
 rather than a new course. Only the specs whose
-subject is course creation make their own. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
+subject is course creation make their own. **Content libraries accumulate the
+same way:** `DELETE /api/libraries/v2/<lib>/` answers 500 for any library that
+ever held a unit, subsection or section (`LIB-001`), so the library specs seed
+one small library per test (`workerLibrary`, plus an empty `authoringLibrary`
+where a spec mutates), attempt the delete, and rely on run-unique slugs
+(`e2e-<run id>-…`) to keep runs apart; every list they select a library from is
+filtered by that slug or title first. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
 `E2E` when `ORG` is unset). On a persistent target, purge them with the CMS
 management command — it prompts, so pipe `yes` into it:
 
