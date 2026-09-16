@@ -38,6 +38,8 @@ import { TagDrawer } from '../pages/studio/sidebar/tag-drawer.page';
 import { TaxonomyListPage } from '../pages/studio/taxonomies/taxonomy-list.page';
 import { TaxonomyDetailPage } from '../pages/studio/taxonomies/taxonomy-detail.page';
 import { FilesPage } from '../pages/studio/files/files.page';
+import { TextbooksPage } from '../pages/studio/textbooks/textbooks.page';
+import { UpdatesPage } from '../pages/studio/updates/updates.page';
 import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
@@ -291,6 +293,10 @@ export interface TestFixtures {
   tagDrawer: TagDrawer;
   /** The Studio Files page (course assets). */
   filesPage: FilesPage;
+  /** The Studio Textbooks page. */
+  textbooksPage: TextbooksPage;
+  /** The Course Updates page. */
+  updatesPage: UpdatesPage;
   /** The video component editor page object. */
   studioVideoEditor: StudioVideoEditor;
   /** The text (TinyMCE) component editor page object. */
@@ -1626,6 +1632,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   tagDrawer: pageObjectFixture(TagDrawer),
   filesPage: pageObjectFixture(FilesPage),
+  textbooksPage: pageObjectFixture(TextbooksPage),
+  updatesPage: pageObjectFixture(UpdatesPage),
 
   studioVideoEditor: pageObjectFixture(StudioVideoEditor),
 
