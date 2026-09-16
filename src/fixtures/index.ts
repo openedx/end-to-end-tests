@@ -2024,7 +2024,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
-  legacyLibrary: async ({ page, config, studioAuthorSession, resyncStudioAuthor }, use, testInfo) => {
+  legacyLibrary: async (
+    { page, config, studioAuthorSession, resyncStudioAuthor },
+    use,
+    testInfo,
+  ) => {
     void studioAuthorSession;
     base.skip(
       !config.capabilities.has('content-libraries-v1'),

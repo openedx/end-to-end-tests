@@ -256,7 +256,10 @@ export class LibraryPage {
             .locator('[aria-label="Close"]')
             .click({ timeout: TIMEOUTS.optionalOverlay })
             .catch(() => undefined);
-          await toasts.first().waitFor({ state: 'hidden' }).catch(() => undefined);
+          await toasts
+            .first()
+            .waitFor({ state: 'hidden' })
+            .catch(() => undefined);
         }
         await paste.click();
       },
