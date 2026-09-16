@@ -42,7 +42,16 @@ import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
 import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
-import { ensureDataResearcher, submitProblem } from '../steps';
+import { authorLibrary, ensureDataResearcher, submitProblem, type AuthoredLibrary } from '../steps';
+import {
+  CourseLibrariesPage,
+  CreateLibraryPage,
+  LegacyMigrationPage,
+  LibraryContainerPage,
+  LibraryPage,
+  LibraryPickerDialog,
+  PreviewChangesDialog,
+} from '../pages/studio/library';
 import {
   AUTH_STATE_DIR,
   authStateFile,
@@ -96,6 +105,24 @@ import {
   type CourseProgress,
   type CourseUnit,
   type LearnerIdentity,
+  DEFAULT_COURSE_ORG,
+  LibraryDeleteRestrictedError,
+  LibraryExistsError,
+  addLegacyLibraryBlock,
+  addLibraryTeamMember,
+  createLegacyLibrary,
+  createLibrary,
+  deleteLibrary,
+  fetchBlockHierarchy,
+  fetchLibrary,
+  libraryKeyFor,
+  listCollections,
+  listLibraryBlocks,
+  type ContentLibrary,
+  type LibraryAccessLevel,
+  type LibraryBlock,
+  type LibraryCollection,
+  type LibraryContainer,
 } from '../api';
 import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
@@ -380,6 +407,97 @@ export interface TestFixtures {
   authoringCourseLearner: RoundTripLearner;
   /** Two independent learners in this test's {@link authoringCourse} (cohort in/out cases). */
   authoringCourseLearners: readonly [RoundTripLearner, RoundTripLearner];
+
+  // --- Content libraries (Epic 10) --------------------------------------------
+
+  /** The library page object (library home, tabs, cards, sidebar, collections). */
+  libraryPage: LibraryPage;
+  /** A unit / subsection / section landing page in the library MFE. */
+  libraryContainerPage: LibraryContainerPage;
+  /** The "Create new library" form. */
+  createLibraryPage: CreateLibraryPage;
+  /** The course-side "Library Content" picker modal. */
+  libraryPicker: LibraryPickerDialog;
+  /** The "Preview changes" (accept / ignore a library update) modal. */
+  previewChangesDialog: PreviewChangesDialog;
+  /** The course's Libraries page (Review Content Updates). */
+  courseLibrariesPage: CourseLibrariesPage;
+  /** The legacy-library migration stepper. */
+  legacyMigrationPage: LegacyMigrationPage;
+  /**
+   * The worker's shared, **published** library ({@link WorkerFixtures.workerLibraryState}),
+   * for shared-read cases: search, filters, hierarchy, reuse, overrides, public
+   * read. Specs never delete from it; destructive cases take
+   * {@link authoringLibrary}. Requesting it outside `studio-author`, or where
+   * `content-libraries` is not declared, fails with a pointer here — the
+   * capability tag on the spec is what skips it first.
+   */
+  workerLibrary: WorkerLibrary;
+  /**
+   * A fresh, **empty** library of this test's own — for cases that create,
+   * delete or publish items and would otherwise disturb the shared library.
+   * Idempotent per test and retry. Torn down best-effort at test end: the
+   * platform refuses to delete a library that has held a container (`LIB-001`),
+   * and those are left in place under their run-unique slug.
+   */
+  authoringLibrary: ContentLibrary;
+  /**
+   * A **legacy** (`library-v1:`) library of this test's own with two components,
+   * the source of the migration cases. Skips unless `content-libraries-v1` is
+   * declared; fails if it is declared but Studio reports legacy libraries off
+   * (misconfiguration, not optional coverage). Legacy libraries cannot be
+   * deleted through any API, so none is torn down.
+   */
+  legacyLibrary: LegacyLibraryFixture;
+  /**
+   * Makes a second **Studio user** for a library access case — a fresh
+   * course-creator account (public read grants nothing to a plain learner), on
+   * its own request context and browser page, optionally added to a library's
+   * team at an access level by the worker author. Each call provisions one;
+   * contexts are disposed when the test ends. Costs one registration and, on an
+   * install with `ENABLE_CREATOR_GROUP`, one course-creator grant per call.
+   */
+  studioColleague: (options?: StudioColleagueOptions) => Promise<StudioColleague>;
+}
+
+/** What {@link TestFixtures.workerLibrary} hands a spec: the seeded library and its items by role. */
+export interface WorkerLibrary {
+  readonly org: string;
+  readonly library: ContentLibrary;
+  readonly libraryKey: string;
+  readonly blocks: {
+    readonly text: LibraryBlock;
+    readonly problem: LibraryBlock;
+    readonly video: LibraryBlock;
+    readonly pdf: LibraryBlock;
+  };
+  readonly units: { readonly unit: LibraryContainer };
+  readonly subsections: { readonly subsection: LibraryContainer };
+  readonly sections: { readonly section: LibraryContainer };
+  readonly collections: { readonly collection: LibraryCollection };
+}
+
+/** What {@link TestFixtures.legacyLibrary} hands a spec. */
+export interface LegacyLibraryFixture {
+  readonly libraryKey: string;
+  readonly displayName: string;
+  /** The two components' display names (our own data). */
+  readonly blockNames: readonly [string, string];
+}
+
+export interface StudioColleagueOptions {
+  /** Add the colleague to this library's team at this level, as the worker author. */
+  readonly libraryAccess?: { readonly libraryKey: string; readonly level: LibraryAccessLevel };
+}
+
+/** What one {@link TestFixtures.studioColleague} call hands a spec. */
+export interface StudioColleague {
+  readonly identity: LearnerIdentity;
+  /** Request context holding the colleague's LMS + Studio session. */
+  readonly request: APIRequestContext;
+  /** Browser context (and its one page) carrying the same session. */
+  readonly context: BrowserContext;
+  readonly page: Page;
 }
 
 /** What {@link TestFixtures.roundTripLearner} hands a spec. */
@@ -506,6 +624,17 @@ export interface WorkerFixtures {
    * so allowlist and invalidation state never crosses tests.
    */
   certificateCourse: CertificateCourse;
+  /**
+   * The worker's content library (Epic 10): one v2 library per worker, created
+   * on first use through `/api/libraries/v2/` by the worker author (who becomes
+   * its admin), idempotent per (run, worker) by slug, seeded published with one
+   * text, one problem, one video and one PDF component, a unit holding the text
+   * and problem, a subsection holding the unit, a section holding the
+   * subsection, and a collection holding the text block. `undefined` where the
+   * `content-libraries` capability is off (a worker seed is not protected by
+   * the test-level gate) or outside `studio-author`.
+   */
+  workerLibraryState: WorkerLibrary | undefined;
 }
 
 /** What {@link WorkerFixtures.workerAuthor} holds. */
@@ -753,6 +882,126 @@ async function establishAuthorWriteSession(
       status: error instanceof ApiError ? error.status : 0,
     });
   }
+}
+
+/** A library slug unique to this run and `scope` (a worker slot or a test id): lowercase, `[a-z0-9-]`. */
+function librarySlug(scope: string): string {
+  return `e2e-${getRunId()}-${scope}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
+
+/**
+ * Creates the worker library (see {@link WorkerFixtures.workerLibraryState}) or,
+ * when a retried worker finds its predecessor's library under the same slug,
+ * re-derives the seeded items from the API so the fixture hands out the same
+ * shape either way.
+ */
+async function provisionLibrary(
+  request: APIRequestContext,
+  config: AppConfig,
+  org: string,
+  slug: string,
+): Promise<WorkerLibrary> {
+  const label = `E2E library ${getRunId()} ${slug.slice(-3)}`;
+  const pick = <T>(map: Readonly<Record<string, T>>, key: string): T => {
+    const entry = map[key];
+    if (entry === undefined) throw new Error(`The seeded library has no "${key}".`);
+    return entry;
+  };
+  const shape = (authored: AuthoredLibrary): WorkerLibrary => ({
+    org,
+    library: authored.library,
+    libraryKey: authored.libraryKey,
+    blocks: {
+      text: pick(authored.blocks, 'text'),
+      problem: pick(authored.blocks, 'problem'),
+      video: pick(authored.blocks, 'video'),
+      pdf: pick(authored.blocks, 'pdf'),
+    },
+    units: { unit: pick(authored.units, 'unit') },
+    subsections: { subsection: pick(authored.subsections, 'subsection') },
+    sections: { section: pick(authored.sections, 'section') },
+    collections: { collection: pick(authored.collections, 'collection') },
+  });
+  try {
+    return shape(
+      await authorLibrary(request, config, {
+        org,
+        slug,
+        title: label,
+        blocks: {
+          text: { type: 'html', displayName: `${label} text`, content: `${label} text body` },
+          problem: { type: 'problem', displayName: `${label} problem` },
+          video: { type: 'video', displayName: `${label} video` },
+          pdf: {
+            type: 'pdf',
+            displayName: `${label} pdf`,
+            content: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+          },
+        },
+        units: { unit: { displayName: `${label} unit`, blocks: ['text', 'problem'] } },
+        subsections: { subsection: { displayName: `${label} subsection`, units: ['unit'] } },
+        sections: { section: { displayName: `${label} section`, subsections: ['subsection'] } },
+        collections: { collection: { title: `${label} collection`, items: ['text'] } },
+      }),
+    );
+  } catch (error) {
+    if (!(error instanceof LibraryExistsError)) throw error;
+  }
+  const libraryKey = libraryKeyFor(org, slug);
+  const library = await fetchLibrary(request, config, libraryKey);
+  const blocks = (await listLibraryBlocks(request, config, libraryKey)).results;
+  const byType = (type: string) => {
+    const block = blocks.find((b) => b.block_type === type);
+    if (block === undefined) {
+      throw new Error(`The worker library ${libraryKey} exists but has no ${type} block.`);
+    }
+    return block;
+  };
+  const text = byType('html');
+  const hierarchy = await fetchBlockHierarchy(request, config, text.id);
+  const one = <T extends { id: string; display_name: string }>(
+    list: readonly T[],
+    what: string,
+  ) => {
+    const [entry] = list;
+    if (entry === undefined) {
+      throw new Error(`The worker library ${libraryKey} exists but has no ${what}.`);
+    }
+    return entry;
+  };
+  const unit = one(hierarchy.units, 'unit');
+  const subsection = one(hierarchy.subsections, 'subsection');
+  const section = one(hierarchy.sections, 'section');
+  const container = (
+    entry: { id: string; display_name: string },
+    type: 'unit' | 'subsection' | 'section',
+  ) => ({
+    ...text,
+    id: entry.id,
+    display_name: entry.display_name,
+    container_type: type,
+    container_type_code: type,
+  });
+  const collection = one(
+    (await listCollections(request, config, libraryKey)).results.map((c) => ({
+      ...c,
+      id: String(c.id),
+      display_name: c.title,
+    })),
+    'collection',
+  );
+  return {
+    org,
+    library,
+    libraryKey,
+    blocks: { text, problem: byType('problem'), video: byType('video'), pdf: byType('pdf') },
+    units: { unit: container(unit, 'unit') },
+    subsections: { subsection: container(subsection, 'subsection') },
+    sections: { section: container(section, 'section') },
+    collections: {
+      collection: { ...collection, id: Number(collection.id) },
+    },
+  };
 }
 
 /** A section label unique to this test and run, safe to match as the test's own data. */
@@ -1574,6 +1823,162 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       await use([learners[0], learners[1]]);
     } finally {
       await Promise.all(learners.map(disposeRoundTripLearner));
+    }
+  },
+
+  // --- Content libraries (Epic 10) ------------------------------------------------
+
+  libraryPage: pageObjectFixture(LibraryPage),
+
+  libraryContainerPage: pageObjectFixture(LibraryContainerPage),
+
+  createLibraryPage: pageObjectFixture(CreateLibraryPage),
+
+  libraryPicker: pageObjectFixture(LibraryPickerDialog),
+
+  previewChangesDialog: pageObjectFixture(PreviewChangesDialog),
+
+  courseLibrariesPage: pageObjectFixture(CourseLibrariesPage),
+
+  legacyMigrationPage: pageObjectFixture(LegacyMigrationPage),
+
+  workerLibraryState: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      if (workerAuthor === undefined || !config.capabilities.has('content-libraries')) {
+        await use(undefined);
+        return;
+      }
+      const org = config.org ?? DEFAULT_COURSE_ORG;
+      const slug = librarySlug(`w${workerInfo.parallelIndex}`);
+      const request = await playwright.request.newContext({ storageState: workerAuthor.stateFile });
+      try {
+        await establishStudioSession(request, config);
+        const library = await provisionLibrary(request, config, org, slug);
+        await use(library);
+      } finally {
+        // Best effort: the platform cannot delete a library that has held a
+        // container (LIB-001), which this one has, so the refusal is expected
+        // and the library stays under its run-unique slug.
+        await deleteLibrary(request, config, libraryKeyFor(org, slug)).catch((error: unknown) => {
+          if (!(error instanceof LibraryDeleteRestrictedError)) throw error;
+        });
+        await request.dispose();
+      }
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
+  ],
+
+  workerLibrary: async ({ workerLibraryState }, use) => {
+    if (workerLibraryState === undefined) {
+      throw new Error(
+        'The worker library needs the "studio-author" project and the "content-libraries" ' +
+          'capability; tag the spec @author @studio @content-libraries so the gate skips it ' +
+          'where the capability is off.',
+      );
+    }
+    await use(workerLibraryState);
+  },
+
+  authoringLibrary: async ({ page, config, studioAuthorSession }, use, testInfo) => {
+    void studioAuthorSession;
+    // Same user in browser and API → `page.request` (course-lifecycle.spec.ts).
+    const request = page.request;
+    const org = config.org ?? DEFAULT_COURSE_ORG;
+    const slug = librarySlug(
+      `a${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}r${testInfo.retry}`,
+    );
+    let library: ContentLibrary;
+    try {
+      library = await createLibrary(request, config, {
+        org,
+        slug,
+        title: `E2E library ${getRunId()} ${testInfo.testId.slice(-6)}`,
+      });
+    } catch (error) {
+      if (!(error instanceof LibraryExistsError)) throw error;
+      library = await fetchLibrary(request, config, libraryKeyFor(org, slug));
+    }
+    try {
+      await use(library);
+    } finally {
+      await deleteLibrary(request, config, library.id).catch((error: unknown) => {
+        if (!(error instanceof LibraryDeleteRestrictedError)) throw error;
+        testInfo.annotations.push({
+          type: 'note',
+          description: `${library.id} could not be deleted (LIB-001); left in place.`,
+        });
+      });
+    }
+  },
+
+  legacyLibrary: async ({ page, config, studioAuthorSession }, use, testInfo) => {
+    void studioAuthorSession;
+    base.skip(
+      !config.capabilities.has('content-libraries-v1'),
+      'Legacy (v1) content libraries are not declared for this installation (content-libraries-v1).',
+    );
+    const request = page.request;
+    await establishStudioSession(request, config);
+    const home = await fetchStudioHome(request, config);
+    if (!home.librariesV1Enabled) {
+      throw new Error(
+        'content-libraries-v1 is declared but Studio reports legacy libraries disabled ' +
+          '(libraries_v1_enabled: false). Remove the capability or enable legacy libraries.',
+      );
+    }
+    const org = config.org ?? DEFAULT_COURSE_ORG;
+    const number = `L${getRunId()}${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}R${testInfo.retry}`;
+    const displayName = `E2E legacy ${getRunId()} ${testInfo.testId.slice(-6)}`;
+    const libraryKey = await createLegacyLibrary(request, config, { org, number, displayName });
+    const blockNames = [`${displayName} text`, `${displayName} problem`] as const;
+    await addLegacyLibraryBlock(request, config, libraryKey, 'html', blockNames[0]);
+    await addLegacyLibraryBlock(request, config, libraryKey, 'problem', blockNames[1]);
+    await use({ libraryKey, displayName, blockNames });
+  },
+
+  studioColleague: async ({ playwright, browser, page, config, workerAuthor }, use) => {
+    const made: StudioColleague[] = [];
+    await use(async (options = {}) => {
+      const request = await playwright.request.newContext();
+      const staffState = authStateFile('staff');
+      let identity: LearnerIdentity;
+      try {
+        identity = await provisionAuthorSession(request, config, {
+          adminStorageState: isUsableStateFile(staffState) ? staffState : undefined,
+        });
+      } catch (error) {
+        if (error instanceof AccountNotConfiguredError) {
+          base.skip(true, error.message);
+        }
+        throw error;
+      }
+      if (options.libraryAccess !== undefined) {
+        // The worker author (the library's admin) adds the colleague; the
+        // author's own session rides `page.request`.
+        void workerAuthor;
+        await addLibraryTeamMember(
+          page.request,
+          config,
+          options.libraryAccess.libraryKey,
+          identity.email,
+          options.libraryAccess.level,
+        );
+      }
+      const context = await browser.newContext();
+      await context.addCookies((await request.storageState()).cookies);
+      const colleague: StudioColleague = {
+        identity,
+        request,
+        context,
+        page: await context.newPage(),
+      };
+      made.push(colleague);
+      return colleague;
+    });
+    for (const colleague of made) {
+      await colleague.context.close();
+      await colleague.request.dispose();
     }
   },
 

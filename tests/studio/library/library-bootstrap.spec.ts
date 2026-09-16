@@ -25,6 +25,8 @@ import {
   fetchLibraryBlockOlx,
   fetchLibraryContainerChildren,
   fetchLibraryTeam,
+  listLibraries,
+  updateLibrary,
   fetchStudioHome,
   fetchStudioUsername,
   libraryOlx,
@@ -183,6 +185,63 @@ test.describe(
       // Teardown is best effort: this library held a unit, so the platform refuses (LIB-001).
       await deleteLibrary(request, config, library.id).catch((error: unknown) => {
         expect(error).toBeInstanceOf(LibraryDeleteRestrictedError);
+      });
+    });
+
+    test('the library fixtures hand out a seeded worker library, a fresh library and colleagues', async ({
+      page,
+      config,
+      studioAuthorSession,
+      workerLibrary,
+      authoringLibrary,
+      studioColleague,
+    }) => {
+      void studioAuthorSession;
+      const request = page.request;
+
+      // The shared library is published and holds the seeded shape.
+      const shared = await fetchLibrary(request, config, workerLibrary.libraryKey);
+      expect(shared.has_unpublished_changes).toBe(false);
+      expect((await listLibraryBlocks(request, config, workerLibrary.libraryKey)).count).toBe(4);
+      expect(
+        (await fetchLibraryContainerChildren(request, config, workerLibrary.units.unit.id)).map(
+          (c) => c.id,
+        ),
+      ).toEqual([workerLibrary.blocks.text.id, workerLibrary.blocks.problem.id]);
+      expect(authoringLibrary.num_blocks).toBe(0);
+      expect(authoringLibrary.id).not.toBe(workerLibrary.libraryKey);
+
+      // A Studio user with no role is refused; a `read` member may read but not
+      // write; with public read on, the unaffiliated Studio user may read too.
+      const outsider = await studioColleague();
+      const reader = await studioColleague({
+        libraryAccess: { libraryKey: authoringLibrary.id, level: 'read' },
+      });
+      await expect(
+        fetchLibrary(outsider.request, config, authoringLibrary.id),
+      ).rejects.toMatchObject({
+        status: 403,
+      });
+      expect((await fetchLibrary(reader.request, config, authoringLibrary.id)).id).toBe(
+        authoringLibrary.id,
+      );
+      await expect(
+        createLibraryBlock(reader.request, config, authoringLibrary.id, { blockType: 'html' }),
+      ).rejects.toMatchObject({ status: 403 });
+      await updateLibrary(request, config, authoringLibrary.id, { allowPublicRead: true });
+      expect(
+        (await fetchLibrary(outsider.request, config, authoringLibrary.id)).allow_public_read,
+      ).toBe(true);
+      expect(
+        (await listLibraries(outsider.request, config, { org: authoringLibrary.org })).results.map(
+          (l) => l.id,
+        ),
+      ).toContain(authoringLibrary.id);
+      await updateLibrary(request, config, authoringLibrary.id, { allowPublicRead: false });
+      await expect(
+        fetchLibrary(outsider.request, config, authoringLibrary.id),
+      ).rejects.toMatchObject({
+        status: 403,
       });
     });
 
