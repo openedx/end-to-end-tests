@@ -220,6 +220,64 @@ tabId)` is the "this tab is offered" assertion.
   audit enrollment is not moved). Specs are tagged `@certificates` and take
   `certificateGenerationEnabled`, which skips without an admin account.
 
+## Library round trips
+
+Content libraries v2 are the library-authoring MFE (`/library/<lib key>`, the
+`content-libraries` capability, declared on `main` and `verawood`) and the
+`/api/libraries/v2/` API; legacy `library-v1:` libraries and the migrator are
+behind the opt-in `content-libraries-v1`. Their specs live in
+`tests/studio/library/` and follow the authoring round-trip rules above, plus:
+
+- **The library admin is the worker author.** Creating a library makes its
+  creator the admin, so library specs run in `studio-author` on the worker's
+  `page`. Second actors — a member, an unaffiliated Studio user — are **course
+  creators** provisioned per test (`studioColleague`) on their own contexts:
+  `allow_public_read` grants a plain learner nothing (measured), so a learner is
+  never the "other user" of an access case.
+- **The v2 API accepts the JWT; the legacy writes do not.** Library reads and
+  writes ride `page.request`. Legacy `POST /library/` and the course-side
+  `POST /xblock/` (the import, the section build) are session-authed and 302 to
+  sign-in when the Studio session is gone.
+- **Never run the API SSO handshake from a spec.** v2 library writes rotate the
+  Studio session on the context that makes them, and `establishStudioSession`
+  _corrupts_ a session whose LMS half a provisioned learner has left stale — a
+  seeded library plus a learner in one test 302s on its first legacy write. The
+  recipe: seed on `page.request`, re-sync **once through the browser**
+  (`resyncStudioAuthor`) before any course write, do the course writes, and
+  provision the learner **last** (`roundTripLearnerLater` /
+  `authoringCourseLearnerLater`). Fixtures on the plain `request` context build
+  first and handshake only after a write has actually 302'd
+  (`buildWithAuthorWriteSession`). A separate-identity context is not an escape:
+  its sign-in evicts the worker author.
+- **Reach by URL, prove by the fetch.** `LibraryPage.goto(key, tab)` waits for
+  the MFE's `GET <lib>/`; that response is the "this surface really renders"
+  assertion of a gated spec. Every page-object action waits for the v2 request it
+  must cause and returns the response; the spec asserts the API afterwards
+  (`has_unpublished_changes`, `collections[]`, `children/`, `hierarchy/`,
+  `downstreams/<usage>`) and the rendering only where the rendering _is_ the case
+  (a card under the test's own title, a two-step confirmation, a `disabled`
+  switch).
+- **Imports and sync.** `POST /xblock/` with `library_content_key` needs
+  `category` (500 without it); the downstream list URL-encodes the course key.
+  The unit page's "Update available" reads the downstream directly; the course
+  Libraries "Review Content Updates" tab is fed by the search index and lags
+  `ready_to_sync` under load (`LIB-002`) — use `waitForReviewCard`, on a fresh
+  per-test course. A customized block's preview offers "Keep course content" in
+  place of the sync as its primary; the dialog reads the footer structurally.
+- **Libraries accumulate.** `DELETE <lib>/` is 500 once a library ever held a
+  container (`LIB-001`); teardown tries, annotates, and relies on run-unique
+  slugs. Every list a spec selects from — the course picker, an outsider's
+  `listLibraries`, the migration destination step — is **paginated**, so filter
+  by the library's title or slug before selecting; never trust `.last()` or the
+  first page.
+- **Both halves, both states.** A reuse case publishes the course section and
+  ends in the learner's context (`waitForLearnerBlock`, then the rendered unit,
+  under `contentPublish`); an update is accepted for one library change and
+  declined for the next, each read back from the learner. Public read is asserted
+  on **and** off from the other user's context and picker.
+- **a11y.** One gate per new surface; the library MFE's serious debt is
+  `LIBRARY_A11Y_BASELINE` (`LIB-004`), applied to library scans only.
+
 ## Tags
 
 Domain decides the folder; everything else is a tag. Tags drive Playwright
