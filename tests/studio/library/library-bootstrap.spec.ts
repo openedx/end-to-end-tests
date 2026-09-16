@@ -1,5 +1,6 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
+import { reuseInCourse, waitForMigration, waitForSyncAvailable } from '../../../src/steps';
 import {
   DEFAULT_COURSE_ORG,
   LibraryDeleteRestrictedError,
@@ -24,11 +25,8 @@ import {
   fetchLibraryBlockOlx,
   fetchLibraryContainerChildren,
   fetchLibraryTeam,
-  fetchMigration,
   fetchStudioHome,
   fetchStudioUsername,
-  importLibraryContent,
-  isMigrationSettled,
   libraryOlx,
   listDownstreams,
   listLegacyLibraries,
@@ -37,7 +35,6 @@ import {
   publishLibraryBlock,
   setLibraryBlockOlx,
   startMigration,
-  type MigrationTask,
 } from '../../../src/api';
 
 /**
@@ -120,8 +117,8 @@ test.describe(
 
       // Course side: import the text block into a fresh unit of the worker course.
       // The legacy `/xblock/` view is session-authenticated (the v2 API above
-      // accepted the browser's JWT); the idempotent handshake makes sure this
-      // context's Studio session is live before the write.
+      // accepted the browser's JWT); `createXBlock` needs the same live session
+      // `reuseInCourse` establishes, so establish it first.
       await establishStudioSession(request, config);
       const chapter = await createXBlock(request, config, {
         parentLocator: `block-v1:${contentCourse.courseKey.slice('course-v1:'.length)}+type@course+block@course`,
@@ -138,7 +135,7 @@ test.describe(
         category: 'vertical',
         displayName: 'Unit',
       });
-      const imported = await importLibraryContent(request, config, {
+      const imported = await reuseInCourse(request, config, {
         parentLocator: vertical,
         category: 'html',
         libraryContentKey: text.id,
@@ -161,14 +158,8 @@ test.describe(
         libraryOlx.html(`Text ${slug} v2`, `${marker}-v2`),
       );
       await publishLibraryBlock(request, config, text.id);
-      await expect
-        .poll(
-          async () => (await fetchDownstream(request, config, imported.locator)).ready_to_sync,
-          {
-            timeout: TIMEOUTS.librarySync,
-          },
-        )
-        .toBe(true);
+      const available = await waitForSyncAvailable(request, config, imported.locator);
+      expect(available.last).toMatchObject({ ready_to_sync: true });
       const synced = await acceptSync(request, config, imported.locator);
       expect(synced.ready_to_sync).toBe(false);
       expect(synced.version_synced).toBe(synced.version_available);
@@ -181,14 +172,9 @@ test.describe(
         libraryOlx.html(`Text ${slug} v3`, `${marker}-v3`),
       );
       await commitLibrary(request, config, library.id);
-      await expect
-        .poll(
-          async () => (await fetchDownstream(request, config, imported.locator)).ready_to_sync,
-          {
-            timeout: TIMEOUTS.librarySync,
-          },
-        )
-        .toBe(true);
+      expect((await waitForSyncAvailable(request, config, imported.locator)).last).toMatchObject({
+        ready_to_sync: true,
+      });
       await declineSync(request, config, imported.locator);
       const declined = await fetchDownstream(request, config, imported.locator);
       expect(declined.ready_to_sync).toBe(false);
@@ -228,21 +214,8 @@ test.describe(
         const target = await createLibrary(request, config, { org, slug, title: `Target ${slug}` });
 
         const task = await startMigration(request, config, legacyKey, target.id);
-        let settled: MigrationTask | undefined;
-        await expect
-          .poll(
-            async () => {
-              settled = await fetchMigration(request, config, task.uuid);
-              return settled ? settled.state : 'not yet visible';
-            },
-            {
-              timeout: TIMEOUTS.libraryMigration,
-              message: `migration ${task.uuid} did not settle`,
-            },
-          )
-          .toMatch(/Succeeded|Failed/);
-        expect(settled && isMigrationSettled(settled)).toBe(true);
-        expect(settled?.state).toBe('Succeeded');
+        const migration = await waitForMigration(request, config, task.uuid);
+        expect(migration.last).toMatchObject({ state: 'Succeeded' });
 
         const blocks = await listLibraryBlocks(request, config, target.id);
         expect(blocks.results.map((b) => b.display_name).sort()).toEqual(
