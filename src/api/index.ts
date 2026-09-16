@@ -427,3 +427,4 @@ export {
   type TextbookChapter,
 } from './textbooks';
 export { fetchCourseUpdates, fetchHandouts, type CourseUpdate } from './course-updates';
+export { ensureAgreement, bumpAgreementUpdated } from './agreements-admin';
