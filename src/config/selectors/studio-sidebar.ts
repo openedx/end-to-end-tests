@@ -58,11 +58,12 @@ export const STUDIO_SIDEBAR_SELECTORS = {
    */
   itemMenuButton: '.sidebar-content .btn-icon-md.pgn__dropdown-toggle-iconbutton',
   /**
-   * The back button shown in the panel title when a component is selected on the
-   * unit page — the only inline-size icon button in the panel. Anchored
-   * structurally, not by its localized `aria-label`.
+   * The back button shown in the panel *title row* when a component is selected
+   * on the unit page — the inline-size icon button inside the SidebarTitle's
+   * top flex row (the panel body may hold other inline icon buttons, e.g. the
+   * visibility edit). Anchored structurally, not by its localized `aria-label`.
    */
-  backButton: '.sidebar-content button.btn-icon-inline',
+  backButton: '.sidebar-content .d-flex.justify-content-between button.btn-icon-inline',
 
   /**
    * The "Taxonomy Alignments" section's kebab (a small `IconButton` dropdown);
