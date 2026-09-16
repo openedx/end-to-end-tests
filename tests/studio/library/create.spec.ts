@@ -1,6 +1,12 @@
 import { expect, test } from '../../../src/fixtures';
 import { checkA11y } from '../../../src/a11y';
-import { DEFAULT_COURSE_ORG, fetchLibrary, libraryKeyFor, newLibrarySlug } from '../../../src/api';
+import {
+  DEFAULT_COURSE_ORG,
+  deleteLibrary,
+  fetchLibrary,
+  libraryKeyFor,
+  newLibrarySlug,
+} from '../../../src/api';
 import { testId } from '../../../src/reporting';
 import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, label } from './helpers';
 
@@ -28,7 +34,8 @@ test.describe('Content library creation', { tag: ['@regression', ...LIBRARY_TAGS
       await studioHomePage.goto();
       await expect(studioHomePage.newLibraryLink).toBeVisible();
       await studioHomePage.newLibrary();
-      await createLibraryPage.fill({ title, org, slug });
+      await createLibraryPage.fillForm({ title, org, slug });
+      await checkA11y(page, { label: 'library-create', additionalBaseline: LIBRARY_A11Y_BASELINE });
       const created = await createLibraryPage.submit();
       expect(created.status()).toBe(200);
 
@@ -41,6 +48,8 @@ test.describe('Content library creation', { tag: ['@regression', ...LIBRARY_TAGS
 
       await libraryPage.root.waitFor();
       await checkA11y(page, { label: 'library-home', additionalBaseline: LIBRARY_A11Y_BASELINE });
+      // Component-free, so the delete works (LIB-001 only bites once a container existed).
+      await deleteLibrary(page.request, config, library.id);
     },
   );
 

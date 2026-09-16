@@ -98,7 +98,7 @@ export class LibraryContainerPage {
     await buttons.first().waitFor();
     await buttons.last().click();
     const dialog = this.page.locator(this.s.deleteModal).last();
-    await dialog.locator('input.form-control').first().fill(displayName);
+    await dialog.locator(this.s.dialogNameInput).first().fill(displayName);
     // The MFE creates the child, then attaches it with a `children/` POST.
     const attached = this.page.waitForResponse(
       (r) =>
@@ -113,23 +113,10 @@ export class LibraryContainerPage {
         predicate: (r) => r.url().endsWith('/containers/'),
         timeout: TIMEOUTS.contentWrite,
       },
-      () =>
-        dialog
-          .locator('button[type="submit"], .pgn__modal-footer button.btn-primary')
-          .last()
-          .click(),
+      () => dialog.locator(this.s.dialogSubmitButton).last().click(),
     );
     await attached;
     return created;
-  }
-
-  /** The unit page's footer buttons: "Add New Content" (opens the panel) / "Add Existing Content" (opens the picker). */
-  async footerAddNew(): Promise<void> {
-    await this.page.locator(this.s.unitFooterButton).nth(this.s.unitFooter.addNew).click();
-  }
-
-  async footerAddExisting(): Promise<void> {
-    await this.page.locator(this.s.unitFooterButton).nth(this.s.unitFooter.addExisting).click();
   }
 
   /** The child card titled `title` (our own data). */
@@ -176,17 +163,14 @@ export class LibraryContainerPage {
     const dialog = this.page.locator(this.s.deleteModal).last();
     await dialog.waitFor();
     return waitForWrite(this.page, { method, urlIncludes, timeout: TIMEOUTS.contentWrite }, () =>
-      dialog
-        .locator('.pgn__modal-footer button.btn-primary, .pgn__modal-footer button.btn-danger')
-        .last()
-        .click(),
+      dialog.locator(this.s.dialogConfirmButton).last().click(),
     );
   }
 
   /** Cancels an open confirmation dialog. */
   async cancelDialog(): Promise<void> {
     const dialog = this.page.locator(this.s.deleteModal).last();
-    await dialog.locator('.pgn__modal-footer button.btn-tertiary').click();
+    await dialog.locator(this.s.dialogCancelButton).click();
     await dialog.waitFor({ state: 'detached' });
   }
 }

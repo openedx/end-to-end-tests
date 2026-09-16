@@ -8,6 +8,7 @@ import { ApiError } from './errors';
 import {
   STUDIO_JSON_ACCEPT,
   nonJsonPreview,
+  studioJson,
   studioOrigin,
   studioWriteHeaders,
 } from './studio-origin';
@@ -105,7 +106,7 @@ export interface LibraryTeamMember {
   readonly group_name: string | null;
 }
 
-export interface LibraryPage<T> {
+export interface LibraryApiPage<T> {
   readonly count: number;
   readonly num_pages: number;
   readonly current_page: number;
@@ -129,6 +130,17 @@ export class LibraryDeleteRestrictedError extends ApiError {
   }
 }
 
+/**
+ * How every v2 response is read: a `204` / empty body is a legitimate success
+ * (deletes, publishes), and a `403` means the session is not a member of the
+ * library at the needed access level — worth saying, since it is the answer
+ * every access case measures.
+ */
+const LIBRARY_JSON = {
+  allowEmpty: true,
+  forbiddenHint: 'the session is not a member of this library with the needed access level',
+} as const;
+
 function libraryUrl(config: AppConfig, path: string): string {
   return `${studioOrigin(config)}${LIBRARIES_V2_PATH}${path}`;
 }
@@ -140,7 +152,7 @@ async function libraryRead<T>(
   what: string,
 ): Promise<T> {
   const response = await request.get(libraryUrl(config, path), { headers: STUDIO_JSON_ACCEPT });
-  return parse<T>(response, what);
+  return studioJson<T>(response, what, LIBRARY_JSON);
 }
 
 async function libraryWrite<T>(
@@ -156,43 +168,7 @@ async function libraryWrite<T>(
     data,
     headers: await studioWriteHeaders(request, config),
   });
-  return parse<T>(response, what);
-}
-
-async function parse<T>(
-  response: Awaited<ReturnType<APIRequestContext['fetch']>>,
-  what: string,
-): Promise<T> {
-  const status = response.status();
-  const text = await response.text();
-  if (status === 403) {
-    throw new ApiError(
-      `${what} was refused (HTTP 403): the session is not a member of this library with the ` +
-        `needed access level. ${nonJsonPreview(text)}`,
-      { status, url: response.url(), body: text },
-    );
-  }
-  if (!response.ok()) {
-    throw new ApiError(`${what} failed (HTTP ${status}): ${nonJsonPreview(text)}`, {
-      status,
-      url: response.url(),
-      body: text,
-      retryable: status >= 500,
-    });
-  }
-  if (status === 204 || text.trim() === '') {
-    return undefined as T;
-  }
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new ApiError(`${what} returned a non-JSON body: ${nonJsonPreview(text)}`, {
-      status,
-      url: response.url(),
-      body: text.slice(0, 500),
-      retryable: true,
-    });
-  }
+  return studioJson<T>(response, what, LIBRARY_JSON);
 }
 
 // --- libraries -----------------------------------------------------------------
@@ -254,7 +230,15 @@ export async function createLibrary(
   });
   if (response.status() === 400) {
     const body = await response.text();
-    if (body.includes('already exists')) {
+    // A taken slug is a DRF field error on `slug` — `400 {"slug": "…"}` (plan
+    // §1.2). Keyed on the field, not the message, which the platform localizes.
+    let fields: Record<string, unknown> = {};
+    try {
+      fields = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      // Not JSON: fall through to the generic error below.
+    }
+    if ('slug' in fields) {
       throw new LibraryExistsError(libraryKeyFor(options.org, options.slug), { url, body });
     }
     throw new ApiError(
@@ -266,7 +250,7 @@ export async function createLibrary(
       },
     );
   }
-  return parse<ContentLibrary>(response, `Creating library ${options.slug}`);
+  return studioJson<ContentLibrary>(response, `Creating library ${options.slug}`, LIBRARY_JSON);
 }
 
 export async function fetchLibrary(
@@ -288,7 +272,7 @@ export async function listLibraries(
   request: APIRequestContext,
   config: AppConfig,
   query: LibraryListQuery = {},
-): Promise<LibraryPage<ContentLibrary>> {
+): Promise<LibraryApiPage<ContentLibrary>> {
   const params = new URLSearchParams({ pagination: 'true' });
   if (query.textSearch) params.set('text_search', query.textSearch);
   if (query.org) params.set('org', query.org);
@@ -347,7 +331,7 @@ export async function deleteLibrary(
   if (response.status() === 500) {
     throw new LibraryDeleteRestrictedError(libraryKey, { url, body: await response.text() });
   }
-  await parse<void>(response, `Deleting library ${libraryKey}`);
+  await studioJson<void>(response, `Deleting library ${libraryKey}`, LIBRARY_JSON);
 }
 
 export async function fetchLibraryBlockTypes(
@@ -379,19 +363,6 @@ export async function commitLibrary(
 }
 
 /** Discards every draft change in the library ("Discard changes"). */
-export async function revertLibrary(
-  request: APIRequestContext,
-  config: AppConfig,
-  libraryKey: string,
-): Promise<void> {
-  await libraryWrite<void>(
-    request,
-    config,
-    'DELETE',
-    `${libraryKey}/commit/`,
-    `Discarding the drafts of ${libraryKey}`,
-  );
-}
 
 // --- blocks (components) ----------------------------------------------------------
 
@@ -426,7 +397,7 @@ export async function listLibraryBlocks(
   request: APIRequestContext,
   config: AppConfig,
   libraryKey: string,
-): Promise<LibraryPage<LibraryBlock>> {
+): Promise<LibraryApiPage<LibraryBlock>> {
   return libraryRead(
     request,
     config,
@@ -441,34 +412,6 @@ export async function fetchLibraryBlock(
   usageKey: string,
 ): Promise<LibraryBlock> {
   return libraryRead(request, config, `blocks/${usageKey}/`, `Reading library block ${usageKey}`);
-}
-
-export async function deleteLibraryBlock(
-  request: APIRequestContext,
-  config: AppConfig,
-  usageKey: string,
-): Promise<void> {
-  await libraryWrite<void>(
-    request,
-    config,
-    'DELETE',
-    `blocks/${usageKey}/`,
-    `Deleting ${usageKey}`,
-  );
-}
-
-export async function restoreLibraryBlock(
-  request: APIRequestContext,
-  config: AppConfig,
-  usageKey: string,
-): Promise<void> {
-  await libraryWrite<void>(
-    request,
-    config,
-    'POST',
-    `blocks/${usageKey}/restore/`,
-    `Restoring ${usageKey}`,
-  );
 }
 
 export async function publishLibraryBlock(
@@ -562,6 +505,11 @@ export const libraryOlx = {
     ' />',
   pdf: (displayName: string, url: string) =>
     `<pdf display_name="${escapeXml(displayName)}" url="${escapeXml(url)}" />`,
+  /** A one-question multiple-choice problem — the seeded shape's gradable block. */
+  problem: (displayName: string) =>
+    `<problem display_name="${escapeXml(displayName)}"><multiplechoiceresponse>` +
+    `<choicegroup type="MultipleChoice"><choice correct="true">Yes</choice>` +
+    `<choice correct="false">No</choice></choicegroup></multiplechoiceresponse></problem>`,
 } as const;
 
 function escapeXml(value: string): string {
@@ -629,20 +577,6 @@ export async function renameLibraryContainer(
   );
 }
 
-export async function deleteLibraryContainer(
-  request: APIRequestContext,
-  config: AppConfig,
-  containerKey: string,
-): Promise<void> {
-  await libraryWrite<void>(
-    request,
-    config,
-    'DELETE',
-    `containers/${containerKey}/`,
-    `Deleting ${containerKey}`,
-  );
-}
-
 export async function publishLibraryContainer(
   request: APIRequestContext,
   config: AppConfig,
@@ -689,21 +623,6 @@ export async function addContainerChildren(
 }
 
 /** Removes items from a container; the items stay in the library. */
-export async function removeContainerChildren(
-  request: APIRequestContext,
-  config: AppConfig,
-  containerKey: string,
-  usageKeys: readonly string[],
-): Promise<LibraryContainer> {
-  return libraryWrite(
-    request,
-    config,
-    'DELETE',
-    `containers/${containerKey}/children/`,
-    `Removing children from ${containerKey}`,
-    { usage_keys: usageKeys },
-  );
-}
 
 export async function fetchContainerHierarchy(
   request: APIRequestContext,
@@ -755,27 +674,12 @@ export async function listCollections(
   request: APIRequestContext,
   config: AppConfig,
   libraryKey: string,
-): Promise<LibraryPage<LibraryCollection>> {
+): Promise<LibraryApiPage<LibraryCollection>> {
   return libraryRead(
     request,
     config,
     `${libraryKey}/collections/?pagination=true&page_size=100`,
     `Listing the collections of ${libraryKey}`,
-  );
-}
-
-export async function deleteCollection(
-  request: APIRequestContext,
-  config: AppConfig,
-  libraryKey: string,
-  collectionKey: string,
-): Promise<void> {
-  await libraryWrite<void>(
-    request,
-    config,
-    'DELETE',
-    `${libraryKey}/collections/${collectionKey}/`,
-    `Deleting collection ${collectionKey}`,
   );
 }
 
@@ -793,24 +697,6 @@ export async function addCollectionItems(
     'PATCH',
     `${libraryKey}/collections/${collectionKey}/items/`,
     `Adding items to collection ${collectionKey}`,
-    { usage_keys: usageKeys },
-  );
-  return body.count;
-}
-
-export async function removeCollectionItems(
-  request: APIRequestContext,
-  config: AppConfig,
-  libraryKey: string,
-  collectionKey: string,
-  usageKeys: readonly string[],
-): Promise<number> {
-  const body = await libraryWrite<{ count: number }>(
-    request,
-    config,
-    'DELETE',
-    `${libraryKey}/collections/${collectionKey}/items/`,
-    `Removing items from collection ${collectionKey}`,
     { usage_keys: usageKeys },
   );
   return body.count;
@@ -843,56 +729,4 @@ export async function addLibraryTeamMember(
   );
 }
 
-export async function setLibraryTeamMemberLevel(
-  request: APIRequestContext,
-  config: AppConfig,
-  libraryKey: string,
-  username: string,
-  accessLevel: LibraryAccessLevel,
-): Promise<LibraryTeamMember> {
-  return libraryWrite(
-    request,
-    config,
-    'PUT',
-    `${libraryKey}/team/user/${username}/`,
-    `Setting ${username} to ${accessLevel} on ${libraryKey}`,
-    { access_level: accessLevel },
-  );
-}
-
-export async function removeLibraryTeamMember(
-  request: APIRequestContext,
-  config: AppConfig,
-  libraryKey: string,
-  username: string,
-): Promise<void> {
-  await libraryWrite<void>(
-    request,
-    config,
-    'DELETE',
-    `${libraryKey}/team/user/${username}/`,
-    `Removing ${username} from ${libraryKey}`,
-  );
-}
-
 // --- clipboard ------------------------------------------------------------------------
-
-/**
- * Pastes the user's server-side clipboard (see `clipboard.ts`) into the library
- * as a new component — the MFE's "Paste from clipboard" in the Add Content
- * sidebar. Returns the new block.
- */
-export async function pasteClipboardIntoLibrary(
-  request: APIRequestContext,
-  config: AppConfig,
-  libraryKey: string,
-): Promise<LibraryBlock> {
-  return libraryWrite(
-    request,
-    config,
-    'POST',
-    `${libraryKey}/paste_clipboard/`,
-    `Pasting the clipboard into ${libraryKey}`,
-    {},
-  );
-}

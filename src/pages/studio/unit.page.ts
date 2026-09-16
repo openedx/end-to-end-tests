@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import {
   COURSE_LIBRARY_SYNC_SELECTORS,
+  STUDIO_EDITOR_SELECTORS,
   STUDIO_UNIT_PAGE_SELECTORS,
   TIMEOUTS,
   type AppConfig,
@@ -268,7 +269,7 @@ export class StudioUnitPage {
       .locator(COURSE_LIBRARY_SYNC_SELECTORS.iframeEditButton)
       .first()
       .click();
-    await this.page.locator('[role="dialog"].pgn__modal-xl').last().waitFor();
+    await this.page.locator(STUDIO_EDITOR_SELECTORS.editorDialog).last().waitFor();
   }
 
   async openUpdateAvailable(usageKey: string): Promise<void> {

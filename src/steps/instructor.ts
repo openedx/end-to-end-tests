@@ -1,5 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 
+import { pollUntil, type PollOutcome } from './poll';
 import { TIMEOUTS, type AppConfig } from '../config';
 import {
   fetchCourseProgress,
@@ -26,31 +27,10 @@ import {
  * look different (the lesson of `PLAT-009`).
  */
 
-const POLL_INTERVAL_MS = 1_000;
-
 /** `tasks/<id>` states after which a task will not change again (measured: `completed`). */
 const TERMINAL_TASK_STATES = new Set(['completed', 'failed', 'error', 'revoked']);
 
 /** The outcome of a bounded poll: whether the condition held, and the last readings. */
-export interface PollOutcome<T> {
-  readonly satisfied: boolean;
-  readonly last: T;
-  readonly elapsedMs: number;
-}
-
-async function pollUntil<T>(
-  read: () => Promise<T>,
-  satisfied: (reading: T) => boolean,
-  timeoutMs: number,
-): Promise<PollOutcome<T>> {
-  const started = Date.now();
-  let last = await read();
-  while (!satisfied(last) && Date.now() - started < timeoutMs) {
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    last = await read();
-  }
-  return { satisfied: satisfied(last), last, elapsedMs: Date.now() - started };
-}
 
 /** What {@link waitForInstructorTask} observed when it stopped. */
 export type TaskWaitOutcome<T> = PollOutcome<{ tasks: readonly InstructorTask[]; reading: T }>;

@@ -13,7 +13,7 @@ import {
   type LibraryBlock,
   type LibraryContainer,
 } from '../../../src/api';
-import { issue, testId } from '../../../src/reporting';
+import { testId } from '../../../src/reporting';
 import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, authorTextBlock, label } from './helpers';
 
 /**
@@ -274,16 +274,12 @@ test.describe('Content library units', { tag: ['@regression', ...LIBRARY_TAGS] }
     },
   );
 
-  // Failed in the manual Verawood run; written to the intended behaviour and
-  // marked once the platform's result is known (see the run notes).
+  // The sheet's manual verawood run recorded this as Failed
+  // (wg-build-test-release#603); it did not reproduce on `main` or `verawood`
+  // (2026-09-16), so it is asserted as intended behaviour with no defect marker.
   test(
     'deletes a component from within a unit, removing it from the library too',
-    {
-      annotation: [
-        testId('TC-00342'),
-        issue('https://github.com/openedx/wg-build-test-release/issues/603'),
-      ],
-    },
+    { annotation: testId('TC-00342') },
     async (
       { page, config, studioAuthorSession, authoringLibrary, libraryContainerPage },
       testInfo,

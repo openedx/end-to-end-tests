@@ -32,6 +32,8 @@ export class LibraryPage {
   readonly sidebar: LibrarySidebar;
   readonly searchInput: Locator;
   readonly cards: Locator;
+  /** Every card's title text — for order assertions with `allInnerTexts()`. */
+  readonly cardTitles: Locator;
   readonly notFoundAlert: Locator;
   readonly permissionDeniedAlert: Locator;
 
@@ -44,6 +46,7 @@ export class LibraryPage {
     this.searchInput = page.locator(this.s.searchInput);
     // Cards render below the tab strip, not inside the (empty) tab panes.
     this.cards = page.locator(`${this.s.page} ${this.s.card}`);
+    this.cardTitles = this.cards.locator(this.s.cardBodyTitle);
     this.notFoundAlert = page.locator(this.s.notFoundAlert);
     this.permissionDeniedAlert = page.locator(this.s.permissionDeniedAlert);
   }
@@ -66,11 +69,6 @@ export class LibraryPage {
       this.page.goto(this.url(libraryKey, tab)),
     ]);
     return response;
-  }
-
-  /** Opens a library URL without waiting for the library fetch — for keys the user may not read. */
-  async gotoUnchecked(libraryKey: string): Promise<void> {
-    await this.page.goto(this.url(libraryKey));
   }
 
   async gotoCollection(libraryKey: string, collectionKey: string): Promise<void> {
@@ -145,15 +143,11 @@ export class LibraryPage {
    */
   async nameNewItem(displayName: string, urlIncludes: string): Promise<Response> {
     const dialog = this.page.locator(this.s.deleteModal).last();
-    await dialog.locator('input.form-control').first().fill(displayName);
+    await dialog.locator(this.s.dialogNameInput).first().fill(displayName);
     return waitForWrite(
       this.page,
       { method: 'POST', urlIncludes, timeout: TIMEOUTS.contentWrite },
-      () =>
-        dialog
-          .locator('button[type="submit"], .pgn__modal-footer button.btn-primary')
-          .last()
-          .click(),
+      () => dialog.locator(this.s.dialogSubmitButton).last().click(),
     );
   }
 
@@ -193,12 +187,6 @@ export class LibraryPage {
       { method: 'POST', urlIncludes: '/api/xblock/v2/xblocks/', timeout: TIMEOUTS.contentWrite },
       () => this.page.locator(this.s.editorSaveButton).click(),
     );
-  }
-
-  /** Closes the open component editor without saving. */
-  async closeEditor(): Promise<void> {
-    await this.page.locator(this.s.editorCloseButton).last().click();
-    await this.page.locator(this.s.editorDialog).last().waitFor({ state: 'hidden' });
   }
 
   /**
@@ -247,13 +235,13 @@ export class LibraryPage {
         await paste.waitFor();
         // A previous paste's toast overlays the panel foot and intercepts the
         // click. Toasts stack and do not always auto-fade in time, so dismiss any
-        // that are showing before clicking. The toast carries `aria-hidden`, so
-        // its close control is reached by CSS (`aria-label`), not by role.
+        // that are showing before clicking — by the close control's class: the
+        // toast is `aria-hidden` (so roles are out) and its label is localized.
         const toasts = this.page.locator(this.s.toast);
         for (let guard = 0; guard < 5 && (await toasts.count()) > 0; guard += 1) {
-          await toasts
+          await this.page
+            .locator(this.s.toastCloseButton)
             .first()
-            .locator('[aria-label="Close"]')
             .click({ timeout: TIMEOUTS.optionalOverlay })
             .catch(() => undefined);
           await toasts
@@ -276,7 +264,7 @@ export class LibraryPage {
   // repeated queries from its cache with no request, so specs assert the card
   // set with `toHaveCount` / `expect.poll`, which retry while the index answers.
 
-  /** Types a search term and waits for the search backend to answer. */
+  /** Types a search term; the spec asserts the card set with a retrying matcher (see above). */
   async search(term: string): Promise<void> {
     await this.searchInput.fill(term);
     // While focused the field expands over the filter row and would intercept
@@ -384,6 +372,13 @@ export class LibraryPage {
    * card "Delete" is the last item (after a divider); on a top-level container
    * card the menu has no divider and "Delete" is the third item.
    */
+  /** Card menu → "Delete" — opens the confirmation without answering it (for its Cancel path). */
+  async openCardDelete(title: string): Promise<void> {
+    await this.openCardMenu(title);
+    await this.page.locator(this.s.menuLastItem).last().click();
+    await this.page.locator(this.s.deleteModal).last().waitFor();
+  }
+
   async deleteCard(title: string): Promise<Response> {
     const menu = await this.openCardMenu(title);
     const hasDivider = (await menu.locator('.dropdown-divider').count()) > 0;
@@ -392,16 +387,6 @@ export class LibraryPage {
       : this.page.locator(this.s.openMenuItem).nth(this.s.containerMenu.delete);
     await item.click();
     return this.confirmDialog('DELETE', LIBRARIES_V2_PATH);
-  }
-
-  /**
-   * Card menu → "Remove from <parent>" (the item after the divider, before
-   * "Delete") → confirm, waiting for the children `DELETE`.
-   */
-  async removeCardFromParent(title: string, urlIncludes = '/children/'): Promise<Response> {
-    await this.openCardMenu(title);
-    await this.page.locator(this.s.menuRemoveItem).first().click();
-    return this.confirmDialog('DELETE', urlIncludes);
   }
 
   /** On a collection page: card menu → "Remove from collection" (no confirmation), waiting for the items `DELETE`. */
@@ -452,25 +437,19 @@ export class LibraryPage {
     );
   }
 
-  /** Card menu → "Open" (container cards only). */
-  async openContainerFromCard(title: string): Promise<void> {
-    await this.openCardMenu(title);
-    await this.page.locator(this.s.openMenuItem).nth(this.s.containerMenu.open).click();
-  }
-
   /** Confirms the open Paragon confirmation dialog, waiting for the write it fires. */
   async confirmDialog(method: 'DELETE' | 'POST' | 'PATCH', urlIncludes: string): Promise<Response> {
     const dialog = this.page.locator(this.s.deleteModal).last();
     await dialog.waitFor();
     return waitForWrite(this.page, { method, urlIncludes, timeout: TIMEOUTS.contentWrite }, () =>
-      dialog.locator(this.s.deleteModalConfirm.replaceAll('[role="dialog"] ', '')).last().click(),
+      dialog.locator(this.s.dialogConfirmButton).last().click(),
     );
   }
 
   /** Cancels the open confirmation dialog. */
   async cancelDialog(): Promise<void> {
     const dialog = this.page.locator(this.s.deleteModal).last();
-    await dialog.locator(this.s.deleteModalCancel.replaceAll('[role="dialog"] ', '')).click();
+    await dialog.locator(this.s.dialogCancelButton).click();
     await dialog.waitFor({ state: 'detached' });
   }
 }

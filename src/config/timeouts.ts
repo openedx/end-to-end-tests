@@ -145,4 +145,13 @@ export const TIMEOUTS = {
    * in 4.1 s when measured; sized like `courseRerun`, which shares the worker.
    */
   libraryMigration: 120_000,
+  /**
+   * The course Libraries "Review Content Updates" tab catching up with a
+   * downstream that already reports `ready_to_sync` — it is fed by the
+   * course-content search index, reindexed by Celery on publish. Measured
+   * 2026-09-16 on Tutor `main`: ~30 s in a fresh course, past 60 s while other
+   * publishes queue ahead of it (LIB-002); a reload-poll under this budget
+   * passed at 4.8 min worst case.
+   */
+  libraryReviewIndex: 120_000,
 } as const;

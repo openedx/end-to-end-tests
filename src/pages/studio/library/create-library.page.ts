@@ -32,13 +32,19 @@ export class CreateLibraryPage {
     await this.titleInput.waitFor();
   }
 
-  async fill(library: { title: string; org: string; slug: string }): Promise<void> {
+  async fillForm(library: { title: string; org: string; slug: string }): Promise<void> {
     await this.titleInput.fill(library.title);
     await this.orgInput.fill(library.org);
-    // The autosuggest offers the typed org as an option; picking it (rather
-    // than leaving free text) is what makes the field valid.
-    const option = this.page.locator(`.pgn__form-autosuggest__dropdown [id="${library.org}"]`);
-    if (await option.count()) {
+    // The autosuggest offers the typed org as an option once its dropdown has
+    // rendered; picking it (rather than leaving free text) is what makes the
+    // field valid. An org outside the user's list never gets an option, and
+    // Enter commits the free text — the form then reports it, as the spec expects.
+    const option = this.page.locator(this.s.createOrgOption(library.org));
+    const offered = await option
+      .waitFor({ timeout: TIMEOUTS.optionalOverlay })
+      .then(() => true)
+      .catch(() => false);
+    if (offered) {
       await option.click();
     } else {
       await this.orgInput.press('Enter');

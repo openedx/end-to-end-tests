@@ -388,7 +388,7 @@ export class StudioCourseOutlinePage {
     // On a slow target (verawood CI) the wait passed on "Use … from library",
     // the click opened the picker, and the paste POST never came. So gate on
     // the clipboard fetch itself: reload with it awaited, re-expand the outline
-    // the reload collapsed, let the render settle, then take the last button.
+    // the reload collapsed, then take the last button.
     await Promise.all([
       this.page.waitForResponse(
         (r) => r.url().endsWith(CLIPBOARD_PATH) && r.request().method() === 'GET',
@@ -402,8 +402,9 @@ export class StudioCourseOutlinePage {
       .locator(STUDIO_OUTLINE_PAGE_SELECTORS.subsectionUnits)
       .locator(STUDIO_OUTLINE_PAGE_SELECTORS.addChildButton);
     await buttons.first().waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
-    // The clipboard data is in hand; one frame for React to add the paste button.
-    await this.page.evaluate(() => new Promise((done) => requestAnimationFrame(done)));
+    // The clipboard GET resolved before this locator's own round trip to the
+    // page, and React re-renders from that response synchronously, so the
+    // paste button is already the last add button by the time it is queried.
     const button = buttons.last();
     await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
     // Paste stages the copied OLX under the new parent, which is slower than a

@@ -110,24 +110,6 @@ export class LibrarySidebar {
 
   // --- library info panel ------------------------------------------------------
 
-  /** "Publish All", waiting for the `POST <lib>/commit/`. */
-  async publishAll(): Promise<Response> {
-    return waitForWrite(
-      this.page,
-      { method: 'POST', urlIncludes: '/commit/', timeout: TIMEOUTS.contentWrite },
-      () => this.page.locator(this.s.publishAllButton).click(),
-    );
-  }
-
-  /** "Discard Changes", waiting for the `DELETE <lib>/commit/`. */
-  async discardChanges(): Promise<Response> {
-    return waitForWrite(
-      this.page,
-      { method: 'DELETE', urlIncludes: '/commit/', timeout: TIMEOUTS.contentWrite },
-      () => this.page.locator(this.s.discardChangesButton).click(),
-    );
-  }
-
   /** Flips the public-read switch, waiting for the `PATCH <lib>/` it fires. */
   async setPublicRead(enabled: boolean): Promise<Response | undefined> {
     // React-controlled: the switch changes state (and re-enables) only once the

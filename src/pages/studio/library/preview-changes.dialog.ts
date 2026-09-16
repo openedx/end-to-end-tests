@@ -47,6 +47,12 @@ export class PreviewChangesDialog {
     await this.compareTab(key).click();
   }
 
+  /** Whether the open preview is for a block customized in the course (the body carries the local-edits alert). */
+  async isCustomized(): Promise<boolean> {
+    await this.root.waitFor();
+    return (await this.page.locator(this.s.localEditsAlert).count()) > 0;
+  }
+
   /**
    * Accepts the library update (takes the published version), waiting for the
    * `POST downstreams/<key>/sync`. The footer's sync button is "Accept changes"
@@ -54,12 +60,6 @@ export class PreviewChangesDialog {
    * block was customized in the course — and that one first opens a "discard
    * local edits" confirmation whose danger button fires the sync. Handles both.
    */
-  /** Whether the open preview is for a block customized in the course (the body carries the local-edits alert). */
-  async isCustomized(): Promise<boolean> {
-    await this.root.waitFor();
-    return (await this.page.locator(this.s.localEditsAlert).count()) > 0;
-  }
-
   async accept(): Promise<Response> {
     // Untouched block: the primary is the sync. Customized block: the primary
     // has become "Keep course content" and the sync is the lone tertiary, which

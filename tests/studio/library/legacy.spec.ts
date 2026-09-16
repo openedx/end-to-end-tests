@@ -1,13 +1,12 @@
 import { expect, test } from '../../../src/fixtures';
 import { checkA11y } from '../../../src/a11y';
-import { TIMEOUTS } from '../../../src/config';
+import { TIMEOUTS, getRunId } from '../../../src/config';
 import {
   DEFAULT_COURSE_ORG,
   addLegacyLibraryBlock,
   createLegacyLibrary,
   listLegacyLibraries,
   listLibraryBlocks,
-  type MigrationTask,
 } from '../../../src/api';
 import { testId } from '../../../src/reporting';
 import { waitForMigration } from '../../../src/steps';
@@ -39,7 +38,7 @@ test.describe(
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
     test(
-      'creates a legacy library that Studio Home lists as not yet migrated',
+      'creates a legacy library that the platform lists as not yet migrated',
       { annotation: testId('TC-00250') },
       async ({ page, config, studioAuthorSession, legacyLibrary, studioHomePage }) => {
         void studioAuthorSession;
@@ -78,10 +77,13 @@ test.describe(
         await legacyMigrationPage.next();
         await legacyMigrationPage.selectDestination(authoringLibrary.id);
         await legacyMigrationPage.next();
-        const task = (await (await legacyMigrationPage.confirm()).json()) as MigrationTask;
-        await expect(page).toHaveURL((url) => url.searchParams.get('migration_task') === task.uuid);
+        const [task] = await legacyMigrationPage.confirm();
+        expect(task).toBeDefined();
+        await expect(page).toHaveURL(
+          (url) => url.searchParams.get('migration_task') === task?.uuid,
+        );
 
-        const migration = await waitForMigration(page.request, config, task.uuid);
+        const migration = await waitForMigration(page.request, config, task?.uuid ?? '');
         expect(migration.last).toMatchObject({ state: 'Succeeded' });
         const blocks = await listLibraryBlocks(page.request, config, authoringLibrary.id);
         expect(blocks.results.map((b) => b.display_name).sort()).toEqual(
@@ -103,10 +105,10 @@ test.describe(
       ) => {
         void studioAuthorSession;
         const org = config.org ?? DEFAULT_COURSE_ORG;
-        const secondName = `${label('legacy-b', testInfo.testId)}`;
+        const secondName = label('legacy-b', testInfo.testId);
         const secondKey = await createLegacyLibrary(page.request, config, {
           org,
-          number: `LB${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}R${testInfo.retry}${Date.now().toString(36)}`,
+          number: `LB${getRunId()}${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}R${testInfo.retry}`,
           displayName: secondName,
         });
         await addLegacyLibraryBlock(page.request, config, secondKey, 'html', `${secondName} text`);
@@ -117,11 +119,11 @@ test.describe(
         await legacyMigrationPage.next();
         await legacyMigrationPage.selectDestination(authoringLibrary.id);
         await legacyMigrationPage.next();
-        const body = (await (await legacyMigrationPage.confirm()).json()) as
-          MigrationTask | MigrationTask[];
-        const tasks = Array.isArray(body) ? body : [body];
+        const tasks = await legacyMigrationPage.confirm();
         for (const task of tasks) {
-          expect((await waitForMigration(page.request, config, task.uuid)).last).toMatchObject({
+          expect(
+            (await waitForMigration(page.request, config, task?.uuid ?? '')).last,
+          ).toMatchObject({
             state: 'Succeeded',
           });
         }

@@ -152,7 +152,8 @@ admin `loginSession` context under the admin lock.
 
 The **library admin** persona is the same worker author too: creating a content
 library (v2) makes its creator the library's `admin`, and the
-`/api/libraries/v2/` API accepts the JWT, so `tests/studio/library/` runs in
+`/api/libraries/v2/` API rides the author's Studio session (measured: no JWT
+needed), so `tests/studio/library/` runs in
 `studio-author` on `page` / `page.request`. Its second actors — a library
 member, an unaffiliated Studio user — are **course creators** provisioned per
 test on their own contexts (`studioColleague`), because `allow_public_read`

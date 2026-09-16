@@ -24,17 +24,15 @@ export {
   waitForLearnerProgress,
   waitForReport,
   type CertificateMintOutcome,
-  type PollOutcome,
   type TaskWaitOutcome,
 } from './instructor';
 export {
   authorLibrary,
-  reuseInCourse,
   waitForLearnerBlock,
   waitForMigration,
   waitForSyncAvailable,
   type AuthoredLibrary,
   type LibraryBlockSpec,
-  type LibraryPollOutcome,
   type LibraryShape,
 } from './library';
+export { pollUntil, type PollOutcome } from './poll';
