@@ -35,6 +35,8 @@ import { StudioPagesResourcesPage } from '../pages/studio/pages-resources/pages-
 import { StudioCustomPagesPage } from '../pages/studio/custom-pages/custom-pages.page';
 import { AuthoringSidebar } from '../pages/studio/sidebar/authoring-sidebar.page';
 import { TagDrawer } from '../pages/studio/sidebar/tag-drawer.page';
+import { TaxonomyListPage } from '../pages/studio/taxonomies/taxonomy-list.page';
+import { TaxonomyDetailPage } from '../pages/studio/taxonomies/taxonomy-detail.page';
 import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
@@ -525,6 +527,24 @@ export interface TestFixtures {
    * the lock; deleted best-effort at test end. Skips like {@link workerTaxonomy}.
    */
   authoringTaxonomy: WorkerTaxonomy;
+  /**
+   * The taxonomy admin pages (list and detail) driven by the configured admin,
+   * signed into Studio in a fresh browser context and held under the admin lock
+   * for the whole test. Skips without a configured admin or the `taxonomies`
+   * capability. The bundled `request` is that same admin browser's API context
+   * (shared session), for the content-tagging API oracles and cleanup.
+   */
+  taxonomyAdmin: TaxonomyAdmin;
+}
+
+/** What {@link TestFixtures.taxonomyAdmin} hands a spec: the admin's taxonomy pages and API session. */
+export interface TaxonomyAdmin {
+  readonly list: TaxonomyListPage;
+  readonly detail: TaxonomyDetailPage;
+  /** The admin browser's own API context (same session as the pages). */
+  readonly request: APIRequestContext;
+  /** The content org taxonomies are assigned to (whose courses' drawers list them). */
+  readonly org: string;
 }
 
 /** What {@link TestFixtures.workerTaxonomy} / {@link TestFixtures.authoringTaxonomy} hand a spec. */
@@ -2100,6 +2120,33 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       }
     });
     await use({ taxonomy: seeded, org });
+  },
+
+  taxonomyAdmin: async ({ browser, config }, use) => {
+    const org = requireTaxonomyAdmin(config);
+    const admin = config.credentials.admin as NonNullable<typeof config.credentials.admin>;
+    // A fresh browser signed in through the UI, held under the admin lock for the
+    // whole test (like `adminPage`): another worker's admin sign-in would end this
+    // session (PREVENT_CONCURRENT_LOGINS). The page's own API context shares the
+    // session, so the content-tagging oracles and cleanup run on `page.request`.
+    await withAdminSession(async () => {
+      const context = await browser.newContext();
+      try {
+        const page = await context.newPage();
+        await signInToStudioThroughUi(page, config, {
+          emailOrUsername: admin.username,
+          password: admin.password,
+        });
+        await use({
+          list: new TaxonomyListPage(page, config),
+          detail: new TaxonomyDetailPage(page, config),
+          request: page.request,
+          org,
+        });
+      } finally {
+        await context.close();
+      }
+    });
   },
 
   authoringTaxonomy: async ({ playwright, config }, use, testInfo) => {

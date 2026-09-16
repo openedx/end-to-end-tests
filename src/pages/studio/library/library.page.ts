@@ -314,6 +314,20 @@ export class LibraryPage {
     await item.click();
   }
 
+  /**
+   * Opens the "Tags" filter and toggles the facet node whose value is `facetValue`
+   * (our data — a taxonomy name or a tag value). The root facet is the taxonomy, so
+   * a taxonomy name selects all content tagged in it. Waits for the node to appear:
+   * the facet reflects the search index, which reindexes a just-tagged block
+   * asynchronously. No assertion here — the spec owns those.
+   */
+  async toggleTagFilterByValue(facetValue: string): Promise<void> {
+    const box = this.page.locator(this.s.tagFilterCheckbox(facetValue));
+    if (!(await box.isVisible())) await this.openFilter('tags');
+    await box.waitFor({ state: 'visible', timeout: TIMEOUTS.librarySearch });
+    await box.click();
+  }
+
   /** "Clear Filter" inside the given refinement menu (opened if needed). */
   async clearFilter(which: keyof typeof LIBRARY_SELECTORS.filter): Promise<void> {
     const clear = this.page.locator(this.s.clearFiltersButton);

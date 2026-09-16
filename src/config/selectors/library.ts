@@ -146,6 +146,14 @@ export const LIBRARY_SELECTORS = {
     `input[name="publish-status-filter"][value="${status}"]`,
   /** The tag filter's items (`FilterByTags`). */
   tagFilterItem: '.pgn__menu-item.tag-toggle-item',
+  /**
+   * One tag-filter checkbox by its tag value (our own data, so matching it is
+   * allowed). The MFE builds the checkbox `id` as the tag path with every
+   * non-word character replaced by `_`, then a random suffix, so this anchors on
+   * that computed id prefix — an attribute value, never displayed copy.
+   */
+  tagFilterCheckbox: (tagValue: string): string =>
+    `.tag-toggle-item input[id^="${tagValue.replace(/\W/g, '_')}"]`,
   /** "Clear Filter" — the link-styled button **inside** an open refinement menu. */
   clearFiltersButton: 'button.clear-filter-button',
 
