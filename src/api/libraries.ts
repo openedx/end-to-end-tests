@@ -517,6 +517,27 @@ export async function setLibraryBlockOlx(
   return body.version_num;
 }
 
+/** A static asset attached to a library block (a transcript, an image). */
+export interface LibraryBlockAsset {
+  readonly path: string;
+  readonly url: string;
+  readonly size: number;
+}
+
+export async function fetchLibraryBlockAssets(
+  request: APIRequestContext,
+  config: AppConfig,
+  usageKey: string,
+): Promise<readonly LibraryBlockAsset[]> {
+  const body = await libraryRead<{ files: readonly LibraryBlockAsset[] }>(
+    request,
+    config,
+    `blocks/${usageKey}/assets/`,
+    `Listing the assets of ${usageKey}`,
+  );
+  return body.files;
+}
+
 export async function fetchBlockHierarchy(
   request: APIRequestContext,
   config: AppConfig,

@@ -33,20 +33,37 @@ export class LibraryPickerDialog {
     return this.page.locator(this.s.libraryRadio(libraryKey));
   }
 
+  /** Filters step one's library list by `term` (title or slug) and submits — the
+   * list paginates five per page, so this is how a specific library is surfaced. */
   async searchLibraries(term: string): Promise<void> {
-    await this.page.locator(this.s.librarySearchInput).fill(term);
+    const input = this.page.locator(this.s.librarySearchInput);
+    await input.fill(term);
+    await input.press('Enter');
   }
 
-  /** Picks a library on step one; the embedded library page follows. */
-  async selectLibrary(libraryKey: string): Promise<void> {
+  /**
+   * Picks a library on step one; the embedded library page follows. The picker
+   * paginates the libraries the user may reuse from (five per page), so a run
+   * that has seeded many E2E libraries pushes the target off page one — pass
+   * `searchTerm` (the library's title) to filter the list down to it first.
+   */
+  async selectLibrary(libraryKey: string, searchTerm?: string): Promise<void> {
+    if (searchTerm !== undefined) {
+      const input = this.page.locator(this.s.librarySearchInput);
+      await input.fill(searchTerm);
+      await input.press('Enter');
+    }
     // The radio input is visually hidden behind its card; clicking the card selects it.
-    await this.page
+    const card = this.page
       .locator('[role="dialog"] .pgn__card')
       .filter({
         has: this.page.locator(`input[name="selected-library"][value="${libraryKey}"]`),
       })
-      .first()
-      .click();
+      .first();
+    // A just-seeded library can lag in the picker's index; wait on the search
+    // budget rather than the click's default before selecting it.
+    await card.waitFor({ timeout: TIMEOUTS.librarySearch });
+    await card.click();
     await this.embeddedPage.waitFor({ timeout: TIMEOUTS.navigation });
   }
 
@@ -76,11 +93,32 @@ export class LibraryPickerDialog {
    * waiting for the container children `POST`.
    */
   async addToContainer(title: string): Promise<Response> {
-    return waitForWrite(
-      this.page,
-      { method: 'POST', urlIncludes: '/children/', timeout: TIMEOUTS.contentWrite },
-      () => this.cardFor(title).first().locator(this.s.cardAddButton).first().click(),
+    return this.selectAndConfirm(title, { method: 'POST', urlIncludes: '/children/' });
+  }
+
+  /**
+   * Inside a library the picker runs in **multiple** mode: each card's header
+   * button ("Select") adds it to the selection, and the footer's primary
+   * button ("Add to Unit" / "Add to Collection") submits it.
+   */
+  private async selectAndConfirm(
+    title: string,
+    match: { method: 'POST' | 'PATCH'; urlIncludes: string },
+  ): Promise<Response> {
+    // Clicking the card only highlights it; its header "Select" button adds
+    // it to the selection the footer confirms.
+    await this.cardFor(title).first().locator(this.s.cardAddButton).first().click();
+    return waitForWrite(this.page, { ...match, timeout: TIMEOUTS.contentWrite }, () =>
+      this.page.locator(this.s.footerConfirm).last().click(),
     );
+  }
+
+  /**
+   * "Add" on a card inside a collection's "Existing Library Content" picker,
+   * waiting for the collection items `PATCH`.
+   */
+  async addToCollection(title: string): Promise<Response> {
+    return this.selectAndConfirm(title, { method: 'PATCH', urlIncludes: '/items/' });
   }
 
   async close(): Promise<void> {

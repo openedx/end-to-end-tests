@@ -17,7 +17,6 @@ import {
   createXBlock,
   declineSync,
   deleteLibrary,
-  establishStudioSession,
   fetchContainerHierarchy,
   fetchDownstream,
   fetchLibrary,
@@ -58,6 +57,7 @@ test.describe(
       page,
       config,
       studioAuthorSession,
+      resyncStudioAuthor,
       contentCourse,
     }) => {
       void studioAuthorSession;
@@ -117,11 +117,12 @@ test.describe(
       expect((await fetchLibrary(request, config, library.id)).has_unpublished_changes).toBe(false);
       expect((await listLibraryBlocks(request, config, library.id)).count).toBe(2);
 
-      // Course side: import the text block into a fresh unit of the worker course.
-      // The legacy `/xblock/` view is session-authenticated (the v2 API above
-      // accepted the browser's JWT); `createXBlock` needs the same live session
-      // `reuseInCourse` establishes, so establish it first.
-      await establishStudioSession(request, config);
+      // Course side: the v2 library writes above desync this context's Studio
+      // session (the CMS rotates it on write); re-sync through the browser before
+      // the legacy `/xblock/` writes. `resyncStudioAuthor` rather than the API
+      // SSO handshake so a prior test's learner (a stale LMS half) can't turn the
+      // re-sync into a corruption.
+      await resyncStudioAuthor();
       const chapter = await createXBlock(request, config, {
         parentLocator: `block-v1:${contentCourse.courseKey.slice('course-v1:'.length)}+type@course+block@course`,
         category: 'chapter',
@@ -233,9 +234,12 @@ test.describe(
         (await fetchLibrary(outsider.request, config, authoringLibrary.id)).allow_public_read,
       ).toBe(true);
       expect(
-        (await listLibraries(outsider.request, config, { org: authoringLibrary.org })).results.map(
-          (l) => l.id,
-        ),
+        (
+          await listLibraries(outsider.request, config, {
+            org: authoringLibrary.org,
+            textSearch: authoringLibrary.slug,
+          })
+        ).results.map((l) => l.id),
       ).toContain(authoringLibrary.id);
       await updateLibrary(request, config, authoringLibrary.id, { allowPublicRead: false });
       await expect(

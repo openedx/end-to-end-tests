@@ -56,7 +56,17 @@ export class LegacyMigrationPage {
 
   /** Picks the destination v2 library by key. */
   async selectDestination(libraryKey: string): Promise<void> {
-    await this.page.locator(this.s.destinationRadio(libraryKey)).check();
+    // The destination list paginates (50 per page over every v2 library the user
+    // can reuse), so a run with many accumulated libraries pushes the target off
+    // the first page. Filter to it by slug — the `lib:<org>:<slug>` key's last
+    // segment — before ticking its radio.
+    const slug = libraryKey.split(':').pop() ?? libraryKey;
+    const search = this.page.locator(this.s.searchInput).last();
+    await search.fill(slug);
+    await search.press('Enter');
+    const radio = this.page.locator(this.s.destinationRadio(libraryKey));
+    await radio.waitFor({ timeout: TIMEOUTS.librarySearch });
+    await radio.check();
   }
 
   /** "Confirm", waiting for the migration request; returns its response. */

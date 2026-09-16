@@ -9,7 +9,6 @@ import {
   createLibrary,
   createLibraryBlock,
   createLibraryContainer,
-  establishStudioSession,
   fetchDownstream,
   fetchMigration,
   importLibraryContent,
@@ -93,6 +92,8 @@ export interface LibraryShape {
   readonly collections?: Readonly<Record<string, { title: string; items: readonly string[] }>>;
   /** Publish everything at the end (default `true`). */
   readonly publish?: boolean;
+  /** Set `allow_public_read` so any course creator may reuse the library (default `false`). */
+  readonly allowPublicRead?: boolean;
 }
 
 export interface AuthoredLibrary {
@@ -142,6 +143,7 @@ export async function authorLibrary(
     org: shape.org,
     slug: shape.slug ?? newLibrarySlug(),
     title: shape.title,
+    allowPublicRead: shape.allowPublicRead ?? false,
   });
   const libraryKey = library.id;
 
@@ -232,18 +234,21 @@ export async function authorLibrary(
 // --- reuse in a course -----------------------------------------------------------
 
 /**
- * Imports a library item into a course as the author. The legacy `/xblock/`
- * view is session-authenticated (the v2 API accepts the browser's JWT), so the
- * idempotent Studio handshake runs first to make sure this context's Studio
- * session is live — a `page.request` right after a browser page load may hold
- * only the JWT.
+ * Imports a library item into a course as the author — the legacy `/xblock/`
+ * write behind the "Library Content" picker. Drive it on `page.request`: it
+ * shares the browser's live Studio session, which `studioAuthorSession` keeps
+ * alive. Do **not** re-run the SSO handshake here — on a context whose LMS
+ * session has lapsed (a second learner was provisioned) the handshake replaces
+ * a still-good `studio_session_id` with an anonymous one and the write then
+ * 302s (Epic 10 measured this).
  */
 export async function reuseInCourse(
   request: APIRequestContext,
   config: AppConfig,
   options: ImportLibraryContentOptions,
 ): Promise<ImportedLibraryContent> {
-  await establishStudioSession(request, config);
+  // `request` must already hold a live Studio session; the caller (a spec on
+  // `page.request`, kept clean of library v2 writes) provides it.
   return importLibraryContent(request, config, options);
 }
 

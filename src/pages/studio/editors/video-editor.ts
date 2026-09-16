@@ -49,4 +49,30 @@ export class StudioVideoEditor {
   saveButton(): Locator {
     return this.page.locator(this.s.saveButton);
   }
+
+  /** Sets the Duration widget's start and stop times (`hh:mm:ss`). */
+  async setStartAndStopTimes(start: string, stop: string): Promise<void> {
+    const inputs = this.page.locator(this.s.videoDurationInput);
+    await inputs.first().waitFor();
+    await inputs.nth(0).fill(start);
+    await inputs.nth(0).press('Tab');
+    await inputs.nth(1).fill(stop);
+    await inputs.nth(1).press('Tab');
+  }
+
+  /**
+   * Adds a transcript through the Transcripts widget: "Add a transcript", then
+   * the `.srt` file input it reveals. The file is handed over as a buffer, so
+   * no fixture file is needed.
+   */
+  async addTranscript(fileName: string, srt: string): Promise<void> {
+    await this.page.locator(this.s.videoAddTranscriptButton).first().click();
+    const input = this.page.locator(this.s.videoTranscriptFileInput).first();
+    await input.waitFor({ state: 'attached' });
+    await input.setInputFiles({
+      name: fileName,
+      mimeType: 'application/x-subrip',
+      buffer: Buffer.from(srt),
+    });
+  }
 }

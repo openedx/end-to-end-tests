@@ -388,6 +388,31 @@ export interface TestFixtures {
    */
   roundTripLearner: RoundTripLearner;
   /**
+   * A {@link roundTripLearner} that is **not** provisioned until the returned
+   * function is first awaited — for library round-trip specs, which must run
+   * `establishStudioSession` on `page.request` (to re-sync the Studio session
+   * the v2 library writes rotate) *before* any learner exists. Provisioning a
+   * learner leaves the author's LMS session stale, and the SSO handshake then
+   * corrupts the working CMS session instead of healing it. So these specs do
+   * all their `page.request` authoring first, then `await roundTripLearnerLater()`
+   * for the learner half. The result is memoised (repeat calls return the same
+   * learner) and disposed at test end.
+   */
+  roundTripLearnerLater: () => Promise<RoundTripLearner>;
+  /**
+   * Re-syncs the worker author's Studio session on `page`/`page.request` through
+   * the **browser** — a real navigation to Studio Home that completes the cms-sso
+   * handshake and, if the loaded session has decayed, a single UI sign-in that
+   * refreshes both the LMS and the Studio halves. Library round-trip specs call
+   * this (not `establishStudioSession`) after the seeded library's v2 writes have
+   * rotated `page.request`'s Studio session: the API-side SSO handshake heals a
+   * live session but *corrupts* one whose LMS half a prior test's learner has
+   * left stale, whereas the browser path detects that and re-logs-in instead.
+   * Idempotent; the refreshed session is persisted to the worker author's state
+   * file so later tests load it.
+   */
+  resyncStudioAuthor: () => Promise<void>;
+  /**
    * Two independent {@link roundTripLearner}s — for a case whose point is that
    * two learners see different content (a cohort-restricted unit).
    */
@@ -405,6 +430,12 @@ export interface TestFixtures {
   authoringCourse: AuthoredCourse;
   /** A {@link roundTripLearner} enrolled in this test's {@link authoringCourse}. */
   authoringCourseLearner: RoundTripLearner;
+  /**
+   * A deferred {@link roundTripLearnerLater} enrolled in this test's
+   * {@link authoringCourse} — provisioned only when first awaited, so a library
+   * round-trip spec can finish its `page.request` authoring first.
+   */
+  authoringCourseLearnerLater: () => Promise<RoundTripLearner>;
   /** Two independent learners in this test's {@link authoringCourse} (cohort in/out cases). */
   authoringCourseLearners: readonly [RoundTripLearner, RoundTripLearner];
 
@@ -425,7 +456,7 @@ export interface TestFixtures {
   /** The legacy-library migration stepper. */
   legacyMigrationPage: LegacyMigrationPage;
   /**
-   * The worker's shared, **published** library ({@link WorkerFixtures.workerLibraryState}),
+   * The worker's shared, **published** library (the seeded per-test library),
    * for shared-read cases: search, filters, hierarchy, reuse, overrides, public
    * read. Specs never delete from it; destructive cases take
    * {@link authoringLibrary}. Requesting it outside `studio-author`, or where
@@ -498,6 +529,10 @@ export interface StudioColleague {
   /** Browser context (and its one page) carrying the same session. */
   readonly context: BrowserContext;
   readonly page: Page;
+  /** Page objects bound to the colleague's page. */
+  readonly libraryPage: LibraryPage;
+  readonly unitPage: StudioUnitPage;
+  readonly libraryPicker: LibraryPickerDialog;
 }
 
 /** What {@link TestFixtures.roundTripLearner} hands a spec. */
@@ -624,17 +659,6 @@ export interface WorkerFixtures {
    * so allowlist and invalidation state never crosses tests.
    */
   certificateCourse: CertificateCourse;
-  /**
-   * The worker's content library (Epic 10): one v2 library per worker, created
-   * on first use through `/api/libraries/v2/` by the worker author (who becomes
-   * its admin), idempotent per (run, worker) by slug, seeded published with one
-   * text, one problem, one video and one PDF component, a unit holding the text
-   * and problem, a subsection holding the unit, a section holding the
-   * subsection, and a collection holding the text block. `undefined` where the
-   * `content-libraries` capability is off (a worker seed is not protected by
-   * the test-level gate) or outside `studio-author`.
-   */
-  workerLibraryState: WorkerLibrary | undefined;
 }
 
 /** What {@link WorkerFixtures.workerAuthor} holds. */
@@ -890,7 +914,8 @@ function librarySlug(scope: string): string {
 }
 
 /**
- * Creates the worker library (see {@link WorkerFixtures.workerLibraryState}) or,
+ * Creates the seeded library (a text/problem/video/pdf component, a unit, a
+ * subsection, a section and a collection) or,
  * when a retried worker finds its predecessor's library under the same slug,
  * re-derives the seeded items from the API so the fixture hands out the same
  * shape either way.
@@ -901,7 +926,8 @@ async function provisionLibrary(
   org: string,
   slug: string,
 ): Promise<WorkerLibrary> {
-  const label = `E2E library ${getRunId()} ${slug.slice(-3)}`;
+  // No leading dash in the label: the search cases type it into Meilisearch.
+  const label = `E2E library ${getRunId()} ${slug.split('-').pop() ?? ''}`;
   const pick = <T>(map: Readonly<Record<string, T>>, key: string): T => {
     const entry = map[key];
     if (entry === undefined) throw new Error(`The seeded library has no "${key}".`);
@@ -928,6 +954,7 @@ async function provisionLibrary(
         org,
         slug,
         title: label,
+        allowPublicRead: true,
         blocks: {
           text: { type: 'html', displayName: `${label} text`, content: `${label} text body` },
           problem: { type: 'problem', displayName: `${label} problem` },
@@ -1654,6 +1681,52 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
+  resyncStudioAuthor: async ({ page, config, workerAuthor }, use) => {
+    const resync = async (): Promise<void> => {
+      // A real navigation to Studio Home re-completes the cms-sso handshake on
+      // the browser's (and so `page.request`'s) shared cookie jar, healing the
+      // session the library's v2 writes rotated — without the API `/login/`
+      // handshake that corrupts a stale-LMS session.
+      const live = await establishStudioBrowserSession(page, config);
+      if (!live) {
+        // The session had genuinely decayed (a prior test's learner left the
+        // LMS half stale, or an eviction): a single UI sign-in refreshes both
+        // halves. Uses the worker author's own identity so it never depends on
+        // the (equally stale) API session.
+        const username =
+          workerAuthor?.identity.username ?? (await fetchStudioUsername(page.request, config));
+        await signInToStudioThroughUi(page, config, {
+          emailOrUsername: username,
+          password: DEFAULT_PASSWORD,
+        });
+      }
+      if (workerAuthor) {
+        persistStorageState(await page.context().storageState(), workerAuthor.stateFile);
+      }
+    };
+    await use(resync);
+  },
+
+  roundTripLearnerLater: async ({ playwright, browser, config, contentCourse }, use) => {
+    let learner: RoundTripLearner | undefined;
+    const get = async (): Promise<RoundTripLearner> => {
+      if (learner === undefined) {
+        learner = await provisionRoundTripLearner(
+          playwright,
+          browser,
+          config,
+          contentCourse.courseKey,
+        );
+      }
+      return learner;
+    };
+    try {
+      await use(get);
+    } finally {
+      if (learner !== undefined) await disposeRoundTripLearner(learner);
+    }
+  },
+
   roundTripLearners: async ({ playwright, browser, config, contentCourse }, use) => {
     const learners = await Promise.all([
       provisionRoundTripLearner(playwright, browser, config, contentCourse.courseKey),
@@ -1814,6 +1887,29 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
+  authoringCourseLearnerLater: async ({ playwright, browser, config, authoringCourse }, use) => {
+    // The deferred learner for a test's own {@link authoringCourse} — see
+    // {@link TestFixtures.roundTripLearnerLater} for why library round-trip specs
+    // provision their learner only after the authoring is done.
+    let learner: RoundTripLearner | undefined;
+    const get = async (): Promise<RoundTripLearner> => {
+      if (learner === undefined) {
+        learner = await provisionRoundTripLearner(
+          playwright,
+          browser,
+          config,
+          authoringCourse.courseKey,
+        );
+      }
+      return learner;
+    };
+    try {
+      await use(get);
+    } finally {
+      if (learner !== undefined) await disposeRoundTripLearner(learner);
+    }
+  },
+
   authoringCourseLearners: async ({ playwright, browser, config, authoringCourse }, use) => {
     const learners = await Promise.all([
       provisionRoundTripLearner(playwright, browser, config, authoringCourse.courseKey),
@@ -1842,42 +1938,36 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   legacyMigrationPage: pageObjectFixture(LegacyMigrationPage),
 
-  workerLibraryState: [
-    async ({ playwright, workerAuthor }, use, workerInfo) => {
-      const config = getConfig();
-      if (workerAuthor === undefined || !config.capabilities.has('content-libraries')) {
-        await use(undefined);
-        return;
-      }
-      const org = config.org ?? DEFAULT_COURSE_ORG;
-      const slug = librarySlug(`w${workerInfo.parallelIndex}`);
-      const request = await playwright.request.newContext({ storageState: workerAuthor.stateFile });
-      try {
-        await establishStudioSession(request, config);
-        const library = await provisionLibrary(request, config, org, slug);
-        await use(library);
-      } finally {
-        // Best effort: the platform cannot delete a library that has held a
-        // container (LIB-001), which this one has, so the refusal is expected
-        // and the library stays under its run-unique slug.
-        await deleteLibrary(request, config, libraryKeyFor(org, slug)).catch((error: unknown) => {
-          if (!(error instanceof LibraryDeleteRestrictedError)) throw error;
-        });
-        await request.dispose();
-      }
-    },
-    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
-  ],
-
-  workerLibrary: async ({ workerLibraryState }, use) => {
-    if (workerLibraryState === undefined) {
-      throw new Error(
-        'The worker library needs the "studio-author" project and the "content-libraries" ' +
-          'capability; tag the spec @author @studio @content-libraries so the gate skips it ' +
-          'where the capability is off.',
-      );
+  workerLibrary: async ({ page, config, studioAuthorSession }, use, testInfo) => {
+    void studioAuthorSession;
+    // Seeded on the test's own `page.request`, never a side context. A separate
+    // context with its own login provisions a second account whose sign-in
+    // evicts the worker author's session (measured: even a course-creator side
+    // context breaks `page.request`); a separate context sharing the author's
+    // state file rotates the *same* server session on write and knocks the
+    // browser out too. On `page.request` the v2 writes only rotate this one
+    // session, which a spec heals once with `establishStudioSession` *before it
+    // provisions a learner* — after that single SSO handshake the session is
+    // stable for the rest of the test (course writes, later library edits and
+    // learner round-trips all measured working). The handshake must run before
+    // any learner is provisioned, though: a learner leaves the author's LMS
+    // session stale, and the handshake then corrupts the working CMS session
+    // rather than healing it. So round-trip specs provision their learner late,
+    // via {@link TestFixtures.roundTripLearnerLater}. Seeded fresh per test and
+    // left in place at run end (LIB-001 blocks deleting a library that held a
+    // container).
+    const org = config.org ?? DEFAULT_COURSE_ORG;
+    const slug = librarySlug(
+      `w${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}r${testInfo.retry}`,
+    );
+    const library = await provisionLibrary(page.request, config, org, slug);
+    try {
+      await use(library);
+    } finally {
+      await deleteLibrary(page.request, config, library.libraryKey).catch((error: unknown) => {
+        if (!(error instanceof LibraryDeleteRestrictedError)) throw error;
+      });
     }
-    await use(workerLibraryState);
   },
 
   authoringLibrary: async ({ page, config, studioAuthorSession }, use, testInfo) => {
@@ -1967,11 +2057,15 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       }
       const context = await browser.newContext();
       await context.addCookies((await request.storageState()).cookies);
+      const colleaguePage = await context.newPage();
       const colleague: StudioColleague = {
         identity,
         request,
         context,
-        page: await context.newPage(),
+        page: colleaguePage,
+        libraryPage: new LibraryPage(colleaguePage, config),
+        unitPage: new StudioUnitPage(colleaguePage, config),
+        libraryPicker: new LibraryPickerDialog(colleaguePage, config),
       };
       made.push(colleague);
       return colleague;
