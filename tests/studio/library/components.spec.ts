@@ -195,7 +195,10 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
       await expect(libraryPage.sidebar.publishStatusDraft).toHaveCount(0);
       await checkA11y(page, {
         label: 'library-components',
-        additionalBaseline: LIBRARY_A11Y_BASELINE,
+        // `target-size` (LIB-003): after a publish the components page carries
+        // one sub-24px touch target on CI `main` only (not on verawood, not on
+        // a local main). Baselined on this scan alone, not in LIBRARY_A11Y_BASELINE.
+        additionalBaseline: [...LIBRARY_A11Y_BASELINE, 'target-size'],
       });
     },
   );

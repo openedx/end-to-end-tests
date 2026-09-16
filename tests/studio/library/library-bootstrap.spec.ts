@@ -147,11 +147,17 @@ test.describe(
       const link = await fetchDownstream(request, config, imported.locator);
       expect(link).toMatchObject({ upstream_ref: text.id, ready_to_sync: false });
       expect(link.version_synced).toBe(link.version_available);
-      expect(
-        (await listDownstreams(request, config, contentCourse.courseKey)).map(
-          (row) => row.downstream_usage_key,
-        ),
-      ).toContain(imported.locator);
+      // The course-wide downstream list is eventually consistent with the import
+      // (CI read `[]` straight after it), so poll it rather than read once.
+      await expect
+        .poll(
+          async () =>
+            (await listDownstreams(request, config, contentCourse.courseKey)).map(
+              (row) => row.downstream_usage_key,
+            ),
+          { timeout: TIMEOUTS.librarySync },
+        )
+        .toContain(imported.locator);
 
       // A library edit + publish makes the course block ready to sync; accept it.
       await setLibraryBlockOlx(
