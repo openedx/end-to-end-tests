@@ -48,6 +48,8 @@ export {
   sectionCardContaining,
   subsectionCardContaining,
   unitCardFor,
+  STUDIO_SIDEBAR_SELECTORS,
+  type SidebarPageKey,
   STUDIO_SHELL_SELECTORS,
   STUDIO_GRADING_SELECTORS,
   STUDIO_SCHEDULE_DETAILS_SELECTORS,

@@ -21,6 +21,7 @@ export {
   subsectionCardContaining,
   unitCardFor,
 } from './studio-outline';
+export { STUDIO_SIDEBAR_SELECTORS, type SidebarPageKey } from './studio-sidebar';
 export {
   STUDIO_GRADING_SELECTORS,
   STUDIO_SCHEDULE_DETAILS_SELECTORS,

@@ -273,6 +273,19 @@ export class StudioCourseOutlinePage {
 
   // --- Menu actions --------------------------------------------------------
 
+  /**
+   * Selects a card by clicking its content row — opening the Verawood sidebar's
+   * Info panel for it — and waits for the card to gain the selected class. Uses
+   * the content row (not the whole card) so a click never lands on the kebab,
+   * expander or a child card.
+   */
+  async select(card: Locator, level: OutlineLevel): Promise<void> {
+    await card.locator(STUDIO_OUTLINE_PAGE_SELECTORS.cardContent(level)).first().click();
+    await card
+      .and(this.page.locator(`.${STUDIO_OUTLINE_PAGE_SELECTORS.selectedCardClass}`))
+      .waitFor();
+  }
+
   private async openMenu(card: Locator, level: OutlineLevel): Promise<void> {
     await card.locator(MENU_BUTTON[level]).click();
   }
