@@ -47,8 +47,18 @@ export class PreviewChangesDialog {
     await this.compareTab(key).click();
   }
 
-  /** "Accept changes", waiting for the `POST downstreams/<key>/sync`. */
+  /**
+   * Accepts the library update (takes the published version), waiting for the
+   * `POST downstreams/<key>/sync`. The footer's sync button is "Accept changes"
+   * for an untouched block, but "Update to published library content" when the
+   * block was customized in the course — and that one first opens a "discard
+   * local edits" confirmation whose danger button fires the sync. Handles both.
+   */
   async accept(): Promise<Response> {
+    const syncButton = this.page
+      .locator(`${this.s.previewModal} .pgn__modal-footer button`)
+      .filter({ hasText: /Accept changes|Update to published library content/ })
+      .last();
     return waitForWrite(
       this.page,
       {
@@ -56,8 +66,35 @@ export class PreviewChangesDialog {
         predicate: (r) => r.url().includes(DOWNSTREAMS_PATH) && r.url().endsWith('/sync'),
         timeout: TIMEOUTS.contentWrite,
       },
-      () => this.page.locator(this.s.acceptButton).click(),
+      async () => {
+        await syncButton.click();
+        // A customized block asks to confirm discarding the local edits first.
+        const confirm = this.page.locator(
+          `${this.s.ignoreConfirmModal} .pgn__modal-footer button.btn-danger`,
+        );
+        if (await confirm.isVisible().catch(() => false)) await confirm.click();
+      },
     );
+  }
+
+  /**
+   * "Keep course content" — the customized-block choice that declines the
+   * update and preserves the course's local edits. Opens a confirmation whose
+   * primary button commits it; resolves once the preview modal has closed. Used
+   * where the point is that an override survives an available library update.
+   */
+  async keepCourseContent(): Promise<void> {
+    await this.page
+      .locator(`${this.s.previewModal} .pgn__modal-footer button`)
+      .filter({ hasText: 'Keep course content' })
+      .last()
+      .click();
+    await this.page
+      .locator(`${this.s.ignoreConfirmModal} .pgn__modal-footer button`)
+      .filter({ hasText: 'Keep course content' })
+      .last()
+      .click();
+    await this.root.waitFor({ state: 'hidden' });
   }
 
   /**

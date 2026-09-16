@@ -38,6 +38,24 @@ export class StudioTextEditor {
     return this.page.frameLocator(this.s.tinyMceFrame).locator('body');
   }
 
+  /**
+   * Places the caret in an editor that opened without the template picker (the
+   * library MFE opens the rich-text editor directly). Same caret rule as
+   * {@link chooseTemplate}: do not click the body again afterwards.
+   */
+  async focus(): Promise<void> {
+    await this.body().waitFor();
+    await this.body().click();
+  }
+
+  /** Renames the component through the editor header's title control (committed with Enter). */
+  async setTitle(title: string): Promise<void> {
+    await this.page.locator(this.s.editorTitleEditButton).first().click();
+    const input = this.page.locator(this.s.editorTitleInput).first();
+    await input.fill(title);
+    await input.press('Enter');
+  }
+
   /** Types `text` at the caret (does not move the caret — {@link chooseTemplate} placed it). */
   async type(text: string): Promise<void> {
     await this.page.keyboard.type(text);

@@ -147,6 +147,16 @@ export interface ContainerChild {
   readonly block_type: string;
   readonly name: string;
   readonly actions: Readonly<Record<string, boolean>>;
+  /** Present when the component is linked to a content-library item (Epic 10). */
+  readonly upstream_link?: {
+    readonly upstream_ref: string;
+    readonly version_synced: number | null;
+    readonly version_available: number | null;
+    readonly version_declined: number | null;
+    readonly ready_to_sync: boolean;
+    readonly downstream_customized: readonly string[];
+    readonly top_level_parent_key: string | null;
+  } | null;
 }
 
 /**

@@ -1,12 +1,12 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import { advancedComponentTypes, fetchContainer } from '../../../src/api';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { testId } from '../../../src/reporting';
 import { addComponentAndSeeAsLearner, emptyUnit } from './component-helpers';
 
 /**
  * The PDF component in the LMS (TC-00511). `TC-00512` (a PDF from a content
- * library) is a `fixme` gated on the deferred libraries work.
+ * library) lives in `tests/studio/library/pdf-from-library.spec.ts`.
  *
  * The "Advanced" component picker offers `pdf` (asserted), the block is created,
  * and the learner's Blocks API lists it once published.
@@ -41,22 +41,6 @@ test.describe(
           'pdf',
           'pdf',
         );
-      },
-    );
-
-    // TC-00512: a PDF block from a content library needs the deferred v2 libraries
-    // work (Epic 10). Declared `fixme` against the intended behaviour.
-    test.fixme(
-      'views a PDF block from a library (deferred to libraries)',
-      {
-        annotation: [
-          testId('TC-00512'),
-          issue('https://github.com/openedx/end-to-end-tests/issues/39'),
-          knownGap('A PDF block from a content library needs v2 libraries coverage (deferred)'),
-        ],
-      },
-      () => {
-        // Intentionally empty until v2 libraries are covered.
       },
     );
   },

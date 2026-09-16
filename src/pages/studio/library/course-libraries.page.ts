@@ -46,6 +46,27 @@ export class CourseLibrariesPage {
     return this.reviewCards.filter({ hasText: title });
   }
 
+  /**
+   * Opens the Review tab and waits for the card titled `title`, reloading the
+   * tab as it polls. The tab is populated from the course-content search index,
+   * which lags the downstream's own `ready_to_sync` under load; a page loaded
+   * before the index caught up shows "All components are up to date" and does
+   * not refresh itself, so a reload is the only way to see the card arrive.
+   */
+  async waitForReviewCard(courseKey: string, title: string): Promise<void> {
+    const card = this.reviewCardFor(title).first();
+    const deadline = Date.now() + TIMEOUTS.libraryMigration;
+    await this.goto(courseKey, 'review');
+    for (;;) {
+      if (await card.isVisible().catch(() => false)) return;
+      if (Date.now() > deadline) break;
+      await this.page.waitForTimeout(3_000);
+      await this.goto(courseKey, 'review');
+    }
+    // One last wait so the failure is the card locator, not a silent fall-through.
+    await card.waitFor({ timeout: TIMEOUTS.librarySearch });
+  }
+
   /** "Review Updates" on a card — opens the preview-changes modal. */
   async reviewUpdates(title: string): Promise<void> {
     await this.reviewCardFor(title).first().locator(this.s.reviewCardReviewButton).click();

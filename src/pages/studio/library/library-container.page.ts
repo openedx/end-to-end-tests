@@ -66,13 +66,13 @@ export class LibraryContainerPage {
    * it, so this clicks only when the item panel is not already there.
    */
   async openInfo(): Promise<void> {
-    if (!(await this.sidebar.publishStatusButton.isVisible())) {
-      await this.page
-        .locator(this.s.headerActionButton)
-        .nth(this.s.headerAction.add - 1)
-        .click();
+    // The item panel is recognisable by its Manage tab (a published item has no
+    // publish button to look for).
+    await this.sidebar.root.waitFor({ timeout: TIMEOUTS.optionalOverlay }).catch(() => undefined);
+    if (!(await this.sidebar.tab('manage').isVisible())) {
+      await this.page.locator(this.s.headerActionButton).nth(this.s.headerAction.info).click();
     }
-    await this.sidebar.root.waitFor();
+    await this.sidebar.tab('manage').waitFor();
   }
 
   /** A unit's "Add Content" header button — shows the Add Content panel (a toggle). */
@@ -99,15 +99,28 @@ export class LibraryContainerPage {
     await buttons.last().click();
     const dialog = this.page.locator(this.s.deleteModal).last();
     await dialog.locator('input.form-control').first().fill(displayName);
-    return waitForWrite(
+    // The MFE creates the child, then attaches it with a `children/` POST.
+    const attached = this.page.waitForResponse(
+      (r) =>
+        ['POST', 'PATCH'].includes(r.request().method()) &&
+        new URL(r.url()).pathname.endsWith('/children/'),
+      { timeout: TIMEOUTS.contentWrite },
+    );
+    const created = await waitForWrite(
       this.page,
-      { method: 'POST', urlIncludes: '/containers/', timeout: TIMEOUTS.contentWrite },
+      {
+        method: 'POST',
+        predicate: (r) => r.url().endsWith('/containers/'),
+        timeout: TIMEOUTS.contentWrite,
+      },
       () =>
         dialog
           .locator('button[type="submit"], .pgn__modal-footer button.btn-primary')
           .last()
           .click(),
     );
+    await attached;
+    return created;
   }
 
   /** The unit page's footer buttons: "Add New Content" (opens the panel) / "Add Existing Content" (opens the picker). */

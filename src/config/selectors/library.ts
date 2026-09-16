@@ -186,6 +186,11 @@ export const LIBRARY_SELECTORS = {
    * remove/delete pair sits after a divider like the component menu.
    */
   containerMenu: { open: 0, copy: 1, delete: 2, addToCollection: 3 },
+  /**
+   * Inside a collection a component card's menu is "Edit", "Copy to clipboard",
+   * "Remove from collection", "Add to collection", divider, "Delete".
+   */
+  collectionCardMenu: { removeFromCollection: 2 },
   /** The last menu item ("Delete") and the item before it ("Remove from <parent>"). */
   menuLastItem: '.dropdown-menu.show .dropdown-item:last-child',
   menuRemoveItem: '.dropdown-menu.show .dropdown-divider ~ .dropdown-item:not(:last-child)',
@@ -222,6 +227,18 @@ export const LIBRARY_SELECTORS = {
   hierarchyPublishStatus: '.content-hierarchy .publish-status',
   /** The component preview iframe (Preview tab, unit page cards, preview-changes modal). */
   blockPreview: '[data-testid="block-preview"]',
+  /**
+   * The Manage Collections view (`ManageCollections`) inside the Manage tab's
+   * Collections collapsible: a search field, a `SelectableBox.Set` of the
+   * library's collections (titles are our data), "Cancel" (tertiary) and
+   * "Confirm" (stateful primary). A card's "Add to collection" opens it
+   * directly; the collapsible's "Add to Collection" button toggles it.
+   */
+  manageCollectionsView:
+    '[data-testid="library-sidebar"] .collapsible-body:has(input[name="searchfield-input"])',
+  manageCollectionsOption: (collectionKey: string) =>
+    `.pgn__selectable_box:has(input[name="selectedCollections"][value="${collectionKey}"])`,
+  manageCollectionsConfirm: 'button.pgn__stateful-btn.btn-primary',
   /** Manage tab: the collapsible sections ("Tags", "Collections") and "Add to Collection". */
   manageCollapsibleTrigger: '[data-testid="library-sidebar"] .collapsible-trigger',
   manageAddToCollectionButton:
@@ -255,10 +272,14 @@ export const LIBRARY_SELECTORS = {
     video: 4, // "Video"
     advanced: 5, // "Advanced / Other"
   },
-  /** The Advanced / Other picker that follows the "Advanced / Other" button: one button per block type. */
-  advancedTypeButton: '[data-testid="library-sidebar"] .pgn__vstack > hr ~ button',
+  /**
+   * The Advanced / Other list that replaces the panel: a "Back to List" tertiary
+   * button, then one outline button per advanced block type sorted by display
+   * name.
+   */
+  advancedTypeButton: '[data-testid="library-sidebar"] .pgn__vstack > button.btn-outline-primary',
   /** The component editor dialog the Add Content buttons open (`aria-label="Editor Dialog"`, an xl modal). */
-  editorDialog: '[role="dialog"].pgn__modal-xl:has(iframe, .tox, form)',
+  editorDialog: '[role="dialog"].pgn__modal-xl',
   /** Its Save (primary) and close controls. */
   editorSaveButton:
     '[role="dialog"].pgn__modal-xl .pgn__modal-footer button.btn-primary, [role="dialog"].pgn__modal-xl button.btn-primary:not(.btn-outline-primary)',
@@ -272,7 +293,8 @@ export const LIBRARY_SELECTORS = {
   deleteModal: '[role="dialog"]',
   deleteModalConfirm:
     '[role="dialog"] .pgn__modal-footer button.btn-primary, [role="dialog"] .pgn__modal-footer button.btn-danger',
-  deleteModalCancel: '[role="dialog"] .pgn__modal-footer button.btn-tertiary',
+  deleteModalCancel:
+    '[role="dialog"] .pgn__modal-footer button.btn-default, [role="dialog"] .pgn__modal-footer button.btn-tertiary',
 
   /** Inline title editor (`ContainerEditableTitle` / card titles): label, pencil, input. */
   inplaceTitleLabel: '.inplace-text-editor-label',
@@ -300,6 +322,8 @@ export const LIBRARY_SELECTORS = {
   homeLibrariesTab: 'a[role="tab"][data-rb-event-key="libraries"]',
   homeLibraryCardLink: (libraryKey: string) => `a.card-item-title[href$="/library/${libraryKey}"]`,
 
+  /** The MFE's toast ("Content pasted successfully." …), which overlays the lower sidebar while shown. */
+  toast: '#toast-root .toast.show',
   /** Error views the library MFE renders for a bad key / no access. */
   notFoundAlert: '[data-testid="notFoundAlert"]',
   permissionDeniedAlert: '[data-testid="permissionDeniedAlert"]',
@@ -324,6 +348,8 @@ export const LIBRARY_PICKER_SELECTORS = {
   cardAddButton: 'button.btn-outline-primary',
   /** "Change Library" — the breadcrumb back to step one. */
   changeLibraryLink: '[role="dialog"] .sub-header-breadcrumbs a',
+  /** In multiple-select mode (inside a library): the footer's primary button adds the selection. */
+  footerConfirm: '[role="dialog"] .pgn__modal-footer button.btn-primary',
   closeButton: '[role="dialog"] button.pgn__modal-close-button',
 } as const;
 
@@ -341,6 +367,8 @@ export const COURSE_LIBRARY_SYNC_SELECTORS = {
   iframeUpdateAvailableButton: 'button.library-sync-button.action-button',
   /** The same block's library indicator icon in the header (present whether or not an update exists). */
   iframeLibraryIcon: '.library-info-icon',
+  /** A block's "Edit" action in the iframe header — opens the MFE editor dialog for that block. */
+  iframeEditButton: 'button.edit-button',
 
   /** The preview-changes modal (`PreviewLibraryXBlockChanges`) and its old / new tabs. */
   previewModal: '[role="dialog"].lib-preview-xblock-changes-modal',

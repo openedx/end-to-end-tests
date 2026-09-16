@@ -236,6 +236,21 @@ export class StudioUnitPage {
       .first();
   }
 
+  /**
+   * "Edit" in a component's iframe header — opens the MFE's editor dialog for
+   * that component (the text editor for an html block), the way an author
+   * overrides a library-sourced component's content in the course.
+   */
+  async editComponentInIframe(usageKey: string): Promise<void> {
+    await this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`[data-usage-id="${usageKey}"]`)
+      .locator(COURSE_LIBRARY_SYNC_SELECTORS.iframeEditButton)
+      .first()
+      .click();
+    await this.page.locator('[role="dialog"].pgn__modal-xl').last().waitFor();
+  }
+
   async openUpdateAvailable(usageKey: string): Promise<void> {
     await this.iframeUpdateAvailableButton(usageKey).click();
     await this.page.locator(COURSE_LIBRARY_SYNC_SELECTORS.previewModal).waitFor();
