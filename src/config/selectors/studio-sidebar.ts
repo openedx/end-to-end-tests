@@ -86,8 +86,18 @@ export const STUDIO_SIDEBAR_SELECTORS = {
   /** The outline Add sidebar's tabs. */
   outlineAddTab: (key: 'addNew' | 'addExisting') => `#add-content-tabs-tab-${key}`,
 
-  /** The Publish button in the Info panel (present only while the item has changes). */
-  publishButton: '.sidebar-content button.btn-primary',
+  /**
+   * The outline Info panel's Publish button (the `PublishButon` status button),
+   * present only while the selected item has unpublished changes. The unit page's
+   * publish control is a different widget ({@link unitPublishButton}).
+   */
+  publishButton: '.sidebar-content button.status-button',
+  /**
+   * The unit page's publish button in the sidebar's publish-controls widget
+   * (`.course-unit-sidebar-footer`), present while the unit has unpublished
+   * changes. Distinct from the visibility toggle, which is a button group.
+   */
+  unitPublishButton: '.sidebar-content .course-unit-sidebar-footer button.btn-primary',
 
   /** Help-panel links (documentation `href`s — not localized), the Help content oracle. */
   helpLink: '.sidebar-content a[href]',
