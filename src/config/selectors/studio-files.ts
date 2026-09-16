@@ -55,6 +55,31 @@ export const STUDIO_FILES_SELECTORS = {
   modalApply: '.pgn__modal button.btn-primary',
   modalClearAll: '.pgn__modal button.btn-link',
 
-  /** A dropdown menu item by test id (row-menu actions: lock, download, info, delete). */
+  /** A dropdown menu item by test id (only Delete carries one). */
   menuItem: (testid: string): string => `[data-testid="${testid}"]`,
+  /**
+   * The links of the currently open dropdown menu (row 3-dot or bulk Actions),
+   * used with a fixed index since only Delete is test-id'd. Row menu order:
+   * 0 Copy Studio URL, 1 Copy Web URL, 2 Lock/Unlock, 3 Download, 4 Info, 5
+   * Delete. Bulk menu order: 0 Download, 1 Delete.
+   */
+  openMenuLink: '.dropdown-menu.show a',
+  deleteMenuItem: '[data-testid="open-delete-confirmation-button"]',
+
+  /** The delete confirmation AlertModal and its confirm / cancel buttons. */
+  deleteModal: '.pgn__alert-modal',
+  deleteConfirmButton: '.pgn__alert-modal .pgn__modal-footer button.btn-primary',
+  deleteCancelButton: '.pgn__alert-modal .pgn__modal-footer button.btn-tertiary',
+
+  /** The file Info sidebar's URL display (present only while the info panel is open). */
+  infoUrlDisplay: '.files-page-url-truncate',
+} as const;
+
+/** Row 3-dot menu link indices (only Delete is test-id'd; the rest go by order). */
+export const FILES_ROW_MENU = {
+  copyStudioUrl: 0,
+  copyWebUrl: 1,
+  lock: 2,
+  download: 3,
+  info: 4,
 } as const;

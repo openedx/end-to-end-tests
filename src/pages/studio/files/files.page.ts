@@ -1,7 +1,8 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Download, Locator, Page } from '@playwright/test';
 
-import { STUDIO_FILES_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
+import { FILES_ROW_MENU, STUDIO_FILES_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 import { authoringCourseBaseUrl } from '../authoring-base';
+import { waitForWrite } from '../wait-for-write';
 
 /** A file the "Add files" control uploads (Playwright `setInputFiles` payload). */
 export interface UploadFile {
@@ -140,9 +141,95 @@ export class FilesPage {
     await this.itemMenuButton(assetId).click();
   }
 
-  /** Opens an asset's menu and clicks its Delete item (the one testid'd action). */
-  async deleteViaMenu(assetId: string): Promise<void> {
+  /** A link of the currently open dropdown menu, by index. */
+  private openMenuLink(index: number): Locator {
+    return this.page.locator(this.s.openMenuLink).nth(index);
+  }
+
+  /** Whether an asset's menu offers the two "Copy … URL" items (they are the first two). */
+  async menuOffersCopyLinks(assetId: string): Promise<boolean> {
     await this.openItemMenu(assetId);
-    await this.page.locator(this.s.menuItem('open-delete-confirmation-button')).click();
+    const studio = await this.openMenuLink(FILES_ROW_MENU.copyStudioUrl).isVisible();
+    const web = await this.openMenuLink(FILES_ROW_MENU.copyWebUrl).isVisible();
+    await this.page.keyboard.press('Escape');
+    return studio && web;
+  }
+
+  /** Toggles an asset's lock from its menu, waiting for the `PUT /assets/<id>` write. */
+  async toggleLock(assetId: string): Promise<void> {
+    await this.openItemMenu(assetId);
+    await waitForWrite(
+      this.page,
+      { method: 'PUT', urlIncludes: '/assets/', timeout: TIMEOUTS.contentWrite },
+      () => this.openMenuLink(FILES_ROW_MENU.lock).click(),
+    );
+  }
+
+  /** Downloads an asset from its menu, returning the download event. */
+  async download(assetId: string): Promise<Download> {
+    await this.openItemMenu(assetId);
+    const [download] = await Promise.all([
+      this.page.waitForEvent('download'),
+      this.openMenuLink(FILES_ROW_MENU.download).click(),
+    ]);
+    return download;
+  }
+
+  /** Opens an asset's Info panel and waits for it to render. */
+  async openInfo(assetId: string): Promise<void> {
+    await this.openItemMenu(assetId);
+    await this.openMenuLink(FILES_ROW_MENU.info).click();
+    await this.page.locator(this.s.infoUrlDisplay).first().waitFor();
+  }
+
+  /** Opens an asset's menu → Delete, then confirms or cancels the dialog. */
+  async openDeleteDialog(assetId: string): Promise<void> {
+    await this.openItemMenu(assetId);
+    await this.page.locator(this.s.deleteMenuItem).click();
+    await this.page.locator(this.s.deleteModal).waitFor();
+  }
+
+  async confirmDelete(): Promise<void> {
+    await waitForWrite(
+      this.page,
+      { method: 'DELETE', urlIncludes: '/assets/', timeout: TIMEOUTS.contentWrite },
+      () => this.page.locator(this.s.deleteConfirmButton).click(),
+    );
+  }
+
+  async cancelDelete(): Promise<void> {
+    await this.page.locator(this.s.deleteCancelButton).click();
+    await this.page.locator(this.s.deleteModal).waitFor({ state: 'hidden' });
+  }
+
+  /** Opens the bulk "Actions" menu (needs at least one row selected). */
+  async openBulkActions(): Promise<void> {
+    await this.page.locator(this.s.actionsToggle).click();
+  }
+
+  /** Bulk-downloads the selected rows, returning the download event. */
+  async bulkDownload(): Promise<Download> {
+    await this.openBulkActions();
+    const [download] = await Promise.all([
+      this.page.waitForEvent('download'),
+      this.openMenuLink(0).click(),
+    ]);
+    return download;
+  }
+
+  /** Opens the bulk delete confirmation for the selected rows. */
+  async openBulkDeleteDialog(): Promise<void> {
+    await this.openBulkActions();
+    await this.page.locator(this.s.deleteMenuItem).click();
+    await this.page.locator(this.s.deleteModal).waitFor();
+  }
+
+  /** Confirms a delete dialog (bulk), waiting for a `DELETE /assets/` write. */
+  async confirmBulkDelete(): Promise<void> {
+    await waitForWrite(
+      this.page,
+      { method: 'DELETE', urlIncludes: '/assets/', timeout: TIMEOUTS.contentWrite },
+      () => this.page.locator(this.s.deleteConfirmButton).click(),
+    );
   }
 }
