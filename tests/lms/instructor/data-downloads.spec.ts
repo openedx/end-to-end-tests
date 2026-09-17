@@ -25,6 +25,13 @@ interface ReportCase {
   readonly media: 'text/csv' | 'application/zip';
   /** A column identifier the CSV header must carry, when the header is stable. */
   readonly column?: RegExp;
+  /**
+   * Capability tag the report's group tab needs; the case is gated on it when
+   * set. The certificates group tab is only rendered where platform-wide
+   * certificate generation is on, so its case has to carry the gate itself —
+   * gating the whole describe would drop the other reports too.
+   */
+  readonly capability?: `@${string}`;
 }
 
 const REPORTS: readonly ReportCase[] = [
@@ -49,7 +56,13 @@ const REPORTS: readonly ReportCase[] = [
     media: 'text/csv',
     column: /email/i,
   },
-  { id: 'TC-00530', type: 'issued_certificates', title: 'issued certificates', media: 'text/csv' },
+  {
+    id: 'TC-00530',
+    type: 'issued_certificates',
+    title: 'issued certificates',
+    media: 'text/csv',
+    capability: '@certificates',
+  },
   { id: 'TC-00531', type: 'grade', title: 'grades', media: 'text/csv', column: /username|email/i },
   {
     id: 'TC-00532',
@@ -77,7 +90,10 @@ test.describe(
     for (const report of REPORTS) {
       test(
         `generates and downloads the ${report.title} report`,
-        { annotation: testId(report.id) },
+        {
+          ...(report.capability ? { tag: report.capability } : {}),
+          annotation: testId(report.id),
+        },
         async ({ page, config, contentCourse, instructorDataDownloads, studioAuthorSession }) => {
           void studioAuthorSession;
           const courseKey = contentCourse.courseKey;
