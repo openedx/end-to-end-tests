@@ -449,6 +449,10 @@ deployment):
    Environment-scoped variable of the same name overrides the repository one
    for `run_tests_external.yml` runs.
 
+The credentials always come from that secret — no workflow or action input
+passes them in. A repository without it (a fork, say) still runs the suite: the
+publish step warns and skips, leaving the run's result unchanged.
+
 The first publish bootstraps the sheet (tabs, headers, title). A sheet
 remembers its release and refuses runs for another one, so a mis-set variable
 cannot mix releases. `ci.yml` warns (without failing) about releases that have

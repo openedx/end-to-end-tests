@@ -19,8 +19,10 @@ name: Tutor E2E Test
 # BTR results sheet: schedule and workflow_dispatch runs publish the run's
 # BTR-tagged results to the per-release Google Sheet named by the repository
 # variable BTR_SHEET_URL_<RELEASE> (e.g. BTR_SHEET_URL_VERAWOOD), using the
-# BTR_SHEET_CREDENTIALS secret. Unset variable = no publish. Runs called from
-# ci.yml (PR/push) never publish. See src/reporting/README.md.
+# repository/Environment secret BTR_SHEET_CREDENTIALS. Credentials are never a
+# workflow input: without that secret the publish is skipped with a warning and
+# the run still passes. Unset variable = no publish. Runs called from ci.yml
+# (PR/push) never publish. See src/reporting/README.md.
 
 on:
   schedule:
@@ -90,10 +92,6 @@ on:
         description: 'Override capabilities for this run (comma-separated). Empty = use the release default from .ci/openedx-releases.json.'
         type: string
         default: ''
-    secrets:
-      BTR_SHEET_CREDENTIALS:
-        description: 'Service-account key for the BTR results sheets. Not needed by ci.yml: called runs never publish.'
-        required: false
 
 permissions:
   contents: read
@@ -115,6 +113,10 @@ jobs:
       # workflow_dispatch runs use the chosen input (default: verawood);
       # schedule runs always target the "main" Open edX release.
       OPENEDX_RELEASE: ${{ (github.event_name == 'schedule' && 'main') || inputs.openedx_release }}
+      # Read by scripts/publish-btr-sheet.mts inside the run-suite action, which
+      # takes no credential input. Absent on workflow_call runs from ci.yml,
+      # which do not publish anyway; the publisher warns and skips.
+      BTR_SHEET_CREDENTIALS: ${{ secrets.BTR_SHEET_CREDENTIALS }}
     steps:
       - name: Checkout (test ref)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -465,7 +467,6 @@ jobs:
           btr_test_ref: ${{ steps.btr.outputs.test_ref }}
           btr_sheet_url: ${{ steps.btr.outputs.sheet_url }}
           btr_update_latest: ${{ steps.btr.outputs.update_latest }}
-          btr_sheet_credentials: ${{ secrets.BTR_SHEET_CREDENTIALS }}
 
       # Collect the LMS/Studio logs whatever the outcome (`always()`, so they
       # survive a failed or cancelled run). `docker ps -a` catches the case
