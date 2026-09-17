@@ -53,18 +53,6 @@ export class TaxonomyListPage {
     }
   }
 
-  /** A taxonomy's card. */
-  card(id: number): Locator {
-    return this.page.locator(this.s.card(id));
-  }
-
-  /** Opens a taxonomy's detail page by clicking its card. */
-  async openTaxonomy(id: number): Promise<void> {
-    await this.card(id).click();
-    await this.page.waitForURL((url) => url.pathname.includes(`/taxonomy/${id}`));
-    await this.page.locator(this.s.menuButton).first().waitFor();
-  }
-
   /**
    * Imports a new taxonomy from `file`, naming it `name`. Opens the wizard, drops
    * the file, advances upload → populate, types the name and imports. Returns the

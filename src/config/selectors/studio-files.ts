@@ -14,8 +14,6 @@ export const STUDIO_FILES_SELECTORS = {
   /** The rendered table (present once assets load) and the empty-state dropzone. */
   dataTable: '[data-testid="files-data-table"]',
   dropzone: '[data-testid="files-dropzone"]',
-  controlBar: '[data-testid="table-control-bar"]',
-  tableContainer: '[data-testid="data-table-container"]',
 
   /** The name search field (a Paragon TextFilter; its id carries the accessor). */
   searchInput: 'input[id^="text-filter-label-header_displayName"]',
@@ -53,8 +51,6 @@ export const STUDIO_FILES_SELECTORS = {
   modalApply: '.pgn__modal button.btn-primary',
   modalClearAll: '.pgn__modal button.btn-link',
 
-  /** A dropdown menu item by test id (only Delete carries one). */
-  menuItem: (testid: string): string => `[data-testid="${testid}"]`,
   /**
    * The links of the currently open dropdown menu (row 3-dot or bulk Actions),
    * used with a fixed index since only Delete is test-id'd. Row menu order:

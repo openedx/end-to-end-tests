@@ -413,18 +413,10 @@ export {
   fetchAssets,
   fetchAllAssets,
   uploadAsset,
-  setAssetLock,
-  deleteAsset,
   assetStudioUrl,
   type CourseAsset,
   type AssetQuery,
 } from './assets';
-export {
-  fetchTextbooks,
-  createTextbook,
-  deleteTextbook,
-  type Textbook,
-  type TextbookChapter,
-} from './textbooks';
+export { fetchTextbooks, type Textbook, type TextbookChapter } from './textbooks';
 export { fetchCourseUpdates, fetchHandouts, type CourseUpdate } from './course-updates';
 export { ensureAgreement, bumpAgreementUpdated } from './agreements-admin';

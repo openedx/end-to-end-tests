@@ -172,9 +172,11 @@ outcome").
 - `agreements-admin.ts` — `ensureAgreement` / `bumpAgreementUpdated`: seed and
   edit `UserAgreement` rows through the LMS Django admin (no REST API), on a
   `loginSession` context.
-- `assets.ts` — the Studio Files API (`/assets/<key>/`): `fetchAssets`,
-  `uploadAsset`, `setAssetLock`, `deleteAsset` — the course asset oracle.
-- `textbooks.ts` — course PDF textbooks (`fetchTextbooks`, `createTextbook`,
-  `deleteTextbook`); the learner effect is read via `fetchCourseMetadata` tabs.
+- `assets.ts` — the Studio Files API (`/assets/<key>/`): `fetchAssets` /
+  `fetchAllAssets` / `uploadAsset` — the course asset oracle (lock and delete are
+  driven through the Files UI).
+- `textbooks.ts` — `fetchTextbooks`, the course PDF textbook oracle (add and
+  delete are driven through the Textbooks page); the learner effect is read via
+  `fetchCourseMetadata` tabs.
 - `course-updates.ts` — `fetchCourseUpdates` / `fetchHandouts`: the Course
   Updates page's `course_info_update` and handouts-xblock oracles.
