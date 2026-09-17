@@ -367,11 +367,6 @@ export class LibraryPage {
     );
   }
 
-  /**
-   * Card menu → "Delete" → confirm, waiting for the `DELETE`. On a component
-   * card "Delete" is the last item (after a divider); on a top-level container
-   * card the menu has no divider and "Delete" is the third item.
-   */
   /** Card menu → "Delete" — opens the confirmation without answering it (for its Cancel path). */
   async openCardDelete(title: string): Promise<void> {
     await this.openCardMenu(title);
@@ -379,6 +374,11 @@ export class LibraryPage {
     await this.page.locator(this.s.deleteModal).last().waitFor();
   }
 
+  /**
+   * Card menu → "Delete" → confirm, waiting for the `DELETE`. On a component
+   * card "Delete" is the last item (after a divider); on a top-level container
+   * card the menu has no divider and "Delete" is the third item.
+   */
   async deleteCard(title: string): Promise<Response> {
     const menu = await this.openCardMenu(title);
     const hasDivider = (await menu.locator('.dropdown-divider').count()) > 0;

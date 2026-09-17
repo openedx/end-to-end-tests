@@ -132,13 +132,6 @@ function printRuntimeWarningsOnce(config: AppConfig): void {
   }
 }
 
-/**
- * Returns the validated configuration for the current process, loading `.env`
- * and `process.env` on first call and memoizing the result.
- *
- * Runtime advisories are printed once per run (see {@link WARNINGS_SHOWN_ENV}).
- * Fails fast with a {@link ConfigError} if the environment is invalid.
- */
 /** Loads `.env` into `process.env` once per process (idempotent). */
 function ensureDotenvLoaded(): void {
   if (!dotenvLoaded) {

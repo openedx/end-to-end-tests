@@ -273,7 +273,7 @@ export interface CourseNavigation {
  * them (403, e.g. not started) **or not yet built for them**. Hidden blocks are
  * absent; a gated subsection is present with `type: "lock"`.
  *
- * The "not yet built" case is `PLAT-009` (see `.private/findings.md`): the LMS
+ * The "not yet built" case is `PLAT-009` (see `docs/findings.md`): the LMS
  * derives this model from the `learning_sequences` outline, which the CMS worker
  * writes asynchronously after a publish. Between the publish and that task
  * landing the view raises `CourseOutlineData.DoesNotExist` and answers HTTP 500

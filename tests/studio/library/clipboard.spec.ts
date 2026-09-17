@@ -61,7 +61,7 @@ test.describe('Content library clipboard', { tag: ['@regression', ...LIBRARY_TAG
       studioAuthorSession,
       resyncStudioAuthor,
       authoringLibrary,
-      workerLibrary,
+      seededLibrary,
       contentCourse,
       libraryPage,
     }) => {
@@ -89,7 +89,7 @@ test.describe('Content library clipboard', { tag: ['@regression', ...LIBRARY_TAG
       ).toEqual([fromCourse.id]);
 
       // A component copied from another library, pasted the same way.
-      await copyToClipboard(page.request, config, workerLibrary.blocks.problem.id);
+      await copyToClipboard(page.request, config, seededLibrary.blocks.problem.id);
       await libraryPage.openAddContent();
       const fromLibrary = (await (await libraryPage.pasteFromClipboard()).json()) as LibraryBlock;
       expect(fromLibrary.block_type).toBe('problem');

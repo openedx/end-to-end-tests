@@ -53,7 +53,7 @@ test.describe('Course Import', { tag: ['@studio', '@author', '@mfe-authoring'] }
       // The page reflects the finished import: the "view outline" control appears.
       await expect(importPage.successButton).toBeVisible();
 
-      // `STUDIO-007` (see `.private/findings.md`): the authoring MFE's Import
+      // `STUDIO-007` (see `docs/findings.md`): the authoring MFE's Import
       // dropzone renders a hidden file `<input>` with no label, a critical
       // `label` violation in the MFE's own chrome. Tolerated on this screen only;
       // remove when STUDIO-007 lands upstream.

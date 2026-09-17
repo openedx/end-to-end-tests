@@ -77,7 +77,7 @@ Rules:
   `certificateGenerationEnabled` flips the platform-wide switch through a fresh
   admin `loginSession` under the admin lock, and skips without an admin account.
 - **The library admin is the author, and libraries are seeded per test.**
-  `workerLibrary` (a published text / problem / video / PDF block, a unit, a
+  `seededLibrary` (a published text / problem / video / PDF block, a unit, a
   subsection, a section and a collection) and the empty `authoringLibrary` are
   built on `page.request` and torn down best-effort (`LIB-001`);
   `legacyLibrary` needs `content-libraries-v1`. Second actors are course

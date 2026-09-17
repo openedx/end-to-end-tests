@@ -270,12 +270,12 @@ test.describe(
     test(
       'shows sections and their subsections in the hierarchy',
       { annotation: [testId('TC-00357'), testId('TC-00358')] },
-      async ({ page, config, studioAuthorSession, workerLibrary, libraryContainerPage }) => {
+      async ({ page, config, studioAuthorSession, seededLibrary, libraryContainerPage }) => {
         void studioAuthorSession;
-        const { section } = workerLibrary.sections;
-        const { subsection } = workerLibrary.subsections;
+        const { section } = seededLibrary.sections;
+        const { subsection } = seededLibrary.subsections;
 
-        await libraryContainerPage.goto(workerLibrary.libraryKey, 'section', section.id);
+        await libraryContainerPage.goto(seededLibrary.libraryKey, 'section', section.id);
         await libraryContainerPage.openInfo();
         await libraryContainerPage.sidebar.openTab('usage');
         const sectionRows = await libraryContainerPage.sidebar.hierarchyTexts();
@@ -285,7 +285,7 @@ test.describe(
         ]);
         expect(sectionRows).toContain(section.display_name);
 
-        await libraryContainerPage.goto(workerLibrary.libraryKey, 'subsection', subsection.id);
+        await libraryContainerPage.goto(seededLibrary.libraryKey, 'subsection', subsection.id);
         await libraryContainerPage.openInfo();
         await libraryContainerPage.sidebar.openTab('usage');
         const subsectionRows = await libraryContainerPage.sidebar.hierarchyTexts();

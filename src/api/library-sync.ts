@@ -52,8 +52,6 @@ export interface DownstreamListRow {
   readonly downstream_customized: readonly string[];
 }
 
-/** One row of `GET downstreams/<course>/summary` — per source library. */
-
 export interface ImportLibraryContentOptions {
   /** The course block the new block goes under: a vertical for a component, a sequential for a unit, a chapter for a subsection, the course for a section. */
   readonly parentLocator: string;

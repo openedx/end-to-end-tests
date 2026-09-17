@@ -56,15 +56,15 @@ test.describe('Content library creation', { tag: ['@regression', ...LIBRARY_TAGS
   test(
     'shows the library settings in the info sidebar',
     { annotation: testId('TC-00365') },
-    async ({ page, config, studioAuthorSession, workerLibrary, libraryPage }) => {
+    async ({ page, config, studioAuthorSession, seededLibrary, libraryPage }) => {
       void studioAuthorSession;
-      await libraryPage.goto(workerLibrary.libraryKey);
+      await libraryPage.goto(seededLibrary.libraryKey);
       await libraryPage.openInfo();
 
       // The settings the sidebar renders are the library's own fields: the
       // public-read switch reflects `allow_public_read`, and the team control is
       // offered (a link into the admin console, or the team modal's button).
-      const library = await fetchLibrary(page.request, config, workerLibrary.libraryKey);
+      const library = await fetchLibrary(page.request, config, seededLibrary.libraryKey);
       await expect(libraryPage.sidebar.publicReadSwitch).toBeVisible();
       await expect(libraryPage.sidebar.publicReadSwitch).toBeChecked({
         checked: library.allow_public_read,

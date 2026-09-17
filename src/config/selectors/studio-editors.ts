@@ -13,9 +13,9 @@ export const STUDIO_EDITOR_SELECTORS = {
    * page's other primary buttons (sidebar Publish `btn-sm`, the Student
    * Visible toggle with no aria-label) do not, so this picks the editor's Save.
    */
+  saveButton: 'button.btn-primary[aria-label]:not(.btn-sm)',
   /** The component editor dialog (`aria-label="Editor Dialog"`, an xl modal). */
   editorDialog: '[role="dialog"].pgn__modal-xl',
-  saveButton: 'button.btn-primary[aria-label]:not(.btn-sm)',
   /**
    * The editor dialog's title controls: the small icon button beside the title
    * ("Edit Title") and the input it swaps in.

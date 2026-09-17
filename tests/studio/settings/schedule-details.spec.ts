@@ -91,7 +91,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
         }))
         .toEqual({ studio: false, lms: 'instructor' });
 
-      // `STUDIO-004` (see `.private/findings.md`): the authoring MFE's own
+      // `STUDIO-004` (see `docs/findings.md`): the authoring MFE's own
       // Schedule & Details chrome ships a critical `label` violation — the
       // course-card image drop zone's hidden file input has no label. The serious
       // `link-in-text-block` is the demo overview's own content (the `DEMO-001`
