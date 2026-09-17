@@ -131,3 +131,57 @@ export function summarizeA11yViolations(rawOccurrences: readonly A11yOccurrence[
     byRule,
   };
 }
+
+/** One axe violation as `checkA11y` serialises it into a test attachment. */
+export interface A11yAttachmentViolation {
+  readonly id?: string;
+  readonly impact?: string | null;
+  readonly help?: string;
+  readonly helpUrl?: string;
+  readonly nodes?: readonly unknown[];
+}
+
+/** Parsed body of one `a11y-violations*.json` attachment written by `checkA11y`. */
+export interface A11yAttachment {
+  readonly url: string;
+  readonly failing: readonly A11yAttachmentViolation[];
+  readonly baselined: readonly A11yAttachmentViolation[];
+  readonly belowThreshold: readonly A11yAttachmentViolation[];
+}
+
+/** Name prefix `checkA11y` gives its attachments (a label may follow). */
+export const A11Y_ATTACHMENT_PREFIX = 'a11y-violations';
+
+/**
+ * Parses a `checkA11y` attachment body. Returns `null` for anything that is not
+ * the expected JSON object, so a malformed attachment is skipped rather than
+ * failing the whole report. Missing lists read as empty.
+ */
+export function parseA11yAttachment(body: string): A11yAttachment | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  const raw = parsed as Partial<Record<A11yStatus | 'url', unknown>>;
+  const list = (value: unknown): readonly A11yAttachmentViolation[] =>
+    Array.isArray(value) ? (value as A11yAttachmentViolation[]) : [];
+  return {
+    url: typeof raw.url === 'string' ? raw.url : '(unknown)',
+    failing: list(raw.failing),
+    baselined: list(raw.baselined),
+    belowThreshold: list(raw.belowThreshold),
+  };
+}
+
+/** Renders one violation the way the results sheet shows it: `id (impact): help`. */
+export function describeA11yViolation(v: A11yAttachmentViolation): string {
+  const id = v.id ?? '(unknown)';
+  const impact = v.impact ? ` (${v.impact})` : '';
+  const help = v.help ? `: ${v.help}` : '';
+  return `${id}${impact}${help}`;
+}

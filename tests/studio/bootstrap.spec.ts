@@ -1,4 +1,5 @@
 import { expect, test } from '../../src/fixtures';
+import { knownGap } from '../../src/reporting';
 import {
   createCourse,
   fetchCourseCreatorStatus,
@@ -83,21 +84,26 @@ test.describe(
     // of joining the org the other request created. Non-deterministic, so it cannot
     // run as a stable assertion; `ensureCourse` works around it with a re-check and
     // retry. Lift once the platform serialises or tolerates the org creation.
-    test.fixme('two courses created concurrently under a new organization both succeed', async ({
-      request,
-      config,
-    }) => {
-      // A fresh org per attempt, so the get-or-create race is reachable. Plain
-      // `createCourse` — no `ensureCourse` retry — is the point.
-      const freshOrg = { ...config, org: `E2ERACE${Date.now().toString(36)}`.toUpperCase() };
-      const runId = Date.now().toString(36);
-      const keys = await Promise.all(
-        ['A', 'B'].map((slot) =>
-          createCourse(request, freshOrg, newCourseIdentity(freshOrg, runId, slot, 'race')),
+    test.fixme(
+      'two courses created concurrently under a new organization both succeed',
+      {
+        annotation: knownGap(
+          'STUDIO-001: concurrent course creation under a new organization races the org get-or-create and one request fails with HTTP 500',
         ),
-      );
-      expect([...new Set(keys)].sort()).toEqual([...keys].sort());
-      expect(keys.every((key) => key.startsWith('course-v1:'))).toBe(true);
-    });
+      },
+      async ({ request, config }) => {
+        // A fresh org per attempt, so the get-or-create race is reachable. Plain
+        // `createCourse` — no `ensureCourse` retry — is the point.
+        const freshOrg = { ...config, org: `E2ERACE${Date.now().toString(36)}`.toUpperCase() };
+        const runId = Date.now().toString(36);
+        const keys = await Promise.all(
+          ['A', 'B'].map((slot) =>
+            createCourse(request, freshOrg, newCourseIdentity(freshOrg, runId, slot, 'race')),
+          ),
+        );
+        expect([...new Set(keys)].sort()).toEqual([...keys].sort());
+        expect(keys.every((key) => key.startsWith('course-v1:'))).toBe(true);
+      },
+    );
   },
 );

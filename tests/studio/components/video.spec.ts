@@ -6,7 +6,7 @@ import {
   fetchContainerChildren,
   fetchXBlock,
 } from '../../../src/api';
-import { issue, testId } from '../../../src/reporting';
+import { issue, knownGap, testId } from '../../../src/reporting';
 import { buildUnit } from './component-helpers';
 
 /**
@@ -66,6 +66,7 @@ test.describe(
         annotation: [
           testId('TC-00214'),
           issue('https://github.com/openedx/end-to-end-tests/issues/39'),
+          knownGap('Transcript upload is VAL-backed and its read-back is not yet established'),
         ],
       },
       async () => {

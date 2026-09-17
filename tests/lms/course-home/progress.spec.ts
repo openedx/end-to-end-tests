@@ -3,7 +3,7 @@ import type { CourseProgress } from '../../../src/api';
 import type { ProgressPage } from '../../../src/pages/lms/course-home/progress.page';
 import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
-import { testId } from '../../../src/reporting';
+import { knownGap, testId } from '../../../src/reporting';
 import { completeUnit } from '../../../src/steps';
 
 /**
@@ -133,7 +133,12 @@ test.describe('Course progress', () => {
     'reaches a passing grade',
     {
       tag: ['@regression', '@authenticated', '@mfe-learning'],
-      annotation: testId('TC-00031'),
+      annotation: [
+        testId('TC-00031'),
+        knownGap(
+          'Demo course exposes too few revealable answers to reach the passing grade without a hard-coded answer key',
+        ),
+      ],
     },
     async ({ courseProgress }) => {
       const progress = await courseProgress();

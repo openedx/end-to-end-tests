@@ -40,13 +40,16 @@ export default defineConfig({
   expect: { timeout: TIMEOUTS.expect },
 
   // Reporters generate locally; uploading them as artifacts is CI-only and lives
-  // in the workflow layer. The always-on BTR coverage reporter writes a local
-  // `test-results/btr-coverage.json` mapping test_id → outcome; the a11y and timing
-  // reporters likewise write `a11y-violations.json` and `timings-*.csv` there.
+  // in the workflow layer. The always-on BTR reporters write local
+  // `test-results/btr-coverage.json` (test_id → outcome) and
+  // `test-results/btr-run.json` (per-case detail + run metadata, the input to
+  // the results-sheet publisher); the a11y and timing reporters likewise write
+  // `a11y-violations.json` and `timings-*.csv` there.
   reporter: [
     ['list'],
     ['html', { open: 'never' }],
     ['./src/reporting/coverage-reporter.ts'],
+    ['./src/reporting/btr-run-reporter.ts'],
     ['./src/reporting/a11y-reporter.ts'],
     ['./src/reporting/timing-reporter.ts'],
   ],
