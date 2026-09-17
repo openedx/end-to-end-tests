@@ -190,17 +190,33 @@ test.describe.serial(
         expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(true);
 
         // Bump `updated` past the acceptance: the record is no longer current.
+        //
+        // To *now*, never into the future. `is_current` compares the acceptance
+        // against `updated`, so a future `updated` cannot be satisfied by any
+        // acceptance until that time arrives — the re-acceptance below would not
+        // take, and the type would stay outstanding for every other case and
+        // every other worker that shares it. The admin sign-in in between puts
+        // seconds between this stamp and the acceptance above, which is what
+        // makes the bump land strictly after it.
         await withAdmin(config, async (session) => {
-          await bumpAgreementUpdated(session, config, t, new Date(Date.now() + 60_000));
+          await bumpAgreementUpdated(session, config, t, new Date());
         });
         await expect
           .poll(() => fetchAgreementRecord(page.request, config, t).then((r) => r.isCurrent))
           .toBe(false);
 
-        // Re-accepting restores it (leaving no other worker blocked).
-        await acceptAgreement(page.request, config, t);
+        // Re-accepting restores it (leaving no other worker blocked). Accepting
+        // inside the poll because `updated` is stored to the second: an
+        // acceptance in the same second as the bump does not count as later, and
+        // the next one a second on does.
         await expect
-          .poll(() => fetchAgreementRecord(page.request, config, t).then((r) => r.isCurrent))
+          .poll(
+            async () => {
+              await acceptAgreement(page.request, config, t);
+              return (await fetchAgreementRecord(page.request, config, t)).isCurrent;
+            },
+            { intervals: [1000, 1000, 1000, 2000, 2000] },
+          )
           .toBe(true);
       },
     );
