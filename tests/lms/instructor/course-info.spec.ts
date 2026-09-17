@@ -59,10 +59,12 @@ test.describe('Instructor dashboard course info', { tag: [...INSTRUCTOR_TAGS] },
       };
       await expect
         .poll(async () => {
-          const reading = await counters();
-          return JSON.stringify(reading.rendered) === JSON.stringify(reading.api);
+          const { rendered, api } = await counters();
+          return JSON.stringify(rendered) === JSON.stringify(api)
+            ? 'match'
+            : `rendered ${JSON.stringify(rendered)} vs api ${JSON.stringify(api)}`;
         })
-        .toBe(true);
+        .toBe('match');
       const model = await fetchInstructorCourse(page.request, config, courseKey);
 
       // A started, not-ended course wears the "active" variant.

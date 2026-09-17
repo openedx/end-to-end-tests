@@ -232,11 +232,36 @@ export interface CertificateGenerationHistoryRow {
 }
 
 /**
- * Course-team roles the v2 API grants (`team/roles`): `staff`, `limited_staff`,
- * `instructor` (shown as "Admin"), `beta`, `data_researcher`, `ccx_coach`, and
- * the forum roles. Open-ended because the list is the target's.
+ * Course-team roles the v2 API grants, as `GET …/team/roles?editable=true`
+ * lists them (measured on `main`; the display names are localized, the `role`
+ * values are not):
+ *
+ * | value             | display name        |
+ * | ----------------- | ------------------- |
+ * | `staff`           | Staff               |
+ * | `limited_staff`   | Limited Staff       |
+ * | `instructor`      | Admin               |
+ * | `beta`            | Beta Tester         |
+ * | `data_researcher` | Data Researcher     |
+ * | `Administrator`   | Discussion Admin    |
+ * | `Moderator`       | Discussion Moderator|
+ * | `Group Moderator` | Group Moderator     |
+ * | `Community TA`    | Community TA        |
+ *
+ * `ccx_coach` is the tenth role the platform defines; it is only listed where
+ * `ENABLE_CCX` is on, which is future work.
  */
-export type CourseTeamRoleV2 = string;
+export type CourseTeamRoleV2 =
+  | 'staff'
+  | 'limited_staff'
+  | 'instructor'
+  | 'beta'
+  | 'data_researcher'
+  | 'ccx_coach'
+  | 'Administrator'
+  | 'Moderator'
+  | 'Group Moderator'
+  | 'Community TA';
 
 // ---------------------------------------------------------------------------
 // Errors
