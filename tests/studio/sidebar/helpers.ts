@@ -7,7 +7,7 @@
  * axe violations the suite does not otherwise see — icon-only buttons whose
  * accessible name axe cannot resolve (`button-name`) and controls carrying an
  * unsupported ARIA attribute (`aria-allowed-attr`). Platform MFE markup, not the
- * suite's. Recorded in `.private/findings.md`; drop an entry the day the MFE
+ * suite's. Recorded in `docs/findings.md`; drop an entry the day the MFE
  * fixes it.
  */
 export const SIDEBAR_A11Y_BASELINE: readonly string[] = ['button-name', 'aria-allowed-attr'];
