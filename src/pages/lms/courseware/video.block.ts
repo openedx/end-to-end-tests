@@ -105,6 +105,9 @@ export class VideoBlock {
    *
    * Returns `false`, without waiting on completion, when the element never
    * reported a duration — the source did not load, so there is nothing to watch.
+   *
+   * The player is stopped before returning, and that is load bearing for whatever
+   * block comes next: see {@link stop}.
    */
   async watchToEnd(): Promise<boolean> {
     const duration = await this.waitForDuration();
@@ -134,6 +137,32 @@ export class VideoBlock {
     );
 
     await published;
+    await this.stop();
     return true;
+  }
+
+  /**
+   * Stops playback.
+   *
+   * Completion is published from the first `timeupdate` at or past the threshold,
+   * so `watchToEnd` returns with a quarter-second of the clip still to play. Left
+   * running, the player reaches `ended` moments later, while the caller has moved
+   * on to the next block — and that costs the next block its completion.
+   *
+   * Why: on the Learning MFE the platform's view-completion tracker
+   * (`lms/static/completion/js/ViewedEvent.js`) only re-evaluates visibility when
+   * the MFE posts a `unit.visibilityStatus` message, which it does on scroll and
+   * resize. A block is counted as viewed only once its top *and* bottom have been
+   * seen and it has been visible for the dwell delay. The player settling at
+   * `ended` disturbs that state for the block scrolled to just before, and nothing
+   * posts another message until something scrolls again — so the block waits out
+   * the full completion timeout and only completes on the steps layer's retry
+   * nudge. Measured on the demo course: with playback left running the following
+   * HTML block timed out at 20s in every run; stopped here, it completes in ~5s.
+   */
+  async stop(): Promise<void> {
+    await this.video.evaluate((element) => {
+      (element as HTMLVideoElement).pause();
+    });
   }
 }

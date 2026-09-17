@@ -125,13 +125,17 @@ test.describe('Unit completion', () => {
       await stubVideoSources([unit]);
       const unfinished = await completeUnit(page, unitPage, enrolledCourse.courseKey, unit);
 
-      // The video itself must have completed. The rest of the unit may not have:
-      // the demo course keeps its HTML5 video beside custom-JS problems the suite
-      // cannot answer, so unit-level completion is out of reach there and is not
-      // what this test measures (the view-only and problem tests cover that).
+      // The video must have completed, and so must every other block whose
+      // completion the suite can drive. Unit-level completion itself is out of
+      // reach wherever the course puts its HTML5 video beside a custom-JS problem
+      // — as the demo course does — so problems with no controls to drive are the
+      // one tolerated outcome. Asserting on everything else, rather than only on
+      // `videoIds`, is what makes the unit the video sits in worth driving: this
+      // unit's other blocks are exercised alongside a video, and a video-only
+      // assertion would discard that for free.
       expect(
-        unfinished.filter((block) => videoIds.includes(block.blockId)),
-        'the video block registered completion',
+        unfinished.filter((block) => block.reason !== 'unsupported-problem'),
+        'the video block, and every other drivable block in the unit, registered completion',
       ).toEqual([]);
 
       // The platform's own record for each video: `publish_completion` is answered
