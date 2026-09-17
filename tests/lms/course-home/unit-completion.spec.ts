@@ -1,5 +1,5 @@
 import { checkA11y } from '../../../src/a11y';
-import { unitsContaining } from '../../../src/api';
+import { hasHtml5Source } from '../../../src/api';
 import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
@@ -10,9 +10,10 @@ import { completeUnit } from '../../../src/steps';
  *
  * The test case names three: a unit with no problem or video (completes on
  * viewing), a unit with a problem (completes on submission), and a unit with a
- * video (completes on watching). The first two are covered here; the video
- * mechanism has no automatable path on this platform version and is covered by a
- * `fixme` below.
+ * video (completes on watching). The video is driven through the platform's own
+ * HTML5 player, so it needs a video with an HTML5 source — a YouTube-only video
+ * plays in a cross-origin iframe the suite cannot script, and the `videoUnit`
+ * fixture skips that test on a course without one.
  *
  * Assertions come from the progress and blocks APIs — numeric, non-localized, and
  * the platform's own record of completion. How the outline tray *renders* a
@@ -96,21 +97,56 @@ test.describe('Unit completion', () => {
     },
   );
 
-  // The third mechanism the test case names has no automatable path here: the
-  // demo course's videos are YouTube-hosted, so the player lives in a
-  // cross-origin iframe, and the page exposes no player handle to seek with
-  // (`window.VideoState[blockId]` is an empty object on this version). Watching
-  // in real time is not a test, and depending on youtube.com would break any
-  // installation without external network access. Declared `fixme` so no fixtures
-  // are set up; revisit when a drivable video path exists.
-  test.fixme(
-    'completes a unit containing a video by watching it',
+  test(
+    'completes a video in a unit by watching it',
     {
       tag: ['@smoke', '@authenticated', '@mfe-learning'],
       annotation: testId('TC-00022'),
     },
-    ({ courseOutline }) => {
-      expect(unitsContaining(courseOutline, 'video').length).toBeGreaterThan(0);
+    async ({
+      page,
+      unitPage,
+      videoUnit,
+      stubVideoSources,
+      refreshCourseOutline,
+      enrolledCourse,
+    }) => {
+      const unit = videoUnit;
+      const videoIds = unit.childIds.filter((id) => hasHtml5Source(unit, id));
+      expect(videoIds.length, 'the unit exposes a drivable video block').toBeGreaterThan(0);
+
+      const before = await refreshCourseOutline();
+      for (const videoId of videoIds) {
+        expect(before.blocks[videoId]?.completion).toBe(0);
+      }
+
+      // The clip is served locally: what is under test is the platform recording a
+      // watched video, not a third-party bucket being reachable.
+      await stubVideoSources([unit]);
+      const unfinished = await completeUnit(page, unitPage, enrolledCourse.courseKey, unit);
+
+      // The video must have completed, and so must every other block whose
+      // completion the suite can drive. Unit-level completion itself is out of
+      // reach wherever the course puts its HTML5 video beside a custom-JS problem
+      // — as the demo course does — so problems with no controls to drive are the
+      // one tolerated outcome. Asserting on everything else, rather than only on
+      // `videoIds`, is what makes the unit the video sits in worth driving: this
+      // unit's other blocks are exercised alongside a video, and a video-only
+      // assertion would discard that for free.
+      expect(
+        unfinished.filter((block) => block.reason !== 'unsupported-problem'),
+        'the video block, and every other drivable block in the unit, registered completion',
+      ).toEqual([]);
+
+      // The platform's own record for each video: `publish_completion` is answered
+      // before the completion row is necessarily readable, so poll the reading.
+      for (const videoId of videoIds) {
+        await expect
+          .poll(async () => (await refreshCourseOutline()).blocks[videoId]?.completion, {
+            timeout: TIMEOUTS.expect,
+          })
+          .toBe(1);
+      }
     },
   );
 });

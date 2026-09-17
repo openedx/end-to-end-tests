@@ -73,6 +73,7 @@ import {
   primeCoursewareForLearner,
   fetchCourseProgress,
   newLearnerIdentity,
+  unitsWithHtml5Video,
   type CourseDetail,
   type CourseOutline,
   type CourseProgress,
@@ -88,6 +89,7 @@ import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
 import { canCompleteUnit } from '../steps/completion';
+import { stubVideoSources } from './video-sources';
 import { establishStudioBrowserSession, signInToStudioThroughUi } from '../steps/studio';
 import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
 import { LoginPage } from '../pages/lms/auth/login.page';
@@ -170,6 +172,22 @@ export interface TestFixtures {
    * becomes a conditional inside a spec.
    */
   completionUnits: CompletionUnits;
+  /**
+   * A unit containing a video the suite can drive — one with an **HTML5 source**
+   * — chosen by structure from the Blocks API's `student_view_data`, never by
+   * name. Separate from {@link completionUnits} so that a course whose videos are
+   * all YouTube-hosted skips only the video coverage, not the other completion
+   * mechanisms.
+   *
+   * Skips the test when the course offers no such unit.
+   */
+  videoUnit: CourseUnit;
+  /**
+   * Serves the bundled clip in place of the HTML5 sources of the given units'
+   * videos, on this test's `page`. Call it before opening a unit whose video is to
+   * be watched; see `stubVideoSources` for why the real bytes are never fetched.
+   */
+  stubVideoSources: (units: readonly CourseUnit[]) => Promise<void>;
   /**
    * Gate for Studio coverage: skips unless the installation declares the `studio`
    * capability, and hands the spec the Studio origin as a plain string.
@@ -1328,6 +1346,20 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       withProblem: withProblem as CourseUnit,
       drivableSubsection: drivableSubsection as CompletionUnits['drivableSubsection'],
     });
+  },
+
+  videoUnit: async ({ courseOutline }, use) => {
+    const unit = unitsWithHtml5Video(courseOutline)[0];
+    base.skip(
+      unit === undefined,
+      'The configured course has no video with an HTML5 source: a YouTube-only video ' +
+        'plays in a cross-origin iframe the suite cannot drive.',
+    );
+    await use(unit as CourseUnit);
+  },
+
+  stubVideoSources: async ({ page }, use) => {
+    await use((units) => stubVideoSources(page, units));
   },
 });
 

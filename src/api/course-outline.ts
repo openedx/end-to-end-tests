@@ -13,9 +13,31 @@ export const COURSEWARE_SEQUENCE_PATH = '/api/courseware/sequence/';
  * Fields we ask the Blocks API for. `completion` is the numeric per-block
  * completion signal (0..1); it is the non-localized counterpart to the course
  * home outline's per-chapter/per-sequential `complete` booleans, which do not go
- * down to the vertical level.
+ * down to the vertical level. `student_view_data` is requested for **video**
+ * blocks only (see {@link STUDENT_VIEW_DATA_TYPES}): it is how the suite learns,
+ * without opening a unit, whether a video has an HTML5 source it can drive or is
+ * YouTube-only.
  */
-const REQUESTED_FIELDS = 'children,display_name,type,completion';
+const REQUESTED_FIELDS = 'children,display_name,type,completion,student_view_data';
+
+/**
+ * Block types whose `student_view_data` is requested. The Blocks API renders
+ * this per type on the server, so the list is kept to the one type the suite
+ * needs: every other block would only add payload.
+ */
+const STUDENT_VIEW_DATA_TYPES = 'video';
+
+/**
+ * The video block's `student_view_data`, narrowed to what decides drivability.
+ * `all_sources` lists the HTML5 sources (`html5_sources` plus any encoded
+ * fallback); it is empty for a YouTube-only video.
+ */
+export interface VideoStudentViewData {
+  readonly all_sources?: readonly string[];
+  readonly duration?: number;
+  readonly only_on_web?: boolean;
+  readonly [field: string]: unknown;
+}
 
 /** One block as returned by the Blocks API, narrowed to the fields we request. */
 export interface CourseBlock {
@@ -24,6 +46,8 @@ export interface CourseBlock {
   readonly display_name?: string;
   readonly children?: readonly string[];
   readonly completion?: number;
+  /** Present on `video` blocks only. */
+  readonly student_view_data?: VideoStudentViewData;
 }
 
 interface BlocksResponse {
@@ -48,6 +72,14 @@ export interface CourseUnit {
   readonly childTypes: readonly string[];
   /** Direct child block IDs, in order. */
   readonly childIds: readonly string[];
+  /**
+   * HTML5 source URLs of each **video** child, keyed by block ID. An entry is
+   * present for every video child; an empty list means the video is YouTube-only
+   * (or has no source at all) and so cannot be driven by the suite — the player
+   * then lives in a cross-origin iframe, and reaching it would depend on
+   * youtube.com, which an air-gapped installation does not have.
+   */
+  readonly videoSources: Readonly<Record<string, readonly string[]>>;
 }
 
 /** The course structure the suite navigates, flattened into ordered units. */
@@ -65,6 +97,18 @@ export interface CourseOutline {
 /** Units containing at least one block of the given type. */
 export function unitsContaining(outline: CourseOutline, blockType: string): readonly CourseUnit[] {
   return outline.units.filter((unit) => unit.childTypes.includes(blockType));
+}
+
+/** Whether a video child of `unit` has an HTML5 source the suite can drive. */
+export function hasHtml5Source(unit: CourseUnit, videoId: string): boolean {
+  return (unit.videoSources[videoId]?.length ?? 0) > 0;
+}
+
+/** Units containing at least one video with an HTML5 source. */
+export function unitsWithHtml5Video(outline: CourseOutline): readonly CourseUnit[] {
+  return unitsContaining(outline, 'video').filter((unit) =>
+    unit.childIds.some((childId) => hasHtml5Source(unit, childId)),
+  );
 }
 
 /**
@@ -118,6 +162,7 @@ export async function fetchCourseOutline(
   const url =
     `${config.baseUrls.lms}${COURSE_BLOCKS_PATH}?course_id=${encodeURIComponent(courseKey)}` +
     `&username=${encodeURIComponent(username)}&depth=all&requested_fields=${REQUESTED_FIELDS}` +
+    `&student_view_data=${STUDENT_VIEW_DATA_TYPES}` +
     (options.allBlocks === true ? '&all_blocks=true' : '');
   const response = await request.get(url);
 
@@ -177,6 +222,13 @@ export function buildOutline(
       sequentialIds.push(id);
     } else if (block.type === 'vertical' && chapter !== undefined && sequential !== undefined) {
       const childIds = childrenOf(id);
+      const videoSources: Record<string, readonly string[]> = {};
+      for (const childId of childIds) {
+        const child = blocks[childId];
+        if (child?.type === 'video') {
+          videoSources[childId] = child.student_view_data?.all_sources ?? [];
+        }
+      }
       units.push({
         chapterId: chapter,
         sequentialId: sequential,
@@ -184,6 +236,7 @@ export function buildOutline(
         displayName: block.display_name,
         childIds,
         childTypes: childIds.map((childId) => blocks[childId]?.type ?? 'unknown'),
+        videoSources,
       });
       // Leaf for our purposes: blocks inside a unit are handled by the unit page.
       return;
