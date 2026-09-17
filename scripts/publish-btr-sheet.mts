@@ -9,9 +9,12 @@
  *     [--from test-results/btr-run.json] [--update-latest true|false] \
  *     [--environment <github-environment>]
  *
- * Credentials: a service-account JSON key in `BTR_SHEET_CREDENTIALS` (the secret's
- * text) or a path in `BTR_SHEET_CREDENTIALS_FILE`. The spreadsheet must be shared
- * with the key's `client_email` as an Editor.
+ * Credentials come from the environment only, never from an argument: a
+ * service-account JSON key in `BTR_SHEET_CREDENTIALS` (in CI, the secret of that
+ * name) or a path to one in `BTR_SHEET_CREDENTIALS_FILE`. With neither set this
+ * warns and exits 0 without touching the spreadsheet, so a repository without the
+ * secret still runs the suite. The spreadsheet must be shared with the key's
+ * `client_email` as an Editor.
  *
  * Policy: run from CI on `schedule` / `workflow_dispatch` only, never on PR/push;
  * locally only against a throwaway sheet (see `src/reporting/README.md`).
@@ -48,16 +51,15 @@ function parseBool(value: string, flag: string): boolean {
   return fail(`${flag} must be 'true' or 'false', got '${value}'.`);
 }
 
-function loadCredentials(env: NodeJS.ProcessEnv): string {
+/** The key's text, or `undefined` when the environment carries no credentials. */
+function loadCredentials(env: NodeJS.ProcessEnv): string | undefined {
   if (env.BTR_SHEET_CREDENTIALS) {
     return env.BTR_SHEET_CREDENTIALS;
   }
   if (env.BTR_SHEET_CREDENTIALS_FILE) {
     return readFileSync(env.BTR_SHEET_CREDENTIALS_FILE, 'utf8');
   }
-  return fail(
-    'No credentials: set BTR_SHEET_CREDENTIALS (service-account JSON) or BTR_SHEET_CREDENTIALS_FILE.',
-  );
+  return undefined;
 }
 
 function loadRun(path: string): BtrRun {
@@ -88,13 +90,32 @@ async function main(): Promise<void> {
   });
   if (!args.release) fail('--release is required (e.g. --release verawood).');
   if (!args.sheet) fail('--sheet is required (the spreadsheet URL).');
+
+  // Missing credentials are a configuration gap, not a run failure: warn and
+  // leave the spreadsheet alone. btr-run.json is still uploaded, so the publish
+  // can be redone once the BTR_SHEET_CREDENTIALS secret exists.
+  const credentials = loadCredentials(process.env);
+  if (!credentials) {
+    const message =
+      'No BTR sheet credentials: set the BTR_SHEET_CREDENTIALS secret ' +
+      '(a service-account JSON key) on the repository or Environment.';
+    console.warn(`::warning::${message} Skipping the publish.`);
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        `### BTR results sheet\n\n- Not published. ${message}\n\n`,
+      );
+    }
+    return;
+  }
+
   const release = args.release;
   const spreadsheetId = parseSpreadsheetId(args.sheet);
   const updateLatest = parseBool(args['update-latest'], '--update-latest');
   const run = loadRun(args.from);
   const ctx = { release, environment: args.environment || undefined };
 
-  const key = parseServiceAccountKey(loadCredentials(process.env));
+  const key = parseServiceAccountKey(credentials);
   const token = await mintAccessToken(key);
   const sheets = new SheetsClient(token, spreadsheetId, { clientEmail: key.client_email });
 

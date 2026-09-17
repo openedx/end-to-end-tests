@@ -71,10 +71,6 @@ inputs:
     description: 'Google Sheets URL of the per-release BTR results spreadsheet. Empty = do not publish.'
     required: false
     default: ''
-  btr_sheet_credentials:
-    description: 'Service-account JSON key with Editor access to btr_sheet_url. Pass via secrets in the caller.'
-    required: false
-    default: ''
   btr_update_latest:
     description: 'Whether this run may overwrite the sheet''s "Latest" tab (true for an unfiltered run of the default branch).'
     required: false
@@ -213,6 +209,10 @@ runs:
     # "Resolve BTR results sheet" step in the workflows). Its failure is visible
     # on this step alone; the test outcome above is unaffected. A failed publish
     # can be redone from the suite-reports artifact's btr-run.json.
+    #
+    # Credentials are never an input: the publisher reads BTR_SHEET_CREDENTIALS
+    # from the environment, which the calling workflow sets from the repository
+    # or Environment secret of that name. Unset = warn and skip the publish.
     - name: Publish BTR results to Google Sheet
       if: ${{ !cancelled() && inputs.btr_sheet_url != '' }}
       shell: bash
@@ -221,15 +221,10 @@ runs:
         BTR_RELEASE: ${{ inputs.btr_release }}
         BTR_UPDATE_LATEST: ${{ inputs.btr_update_latest }}
         BTR_ENVIRONMENT: ${{ inputs.btr_environment }}
-        BTR_SHEET_CREDENTIALS: ${{ inputs.btr_sheet_credentials }}
       run: |
         set -euo pipefail
         if [ -z "$BTR_RELEASE" ]; then
           echo "::error::btr_sheet_url is set but btr_release is empty; the publisher needs the release to pick the sheet's identity."
-          exit 1
-        fi
-        if [ -z "$BTR_SHEET_CREDENTIALS" ]; then
-          echo "::error::btr_sheet_url is set but no credentials were passed. Add the BTR_SHEET_CREDENTIALS secret (a service-account JSON key) to the repository or Environment."
           exit 1
         fi
         node scripts/publish-btr-sheet.mts \

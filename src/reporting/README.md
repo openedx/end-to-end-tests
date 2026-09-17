@@ -120,9 +120,16 @@ and refuses to write a run for another release.
 
 | Where         | Name                      | Value                                                                                                                                                         |
 | ------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Secret        | `BTR_SHEET_CREDENTIALS`   | The service account's JSON key, verbatim. Repository-wide, or on an Environment.                                                                              |
+| Secret        | `BTR_SHEET_CREDENTIALS`   | The service account's JSON key, verbatim. Repository-wide, or on an Environment. Unset = warn and skip the publish.                                           |
 | Variable      | `BTR_SHEET_URL_<RELEASE>` | The sheet URL for that release, name upper-cased (`BTR_SHEET_URL_VERAWOOD`). Unset = no publish. An Environment-scoped variable overrides the repository one. |
 | Sheet sharing | —                         | Each sheet shared with the key's `client_email` as **Editor**.                                                                                                |
+
+The publisher reads the key from the environment only: `BTR_SHEET_CREDENTIALS`,
+or a path to the key file in `BTR_SHEET_CREDENTIALS_FILE` for local runs.
+Neither the `run-suite` action nor the workflows take a credential input, and
+with neither variable set the publisher prints a `::warning::`, writes nothing
+to the spreadsheet and exits 0 — the suite's own result stands, and the publish
+can be redone from the artifact once the secret exists.
 
 **Which runs publish.** `run_tests_tutor.yml` on `schedule`/`workflow_dispatch`
 (the release is the workflow's own); `run_tests_external.yml` when the

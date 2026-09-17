@@ -16,7 +16,8 @@ name: External Target E2E Test
 # BTR results sheet: when `openedx_release` is given, the run publishes its
 # BTR-tagged results to the Google Sheet named by the BTR_SHEET_URL_<RELEASE>
 # variable (an Environment-scoped variable overrides the repository one), using
-# the BTR_SHEET_CREDENTIALS secret (Environment or repository). See
+# the BTR_SHEET_CREDENTIALS secret (Environment or repository); without that
+# secret the publish is skipped with a warning. See
 # src/reporting/README.md.
 
 on:
@@ -98,6 +99,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: ${{ inputs.environment }}
+    env:
+      # Read by scripts/publish-btr-sheet.mts inside the run-suite action, which
+      # takes no credential input. Unset (no such repository/Environment secret)
+      # = the publisher warns and skips, leaving the run's result unchanged.
+      BTR_SHEET_CREDENTIALS: ${{ secrets.BTR_SHEET_CREDENTIALS }}
     steps:
       - name: Checkout (test ref)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -246,4 +252,3 @@ jobs:
           btr_sheet_url: ${{ steps.btr.outputs.sheet_url }}
           btr_update_latest: ${{ steps.btr.outputs.update_latest }}
           btr_environment: ${{ inputs.environment }}
-          btr_sheet_credentials: ${{ secrets.BTR_SHEET_CREDENTIALS }}
