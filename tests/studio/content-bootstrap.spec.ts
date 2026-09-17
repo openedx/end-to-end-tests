@@ -22,6 +22,11 @@ test.describe(
   'Authoring content bootstrap',
   { tag: ['@regression', '@studio', '@author', '@mfe-authoring'] },
   () => {
+    // The round trips poll the learner under TIMEOUTS.contentPublish, which is
+    // longer than the default per-test budget; under CI load (publish fan-out
+    // on the CMS workers) that poll was being cut off by the 60s test timeout.
+    test.describe.configure({ timeout: TIMEOUTS.contentTest });
+
     test('the worker has a content course and a future course, distinct from the settings course', async ({
       studio,
       authoredCourse,

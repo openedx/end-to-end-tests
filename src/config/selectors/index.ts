@@ -57,3 +57,19 @@ export {
   type InstructorReportType,
   type InstructorTabId,
 } from './instructor';
+export {
+  COURSE_LIBRARY_SYNC_SELECTORS,
+  LEGACY_MIGRATION_SELECTORS,
+  LIBRARY_CONTAINER_TYPES,
+  LIBRARY_PICKER_SELECTORS,
+  LIBRARY_SELECTORS,
+  LIBRARY_TABS,
+  courseLibrariesPath,
+  createLibraryPath,
+  legacyMigrationPath,
+  libraryCollectionPath,
+  libraryContainerPath,
+  libraryPath,
+  type LibraryContainerType,
+  type LibraryTab,
+} from './library';

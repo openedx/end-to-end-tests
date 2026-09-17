@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { STUDIO_HOME_SELECTORS, type AppConfig } from '../../../config';
+import { LIBRARY_SELECTORS, STUDIO_HOME_SELECTORS, type AppConfig } from '../../../config';
 import { studioOrigin } from '../../../api';
 import { waitForWrite } from '../wait-for-write';
 
@@ -75,6 +75,29 @@ export class StudioHomePage {
   /** The course-name link on a course's card. */
   courseCardLink(courseKey: string): Locator {
     return this.courseCard(courseKey).locator(STUDIO_HOME_SELECTORS.courseCardLink);
+  }
+
+  // --- Content libraries -------------------------------------------------------
+
+  /** The "New library" action (a link on `main`, a button on `verawood`); absent without creator status. */
+  get newLibraryLink(): Locator {
+    return this.page.locator(LIBRARY_SELECTORS.homeNewLibraryLink).first();
+  }
+
+  /** Opens the Libraries (v2) tab. */
+  async openLibrariesTab(): Promise<void> {
+    await this.page.locator(LIBRARY_SELECTORS.homeLibrariesTab).click();
+  }
+
+  /** A v2 library's title link on the Libraries tab, by key. */
+  libraryCardLink(libraryKey: string): Locator {
+    return this.page.locator(LIBRARY_SELECTORS.homeLibraryCardLink(libraryKey));
+  }
+
+  /** "New library" — the MFE navigates to the create form. */
+  async newLibrary(): Promise<void> {
+    await this.newLibraryLink.click();
+    await this.page.waitForURL((u) => u.pathname.endsWith('/library/create'));
   }
 
   /** Reveals the "Create a new course" form. */

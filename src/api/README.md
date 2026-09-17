@@ -138,3 +138,26 @@ outcome").
 - `certificate-generation-config.ts` — `ensureCertificateGenerationEnabled`: the
   platform-wide certificate switch, which has no REST API — only the LMS Django
   admin, session-auth, so it takes a fresh admin `loginSession` context.
+
+### Library clients
+
+- `libraries.ts` — the content libraries v2 API (`/api/libraries/v2/`) the
+  library-authoring MFE is built on: libraries (`createLibrary` with a typed
+  `LibraryExistsError` keyed on the `slug` field error, `fetchLibrary`,
+  `listLibraries` with `textSearch`, `updateLibrary`, `deleteLibrary` typing the
+  `LIB-001` 500 as `LibraryDeleteRestrictedError`), publish / commit, blocks and
+  their OLX and assets (`libraryOlx` builds escaped html / video / pdf / problem
+  OLX), containers (unit / subsection / section) with `children/` and
+  `hierarchy/`, collections and their items, and the library team. Keys:
+  `libraryKeyFor(org, slug)`, `newLibrarySlug`. Studio-session-authenticated
+  (measured: no JWT needed), so the author's `page.request` drives it; responses
+  are read through `studioJson` with `allowEmpty` (204s) and the membership
+  `forbiddenHint`.
+- `library-sync.ts` — the course side of reuse: `importLibraryContent`
+  (`POST /xblock/` with `library_content_key`; `category` is mandatory), the
+  downstream link (`fetchDownstream`, `listDownstreams` — course key
+  URL-encoded) and `acceptSync` / `declineSync`.
+- `legacy-libraries.ts` — legacy `library-v1:` libraries (`createLegacyLibrary`,
+  `addLegacyLibraryBlock`, `listLegacyLibraries`) and the modulestore migrator
+  (`startMigration`, `fetchMigration` — `undefined` on the retrieve-404 race a
+  caller polls through — `isMigrationSettled`).

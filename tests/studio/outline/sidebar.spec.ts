@@ -70,7 +70,7 @@ test.describe(
       },
     );
 
-    // PLAT-009 (see `.private/findings.md`): between a publish and the CMS worker's
+    // PLAT-009 (see `docs/findings.md`): between a publish and the CMS worker's
     // `learning_sequences` outline task landing, the navigation view raises
     // `CourseOutlineData.DoesNotExist` and answers HTTP 500 rather than an empty
     // model. `fetchCourseNavigation` rides that out for the other specs; this test

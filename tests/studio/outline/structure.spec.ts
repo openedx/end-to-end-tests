@@ -16,7 +16,7 @@ import { testId } from '../../../src/reporting';
  * Author writes go through the browser's own session (`page.request`), not the
  * `request` fixture: a browser Studio session and a standalone API session evict
  * each other under `PREVENT_CONCURRENT_LOGINS` (see
- * `.private/findings.md` / `studio-browser-session-decays`).
+ * `docs/findings.md` / `studio-browser-session-decays`).
  */
 test.describe(
   'Course outline structure',

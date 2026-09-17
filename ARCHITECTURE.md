@@ -150,6 +150,21 @@ installation-supplied. The one session-only write in that tree — enabling
 platform-wide certificate generation in the LMS Django admin — runs on a fresh
 admin `loginSession` context under the admin lock.
 
+The **library admin** persona is the same worker author too: creating a content
+library (v2) makes its creator the library's `admin`, and the
+`/api/libraries/v2/` API rides the author's Studio session (measured: no JWT
+needed), so `tests/studio/library/` runs in
+`studio-author` on `page` / `page.request`. Its second actors — a library
+member, an unaffiliated Studio user — are **course creators** provisioned per
+test on their own contexts (`studioColleague`), because `allow_public_read`
+grants a plain learner nothing. The legacy library writes and the course-side
+import are session-authed, and the v2 writes rotate the Studio session while
+the API SSO handshake corrupts one whose LMS half a provisioned learner has left
+stale; so these specs re-sync through the browser (`resyncStudioAuthor`) and
+provision their learner last, and the `request`-context fixtures handshake only
+after a write has 302'd (see [`CONVENTIONS.md`](CONVENTIONS.md) "Library round
+trips").
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the

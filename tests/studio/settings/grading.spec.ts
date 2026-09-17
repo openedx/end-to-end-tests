@@ -57,7 +57,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
         })
         .toBe(settled);
 
-      // `STUDIO-004` (see `.private/findings.md`): the grade-range editor's own
+      // `STUDIO-004` (see `docs/findings.md`): the grade-range editor's own
       // controls are unlabelled — the boundary handles (`role="slider"`) have no
       // accessible name and the segment name fields have no label. Upstream
       // (`frontend-app-course-authoring`) debt tolerated on this screen only, so
