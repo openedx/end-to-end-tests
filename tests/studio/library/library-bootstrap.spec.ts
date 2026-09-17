@@ -196,11 +196,11 @@ test.describe(
       });
     });
 
-    test('the library fixtures hand out a seeded worker library, a fresh library and colleagues', async ({
+    test('the library fixtures hand out a seeded library, a fresh library and colleagues', async ({
       page,
       config,
       studioAuthorSession,
-      workerLibrary,
+      seededLibrary,
       authoringLibrary,
       studioColleague,
     }) => {
@@ -208,16 +208,16 @@ test.describe(
       const request = page.request;
 
       // The shared library is published and holds the seeded shape.
-      const shared = await fetchLibrary(request, config, workerLibrary.libraryKey);
+      const shared = await fetchLibrary(request, config, seededLibrary.libraryKey);
       expect(shared.has_unpublished_changes).toBe(false);
-      expect((await listLibraryBlocks(request, config, workerLibrary.libraryKey)).count).toBe(4);
+      expect((await listLibraryBlocks(request, config, seededLibrary.libraryKey)).count).toBe(4);
       expect(
-        (await fetchLibraryContainerChildren(request, config, workerLibrary.units.unit.id)).map(
+        (await fetchLibraryContainerChildren(request, config, seededLibrary.units.unit.id)).map(
           (c) => c.id,
         ),
-      ).toEqual([workerLibrary.blocks.text.id, workerLibrary.blocks.problem.id]);
+      ).toEqual([seededLibrary.blocks.text.id, seededLibrary.blocks.problem.id]);
       expect(authoringLibrary.num_blocks).toBe(0);
-      expect(authoringLibrary.id).not.toBe(workerLibrary.libraryKey);
+      expect(authoringLibrary.id).not.toBe(seededLibrary.libraryKey);
 
       // A Studio user with no role is refused; a `read` member may read but not
       // write; with public read on, the unaffiliated Studio user may read too.

@@ -23,7 +23,7 @@ import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, label } from './helpers';
  * (TC-00346) — the epic's acceptance bar: both cases end in the learner's own
  * context, reading the course block the library content became.
  *
- * Session discipline (see `workerLibrary` in `src/fixtures`): the seeded library
+ * Session discipline (see `seededLibrary` in `src/fixtures`): the seeded library
  * lives on `page.request`, whose Studio session the v2 writes rotate, so the
  * body re-syncs it once with `establishStudioSession` **before** provisioning a
  * learner — a learner leaves the author's LMS session stale and the handshake
@@ -45,7 +45,7 @@ test.describe(
           config,
           studioAuthorSession,
           resyncStudioAuthor,
-          workerLibrary,
+          seededLibrary,
           contentCourse,
           roundTripLearnerLater,
           studioUnitPage,
@@ -54,7 +54,7 @@ test.describe(
         testInfo,
       ) => {
         void studioAuthorSession;
-        const { text } = workerLibrary.blocks;
+        const { text } = seededLibrary.blocks;
         // The fixture seeded the library on `page.request`; re-sync before any
         // course-side legacy write, and before any learner exists.
         await resyncStudioAuthor();
@@ -72,7 +72,7 @@ test.describe(
         const types = availableComponentTypes(await fetchContainer(page.request, config, unitKey));
         expect(types).toContain('library_v2');
         await studioUnitPage.openAddComponent(types.indexOf('library_v2'));
-        await libraryPicker.selectLibrary(workerLibrary.libraryKey, workerLibrary.library.title);
+        await libraryPicker.selectLibrary(seededLibrary.libraryKey, seededLibrary.library.title);
         await libraryPicker
           .cardFor(text.display_name)
           .first()
@@ -114,7 +114,7 @@ test.describe(
           config,
           studioAuthorSession,
           resyncStudioAuthor,
-          workerLibrary,
+          seededLibrary,
           contentCourse,
           roundTripLearnerLater,
           studioUnitPage,
@@ -123,7 +123,7 @@ test.describe(
         testInfo,
       ) => {
         void studioAuthorSession;
-        const { text } = workerLibrary.blocks;
+        const { text } = seededLibrary.blocks;
         const marker = label('synced', testInfo.testId);
         // Our own markers, hoisted so the learner-side assertions read a variable,
         // never a literal (ARCHITECTURE.md: locators never depend on displayed text).
@@ -148,7 +148,7 @@ test.describe(
           text.id,
           libraryOlx.html(text.display_name, v1),
         );
-        await commitLibrary(page.request, config, workerLibrary.libraryKey);
+        await commitLibrary(page.request, config, seededLibrary.libraryKey);
         const imported = await importLibraryContent(page.request, config, {
           parentLocator: unitKey,
           category: 'html',
@@ -169,9 +169,8 @@ test.describe(
           libraryOlx.html(text.display_name, v2),
         );
         await publishLibraryBlock(page.request, config, text.id);
-        expect((await waitForSyncAvailable(page.request, config, imported.locator)).satisfied).toBe(
-          true,
-        );
+        const acceptSync = await waitForSyncAvailable(page.request, config, imported.locator);
+        expect(acceptSync.satisfied, JSON.stringify(acceptSync.last)).toBe(true);
         await studioUnitPage.goto(unitKey);
         await studioUnitPage.openUpdateAvailable(imported.locator);
         await previewChangesDialog.showVersion('old');
@@ -192,9 +191,8 @@ test.describe(
           libraryOlx.html(text.display_name, v3),
         );
         await publishLibraryBlock(page.request, config, text.id);
-        expect((await waitForSyncAvailable(page.request, config, imported.locator)).satisfied).toBe(
-          true,
-        );
+        const declineSync = await waitForSyncAvailable(page.request, config, imported.locator);
+        expect(declineSync.satisfied, JSON.stringify(declineSync.last)).toBe(true);
         await studioUnitPage.goto(unitKey);
         await studioUnitPage.openUpdateAvailable(imported.locator);
         expect((await previewChangesDialog.ignore()).status()).toBe(204);

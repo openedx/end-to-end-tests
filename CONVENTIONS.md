@@ -267,8 +267,9 @@ behind the opt-in `content-libraries-v1`. Their specs live in
   per-test course. A customized block's preview offers "Keep course content" in
   place of the sync as its primary; the dialog reads the footer structurally.
 - **Libraries accumulate.** `DELETE <lib>/` is 500 once a library ever held a
-  container (`LIB-001`); teardown tries, annotates, and relies on run-unique
-  slugs. Every list a spec selects from — the course picker, an outsider's
+  container ([`LIB-001`](docs/findings.md), filed as
+  [edx-platform#39117](https://github.com/openedx/openedx-platform/issues/39117));
+  teardown tries, annotates, and relies on run-unique slugs. Every list a spec selects from — the course picker, an outsider's
   `listLibraries`, the migration destination step — is **paginated**, so filter
   by the library's title or slug before selecting; never trust `.last()` or the
   first page.

@@ -93,9 +93,8 @@ test.describe(
 
         await publishXBlock(page.request, config, unitKey);
         const roundTripLearner = await roundTripLearnerLater();
-        expect(
-          (await waitForLearnerBlock(roundTripLearner.outline, imported.locator)).satisfied,
-        ).toBe(true);
+        const seen = await waitForLearnerBlock(roundTripLearner.outline, imported.locator);
+        expect(seen.satisfied, `learner outline blocks: ${seen.last.join(', ')}`).toBe(true);
         await roundTripLearner.prime(subsectionKey);
         await roundTripLearner.unitPage.goto(contentCourse.courseKey, subsectionKey, unitKey);
         await expect(roundTripLearner.unitPage.block(imported.locator)).toContainText(override);
@@ -108,9 +107,8 @@ test.describe(
           libraryOlx.html(title, `${title} library v2`),
         );
         await publishLibraryBlock(page.request, config, block.id);
-        expect((await waitForSyncAvailable(page.request, config, imported.locator)).satisfied).toBe(
-          true,
-        );
+        const sync = await waitForSyncAvailable(page.request, config, imported.locator);
+        expect(sync.satisfied, JSON.stringify(sync.last)).toBe(true);
         await studioUnitPage.goto(unitKey);
         await studioUnitPage.openUpdateAvailable(imported.locator);
         await previewChangesDialog.keepCourseContent();
@@ -190,9 +188,8 @@ test.describe(
 
         await publishXBlock(page.request, config, imported.locator);
         const roundTripLearner = await roundTripLearnerLater();
-        expect((await waitForLearnerBlock(roundTripLearner.outline, childKey)).satisfied).toBe(
-          true,
-        );
+        const seen = await waitForLearnerBlock(roundTripLearner.outline, childKey);
+        expect(seen.satisfied, `learner outline blocks: ${seen.last.join(', ')}`).toBe(true);
         await roundTripLearner.prime(sequential);
         await roundTripLearner.unitPage.goto(contentCourse.courseKey, sequential, imported.locator);
         await expect(roundTripLearner.unitPage.block(childKey)).toContainText(override);
@@ -248,9 +245,8 @@ test.describe(
 
         await publishXBlock(page.request, config, unitKey);
         const roundTripLearner = await roundTripLearnerLater();
-        expect(
-          (await waitForLearnerBlock(roundTripLearner.outline, imported.locator)).satisfied,
-        ).toBe(true);
+        const seen = await waitForLearnerBlock(roundTripLearner.outline, imported.locator);
+        expect(seen.satisfied, `learner outline blocks: ${seen.last.join(', ')}`).toBe(true);
         expect((await roundTripLearner.outline()).blocks[imported.locator]?.display_name).toBe(
           overriddenTitle,
         );

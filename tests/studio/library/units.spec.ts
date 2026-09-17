@@ -382,27 +382,27 @@ test.describe('Content library units', { tag: ['@regression', ...LIBRARY_TAGS] }
   test(
     'shows a unit nested under its subsection in the hierarchy',
     { annotation: testId('TC-00359') },
-    async ({ page, config, studioAuthorSession, workerLibrary, libraryContainerPage }) => {
+    async ({ page, config, studioAuthorSession, seededLibrary, libraryContainerPage }) => {
       void studioAuthorSession;
-      const { unit } = workerLibrary.units;
-      await libraryContainerPage.goto(workerLibrary.libraryKey, 'unit', unit.id);
+      const { unit } = seededLibrary.units;
+      await libraryContainerPage.goto(seededLibrary.libraryKey, 'unit', unit.id);
       await libraryContainerPage.openInfo();
       await libraryContainerPage.sidebar.openTab('usage');
 
       const hierarchy = await fetchContainerHierarchy(page.request, config, unit.id);
       expect(hierarchy.subsections.map((s) => s.id)).toEqual([
-        workerLibrary.subsections.subsection.id,
+        seededLibrary.subsections.subsection.id,
       ]);
-      expect(hierarchy.sections.map((s) => s.id)).toEqual([workerLibrary.sections.section.id]);
+      expect(hierarchy.sections.map((s) => s.id)).toEqual([seededLibrary.sections.section.id]);
       const rows = await libraryContainerPage.sidebar.hierarchyTexts();
       expect(rows).toEqual(
         expect.arrayContaining([
-          workerLibrary.sections.section.display_name,
-          workerLibrary.subsections.subsection.display_name,
+          seededLibrary.sections.section.display_name,
+          seededLibrary.subsections.subsection.display_name,
           unit.display_name,
         ]),
       );
-      expect(rows.indexOf(workerLibrary.sections.section.display_name)).toBeLessThan(
+      expect(rows.indexOf(seededLibrary.sections.section.display_name)).toBeLessThan(
         rows.indexOf(unit.display_name),
       );
     },

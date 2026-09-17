@@ -36,8 +36,6 @@ import {
  * spec's failure message can show the readings (`PLAT-009`'s lesson).
  */
 
-/** The outcome of a bounded poll: whether the condition held, and the last reading. */
-
 // --- authoring a library -------------------------------------------------------
 
 /** A component to author: its type, title and (for text / pdf) content. */

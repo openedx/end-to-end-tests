@@ -44,7 +44,7 @@ test.describe(
           config,
           studioAuthorSession,
           resyncStudioAuthor,
-          workerLibrary,
+          seededLibrary,
           contentCourse,
           roundTripLearnerLater,
         },
@@ -52,7 +52,7 @@ test.describe(
       ) => {
         void studioAuthorSession;
         await resyncStudioAuthor();
-        const { unit } = workerLibrary.units;
+        const { unit } = seededLibrary.units;
         const chapter = await createXBlock(page.request, config, {
           parentLocator: courseUsageKey(contentCourse.courseKey),
           category: 'chapter',
@@ -73,8 +73,8 @@ test.describe(
         const children = await fetchContainerChildren(page.request, config, imported.locator);
         expect(children.map((c) => c.block_type)).toEqual(['html', 'problem']);
         expect(children.map((c) => c.upstream_link?.upstream_ref)).toEqual([
-          workerLibrary.blocks.text.id,
-          workerLibrary.blocks.problem.id,
+          seededLibrary.blocks.text.id,
+          seededLibrary.blocks.problem.id,
         ]);
 
         await publishXBlock(page.request, config, imported.locator);
@@ -141,16 +141,14 @@ test.describe(
         });
         await publishXBlock(page.request, config, imported.locator);
         const roundTripLearner = await authoringCourseLearnerLater();
-        expect(
-          (await waitForLearnerBlock(roundTripLearner.outline, imported.locator)).satisfied,
-        ).toBe(true);
+        const seen = await waitForLearnerBlock(roundTripLearner.outline, imported.locator);
+        expect(seen.satisfied, `learner outline blocks: ${seen.last.join(', ')}`).toBe(true);
 
         // Accept a rename from the Review tab's preview.
         await renameLibraryContainer(page.request, config, unit.id, `${title} v2`);
         await publishLibraryContainer(page.request, config, unit.id);
-        expect((await waitForSyncAvailable(page.request, config, imported.locator)).satisfied).toBe(
-          true,
-        );
+        const renameSync = await waitForSyncAvailable(page.request, config, imported.locator);
+        expect(renameSync.satisfied, JSON.stringify(renameSync.last)).toBe(true);
         await courseLibrariesPage.waitForReviewCard(authoringCourse.courseKey, title);
         await checkA11y(page, {
           label: 'course-libraries',
@@ -173,9 +171,8 @@ test.describe(
         // Reject the next rename from the card's Ignore.
         await renameLibraryContainer(page.request, config, unit.id, `${title} v3`);
         await publishLibraryContainer(page.request, config, unit.id);
-        expect((await waitForSyncAvailable(page.request, config, imported.locator)).satisfied).toBe(
-          true,
-        );
+        const rejectSync = await waitForSyncAvailable(page.request, config, imported.locator);
+        expect(rejectSync.satisfied, JSON.stringify(rejectSync.last)).toBe(true);
         await courseLibrariesPage.waitForReviewCard(authoringCourse.courseKey, title);
         expect((await courseLibrariesPage.ignore(title)).status()).toBe(204);
         const declined = await fetchDownstream(page.request, config, imported.locator);

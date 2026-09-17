@@ -234,7 +234,7 @@ const ENSURE_COURSE_RETRY_MS = 1_500;
  * Recovers from two races:
  * - {@link CourseExistsError}: someone else created this identity between the
  *   lookup and the create — look it up again.
- * - `STUDIO-001` (see `.private/findings.md`): two courses created concurrently
+ * - `STUDIO-001` (see `docs/findings.md`): two courses created concurrently
  *   under an organization that does not exist yet make the platform race on the
  *   org's get-or-create, and one caller gets a `500 IntegrityError` before any
  *   course is written. The org exists once the other caller succeeds, so a short

@@ -257,10 +257,10 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
   test(
     'shows a component in its hierarchy',
     { annotation: testId('TC-00360') },
-    async ({ page, config, studioAuthorSession, workerLibrary, libraryPage }) => {
+    async ({ page, config, studioAuthorSession, seededLibrary, libraryPage }) => {
       void studioAuthorSession;
-      const { text } = workerLibrary.blocks;
-      await libraryPage.goto(workerLibrary.libraryKey, 'components');
+      const { text } = seededLibrary.blocks;
+      await libraryPage.goto(seededLibrary.libraryKey, 'components');
       await libraryPage.openCard(text.display_name);
       await libraryPage.sidebar.openTab('usage');
 
@@ -272,9 +272,9 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
         ...hierarchy.components,
       ].map((entry) => entry.display_name);
       expect(expected).toEqual([
-        workerLibrary.sections.section.display_name,
-        workerLibrary.subsections.subsection.display_name,
-        workerLibrary.units.unit.display_name,
+        seededLibrary.sections.section.display_name,
+        seededLibrary.subsections.subsection.display_name,
+        seededLibrary.units.unit.display_name,
         text.display_name,
       ]);
       expect(await libraryPage.sidebar.hierarchyTexts()).toEqual(expected);

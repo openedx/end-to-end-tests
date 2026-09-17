@@ -30,7 +30,7 @@ test.describe(
           config,
           studioAuthorSession,
           resyncStudioAuthor,
-          workerLibrary,
+          seededLibrary,
           contentCourse,
           roundTripLearnerLater,
           studioUnitPage,
@@ -40,7 +40,7 @@ test.describe(
       ) => {
         void studioAuthorSession;
         await resyncStudioAuthor();
-        const { pdf } = workerLibrary.blocks;
+        const { pdf } = seededLibrary.blocks;
         const section = await buildSection(
           page.request,
           config,
@@ -56,7 +56,7 @@ test.describe(
         await studioUnitPage.goto(unitKey);
         const types = availableComponentTypes(await fetchContainer(page.request, config, unitKey));
         await studioUnitPage.openAddComponent(types.indexOf('library_v2'));
-        await libraryPicker.selectLibrary(workerLibrary.libraryKey, workerLibrary.library.title);
+        await libraryPicker.selectLibrary(seededLibrary.libraryKey, seededLibrary.library.title);
         await libraryPicker
           .cardFor(pdf.display_name)
           .first()
@@ -69,7 +69,7 @@ test.describe(
 
         const learner = await roundTripLearnerLater();
         const seen = await waitForLearnerBlock(learner.outline, added.locator);
-        expect(seen.satisfied).toBe(true);
+        expect(seen.satisfied, `learner outline blocks: ${seen.last.join(', ')}`).toBe(true);
         expect((await learner.outline()).blocks[added.locator]?.type).toBe('pdf');
         await learner.prime(subsectionKey);
         await learner.unitPage.goto(contentCourse.courseKey, subsectionKey, unitKey);

@@ -317,16 +317,16 @@ export const LIBRARY_SELECTORS = {
   permissionDeniedAlert: '[data-testid="permissionDeniedAlert"]',
 } as const;
 
+/** A library's hidden radio on the picker's first step, relative to its card. */
+const libraryRadioInput = (libraryKey: string): string =>
+  `input[name="selected-library"][value="${libraryKey}"]`;
+
 /**
  * The course-side "Library Content" picker (`LibraryAndComponentPicker`): a
  * `StandardModal` from the unit page's add-component tile (or the outline's
  * Add sidebar) — first `SelectLibrary` (a radio card per library the user may
  * reuse from), then the embedded library page with an "Add" button per card.
  */
-/** A library's hidden radio on the picker's first step, relative to its card. */
-const libraryRadioInput = (libraryKey: string): string =>
-  `input[name="selected-library"][value="${libraryKey}"]`;
-
 export const LIBRARY_PICKER_SELECTORS = {
   modal: '[role="dialog"].pgn__modal-xl',
   /** A library's radio in `SelectLibrary`, by library key. */

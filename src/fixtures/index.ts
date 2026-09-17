@@ -465,7 +465,7 @@ export interface TestFixtures {
    * own `page.request` (see CONVENTIONS.md "Library round trips"). Specs never
    * delete from it; destructive cases take {@link authoringLibrary}.
    */
-  workerLibrary: WorkerLibrary;
+  seededLibrary: SeededLibrary;
   /**
    * A fresh, **empty** library of this test's own — for cases that create,
    * delete or publish items and would otherwise disturb the shared library.
@@ -493,8 +493,8 @@ export interface TestFixtures {
   studioColleague: (options?: StudioColleagueOptions) => Promise<StudioColleague>;
 }
 
-/** What {@link TestFixtures.workerLibrary} hands a spec: the seeded library and its items by role. */
-export interface WorkerLibrary {
+/** What {@link TestFixtures.seededLibrary} hands a spec: the seeded library and its items by role. */
+export interface SeededLibrary {
   readonly org: string;
   readonly library: ContentLibrary;
   readonly libraryKey: string;
@@ -725,14 +725,6 @@ export interface CompletionUnits {
 export type EnrolledCourse = CourseLearner;
 
 /**
- * The composition root. Specs import `test`/`expect` from here (not directly from
- * `@playwright/test`) so they receive fully-composed, typed objects.
- *
- * Requesting `config` also fails fast with a clear {@link ConfigError} when the
- * environment is invalid, rather than surfacing later as a confusing navigation
- * failure.
- */
-/**
  * Builds a test fixture that hands the spec a page object constructed from the
  * `page` and `config` fixtures — the shape almost every page-object fixture takes.
  * Playwright reads the returned function's destructured parameters to wire its
@@ -936,16 +928,11 @@ function librarySlug(scope: string): string {
 }
 
 /**
- * Creates the seeded library (a text/problem/video/pdf component, a unit, a
- * subsection, a section and a collection) or,
- * when a retried worker finds its predecessor's library under the same slug,
- * re-derives the seeded items from the API so the fixture hands out the same
- * shape either way.
- */
-/**
  * Tears a library down where the platform allows it: `DELETE <lib>/` is 500
  * for any library that ever held a container (`LIB-001`), so that answer is
- * recorded on the test as a note and the library is left in place.
+ * recorded on the test as a note and the library is left in place. The note
+ * carries the response body, because the classification is by status alone —
+ * an unrelated 500 on this endpoint lands here too, and has to stay readable.
  */
 async function deleteLibraryBestEffort(
   request: APIRequestContext,
@@ -957,7 +944,9 @@ async function deleteLibraryBestEffort(
     if (!(error instanceof LibraryDeleteRestrictedError)) throw error;
     testInfo.annotations.push({
       type: 'note',
-      description: `${libraryKey} could not be deleted (LIB-001); left in place.`,
+      description:
+        `${libraryKey} could not be deleted (LIB-001); left in place. ` +
+        `Platform answered: ${error.body.slice(0, 300)}`,
     });
   });
 }
@@ -986,12 +975,18 @@ async function deferredLearner(
   }
 }
 
+/**
+ * Creates the seeded library (a text/problem/video/pdf component, a unit, a
+ * subsection, a section and a collection) or, when a retried worker finds its
+ * predecessor's library under the same slug, re-derives the seeded items from
+ * the API so the fixture hands out the same shape either way.
+ */
 async function provisionLibrary(
   request: APIRequestContext,
   config: AppConfig,
   org: string,
   slug: string,
-): Promise<WorkerLibrary> {
+): Promise<SeededLibrary> {
   // No leading dash in the label: the search cases type it into Meilisearch.
   const label = `E2E library ${getRunId()} ${slug.split('-').pop() ?? ''}`;
   const pick = <T>(map: Readonly<Record<string, T>>, key: string): T => {
@@ -999,7 +994,7 @@ async function provisionLibrary(
     if (entry === undefined) throw new Error(`The seeded library has no "${key}".`);
     return entry;
   };
-  const shape = (authored: AuthoredLibrary): WorkerLibrary => ({
+  const shape = (authored: AuthoredLibrary): SeededLibrary => ({
     org,
     library: authored.library,
     libraryKey: authored.libraryKey,
@@ -1046,7 +1041,7 @@ async function provisionLibrary(
   const byType = (type: string) => {
     const block = blocks.find((b) => b.block_type === type);
     if (block === undefined) {
-      throw new Error(`The worker library ${libraryKey} exists but has no ${type} block.`);
+      throw new Error(`The seeded library ${libraryKey} exists but has no ${type} block.`);
     }
     return block;
   };
@@ -1058,7 +1053,7 @@ async function provisionLibrary(
   ) => {
     const [entry] = list;
     if (entry === undefined) {
-      throw new Error(`The worker library ${libraryKey} exists but has no ${what}.`);
+      throw new Error(`The seeded library ${libraryKey} exists but has no ${what}.`);
     }
     return entry;
   };
@@ -1102,6 +1097,14 @@ function sectionLabel(testInfo: { testId: string; retry: number }, ordinal: numb
   return `E2E ${getRunId()} ${testInfo.testId.slice(-6)}R${testInfo.retry} S${ordinal}`;
 }
 
+/**
+ * The composition root. Specs import `test`/`expect` from here (not directly from
+ * `@playwright/test`) so they receive fully-composed, typed objects.
+ *
+ * Requesting `config` also fails fast with a clear {@link ConfigError} when the
+ * environment is invalid, rather than surfacing later as a confusing navigation
+ * failure.
+ */
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   // eslint-disable-next-line no-empty-pattern
   config: async ({}, use) => {
@@ -1976,7 +1979,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   legacyMigrationPage: pageObjectFixture(LegacyMigrationPage),
 
-  workerLibrary: async ({ page, config, studioAuthorSession }, use, testInfo) => {
+  seededLibrary: async ({ page, config, studioAuthorSession }, use, testInfo) => {
     void studioAuthorSession;
     // On the test's own `page.request`, never a side context: a side context
     // either shares (and rotates) this session or signs in a second account that

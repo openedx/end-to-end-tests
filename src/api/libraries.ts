@@ -116,8 +116,16 @@ export interface LibraryApiPage<T> {
 /**
  * Raised when `DELETE /api/libraries/v2/<lib>/` answers `500`: the platform's
  * `delete_library` trips a `RestrictedError` for any library that has ever
- * held a container or a publish with side effects (`LIB-001`). Component-only
- * libraries delete fine. Fixtures catch this and leave the library behind.
+ * held a container or a publish with side effects (`LIB-001`,
+ * [edx-platform#39117](https://github.com/openedx/openedx-platform/issues/39117)).
+ * Component-only libraries delete fine. Fixtures catch this and leave the
+ * library behind.
+ *
+ * The status is the only signal available: the response body is the generic
+ * `{"error": "The Studio servers encountered an error"}` and the
+ * `RestrictedError` text appears only in the CMS log, so **any** 500 on this
+ * endpoint is classified here. The body is carried on the error, and the
+ * fixture puts it in its annotation, so an unrelated 500 stays visible.
  */
 export class LibraryDeleteRestrictedError extends ApiError {
   constructor(libraryKey: string, details: { url: string; body: string }) {
@@ -315,8 +323,8 @@ export async function updateLibrary(
 
 /**
  * Deletes a library. Throws {@link LibraryDeleteRestrictedError} on the platform's
- * `500` (`LIB-001`) so a fixture can distinguish "cannot be deleted" from a
- * broken session.
+ * `500` (`LIB-001`, [edx-platform#39117](https://github.com/openedx/openedx-platform/issues/39117))
+ * so a fixture can distinguish "cannot be deleted" from a broken session.
  */
 export async function deleteLibrary(
   request: APIRequestContext,

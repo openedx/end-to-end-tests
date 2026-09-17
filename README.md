@@ -8,7 +8,9 @@ their own Open edX installation through configuration alone, without editing tes
 code.
 
 See [ADR-0002](docs/decisions/0002-core-principles.rst) for the core principles
-guiding development.
+guiding development, and [`docs/findings.md`](docs/findings.md) for the defects
+this suite has surfaced upstream — the reason behind every `test.fixme()` and
+workaround in the tree.
 
 ## Prerequisites
 
@@ -324,8 +326,10 @@ can be issued), and each builds a uniquely named **section** inside its course
 rather than a new course. Only the specs whose
 subject is course creation make their own. **Content libraries accumulate the
 same way:** `DELETE /api/libraries/v2/<lib>/` answers 500 for any library that
-ever held a unit, subsection or section (`LIB-001`), so the library specs seed
-one small library per test (`workerLibrary`, plus an empty `authoringLibrary`
+ever held a unit, subsection or section ([`LIB-001`](docs/findings.md), filed as
+[edx-platform#39117](https://github.com/openedx/openedx-platform/issues/39117)),
+so the library specs seed
+one small library per test (`seededLibrary`, plus an empty `authoringLibrary`
 where a spec mutates), attempt the delete, and rely on run-unique slugs
 (`e2e-<run id>-…`) to keep runs apart; every list they select a library from is
 filtered by that slug or title first. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
@@ -337,8 +341,18 @@ yes | tutor local exec cms ./manage.py cms delete_course <course key>
 ```
 
 then `./manage.py cms reindex_course --all --setup` if deleted courses still show
-in catalog search. CI's Tutor installs are ephemeral, so nothing accumulates
-there.
+in catalog search.
+
+**There is no equivalent for v2 libraries today.** The CMS offers
+`export_content_library`, `import_content_library` and
+`migrate_course_legacy_library_blocks_to_item_bank`, but nothing that deletes a
+v2 library, and `LIB-001` blocks the per-library API for any library that held a
+container — so the libraries the suite seeds stay on a persistent target. The
+legacy half is different: `./manage.py cms delete_v1_libraries` (run it with
+`--help` for its arguments) covers the `library-v1:` libraries the
+`legacyLibrary` fixture creates.
+
+CI's Tutor installs are ephemeral, so nothing accumulates there.
 
 ## Quality gates
 
@@ -529,3 +543,7 @@ well-formed spec, with links into the detailed documents.
 - Keep configuration centralized in `src/config/` — never read `process.env`
   directly in specs.
 - Never commit a real `.env` or captured auth state (both are gitignored).
+- When a change works around an upstream defect, or skips a case because of one,
+  record it in [`docs/findings.md`](docs/findings.md) and quote its ID in the
+  `test.fixme()` reason or the comment. Add the entry in the pull request that
+  needs it, so a reviewer can see what the branch worked around and why.
