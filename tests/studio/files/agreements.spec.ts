@@ -7,7 +7,7 @@ import {
   loginSession,
   type AgreementGating,
 } from '../../../src/api';
-import { withAdminSession } from '../../../src/accounts';
+import { provisionLearnerSession, withAdminSession } from '../../../src/accounts';
 import { TIMEOUTS, type AppConfig } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
@@ -32,6 +32,28 @@ function typesFor(gating: AgreementGating, keys: readonly string[]): string[] {
   const all: string[] = [];
   for (const k of keys) all.push(...(gating[k] ?? []));
   return [...new Set(all)];
+}
+
+/**
+ * Runs `work` as a throwaway account holding its own API session.
+ *
+ * Acceptance is recorded per user and never expires, so a case whose premise is
+ * "this user has accepted nothing yet" cannot use the worker author: the first
+ * attempt records an acceptance that the author keeps, and every retry then
+ * finds the gate already satisfied. A fresh user restores the premise on each
+ * attempt, and leaves no acceptance another case depends on.
+ */
+async function withFreshUser(
+  config: AppConfig,
+  work: (session: APIRequestContext) => Promise<void>,
+): Promise<void> {
+  const session = await request.newContext();
+  try {
+    await provisionLearnerSession(session, config);
+    await work(session);
+  } finally {
+    await session.dispose();
+  }
 }
 
 /** An LMS Django admin session, for the one case that edits an agreement row. */
@@ -63,30 +85,32 @@ test.describe.serial(
     test(
       'gates file uploads until the files agreement is accepted',
       { annotation: testId('TC-00501') },
-      async ({ page, config, uploadAgreements, studioAuthorSession }) => {
-        void studioAuthorSession;
+      async ({ config, uploadAgreements }) => {
         const type = uploadAgreements.gating['upload.files']?.[0];
         expect(type, 'AGREEMENT_GATING must gate upload.files').toBeDefined();
         const t = type as string;
 
-        expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(false);
-        await acceptAgreement(page.request, config, t);
-        expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(true);
+        await withFreshUser(config, async (session) => {
+          expect((await fetchAgreementRecord(session, config, t)).isCurrent).toBe(false);
+          await acceptAgreement(session, config, t);
+          expect((await fetchAgreementRecord(session, config, t)).isCurrent).toBe(true);
+        });
       },
     );
 
     test(
       'gates video uploads by a distinct videos agreement',
       { annotation: testId('TC-00502') },
-      async ({ page, config, uploadAgreements, studioAuthorSession }) => {
-        void studioAuthorSession;
+      async ({ config, uploadAgreements }) => {
         const type = uploadAgreements.gating['upload.videos']?.[0];
         expect(type, 'AGREEMENT_GATING must gate upload.videos').toBeDefined();
         const t = type as string;
 
-        expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(false);
-        await acceptAgreement(page.request, config, t);
-        expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(true);
+        await withFreshUser(config, async (session) => {
+          expect((await fetchAgreementRecord(session, config, t)).isCurrent).toBe(false);
+          await acceptAgreement(session, config, t);
+          expect((await fetchAgreementRecord(session, config, t)).isCurrent).toBe(true);
+        });
       },
     );
 
