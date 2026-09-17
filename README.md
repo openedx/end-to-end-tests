@@ -8,7 +8,9 @@ their own Open edX installation through configuration alone, without editing tes
 code.
 
 See [ADR-0002](docs/decisions/0002-core-principles.rst) for the core principles
-guiding development.
+guiding development, and [`docs/findings.md`](docs/findings.md) for the defects
+this suite has surfaced upstream — the reason behind every `test.fixme()` and
+workaround in the tree.
 
 ## Prerequisites
 
@@ -529,3 +531,7 @@ well-formed spec, with links into the detailed documents.
 - Keep configuration centralized in `src/config/` — never read `process.env`
   directly in specs.
 - Never commit a real `.env` or captured auth state (both are gitignored).
+- When a change works around an upstream defect, or skips a case because of one,
+  record it in [`docs/findings.md`](docs/findings.md) and quote its ID in the
+  `test.fixme()` reason or the comment. Add the entry in the pull request that
+  needs it, so a reviewer can see what the branch worked around and why.

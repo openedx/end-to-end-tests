@@ -376,6 +376,26 @@ jobs:
           """
               )
           )
+
+          # Upload-agreement gating (Epic 11, 501-507). Declared statically on the
+          # LMS so the authoring MFE reads it from /api/mfe_config/v1: three keys
+          # and a list cover every case's shape (files gated by `upload` and
+          # `upload.files`; a distinct videos type; a list). The suite seeds the
+          # matching agreement rows and accepts them per author; it never sets this
+          # config, so it can rely on the map being present.
+          hooks.Filters.ENV_PATCHES.add_item(
+              (
+                  "openedx-lms-production-settings",
+                  """
+          MFE_CONFIG = globals().get("MFE_CONFIG", {})
+          MFE_CONFIG["AGREEMENT_GATING"] = {
+              "upload": "e2e-upload",
+              "upload.files": ["e2e-files", "e2e-files-second"],
+              "upload.videos": "e2e-videos",
+          }
+          """
+              )
+          )
           EOF
           tutor plugins enable e2e_test
           tutor config save

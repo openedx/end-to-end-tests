@@ -73,7 +73,7 @@ test.describe(
         expect(detail.org).toBe(lifecycleCourse.org);
         expect(detail.number).toBe(lifecycleCourse.number);
 
-        // `STUDIO-003` (see `.private/findings.md`): the authoring MFE's course
+        // `STUDIO-003` (see `docs/findings.md`): the authoring MFE's course
         // outline ships two critical axe violations in its own chrome — the
         // right-hand sidebar's icon buttons carry `aria-selected` (not allowed on
         // a plain button), and the card action toggle has no accessible name.
@@ -141,7 +141,13 @@ test.describe(
       void studioAuthorSession;
       // The smoke path's surface, checked without spending a course: the form
       // opens with its fields, and the list carries the course this worker owns.
+      //
+      // Searched for rather than looked for on the landing page: Studio Home
+      // pages the list at ten and orders it by display name, so on a target that
+      // has accumulated courses (every run adds several per worker) this worker's
+      // course is usually not on page one.
       await studioHomePage.goto();
+      await studioHomePage.search(authoredCourse.number);
       await expect(studioHomePage.courseCardLink(authoredCourse.courseKey)).toBeVisible();
 
       await studioHomePage.openNewCourseForm();
@@ -153,7 +159,7 @@ test.describe(
       await checkA11y(page, { label: 'studio-home' });
     });
 
-    // `STUDIO-002` (see `.private/findings.md`): the MFE hides the "new
+    // `STUDIO-002` (see `docs/findings.md`): the MFE hides the "new
     // organization" option from an author whose `allow_to_create_new_org` is
     // false — the org control is a dropdown of allowed orgs — yet Studio accepts a
     // `POST /course/` from that author under an organization that does not exist
