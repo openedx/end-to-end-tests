@@ -138,7 +138,7 @@ test.describe(
           testId('TC-00489'),
           issue('https://github.com/openedx/end-to-end-tests/issues/auth-002'),
           knownGap(
-            'AUTH-002: a unit is not selectable from the course outline; see .private/findings.md',
+            'AUTH-002: a unit is not selectable from the course outline; see docs/findings.md',
           ),
         ],
       },
