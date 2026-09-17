@@ -569,16 +569,18 @@ export interface TestFixtures {
   taxonomyAdmin: TaxonomyAdmin;
   /**
    * The upload-agreement gating declared for this installation, with its
-   * `UserAgreement` rows seeded (admin, under the lock). Skips without a
-   * configured admin, the `upload-agreements` capability or an empty gating map.
-   * The agreement cases take it; it is worker-scoped and idempotent.
+   * `UserAgreement` rows seeded (see {@link WorkerFixtures.seededUploadAgreements},
+   * which does the work once per worker). Skips without a configured admin, the
+   * `upload-agreements` capability or an empty gating map — so only the specs
+   * whose subject *is* the gating should take it.
    */
   uploadAgreements: UploadAgreements;
   /**
    * Accepts every configured upload-agreement type for the test's author (its own
-   * JWT `POST agreement_record`), so a gated install never blocks the author's
-   * uploads. A no-op — never a skip — where nothing is gated, so the Files upload
-   * specs can take it unconditionally.
+   * session, `POST agreement_record`), so a gated install never blocks the
+   * author's uploads. A no-op — never a skip — where nothing is gated. The
+   * `filesPage` fixture takes it for every Files spec; a spec only needs it
+   * directly when it reaches the gated UI without that page object.
    */
   acceptedUploadAgreements: void;
 }
@@ -732,6 +734,19 @@ export interface WorkerFixtures {
    * configuration (no admin to grant with), like the `setup` project does.
    */
   workerAuthor: WorkerAuthor | undefined;
+  /**
+   * The upload-agreement gating this installation declares, with a `UserAgreement`
+   * row seeded per gated type through the LMS admin (idempotent, under the admin
+   * lock). Seeded once per worker because the rows are global and an admin
+   * sign-in per test would trip the LMS login rate limit.
+   *
+   * Never skips: an installation without the `upload-agreements` capability, an
+   * administrator or an `AGREEMENT_GATING` map yields an empty `types`, which
+   * makes {@link TestFixtures.acceptedUploadAgreements} a no-op. The specs whose
+   * subject *is* the gating take {@link TestFixtures.uploadAgreements}, which
+   * skips instead.
+   */
+  seededUploadAgreements: UploadAgreements;
   /**
    * The course the Studio settings specs act on — one per worker, created on
    * first use through the Studio API by the `author` session the project loaded,
@@ -1613,6 +1628,55 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
 
+  seededUploadAgreements: [
+    async ({ playwright }, use) => {
+      const config = getConfig();
+      const admin = config.credentials.admin;
+      if (!config.capabilities.has('upload-agreements') || admin === undefined) {
+        await use({ gating: {}, types: [] });
+        return;
+      }
+      const probe = await playwright.request.newContext();
+      let gating;
+      try {
+        gating = (await fetchAuthoringMfeConfig(probe, config)).agreementGating;
+      } finally {
+        await probe.dispose();
+      }
+      const types = agreementTypesIn(gating);
+      if (types.length === 0) {
+        await use({ gating, types });
+        return;
+      }
+
+      // Seed a UserAgreement row per type through the LMS admin (idempotent), on a
+      // fresh LMS session under the admin lock (PREVENT_CONCURRENT_LOGINS). Once
+      // per worker rather than per test: the rows are global, and an admin
+      // sign-in per test would trip the LMS login rate limit (30 / 5 min).
+      await withAdminSession(async () => {
+        const session = await playwright.request.newContext();
+        try {
+          await loginSession(session, config, {
+            emailOrUsername: admin.username,
+            password: admin.password,
+          });
+          for (const type of types) {
+            await ensureAgreement(session, config, {
+              type,
+              name: `E2E ${type}`,
+              summary: `E2E agreement ${type}`,
+              url: `${config.baseUrls.lms}/e2e-agreement/${type}`,
+            });
+          }
+        } finally {
+          await session.dispose();
+        }
+      });
+      await use({ gating, types });
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
   studioAuthorSession: async ({ page, request, config, studio, workerAuthor }, use) => {
     void studio;
     // The page already carries the worker author's browser-usable LMS session
@@ -1656,7 +1720,15 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   authoringSidebar: pageObjectFixture(AuthoringSidebar),
 
   tagDrawer: pageObjectFixture(TagDrawer),
-  filesPage: pageObjectFixture(FilesPage),
+  // Not a bare `pageObjectFixture`: on a gated installation the authoring MFE
+  // disables the whole Files page — toolbar, view toggle, table and every row —
+  // until the author has accepted the outstanding upload agreements, which shows
+  // up as an unactionable click rather than anything agreement-shaped. Taking the
+  // acceptance here means no Files spec can forget it.
+  filesPage: async ({ page, config, acceptedUploadAgreements }, use) => {
+    void acceptedUploadAgreements;
+    await use(new FilesPage(page, config));
+  },
   textbooksPage: pageObjectFixture(TextbooksPage),
   updatesPage: pageObjectFixture(UpdatesPage),
 
@@ -2207,57 +2279,26 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 
-  uploadAgreements: async ({ playwright, config }, use) => {
-    const admin = config.credentials.admin;
+  uploadAgreements: async ({ config, seededUploadAgreements }, use) => {
     base.skip(
-      !config.capabilities.has('upload-agreements') || admin === undefined,
+      !config.capabilities.has('upload-agreements') || config.credentials.admin === undefined,
       'Upload agreements are not declared for this installation, or no administrator is ' +
         'configured (the agreement rows are seeded through the LMS Django admin).',
     );
-    const probe = await playwright.request.newContext();
-    let gating;
-    try {
-      gating = (await fetchAuthoringMfeConfig(probe, config)).agreementGating;
-    } finally {
-      await probe.dispose();
-    }
-    const types = agreementTypesIn(gating);
-    base.skip(types.length === 0, 'No AGREEMENT_GATING is configured on this installation.');
-
-    // Seed a UserAgreement row per type through the LMS admin (idempotent), on a
-    // fresh LMS session under the admin lock (PREVENT_CONCURRENT_LOGINS).
-    await withAdminSession(async () => {
-      const session = await playwright.request.newContext();
-      try {
-        await loginSession(session, config, {
-          emailOrUsername: (admin as NonNullable<typeof admin>).username,
-          password: (admin as NonNullable<typeof admin>).password,
-        });
-        for (const type of types) {
-          await ensureAgreement(session, config, {
-            type,
-            name: `E2E ${type}`,
-            summary: `E2E agreement ${type}`,
-            url: `${config.baseUrls.lms}/e2e-agreement/${type}`,
-          });
-        }
-      } finally {
-        await session.dispose();
-      }
-    });
-    await use({ gating, types });
+    base.skip(
+      seededUploadAgreements.types.length === 0,
+      'No AGREEMENT_GATING is configured on this installation.',
+    );
+    await use(seededUploadAgreements);
   },
 
-  acceptedUploadAgreements: async ({ page, config }, use) => {
-    // The author accepts every gated type with its own JWT; a no-op where nothing
-    // is gated (or the config is unreadable), so any Files upload spec can take it.
-    try {
-      const gating = (await fetchAuthoringMfeConfig(page.request, config)).agreementGating;
-      for (const type of agreementTypesIn(gating)) {
-        await acceptAgreement(page.request, config, type);
-      }
-    } catch {
-      // A target without the agreements app or MFE config simply has no gating.
+  acceptedUploadAgreements: async ({ page, config, seededUploadAgreements }, use) => {
+    // Every gated type, accepted for this test's author with its own session. The
+    // rows already exist (the worker seeded them), so an acceptance that fails is
+    // a real failure and is left to throw: swallowing it only resurfaces later as
+    // an inexplicably disabled Files page.
+    for (const type of seededUploadAgreements.types) {
+      await acceptAgreement(page.request, config, type);
     }
     await use();
   },

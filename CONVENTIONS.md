@@ -312,10 +312,18 @@ deployment-agnostic and stable.
 
 - **Upload agreements are gated statically.** `AGREEMENT_GATING` is an MFE-config
   value the LMS serves (five-minute cache), so it cannot be toggled per run; CI
-  declares it and the suite only seeds the rows (`uploadAgreements`, LMS Django
-  admin) and accepts them (`acceptedUploadAgreements`, the author's own
-  `POST agreement_record`). `agreement_record.is_current` is the oracle. Any Files
-  upload spec takes `acceptedUploadAgreements` so a gated install never blocks it.
+  declares it and the suite only seeds the rows (`seededUploadAgreements`, once
+  per worker through the LMS Django admin) and accepts them
+  (`acceptedUploadAgreements`, the author's own `POST agreement_record`).
+  `agreement_record.is_current` is the oracle. Gating is **global to the target**,
+  so it is not only the upload cases that meet it: while an agreement is
+  outstanding the MFE disables the whole Files page, down to the view toggle and
+  every row. The `filesPage` fixture therefore takes `acceptedUploadAgreements`
+  itself, and no Files spec has to remember to.
+
+  A case whose premise is "this user has accepted nothing yet" needs its own
+  throwaway user: acceptance is per user and permanent, so asserting it of a
+  worker-scoped identity passes once and fails on every retry.
 
 ## Tags
 

@@ -19,6 +19,51 @@ const ADMIN_BASE = '/admin/agreements/useragreement';
 const csrfOf = (html: string): string | undefined =>
   /name="csrfmiddlewaretoken" value="([^"]+)"/.exec(html)?.[1];
 
+/** The handful of entities Django's HTML escaping produces, back to their characters. */
+const decodeEntities = (value: string): string =>
+  value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#(?:39|x27);/g, "'")
+    .replace(/&amp;/g, '&');
+
+/**
+ * The value a rendered admin form carries for the field `name`.
+ *
+ * The admin renders short fields as `<input value="…">` but long ones as
+ * `<textarea>…</textarea>`. Reading only inputs returns an empty string for the
+ * latter, and posting that back blanks the field: the admin then answers **200**
+ * with the form re-rendered and its `errorlist`, rather than the 302 a save
+ * gives. That is what made the `updated` bump look like a failing save.
+ */
+function formValue(html: string, name: string): string {
+  const input = new RegExp(`<input[^>]*\\bname="${name}"[^>]*>`, 'i').exec(html)?.[0];
+  if (input !== undefined) return decodeEntities(/\bvalue="([^"]*)"/.exec(input)?.[1] ?? '');
+  const textarea = new RegExp(
+    `<textarea[^>]*\\bname="${name}"[^>]*>([\\s\\S]*?)</textarea>`,
+    'i',
+  ).exec(html)?.[1];
+  return decodeEntities(textarea ?? '');
+}
+
+/** The admin's own validation messages, when a POST came back as a re-rendered form. */
+function formErrors(html: string): string {
+  const lists = [...html.matchAll(/<ul[^>]*class="[^"]*errorlist[^"]*"[^>]*>([\s\S]*?)<\/ul>/g)];
+  const items = lists
+    .flatMap((list) => [...(list[1] ?? '').matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)])
+    .map((item) =>
+      decodeEntities(item[1] ?? '')
+        .replace(/<[^>]*>/g, '')
+        .trim(),
+    )
+    .filter((text) => text.length > 0);
+  return [...new Set(items)].slice(0, 5).join('; ');
+}
+
+/** Whether a `maxRedirects: 0` admin POST saved: the admin redirects on success. */
+const savedOk = (status: number): boolean => status >= 300 && status < 400;
+
 /** A date + time pair Django's split DateTimeField widget expects (`updated_0/1`). */
 function splitDateTime(when: Date): { date: string; time: string } {
   const iso = when.toISOString();
@@ -67,12 +112,14 @@ export async function ensureAgreement(
     headers: { Referer: url },
     maxRedirects: 0,
   });
-  if (saved.status() < 300 || saved.status() >= 400) {
-    throw new ApiError(`Creating agreement "${agreement.type}" failed (HTTP ${saved.status()}).`, {
-      status: saved.status(),
-      url,
-      body: (await saved.text()).slice(0, 500),
-    });
+  if (!savedOk(saved.status())) {
+    const body = await saved.text();
+    const errors = formErrors(body);
+    throw new ApiError(
+      `Creating agreement "${agreement.type}" failed (HTTP ${saved.status()})` +
+        (errors === '' ? '.' : `: ${errors}`),
+      { status: saved.status(), url, body: body.slice(0, 500) },
+    );
   }
 }
 
@@ -112,17 +159,19 @@ export async function bumpAgreementUpdated(
       body: '',
     });
   }
-  const field = (name: string): string =>
-    new RegExp(`name="${name}"[^>]*value="([^"]*)"`).exec(html)?.[1] ?? '';
+  // A Django admin save posts the whole form, so every field the change form
+  // renders is read back and returned unchanged; only `updated` moves. Fields the
+  // admin renders as a textarea (`summary`, `text`) have to be read as such — an
+  // input-only read blanks them, which the admin rejects.
   const stamp = splitDateTime(when);
   const saved = await adminSession.post(url, {
     form: {
       csrfmiddlewaretoken: token,
-      type: field('type') || type,
-      name: field('name'),
-      summary: field('summary'),
-      text: '',
-      url: field('url'),
+      type: formValue(html, 'type') || type,
+      name: formValue(html, 'name'),
+      summary: formValue(html, 'summary'),
+      text: formValue(html, 'text'),
+      url: formValue(html, 'url'),
       updated_0: stamp.date,
       updated_1: stamp.time,
       _save: 'Save',
@@ -130,11 +179,14 @@ export async function bumpAgreementUpdated(
     headers: { Referer: url },
     maxRedirects: 0,
   });
-  if (saved.status() < 300 || saved.status() >= 400) {
-    throw new ApiError(`Bumping agreement "${type}" failed (HTTP ${saved.status()}).`, {
-      status: saved.status(),
-      url,
-      body: (await saved.text()).slice(0, 500),
-    });
+  if (!savedOk(saved.status())) {
+    const body = await saved.text();
+    const errors = formErrors(body);
+    // A 200 is the change form re-rendered with its errors, not a saved row.
+    throw new ApiError(
+      `Bumping agreement "${type}" failed (HTTP ${saved.status()})` +
+        (errors === '' ? '.' : `: the admin rejected the form: ${errors}`),
+      { status: saved.status(), url, body: body.slice(0, 500) },
+    );
   }
 }

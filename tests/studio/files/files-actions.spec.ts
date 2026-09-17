@@ -39,18 +39,8 @@ test.describe(
     test(
       'uploads one file and then several',
       { annotation: testId('TC-00138') },
-      async ({
-        page,
-        config,
-        authoringCourse,
-        filesPage,
-        studioAuthorSession,
-        acceptedUploadAgreements,
-      }) => {
+      async ({ page, config, authoringCourse, filesPage, studioAuthorSession }) => {
         void studioAuthorSession;
-        // On a gated install the upload dropzone is blocked until agreements are
-        // accepted; this is a no-op where nothing is gated.
-        void acceptedUploadAgreements;
         const key = authoringCourse.courseKey;
         const suffix = test.info().testId.slice(-6);
         await filesPage.goto(key);
