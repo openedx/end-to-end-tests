@@ -6,10 +6,10 @@ import { studioJson, studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from
 /**
  * Course file (asset) management — Studio's legacy contentstore endpoint
  * (`/assets/<courseKey>/`), a session-authed browser API (not an MFE service), so
- * every call runs on the author's `page.request`. The Files page lists, uploads,
- * locks, downloads and deletes course assets; this client is the suite-side
- * oracle for what the UI shows (`totalCount`, the `assets[]` for the test's own
- * uploads) and seeds/cleans state the UI would otherwise have to build by hand.
+ * every call runs on the author's `page.request`. Lock, download and delete are
+ * driven through the Files UI; this client lists and uploads assets, as the
+ * suite-side oracle for what the UI shows (`totalCount`, the `assets[]` for the
+ * test's own uploads) and to seed state the UI would otherwise build by hand.
  */
 const assetsBase = (config: AppConfig, courseKey: string): string =>
   `${studioOrigin(config)}/assets/${courseKey}/`;
@@ -102,36 +102,6 @@ export async function uploadAsset(
     `Uploading asset "${file.name}" to ${courseKey}`,
   );
   return body.asset;
-}
-
-/** Locks or unlocks an asset (the "Lock"/"Unlock" row action). */
-export async function setAssetLock(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  assetId: string,
-  locked: boolean,
-): Promise<void> {
-  const response = await request.put(`${assetsBase(config, courseKey)}${assetId}`, {
-    headers: { ...(await studioWriteHeaders(request, config)), 'Content-Type': 'application/json' },
-    data: { locked },
-  });
-  await studioJson<unknown>(response, `Setting lock=${locked} on asset ${assetId}`, {
-    allowEmpty: true,
-  });
-}
-
-/** Deletes an asset. */
-export async function deleteAsset(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  assetId: string,
-): Promise<void> {
-  const response = await request.delete(`${assetsBase(config, courseKey)}${assetId}`, {
-    headers: await studioWriteHeaders(request, config),
-  });
-  await studioJson<unknown>(response, `Deleting asset ${assetId}`, { allowEmpty: true });
 }
 
 /** The absolute URL an asset's copied Studio/Web link resolves to (for verifying copy actions). */

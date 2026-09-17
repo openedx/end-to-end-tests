@@ -19,10 +19,6 @@ export const TAXONOMY_SELECTORS = {
   templateToggle: '[data-testid="taxonomy-download-template"]',
   templateCsv: '[data-testid="taxonomy-download-template-csv"]',
   templateJson: '[data-testid="taxonomy-download-template-json"]',
-  /** The org filter on the list page. */
-  orgsFilter: '[data-testid="taxonomy-orgs-filter-selector"]',
-  /** A taxonomy's card (a NavLink to its detail page), by id. */
-  card: (id: number): string => `[data-testid="taxonomy-card-${id}"]`,
 
   /** A taxonomy's kebab menu button (scoped to a card, or the detail SubHeader). */
   menuButton: '[data-testid="taxonomy-menu-button"]',
@@ -49,8 +45,6 @@ export const TAXONOMY_SELECTORS = {
   wizardImport: '[data-testid="import-button"]',
   /** The wizard footer's currently visible primary button (advance / confirm). */
   wizardPrimaryButton: '.pgn__modal .pgn__modal-footer .btn-primary',
-  /** The wizard's own modal (distinct from export/delete/manage-orgs). */
-  wizardModal: '.pgn__modal:has([data-testid="upload-step"])',
 
   /** Export modal: format radios and the confirm button (id carries the id). */
   exportButton: (id: number): string => `[data-testid="export-button-${id}"]`,

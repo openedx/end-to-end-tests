@@ -10,16 +10,12 @@ export const STUDIO_TEXTBOOKS_SELECTORS = {
   form: '[data-testid="textbook-form"]',
   formInputs: '[data-testid="textbook-form"] input',
   addChapterButton: '[data-testid="textbook-form"] button.btn-outline-primary',
-  chapterUploadButton: '[data-testid="chapter-upload-button"]',
   chapterDeleteButton: '[data-testid="chapter-delete-button"]',
   formSave: '[data-testid="textbook-form"] button.btn-primary',
-  formCancel: '[data-testid="cancel-button"]',
 
   card: '[data-testid="textbook-card"]',
-  viewButton: '[data-testid="textbook-view-button"]',
   editButton: '[data-testid="textbook-edit-button"]',
   deleteButton: '[data-testid="textbook-delete-button"]',
-  chaptersToggle: '[data-testid="chapters-button"]',
 
   /** The delete-confirmation AlertModal and its confirm (non-cancel) button. */
   deleteModal: '.pgn__alert-modal',
