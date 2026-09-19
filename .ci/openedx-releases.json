@@ -1,11 +1,11 @@
 {
   "main": {
     "tutorConstraint": "",
-    "capabilities": "discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,authoring-sidebar,upload-agreements,content-libraries,content-libraries-v1,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates"
+    "capabilities": "discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,authoring-sidebar,upload-agreements,content-libraries,content-libraries-v1,rbac,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates"
   },
   "verawood": {
     "tutorConstraint": ">=22.0.0,<23.0.0",
-    "capabilities": "-frontend-base,discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,authoring-sidebar,upload-agreements,content-libraries,content-libraries-v1,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates"
+    "capabilities": "-frontend-base,discussions,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,authoring-sidebar,upload-agreements,content-libraries,content-libraries-v1,rbac,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates"
   },
   "ulmo": {
     "tutorConstraint": ">=21.0.0,<22.0.0",

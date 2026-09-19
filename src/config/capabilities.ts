@@ -144,6 +144,24 @@ export const CAPABILITIES = [
   // no effect — it exists so the tag vocabulary is settled before that coverage
   // is written.
   'analytics',
+  // Roles and permissions under **openedx-authz**: the `/api/authz/v1/` API and
+  // the Roles and Permissions console (the admin-console MFE, reached through
+  // the `ADMIN_CONSOLE_URL` the authoring MFE config advertises). Both ship on
+  // `main` and `verawood` (openedx-authz 1.23.0 and 1.21.0), so
+  // `.ci/openedx-releases.json` declares it for them and the `tests/rbac/` tree
+  // skips on `ulmo` and earlier. Library roles work with no flag at all; course
+  // roles are enforced only where `authz.enable_course_authoring` is turned on
+  // for a course or an org, which the specs do themselves through the Django
+  // admin (so that coverage also needs an admin account).
+  'rbac',
+  // AuthZ course authoring is enabled for the **whole target**, not just the
+  // courses a spec turns it on for. Declared nowhere by default — CI does not
+  // set the global flag, because enabling it platform-wide locks every
+  // unmigrated course's team out of Studio. It gates the one assertion a
+  // per-course or per-org override cannot reach: Studio Home's link into the
+  // console, which the authoring MFE renders from the flag read with no course
+  // context (BTR TC-00560's first entry point).
+  'rbac-global',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
