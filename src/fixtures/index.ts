@@ -103,6 +103,7 @@ import {
   DEFAULT_PASSWORD,
   fetchStudioHome,
   fetchCourseSettingsFlags,
+  fetchWaffleFlagStates,
   ensureCertificateBearingMode,
   fetchCertificateConfiguration,
   fetchCertificateGenerationEnabled,
@@ -1848,13 +1849,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         );
 
       await withAdminLms(async (session) => {
-        // Clear first: a previous attempt in this slot may have left the override
-        // on (worker teardown does not always run), and enabling twice would
-        // stack rows without migrating again.
-        await disableAuthzForCourse(session, config, course.courseKey, {
-          mode: authzMigrationMode.mode,
-          note: `${note} preflight`,
-        });
+        // Clear first **only if there is something to clear**: a previous attempt
+        // in this slot may have left the override on, because worker teardown
+        // does not always run. Writing a neutralizing row unconditionally would
+        // land it in the same second as the enabling row, and the platform picks
+        // the previous record by timestamp — with both in the same second it can
+        // conclude nothing changed and skip the migration.
+        const states = await fetchWaffleFlagStates(session, config);
+        const stale = [...states.courseOverrides.on, ...states.courseOverrides.off].includes(
+          course.courseKey,
+        );
+        if (stale) {
+          await disableAuthzForCourse(session, config, course.courseKey, {
+            mode: authzMigrationMode.mode,
+            note: `${note} preflight`,
+          });
+        }
         await enableAuthzForCourse(session, config, course.courseKey, {
           mode: authzMigrationMode.mode,
           note,

@@ -4,6 +4,7 @@ import type { AppConfig } from '../config';
 import { TIMEOUTS } from '../config';
 import {
   AUTHZ_COURSE_AUTHORING_FLAG,
+  assignRole,
   clearCourseFlagOverride,
   clearOrgFlagOverride,
   countMigrationRuns,
@@ -185,6 +186,27 @@ export async function disableAuthzForCourse(
       ? (await waitForMigrationRun(adminSession, config, courseKey, 'rollback')).satisfied
       : false;
   return { enabled: flagState.last, rolledBack };
+}
+
+/**
+ * Gives every actor each of `roles` in one scope, so a spec can reach a row
+ * count the console pages at without provisioning a person per row.
+ *
+ * Assignments are per role, not per user: three accounts holding four library
+ * roles each are twelve rows (measured), which is what the sheet's
+ * "12+ members" pagination case needs.
+ */
+export async function seedScopeAssignments(
+  request: APIRequestContext,
+  config: AppConfig,
+  scope: string,
+  usernames: readonly string[],
+  roles: readonly string[],
+): Promise<number> {
+  for (const role of roles) {
+    await assignRole(request, config, { role, scopes: [scope], users: [...usernames] });
+  }
+  return usernames.length * roles.length;
 }
 
 /** The flag's whole picture, for a spec that asserts one scope did not affect another. */
