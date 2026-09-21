@@ -133,9 +133,9 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
   test(
     'refines results by tags and clears the filter',
     { tag: '@taxonomies', annotation: testId('TC-00329') },
-    async ({ page, config, studioAuthorSession, workerLibrary, workerTaxonomy, libraryPage }) => {
+    async ({ page, config, studioAuthorSession, seededLibrary, workerTaxonomy, libraryPage }) => {
       void studioAuthorSession;
-      const { text } = workerLibrary.blocks;
+      const { text } = seededLibrary.blocks;
       // Tag one seeded block through the API; the UI drives the refinement, the
       // search index decides the card set. The taxonomy is assigned to the
       // library's org, so it surfaces as the root facet on the library search;
@@ -144,8 +144,8 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
         TAG.parentOne,
       ]);
 
-      await libraryPage.goto(workerLibrary.libraryKey, 'components');
-      await expect(libraryPage.cards).toHaveCount(Object.keys(workerLibrary.blocks).length, {
+      await libraryPage.goto(seededLibrary.libraryKey, 'components');
+      await expect(libraryPage.cards).toHaveCount(Object.keys(seededLibrary.blocks).length, {
         timeout: TIMEOUTS.librarySearch,
       });
 
@@ -157,7 +157,7 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
 
       await libraryPage.clearFilter('tags');
       await libraryPage.dismissMenu();
-      await expect(libraryPage.cards).toHaveCount(Object.keys(workerLibrary.blocks).length, {
+      await expect(libraryPage.cards).toHaveCount(Object.keys(seededLibrary.blocks).length, {
         timeout: TIMEOUTS.librarySearch,
       });
     },
