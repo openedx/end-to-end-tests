@@ -72,9 +72,14 @@ test.describe(
         await expect(table.rows).toHaveCount(total - 10);
         await expect(table.nextPage).toBeDisabled();
 
-        // Back to the first page, which is ten rows again.
-        await table.goToPreviousPage();
+        // And the first page is where the table opens: ten rows again, with
+        // nowhere to go back to. (Re-entering rather than paging back on
+        // purpose: the console refetches on its own schedule and can return to
+        // page one underneath a click, which made a "click Previous" step race
+        // its own precondition.)
+        await adminConsole.console.goto(library);
         await expect(table.rows).toHaveCount(10);
+        await expect(table.previousPage).toBeDisabled();
       },
     );
 

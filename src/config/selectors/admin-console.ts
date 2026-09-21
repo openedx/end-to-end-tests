@@ -128,4 +128,17 @@ export const ADMIN_CONSOLE_SELECTORS = {
   wizardAdvance: '.pgn__stateful-btn',
   /** Cancel. Excludes the footer's language dropdown, which shares its class. */
   wizardCancel: 'button.btn-outline-primary:not(.dropdown-toggle)',
+
+  // --- the error view an unknown console route renders --------------------------------------
+
+  /** The page's own region, which the error view replaces wholesale. */
+  mainContent: '#main-content',
+  /**
+   * The error view's single action ("Back to Studio"). It is an anchor with no
+   * `href` and a click handler that does nothing on this build (`RBAC-008`),
+   * which is what TC-00442 reports.
+   */
+  errorViewAction: '#main-content a.btn.btn-primary',
+  /** Any control inside the error view — a Retry would be one, and there is none. */
+  errorViewButtons: '#main-content button',
 } as const;
