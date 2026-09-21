@@ -129,6 +129,53 @@ export const ADMIN_CONSOLE_SELECTORS = {
   /** Cancel. Excludes the footer's language dropdown, which shares its class. */
   wizardCancel: 'button.btn-outline-primary:not(.dropdown-toggle)',
 
+  // --- the Roles and Permissions (permission matrix) tab ------------------------------------
+
+  /**
+   * The tab's scope switch: a two-button `role="group"` ("Courses", then
+   * "Libraries"). The chosen one is Paragon's *primary* variant and the other
+   * its *outline* variant, which is how "which half is shown" is read without
+   * touching the labels.
+   */
+  matrixGroupButton: '[role="group"] button',
+  matrixGroupButtonActive: '[role="group"] button.btn-primary',
+
+  /** The matrix itself, which carries its own class (not a Paragon data table). */
+  permissionTable: 'table.permission-table',
+  /** Header cells: the row-label column first, then one per role. */
+  matrixHeader: 'table.permission-table thead th',
+  /**
+   * A role column the build offers but has not implemented — "Course Editor"
+   * and "Course Auditor", the sheet's *coming soon* pair. They are greyed
+   * (`text-gray-200`) and their label carries a help cursor that opens the
+   * explanatory tooltip.
+   */
+  matrixHeaderComingSoon: 'table.permission-table thead th.text-gray-200',
+  matrixHelpCursor: 'span[style*="cursor: help"]',
+  /** Paragon's tooltip, wherever it is anchored. Presence only — the copy is localized. */
+  tooltip: '[role="tooltip"]',
+
+  /**
+   * A functional-area heading row (one `colspan` cell, `<strong>` label) and
+   * its trailing info icon, which carries that group's tooltip.
+   */
+  matrixGroupRow: 'table.permission-table tbody tr.bg-info-100',
+  matrixGroupInfoIcon: 'span.pgn__icon.text-gray-300',
+  /** A permission row, and the cells of its Nth role column (1-based). */
+  matrixRow: 'table.permission-table tbody tr.border-top',
+  matrixRoleCell: (column: number): string =>
+    `table.permission-table tbody tr.border-top td:nth-child(${column + 1})`,
+  /**
+   * What a cell says about one role: granted, not granted, or — in a
+   * coming-soon column — greyed out, where the two states are not
+   * distinguishable by anything but the localized label. `matrixCellMarker`
+   * matches all three, so "every cell states something" is assertable.
+   */
+  matrixGranted: 'span.text-success',
+  matrixDenied: 'span.text-danger',
+  matrixComingSoonMarker: 'span.text-gray-200',
+  matrixCellMarker: 'span.pgn__icon',
+
   // --- the error view an unknown console route renders --------------------------------------
 
   /** The page's own region, which the error view replaces wholesale. */

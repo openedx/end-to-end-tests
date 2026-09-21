@@ -242,6 +242,17 @@ export const LIBRARY_SELECTORS = {
   manageAddToCollectionButton:
     '[data-testid="library-sidebar"] [role="tabpanel"] button.btn-primary',
 
+  /**
+   * The library info panel's two library-level publish actions: "Publish All"
+   * (a stateful primary button) and "Discard Changes" (a link-styled button).
+   * Both are rendered only for a role that may publish the library, so their
+   * absence is how a contributor's or reader's panel is told apart.
+   */
+  sidebarPublishAllButton: '[data-testid="library-sidebar"] button.pgn__stateful-btn.btn-primary',
+  sidebarDiscardChangesButton: '[data-testid="library-sidebar"] button.btn-link',
+  /** "Edit library name" — the pencil beside the title, for a role that may edit. */
+  sidebarEditNameButton: '[data-testid="library-sidebar"] button[class*="btn-icon-inline"]',
+
   /** The public-read switch (`PublicReadToggle`, `Form.Switch`) — "Allow public read". */
   publicReadSwitch: '[data-testid="library-sidebar"] input[role="switch"]',
   /** "Manage team" / "Manage Access": a link into the admin console when configured, else a button opening the team modal. */

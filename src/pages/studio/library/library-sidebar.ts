@@ -23,6 +23,9 @@ export class LibrarySidebar {
   /** The team control: a link into the admin console, or a button opening the team modal. */
   readonly manageTeamLink: Locator;
   readonly manageTeamButton: Locator;
+  /** The library-level publish actions of the info panel, offered only to a role that may publish it. */
+  readonly publishAllButton: Locator;
+  readonly discardChangesButton: Locator;
   /** The item's publish control; `publishStatusDraft` matches only while changes are pending. */
   readonly publishStatusButton: Locator;
   readonly publishStatusDraft: Locator;
@@ -37,6 +40,8 @@ export class LibrarySidebar {
     this.publicReadSwitch = page.locator(this.s.publicReadSwitch);
     this.manageTeamLink = page.locator(this.s.manageTeamLink);
     this.manageTeamButton = page.locator(this.s.manageTeamButton);
+    this.publishAllButton = page.locator(this.s.sidebarPublishAllButton);
+    this.discardChangesButton = page.locator(this.s.sidebarDiscardChangesButton);
     this.publishStatusButton = page.locator(this.s.publishStatusButton);
     this.publishStatusDraft = page.locator(this.s.publishStatusDraft);
     this.publishConfirmBox = page.locator(this.s.publishConfirmBox);
@@ -109,6 +114,25 @@ export class LibrarySidebar {
   }
 
   // --- library info panel ------------------------------------------------------
+
+  /**
+   * "Publish All" — publishes every draft in the library, waiting for the
+   * `POST <lib>/commit/` it fires and returning that response, whatever its
+   * status (a role that is offered the button but refused by the platform is
+   * exactly what `RBAC-011` is about).
+   */
+  async publishAll(): Promise<Response> {
+    await this.publishAllButton.waitFor();
+    return waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => r.url().includes(LIBRARIES_V2_PATH) && r.url().endsWith('/commit/'),
+        timeout: TIMEOUTS.contentWrite,
+      },
+      () => this.publishAllButton.click(),
+    );
+  }
 
   /** Flips the public-read switch, waiting for the `PATCH <lib>/` it fires. */
   async setPublicRead(enabled: boolean): Promise<Response | undefined> {
