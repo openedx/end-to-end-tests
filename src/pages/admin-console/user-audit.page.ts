@@ -121,8 +121,7 @@ export class UserAuditPage {
   async confirmRemove(): Promise<Response> {
     const [response] = await Promise.all([
       this.page.waitForResponse(
-        (r) =>
-          r.url().includes(`${AUTHZ_BASE}/roles/users/`) && r.request().method() === 'DELETE',
+        (r) => r.url().includes(`${AUTHZ_BASE}/roles/users/`) && r.request().method() === 'DELETE',
         { timeout: TIMEOUTS.navigation },
       ),
       this.page.locator(this.s.confirmDialogConfirm).click(),

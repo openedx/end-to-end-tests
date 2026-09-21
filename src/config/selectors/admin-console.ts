@@ -98,6 +98,34 @@ export const ADMIN_CONSOLE_SELECTORS = {
   confirmDialog: '[role="dialog"]',
   confirmDialogCancel: '[role="dialog"] .pgn__modal-close-button',
   confirmDialogConfirm: '[role="dialog"] .pgn__stateful-btn',
-  /** Paragon's toast, which the console uses for both success and failure. */
-  toast: '.pgn__toast, [role="alert"]',
+  /**
+   * Paragon's toast. The console shows one for a success (which auto-hides
+   * after a few seconds) and one for a server failure (which carries a Retry).
+   */
+  toast: '.pgn__toast',
+  toastRetry: '.pgn__toast button.btn-inverse-outline-primary',
+
+  // --- the Assign Role wizard (`/authz/assign-role`) ----------------------------------------
+
+  assignRolePath: '/authz/assign-role',
+  /** Step 1's users field: a textarea taking usernames or e-mails, comma-separated. */
+  wizardUsersInput: '#users-input',
+  /**
+   * The role radios, whose `value` is the **role key** — one of the few
+   * non-localized anchors the console offers.
+   */
+  wizardRoleRadio: (role: string): string => `input[type="radio"][value="${role}"]`,
+  wizardRoleRadios: 'input[type="radio"]',
+  /** Paragon's stepper items, and the error bubble a rejected step gains. */
+  wizardStep: '[data-testid="step"]',
+  wizardStepError: '.pgn__stepper-header-step .pgn__bubble-error',
+  /** The overlay that highlights an entry the platform did not recognise. */
+  wizardUsersHighlight: '.highlighted-users-input__overlay',
+  /** Step 2's scope picker: the app's own test id, one per course or library. */
+  wizardScopeToggle: (scope: string): string => `[data-testid="toggle-scope-${scope}"]`,
+  wizardScopeToggles: '[data-testid^="toggle-scope-"]',
+  /** The footer's advance/save control (a stateful button) and its Cancel. */
+  wizardAdvance: '.pgn__stateful-btn',
+  /** Cancel. Excludes the footer's language dropdown, which shares its class. */
+  wizardCancel: 'button.btn-outline-primary:not(.dropdown-toggle)',
 } as const;
