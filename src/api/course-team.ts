@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
 import { ApiError } from './errors';
-import { studioJson, studioOrigin, studioWriteHeaders } from './studio-origin';
+import { studioJson, studioOrigin, studioWrite } from './studio-origin';
 
 /** Course Team list, as the authoring MFE reads it. */
 export const COURSE_TEAM_PATH = '/api/contentstore/v1/course_team';
@@ -54,25 +54,31 @@ export async function setCourseTeamRole(
   email: string,
   role: CourseTeamRole,
 ): Promise<void> {
-  const url = `${studioOrigin(config)}${COURSE_TEAM_MEMBER_PATH}/${courseKey}/${email}`;
-  const headers = await studioWriteHeaders(request, config);
-  const response = await request.post(url, { data: { role }, headers });
-  if (response.status() === 404) {
-    throw new ApiError(
-      `Studio knows no account with the email "${email}", so it cannot join the team. ` +
-        'Register the account first.',
-      { status: 404, url, body: await response.text() },
-    );
-  }
-  if (!response.ok()) {
-    throw new ApiError(
-      `Adding ${email} to the team of ${courseKey} failed (HTTP ${response.status()}).`,
+  const path = `${COURSE_TEAM_MEMBER_PATH}/${courseKey}/${email}`;
+  try {
+    // Through `studioWrite`, which refuses to follow a redirect: this legacy view
+    // answers a request whose Studio session has gone with a 302 to sign-in, and
+    // a client that follows it reads the login page as a success and reports a
+    // member it never added.
+    await studioWrite(
+      request,
+      config,
+      'POST',
+      path,
+      `Adding ${email} to the team of ${courseKey}`,
       {
-        status: response.status(),
-        url,
-        body: await response.text(),
+        role,
       },
     );
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      throw new ApiError(
+        `Studio knows no account with the email "${email}", so it cannot join the team. ` +
+          'Register the account first.',
+        { status: 404, url: error.url, body: error.body },
+      );
+    }
+    throw error;
   }
 }
 
@@ -83,13 +89,11 @@ export async function removeCourseTeamMember(
   courseKey: string,
   email: string,
 ): Promise<void> {
-  const url = `${studioOrigin(config)}${COURSE_TEAM_MEMBER_PATH}/${courseKey}/${email}`;
-  const headers = await studioWriteHeaders(request, config);
-  const response = await request.delete(url, { headers });
-  if (!response.ok()) {
-    throw new ApiError(
-      `Removing ${email} from the team of ${courseKey} failed (HTTP ${response.status()}).`,
-      { status: response.status(), url, body: await response.text() },
-    );
-  }
+  await studioWrite(
+    request,
+    config,
+    'DELETE',
+    `${COURSE_TEAM_MEMBER_PATH}/${courseKey}/${email}`,
+    `Removing ${email} from the team of ${courseKey}`,
+  );
 }

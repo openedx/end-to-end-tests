@@ -469,6 +469,14 @@ export {
   type WaffleFlagStates,
 } from './authz';
 export {
+  MIGRATION_RUN_ADMIN,
+  countMigrationRuns,
+  hasCompletedMigrationRun,
+  type MigrationRunQuery,
+  type MigrationStatus,
+  type MigrationType,
+} from './authz-migration';
+export {
   AUTHZ_COURSE_AUTHORING_FLAG,
   WAFFLE_COURSE_OVERRIDE_ADMIN,
   WAFFLE_ORG_OVERRIDE_ADMIN,
