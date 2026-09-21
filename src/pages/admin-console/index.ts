@@ -1,4 +1,5 @@
 export { AdminConsolePage } from './console.page';
+export { UserAuditPage } from './user-audit.page';
 export {
   TEAM_MEMBER_COLUMNS,
   TEAM_MEMBER_FILTERS,

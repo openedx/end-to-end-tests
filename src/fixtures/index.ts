@@ -44,7 +44,7 @@ import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
-import { AdminConsolePage, TeamMembersTable } from '../pages/admin-console';
+import { AdminConsolePage, TeamMembersTable, UserAuditPage } from '../pages/admin-console';
 import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.page';
 import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
 import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
@@ -865,6 +865,14 @@ export interface AdminConsoleFixture {
   readonly console: AdminConsolePage;
   /** The Team Members tab's table, search and filters. */
   readonly teamMembers: TeamMembersTable;
+  /** One account's audit view: its roles, their permissions, and removal. */
+  readonly userAudit: UserAuditPage;
+  /**
+   * The same audit view bound to another browser — a second actor looking at
+   * **its own** roles, which is the only way to see how the console treats the
+   * viewer's own admin row.
+   */
+  readonly auditFor: (page: Page) => UserAuditPage;
 }
 
 /** Runs one unit of admin work on a fresh LMS Django session, under the admin lock. */
@@ -975,12 +983,14 @@ export const CERTIFICATE_COURSE_END = '2100-01-01T00:00:00Z';
  * Runs `work` on an **LMS Django session** for the admin, under the cross-worker
  * admin lock.
  *
- * The session lives in `.auth/admin-lms.json` and is shared by every worker: the
- * Django admin needs a session cookie (it refuses the captured staff API state),
- * a sign-in per call exhausts the login rate limit, and each sign-in ends the
- * session another worker holds (`PREVENT_CONCURRENT_LOGINS`). A caller that
- * finds the session dead signs in once and republishes it, so the cost is one
- * login per eviction rather than one per call.
+ * It reuses **the run's one admin session**, `.auth/staff.json`, the same state
+ * the `setup` project captured and the account-creator grant reads. That
+ * matters: the Django admin needs a session cookie, a sign-in per call exhausts
+ * the login rate limit, and every sign-in ends the admin's other sessions
+ * (`PREVENT_CONCURRENT_LOGINS`) — so a second admin state file would have this
+ * path and the grant path evicting each other, paying a login each time. A
+ * caller that finds the session dead signs in once and republishes it here, so
+ * the cost is one login per eviction for the whole suite.
  */
 async function withAdminLmsSession<T>(
   playwright: PlaywrightWorkerArgs['playwright'],
@@ -988,7 +998,7 @@ async function withAdminLmsSession<T>(
   credentials: { emailOrUsername: string; password: string },
   work: (session: APIRequestContext) => Promise<T>,
 ): Promise<T> {
-  const stateFile = path.join(AUTH_STATE_DIR, 'admin-lms.json');
+  const stateFile = authStateFile('staff');
   const isDeadSession = (error: unknown): boolean =>
     error instanceof ApiError && /did not render|HTTP 40[13]/.test(error.message);
 
@@ -999,6 +1009,11 @@ async function withAdminLmsSession<T>(
       try {
         if (!reuse) {
           await loginSession(session, config, credentials);
+          // Both halves, like `setup` writes them: the account-creator grant
+          // reads this same state and drives a **Studio** admin form, so
+          // publishing an LMS-only session would send that path back to a fresh
+          // sign-in — and every sign-in evicts the other's session.
+          await establishStudioSession(session, config);
           persistStorageState(await session.storageState(), stateFile);
         }
         return await work(session);
@@ -2139,10 +2154,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           'Deploy the admin-console MFE or stop declaring `rbac`.',
       );
     }
+    const origin = mfe.adminConsoleUrl;
     await use({
-      origin: mfe.adminConsoleUrl,
-      console: new AdminConsolePage(page, config, mfe.adminConsoleUrl),
+      origin,
+      console: new AdminConsolePage(page, config, origin),
       teamMembers: new TeamMembersTable(page),
+      userAudit: new UserAuditPage(page, origin),
+      auditFor: (other: Page) => new UserAuditPage(other, origin),
     });
   },
 
