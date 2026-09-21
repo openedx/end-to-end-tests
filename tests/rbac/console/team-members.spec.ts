@@ -1,6 +1,11 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { fetchStudioUsername, listAssignments, listRoleUsers } from '../../../src/api';
+import {
+  PLATFORM_ROLES,
+  fetchStudioUsername,
+  listAssignments,
+  listRoleUsers,
+} from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
 import { issue, knownGap, testId } from '../../../src/reporting';
 import { ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
@@ -129,10 +134,24 @@ test.describe(
           ),
         ],
       },
-      async ({ adminConsole, authzTarget }) => {
-        await adminConsole.console.goto(authzTarget.courseKey);
+      async ({ page, config, adminConsole }) => {
+        // The premise first: the platform exposes assignments for its own roles.
+        // That is what 1.23 stopped doing, so this is where the case stops.
+        const platform = await listAssignments(page.request, config, {
+          roles: [...PLATFORM_ROLES],
+          pageSize: 50,
+        });
+        expect(platform.count).toBeGreaterThan(0);
+
+        // Such a row is listed, and offers no way to take the role away here —
+        // it is managed in Django admin. The subject is located by the username
+        // the API returned, which is data rather than a rendered label.
+        const subject = platform.assignments[0]?.username ?? '';
+        await adminConsole.console.goto();
         const table = adminConsole.teamMembers;
-        await expect(table.rows.filter({ hasText: 'django.superuser' })).toHaveCount(1);
+        const row = table.rowsFor(subject).first();
+        await expect(row).toBeVisible();
+        await expect(table.roleMarker(row)).toHaveCount(1);
       },
     );
   },
