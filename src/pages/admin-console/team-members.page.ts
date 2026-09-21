@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, type Response } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 
 import { ADMIN_CONSOLE_SELECTORS, TIMEOUTS } from '../../config';
 import { AUTHZ_BASE } from '../../api';
@@ -62,6 +62,7 @@ export class TeamMembersTable {
   private async withAssignments(
     action: () => Promise<void>,
     matches: (url: URL) => boolean = () => true,
+    timeout: number = TIMEOUTS.navigation,
   ): Promise<Response> {
     const [response] = await Promise.all([
       this.page.waitForResponse(
@@ -69,7 +70,7 @@ export class TeamMembersTable {
           r.url().includes(`${AUTHZ_BASE}/assignments/`) &&
           r.request().method() === 'GET' &&
           matches(new URL(r.url())),
-        { timeout: TIMEOUTS.navigation },
+        { timeout },
       ),
       action(),
     ]);
@@ -132,23 +133,25 @@ export class TeamMembersTable {
   }
 
   /**
-   * Goes to the next page and waits for the pager to say it moved.
+   * Turns to a page and waits for the query that page change causes.
    *
-   * The wait matters: clicking straight after a row-count assertion can land
-   * while the table is still re-rendering and be dropped. "Previous is now
-   * usable" is the structural signal that the page turned — the pager's own
-   * position text is localized.
+   * The request is the discriminator, not the pager's own state: a click that
+   * lands while the footer is being re-rendered is dropped silently, so a first
+   * attempt that produces no query is retried once — and a genuine failure then
+   * reports the request that never came rather than a confusing disabled button.
    */
-  async goToNextPage(): Promise<void> {
-    await this.nextPage.click();
-    await this.previousPage.waitFor({ state: 'visible' });
-    await expect(this.previousPage).toBeEnabled();
+  private async turnPage(control: Locator, wantedPage: string): Promise<Response> {
+    const matches = (url: URL) => (url.searchParams.get('page') ?? '1') === wantedPage;
+    try {
+      return await this.withAssignments(() => control.click(), matches, TIMEOUTS.optionalOverlay);
+    } catch {
+      return await this.withAssignments(() => control.click(), matches);
+    }
   }
 
-  /** Goes back a page, waiting for the pager to say it moved. */
-  async goToPreviousPage(): Promise<void> {
-    await this.previousPage.click();
-    await expect(this.nextPage).toBeEnabled();
+  /** Goes to the second page. */
+  async goToNextPage(): Promise<Response> {
+    return this.turnPage(this.nextPage, '2');
   }
 
   /** Sorts by a column, waiting for the re-query the console runs. */

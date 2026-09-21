@@ -22,6 +22,12 @@ export class AdminConsolePage {
   readonly assignRoleButton: Locator;
   /** The three filter toggles, in render order: Organization, Role, Scope. */
   readonly filters: Locator;
+  /**
+   * The console's toast, which it uses for a success and for a failed request
+   * alike. A failure's toast carries a retry; a success's clears itself.
+   */
+  readonly toast: Locator;
+  readonly toastRetry: Locator;
 
   constructor(
     readonly page: Page,
@@ -34,6 +40,8 @@ export class AdminConsolePage {
     this.activePanel = page.locator(this.s.activePanel);
     this.assignRoleButton = page.locator(this.s.assignRoleButton).first();
     this.filters = this.activePanel.locator(this.s.filterDropdown);
+    this.toast = page.locator(this.s.toast);
+    this.toastRetry = page.locator(this.s.toastRetry);
   }
 
   /** The console URL, optionally preset to one course or library scope. */
