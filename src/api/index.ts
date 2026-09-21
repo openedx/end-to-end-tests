@@ -4,7 +4,12 @@ export { CSRF_HEADER, CSRF_TOKEN_PATH, fetchCsrfToken } from './csrf';
 export { REGISTRATION_PATH, registerLearnerAccount } from './registration';
 export { ACTIVATE_PATH, activateAccount, extractActivationKey } from './activation';
 export { LOGIN_SESSION_PATH, loginSession, type LoginCredentials } from './login';
-export { newLearnerIdentity, DEFAULT_PASSWORD, type LearnerIdentity } from './user-identity';
+export {
+  DEFAULT_PASSWORD,
+  learnerIdentityFor,
+  newLearnerIdentity,
+  type LearnerIdentity,
+} from './user-identity';
 export {
   COURSE_BLOCKS_PATH,
   COURSE_NAVIGATION_PATH,

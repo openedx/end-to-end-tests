@@ -56,6 +56,16 @@ export class StudioCourseOutlinePage {
   readonly unitCards: Locator;
   readonly emptyPlaceholder: Locator;
   readonly viewLiveLink: Locator;
+  /** The course header's Settings menu toggle. */
+  readonly settingsMenuToggle: Locator;
+  /**
+   * The Settings menu's link into the Roles and Permissions console, which the
+   * authoring MFE renders **in place of** Course Team once AuthZ course
+   * authoring is on for this course. Open the menu first.
+   */
+  readonly rolesAndPermissionsLink: Locator;
+  /** The Settings menu's legacy Course Team link, offered while AuthZ is off. */
+  readonly courseTeamLink: Locator;
 
   constructor(
     private readonly page: Page,
@@ -63,6 +73,9 @@ export class StudioCourseOutlinePage {
   ) {
     const s = STUDIO_OUTLINE_PAGE_SELECTORS;
     this.courseLockUp = page.locator(STUDIO_SHELL_SELECTORS.courseLockUp);
+    this.settingsMenuToggle = page.locator(STUDIO_SHELL_SELECTORS.settingsMenu);
+    this.rolesAndPermissionsLink = page.locator('a[href*="admin-console"]');
+    this.courseTeamLink = page.locator('a[href*="/course_team"]');
     this.expandCollapseAllButton = page.locator(s.expandCollapseAllButton);
     this.sectionCards = page.locator(s.sectionCard);
     this.subsectionCards = page.locator(s.subsectionCard);
@@ -88,6 +101,19 @@ export class StudioCourseOutlinePage {
   async waitForCourse(courseKey: string): Promise<void> {
     await this.page.waitForURL((url) => url.pathname.includes(`/course/${courseKey}`));
     await this.courseLockUp.waitFor();
+  }
+
+  /**
+   * Opens the course header's Settings menu, where the team entry point lives:
+   * with AuthZ on for this course it is a link into the Roles and Permissions
+   * console, and with AuthZ off it is the legacy Course Team page.
+   */
+  async openSettingsMenu(): Promise<void> {
+    await this.settingsMenuToggle.click();
+    await this.page
+      .locator('.dropdown-menu.show')
+      .first()
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.optionalOverlay });
   }
 
   // --- Card locators -------------------------------------------------------
