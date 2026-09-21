@@ -28,14 +28,25 @@ test.describe(
     test(
       'pages the team at ten rows',
       { annotation: testId('TC-00374') },
-      async ({ page, config, adminConsole, authoringLibrary, studioAuthorSession, studioColleague }) => {
+      async ({
+        page,
+        config,
+        adminConsole,
+        authoringLibrary,
+        studioAuthorSession,
+        studioColleague,
+      }) => {
         void studioAuthorSession;
         const library = authoringLibrary.id;
 
         // The sheet wants a team of 12+. Rows are one per **assignment**, not per
         // user, so three accounts holding all four library roles are twelve rows
         // — plus the author's own, which creating the library granted.
-        const colleagues = [await studioColleague(), await studioColleague(), await studioColleague()];
+        const colleagues = [
+          await studioColleague(),
+          await studioColleague(),
+          await studioColleague(),
+        ];
         await seedScopeAssignments(
           page.request,
           config,
@@ -43,8 +54,9 @@ test.describe(
           colleagues.map((colleague) => colleague.identity.username),
           LIBRARY_ROLES,
         );
-        const total = (await listAssignments(page.request, config, { scopes: [library], pageSize: 50 }))
-          .count;
+        const total = (
+          await listAssignments(page.request, config, { scopes: [library], pageSize: 50 })
+        ).count;
         expect(total).toBeGreaterThan(12);
 
         await adminConsole.console.goto(library);
@@ -56,13 +68,12 @@ test.describe(
         await expect(table.previousPage).toBeDisabled();
         await expect(table.nextPage).toBeEnabled();
 
-        await table.nextPage.click();
+        await table.goToNextPage();
         await expect(table.rows).toHaveCount(total - 10);
-        await expect(table.previousPage).toBeEnabled();
         await expect(table.nextPage).toBeDisabled();
 
         // Back to the first page, which is ten rows again.
-        await table.previousPage.click();
+        await table.goToPreviousPage();
         await expect(table.rows).toHaveCount(10);
       },
     );

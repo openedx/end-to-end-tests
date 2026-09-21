@@ -44,7 +44,12 @@ import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
-import { AdminConsolePage, TeamMembersTable, UserAuditPage } from '../pages/admin-console';
+import {
+  AdminConsolePage,
+  AssignRoleWizard,
+  TeamMembersTable,
+  UserAuditPage,
+} from '../pages/admin-console';
 import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.page';
 import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
 import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
@@ -867,12 +872,16 @@ export interface AdminConsoleFixture {
   readonly teamMembers: TeamMembersTable;
   /** One account's audit view: its roles, their permissions, and removal. */
   readonly userAudit: UserAuditPage;
+  /** The two-step Assign Role wizard. */
+  readonly assignRole: AssignRoleWizard;
   /**
    * The same audit view bound to another browser — a second actor looking at
    * **its own** roles, which is the only way to see how the console treats the
    * viewer's own admin row.
    */
   readonly auditFor: (page: Page) => UserAuditPage;
+  /** The console shell bound to another browser, for a second actor's view of it. */
+  readonly consoleFor: (page: Page) => AdminConsolePage;
 }
 
 /** Runs one unit of admin work on a fresh LMS Django session, under the admin lock. */
@@ -2160,7 +2169,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       console: new AdminConsolePage(page, config, origin),
       teamMembers: new TeamMembersTable(page),
       userAudit: new UserAuditPage(page, origin),
+      assignRole: new AssignRoleWizard(page, origin),
       auditFor: (other: Page) => new UserAuditPage(other, origin),
+      consoleFor: (other: Page) => new AdminConsolePage(other, config, origin),
     });
   },
 

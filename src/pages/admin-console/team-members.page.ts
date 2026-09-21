@@ -1,4 +1,4 @@
-import type { Locator, Page, Response } from '@playwright/test';
+import { expect, type Locator, type Page, type Response } from '@playwright/test';
 
 import { ADMIN_CONSOLE_SELECTORS, TIMEOUTS } from '../../config';
 import { AUTHZ_BASE } from '../../api';
@@ -129,6 +129,26 @@ export class TeamMembersTable {
       (url) => (url.searchParams.get(param) ?? '').split(',').includes(value),
     );
     return { response, value };
+  }
+
+  /**
+   * Goes to the next page and waits for the pager to say it moved.
+   *
+   * The wait matters: clicking straight after a row-count assertion can land
+   * while the table is still re-rendering and be dropped. "Previous is now
+   * usable" is the structural signal that the page turned — the pager's own
+   * position text is localized.
+   */
+  async goToNextPage(): Promise<void> {
+    await this.nextPage.click();
+    await this.previousPage.waitFor({ state: 'visible' });
+    await expect(this.previousPage).toBeEnabled();
+  }
+
+  /** Goes back a page, waiting for the pager to say it moved. */
+  async goToPreviousPage(): Promise<void> {
+    await this.previousPage.click();
+    await expect(this.nextPage).toBeEnabled();
   }
 
   /** Sorts by a column, waiting for the re-query the console runs. */
