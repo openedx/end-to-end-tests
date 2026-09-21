@@ -47,6 +47,7 @@ import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-adm
 import {
   AdminConsolePage,
   AssignRoleWizard,
+  PermissionsMatrix,
   TeamMembersTable,
   UserAuditPage,
 } from '../pages/admin-console';
@@ -699,6 +700,8 @@ export interface StudioColleague {
   readonly libraryPage: LibraryPage;
   readonly unitPage: StudioUnitPage;
   readonly libraryPicker: LibraryPickerDialog;
+  /** Studio Home as this colleague sees it — which courses and libraries are listed to them. */
+  readonly studioHomePage: StudioHomePage;
 }
 
 /** What {@link TestFixtures.roundTripLearner} hands a spec. */
@@ -874,6 +877,8 @@ export interface AdminConsoleFixture {
   readonly userAudit: UserAuditPage;
   /** The two-step Assign Role wizard. */
   readonly assignRole: AssignRoleWizard;
+  /** The Roles and Permissions tab: the static matrix of role against permission. */
+  readonly matrix: PermissionsMatrix;
   /**
    * The same audit view bound to another browser — a second actor looking at
    * **its own** roles, which is the only way to see how the console treats the
@@ -2170,6 +2175,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       teamMembers: new TeamMembersTable(page),
       userAudit: new UserAuditPage(page, origin),
       assignRole: new AssignRoleWizard(page, origin),
+      matrix: new PermissionsMatrix(page),
       auditFor: (other: Page) => new UserAuditPage(other, origin),
       consoleFor: (other: Page) => new AdminConsolePage(other, config, origin),
     });
@@ -2727,6 +2733,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         libraryPage: new LibraryPage(colleaguePage, config),
         unitPage: new StudioUnitPage(colleaguePage, config),
         libraryPicker: new LibraryPickerDialog(colleaguePage, config),
+        studioHomePage: new StudioHomePage(colleaguePage, config),
       };
       made.push(colleague);
       return colleague;
