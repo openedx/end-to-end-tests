@@ -18,4 +18,7 @@ export const ADMIN_CONSOLE_A11Y_BASELINE: readonly string[] = [
   'aria-required-parent',
   // `RBAC-006`: the header's icon-only control has no accessible name.
   'button-name',
+  // `RBAC-006`: the audit view's breadcrumb puts a non-`<li>` child in its
+  // `<ol>` (the separator icon).
+  'list',
 ];

@@ -71,4 +71,33 @@ export const ADMIN_CONSOLE_SELECTORS = {
   currentUserMarker: '.text-gray-500',
   /** The Actions cell's control: the eye button that opens a user's audit view. */
   rowActionButton: 'button.btn-icon',
+
+  // --- the user audit view (`/authz/user/<username>`) ---------------------------------------
+
+  /** Breadcrumb back to the Team Members table; the `href` is the stable part. */
+  auditBreadcrumb: '.pgn__breadcrumb',
+  auditBreadcrumbBack: '.pgn__breadcrumb a[href$="/authz"]',
+  /** The subject's username, which is our own data in a test. */
+  auditSubjectHeading: 'h2',
+  /**
+   * The permissions expander — a link-styled `role="button"`, not a `<button>`,
+   * which matters because the row's only real `<button>` is the delete control.
+   */
+  auditExpandPermissions: '[role="button"]',
+  /**
+   * The expanded permission list, inserted as an extra single-cell row after the
+   * row it belongs to. The console keeps **one** open at a time, so counting
+   * these rows is how "opening another closes the first" is asserted.
+   */
+  auditPermissionDetailRow: 'tbody tr:not(.pgn__data-table-row)',
+  /** Remove this assignment. Absent, not disabled, on your own admin row (`RBAC-007`). */
+  auditDeleteRole: 'button.btn-icon-danger',
+
+  // --- the remove-role confirmation and its toast -------------------------------------------
+
+  confirmDialog: '[role="dialog"]',
+  confirmDialogCancel: '[role="dialog"] .pgn__modal-close-button',
+  confirmDialogConfirm: '[role="dialog"] .pgn__stateful-btn',
+  /** Paragon's toast, which the console uses for both success and failure. */
+  toast: '.pgn__toast, [role="alert"]',
 } as const;
