@@ -119,6 +119,21 @@ export class AdminConsolePage {
       (response.url().includes(encoded) || response.url().includes(encodeURIComponent(scope)));
   }
 
+  /**
+   * Where a link into the console points, as the two halves a spec cares about.
+   *
+   * Reading it through `URL` is deliberate: the authoring MFE percent-encodes
+   * the key in `?scope=` on `main` and writes it raw on `verawood`, and a
+   * pattern that matches one form fails on the other (`releases.md` rule 1 —
+   * both forms are stable and non-localized, so the client widens instead of
+   * the coverage narrowing).
+   */
+  async linkTarget(link: Locator): Promise<{ base: string; scope: string | null }> {
+    const href = (await link.getAttribute('href')) ?? '';
+    const url = new URL(href, this.origin);
+    return { base: `${url.origin}${url.pathname}`, scope: url.searchParams.get('scope') };
+  }
+
   /** The LMS origin this console reads its data from. */
   get apiOrigin(): string {
     return this.config.baseUrls.lms;

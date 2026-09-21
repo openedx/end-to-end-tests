@@ -40,20 +40,24 @@ test.describe(
         // configured.
         await libraryPage.goto(authoringLibrary.id);
         await libraryPage.openInfo();
-        await expect(libraryPage.sidebar.manageTeamLink).toHaveAttribute(
-          'href',
-          new RegExp(`${adminConsole.origin}.*${encodeURIComponent(authoringLibrary.id)}`),
+        await expect(libraryPage.sidebar.manageTeamLink).toBeVisible();
+        const fromLibrary = await adminConsole.console.linkTarget(
+          libraryPage.sidebar.manageTeamLink,
         );
+        expect(fromLibrary.base).toBe(`${adminConsole.origin}/authz`);
+        expect(fromLibrary.scope).toBe(authoringLibrary.id);
 
         // Entry point 2 — the course header's Settings menu, once AuthZ is on for
         // that course. The link replaces Course Team, which is why the legacy
         // entry is gone here.
         await studioCourseOutlinePage.goto(authzTarget.courseKey);
         await studioCourseOutlinePage.openSettingsMenu();
-        await expect(studioCourseOutlinePage.rolesAndPermissionsLink).toHaveAttribute(
-          'href',
-          new RegExp(`${adminConsole.origin}.*${encodeURIComponent(authzTarget.courseKey)}`),
+        await expect(studioCourseOutlinePage.rolesAndPermissionsLink).toBeVisible();
+        const fromCourse = await adminConsole.console.linkTarget(
+          studioCourseOutlinePage.rolesAndPermissionsLink,
         );
+        expect(fromCourse.base).toBe(`${adminConsole.origin}/authz`);
+        expect(fromCourse.scope).toBe(authzTarget.courseKey);
         await expect(studioCourseOutlinePage.courseTeamLink).toHaveCount(0);
 
         // The console itself opens on Team Members, preset to the scope it was
