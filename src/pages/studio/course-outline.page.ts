@@ -380,14 +380,32 @@ export class StudioCourseOutlinePage {
    * 3-dot menu has no Copy item — that lives on the unit page (TC-00204).
    */
   async pasteUnit(subsectionCard: Locator): Promise<string> {
-    await this.expand(subsectionCard, 'subsection');
     // The "Paste unit" button is the last add button in the units container,
     // present only while the clipboard holds a unit (New unit, Use … from
-    // library, then Paste unit). No test id distinguishes it, so it is the last.
-    const button = subsectionCard
+    // library, then Paste unit). No test id distinguishes it, so it is the last
+    // — and that is a race: it renders only once the page's clipboard GET has
+    // answered, while `.last()` resolves to whichever add button exists now.
+    // On a slow target (verawood CI) the wait passed on "Use … from library",
+    // the click opened the picker, and the paste POST never came. So gate on
+    // the clipboard fetch itself: reload with it awaited, re-expand the outline
+    // the reload collapsed, then take the last button.
+    await Promise.all([
+      this.page.waitForResponse(
+        (r) => r.url().endsWith(CLIPBOARD_PATH) && r.request().method() === 'GET',
+        { timeout: TIMEOUTS.navigation },
+      ),
+      this.page.reload(),
+    ]);
+    await this.setAllExpanded(true);
+    await this.expand(subsectionCard, 'subsection');
+    const buttons = subsectionCard
       .locator(STUDIO_OUTLINE_PAGE_SELECTORS.subsectionUnits)
-      .locator(STUDIO_OUTLINE_PAGE_SELECTORS.addChildButton)
-      .last();
+      .locator(STUDIO_OUTLINE_PAGE_SELECTORS.addChildButton);
+    await buttons.first().waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
+    // The clipboard GET resolved before this locator's own round trip to the
+    // page, and React re-renders from that response synchronously, so the
+    // paste button is already the last add button by the time it is queried.
+    const button = buttons.last();
     await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
     // Paste stages the copied OLX under the new parent, which is slower than a
     // plain create under load, so allow the heavier content-write budget.

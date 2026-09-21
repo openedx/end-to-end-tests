@@ -1,6 +1,12 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { STUDIO_UNIT_PAGE_SELECTORS, TIMEOUTS, type AppConfig } from '../../config';
+import {
+  COURSE_LIBRARY_SYNC_SELECTORS,
+  STUDIO_EDITOR_SELECTORS,
+  STUDIO_UNIT_PAGE_SELECTORS,
+  TIMEOUTS,
+  type AppConfig,
+} from '../../config';
 import { CLIPBOARD_PATH, XBLOCK_PATH, studioOrigin } from '../../api';
 import { waitForWrite } from './wait-for-write';
 
@@ -130,7 +136,27 @@ export class StudioUnitPage {
    */
   async pasteAsNewUnit(): Promise<string> {
     const button = this.page.locator(this.s.sequenceActionButton).nth(1);
-    await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
+    // The paste button renders off the MFE's clipboard state. After "Copy to
+    // Clipboard" the MFE does not re-fetch the clipboard (measured: only the
+    // initial GET and the copy's POST), it updates state from the POST — which
+    // lands late or not at all on a slow target (verawood CI waited 30s for
+    // nothing). Give it a moment, then reload: a fresh page load issues the
+    // clipboard GET, and the button follows deterministically.
+    const appeared = await button
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.optionalOverlay })
+      .then(() => true)
+      .catch(() => false);
+    if (!appeared) {
+      await Promise.all([
+        this.page.waitForResponse(
+          (r) => r.url().endsWith(CLIPBOARD_PATH) && r.request().method() === 'GET',
+          { timeout: TIMEOUTS.navigation },
+        ),
+        this.page.reload(),
+      ]);
+      await this.header.waitFor();
+      await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
+    }
     return this.clickAndReadUnit(button);
   }
 
@@ -213,6 +239,42 @@ export class StudioUnitPage {
       },
       () => paste.click(),
     );
+  }
+
+  // --- Library content -----------------------------------------------------
+
+  /**
+   * The "Update available" action in the header of an upstream-linked block
+   * inside the components iframe (present only while the library item has a
+   * newer published version). Clicking it opens the preview-changes modal in
+   * this page. Anchored inside the iframe's block wrapper for `usageKey`.
+   */
+  iframeUpdateAvailableButton(usageKey: string): Locator {
+    return this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`[data-usage-id="${usageKey}"]`)
+      .locator(COURSE_LIBRARY_SYNC_SELECTORS.iframeUpdateAvailableButton)
+      .first();
+  }
+
+  /**
+   * "Edit" in a component's iframe header — opens the MFE's editor dialog for
+   * that component (the text editor for an html block), the way an author
+   * overrides a library-sourced component's content in the course.
+   */
+  async editComponentInIframe(usageKey: string): Promise<void> {
+    await this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`[data-usage-id="${usageKey}"]`)
+      .locator(COURSE_LIBRARY_SYNC_SELECTORS.iframeEditButton)
+      .first()
+      .click();
+    await this.page.locator(STUDIO_EDITOR_SELECTORS.editorDialog).last().waitFor();
+  }
+
+  async openUpdateAvailable(usageKey: string): Promise<void> {
+    await this.iframeUpdateAvailableButton(usageKey).click();
+    await this.page.locator(COURSE_LIBRARY_SYNC_SELECTORS.previewModal).waitFor();
   }
 
   // --- Clipboard -----------------------------------------------------------

@@ -13,7 +13,7 @@ import {
 import { getRunId } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { toDateTimeFields } from '../../../src/pages/studio/settings/schedule-details.page';
-import { testId } from '../../../src/reporting';
+import { knownGap, testId } from '../../../src/reporting';
 
 /**
  * Schedule & Details (authoring MFE), on the worker's own course.
@@ -91,7 +91,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
         }))
         .toEqual({ studio: false, lms: 'instructor' });
 
-      // `STUDIO-004` (see `.private/findings.md`): the authoring MFE's own
+      // `STUDIO-004` (see `docs/findings.md`): the authoring MFE's own
       // Schedule & Details chrome ships a critical `label` violation — the
       // course-card image drop zone's hidden file input has no label. The serious
       // `link-in-text-block` is the demo overview's own content (the `DEMO-001`
@@ -579,7 +579,15 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
   // (`prerequisites_not_met`) on the LMS. Lift when that course is available.
   test.fixme(
     'a prerequisite course blocks learners until they complete it',
-    { tag: '@regression', annotation: testId('TC-00305') },
+    {
+      tag: '@regression',
+      annotation: [
+        testId('TC-00305'),
+        knownGap(
+          "The author owns one course; the prerequisite dropdown needs a second course of the author's and a learner who has not completed it",
+        ),
+      ],
+    },
     async ({
       page,
       config,

@@ -114,8 +114,10 @@ visits, and run `npm run check`.
 ## BTR test IDs
 
 Add `annotation: testId('TC-0000X')` for any test that maps to a BTR Release Test
-Plan case — explicit, never inferred from the title. The always-on coverage
-reporter writes `test-results/btr-coverage.json`.
+Plan case — explicit, never inferred from the title. The always-on reporters
+write `test-results/btr-coverage.json` and `test-results/btr-run.json`; a
+declarative `test.fixme` should also carry `knownGap('why')` so the BTR results
+sheet can say why the case is held back.
 
 ## Test data and accounts
 

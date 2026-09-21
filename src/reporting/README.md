@@ -33,6 +33,21 @@ Contains:
   attempt (`finalAttempts`); and a `test.fail()` expected failure counts as
   `skipped` (a known gap, like a `fixme`) while an _unexpected pass_ counts as
   `failed`, so a stale marker shows up in the report as well as in the run.
+- `known-gap.ts` — the `known_gap` annotation. `knownGap('why')` records the
+  reason a declarative `test.fixme` is held back, so the run report (and the
+  results sheet) can say why instead of "fixme (no reason recorded)".
+- `btr-run.ts` — pure aggregation (`summarizeRun`) for the **run detail**
+  report: one row per BTR case with the specs and projects that drive it, every
+  test's final status, summed duration and attempt count, and a one-line note
+  (skip reason, fixme/known gap + issue link, `test.fail` reading, first line of
+  the error, or failing a11y rules — see `noteFor`). Plus run metadata: start,
+  duration, Playwright's overall status, the filter used, and in CI the run
+  link, workflow, ref, commit and Open edX release (`ciMetaFromEnv`).
+- `btr-run-reporter.ts` — the always-on reporter that adapts run events onto
+  `summarizeRun` and writes `test-results/btr-run.json`. Same normalisations as
+  the coverage reporter (`normalizeStatus`, last attempt wins); reads
+  `GITHUB_*`, `OPENEDX_RELEASE`, `BTR_TEST_REF`, `DOMAINS`, `LMS_BASE_URL` from
+  the environment and the checked-out commit from `git rev-parse HEAD`.
 - `a11y.ts` — pure aggregation (`summarizeA11yViolations`) that rolls per-scan
   violations up per rule (worst impact first; de-duplicated across retries).
 - `a11y-reporter.ts` — the always-on reporter that reads each test's
@@ -60,19 +75,80 @@ Contains:
 
 ## Policy
 
-All reporters write **local files only**. Uploading them is a CI-only concern:
-the shared `run-suite` composite action (used by both `run_tests_tutor.yml` and
-`run_tests_external.yml`) publishes `btr-coverage.json`,
-`a11y-violations.json` and `timings-*.csv` as a `suite-reports-*` build artifact alongside the full
-report bundle. Writing results to the BTR Release Test Plan sheet is not
-implemented; when it is, it will be a separate, manual, opt-in step — never on
-PR/push/schedule and never from a local machine.
+All reporters write **local files only**. Uploading them is a CI-only
+concern: the shared `run-suite` composite action (used by both
+`run_tests_tutor.yml` and `run_tests_external.yml`) publishes
+`btr-coverage.json`, `btr-run.json`, `a11y-violations.json` and
+`timings-*.csv` as a `suite-reports-*` build artifact alongside the full
+report bundle.
+
+Publishing `btr-run.json` to the **BTR results sheets** (below) is a separate,
+opt-in CI step. It runs only from `schedule` and `workflow_dispatch` runs, never
+from PR/push runs (the `ci.yml` calls of `run_tests_tutor.yml`), and locally only
+against a throwaway sheet. Automated results never go into the manually
+maintained BTR sheet: they live in their own per-release spreadsheets that the
+BTR sheet can reference.
 
 Infrastructure projects (`setup`, `unit`) are excluded from coverage so the
 numbers reflect the user-facing scenarios the BTR plan tracks. Note this relies
 on the suite's own tests (`tests/conventions`, `tests/accounts`, …) being tagged
 `@unit` so they land in the `unit` project; an untagged infrastructure test would
 count as unannotated coverage.
+
+## Publishing to the BTR results sheets
+
+`scripts/publish-btr-sheet.mts` (with `scripts/btr-sheet/`) reads
+`test-results/btr-run.json` and writes it to a Google Sheet through the Sheets
+v4 REST API, authenticating as a **service account** (RS256 JWT signed with
+`node:crypto`; no SDK, no new dependencies). It runs natively on Node 24.
+
+**One spreadsheet per Open edX release.** Each sheet has:
+
+| Tab              | Content                                                                                                                                                                                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Latest`         | The most recent unfiltered, default-branch run: a header block (run link, workflow, release, target, ref, commit, start, duration, totals, overall result, filter) then one row per BTR case — ID, verdict, spec(s), test(s), notes, duration (s), attempts, project. |
+| `Runs`           | Append-only index, one row per published run, linking to its tab. The source for trends.                                                                                                                                                                              |
+| `<timestamp>`    | A copy of the run's content, named `2026-09-15 09h14 UTC` (plus ` · <environment>` for external targets). Kept forever.                                                                                                                                               |
+| `_meta` (hidden) | Schema version, the release the sheet was bootstrapped for, when, and by which publisher version.                                                                                                                                                                     |
+
+The first publish **bootstraps** an empty sheet (creates the tabs, freezes the
+headers, titles an untitled spreadsheet `Open edX e2e BTR results — <release>`,
+removes the empty default `Sheet1`). Every later publish checks `_meta.release`
+and refuses to write a run for another release.
+
+**Configuration** (repository, fork, or provider deployment — all the same):
+
+| Where         | Name                      | Value                                                                                                                                                         |
+| ------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Secret        | `BTR_SHEET_CREDENTIALS`   | The service account's JSON key, verbatim. Repository-wide, or on an Environment. Unset = warn and skip the publish.                                           |
+| Variable      | `BTR_SHEET_URL_<RELEASE>` | The sheet URL for that release, name upper-cased (`BTR_SHEET_URL_VERAWOOD`). Unset = no publish. An Environment-scoped variable overrides the repository one. |
+| Sheet sharing | —                         | Each sheet shared with the key's `client_email` as **Editor**.                                                                                                |
+
+The publisher reads the key from the environment only: `BTR_SHEET_CREDENTIALS`,
+or a path to the key file in `BTR_SHEET_CREDENTIALS_FILE` for local runs.
+Neither the `run-suite` action nor the workflows take a credential input, and
+with neither variable set the publisher prints a `::warning::`, writes nothing
+to the spreadsheet and exits 0 — the suite's own result stands, and the publish
+can be redone from the artifact once the secret exists.
+
+**Which runs publish.** `run_tests_tutor.yml` on `schedule`/`workflow_dispatch`
+(the release is the workflow's own); `run_tests_external.yml` when the
+`openedx_release` input is set. Both accept a `btr_sheet_url` input as a manual
+override. Filtered runs (`domains`/`features`/`exclude_features`) and runs of a
+`test_ref` other than the default branch still get a run tab and a `Runs` row
+but do **not** overwrite `Latest`. The workflow's job summary links the new tab.
+
+**Re-publishing from an artifact** (a failed publish, or a sheet rebuilt later):
+download `btr-run.json` from the run's `suite-reports-*` artifact, then
+
+```sh
+BTR_SHEET_CREDENTIALS_FILE=/path/to/key.json npm run btr:publish -- \
+  --release verawood --sheet 'https://docs.google.com/spreadsheets/d/<id>/edit' \
+  --from ./btr-run.json [--update-latest false] [--environment staging]
+```
+
+The same command is how to develop against a throwaway sheet; a local run shows
+`Run: local` in the header so it is unmistakable in `Runs`.
 
 ## Usage
 

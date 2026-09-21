@@ -18,7 +18,8 @@ export default tseslint.config(
       // notes, see CONVENTIONS.md) are not project sources.
       '**/.*/',
       // Plain Node utility scripts (CI helpers); Prettier still formats them.
-      'scripts/',
+      // The TypeScript publisher under scripts/**/*.mts is linted.
+      'scripts/**/*.mjs',
     ],
   },
   eslint.configs.recommended,

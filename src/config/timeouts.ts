@@ -107,4 +107,51 @@ export const TIMEOUTS = {
    * request, which is slow on a busy worker.
    */
   xblockEditorSave: 30_000,
+
+  /**
+   * Budget for an instructor-dashboard background task (report generation,
+   * rescore, score override, certificate generation) to finish and for its
+   * effect to be readable. These run on the LMS Celery worker: measured on an
+   * idle install, every report on a course of a few learners was listed within
+   * a second of being queued, a rescore or override landed in about one second,
+   * and a certificate reached `downloadable` in 2.3 s — but a per-learner report
+   * on the 697-learner demo course took 3 min 43 s, and CI shares the worker
+   * with grading and publishing. Suite courses hold a handful of learners, so
+   * this is ample headroom; readings poll under it and report their last value.
+   */
+  instructorTask: 120_000,
+
+  /**
+   * Budget for a content-library item (block, unit, collection) to show up in
+   * the library MFE's search results after it is created or edited. Library
+   * search is Meilisearch, indexed by the CMS on write: on an idle install a
+   * new block was searchable on the first poll, but CI's single Celery worker
+   * also runs publishes, re-runs and exports, so this is headroom for the
+   * indexing task to be picked up late. Readings poll under it.
+   */
+  librarySearch: 60_000,
+
+  /**
+   * Budget for a course block linked to a library item to report an update
+   * (`ready_to_sync`) after the library item is published. Measured at 1.4 s on
+   * an idle install (the link is recomputed on publish, synchronously enough);
+   * the budget covers a loaded CMS. Readings poll under it.
+   */
+  librarySync: 30_000,
+
+  /**
+   * Budget for a legacy-library → v2-library migration task to reach a terminal
+   * state. Runs on the CMS Celery worker: a two-block legacy library migrated
+   * in 4.1 s when measured; sized like `courseRerun`, which shares the worker.
+   */
+  libraryMigration: 120_000,
+  /**
+   * The course Libraries "Review Content Updates" tab catching up with a
+   * downstream that already reports `ready_to_sync` — it is fed by the
+   * course-content search index, reindexed by Celery on publish. Measured
+   * 2026-09-16 on Tutor `main`: ~30 s in a fresh course, past 60 s while other
+   * publishes queue ahead of it (LIB-002); a reload-poll under this budget
+   * passed at 4.8 min worst case.
+   */
+  libraryReviewIndex: 120_000,
 } as const;

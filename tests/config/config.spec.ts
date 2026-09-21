@@ -45,7 +45,11 @@ test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
     expect(config.registrableDomain).toBe('openedx.io');
     expect(config.allowCrossSiteOrigins).toBe(false);
     // Default-on capabilities (stock surfaces) need no declaration.
-    expect([...config.capabilities].sort()).toEqual(['frontend-base', 'mfe-authn']);
+    expect([...config.capabilities].sort()).toEqual([
+      'frontend-base',
+      'instructor-dashboard',
+      'mfe-authn',
+    ]);
   });
 
   test('accepts an HTTPS environment including Studio', () => {
@@ -183,6 +187,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
     expect([...config.capabilities].sort()).toEqual([
       'discussions',
       'frontend-base',
+      'instructor-dashboard',
       'mfe-authn',
       'notes',
     ]);
@@ -191,13 +196,17 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('turns off a default-on capability with the "-" prefix', () => {
     const config = loadConfig(validEnv({ CAPABILITIES: 'discussions,-mfe-authn' }));
 
-    expect([...config.capabilities].sort()).toEqual(['discussions', 'frontend-base']);
+    expect([...config.capabilities].sort()).toEqual([
+      'discussions',
+      'frontend-base',
+      'instructor-dashboard',
+    ]);
   });
 
   test('turns off the frontend-base shell for a release on the separate-MFE model', () => {
     const config = loadConfig(validEnv({ CAPABILITIES: '-frontend-base' }));
 
-    expect([...config.capabilities]).toEqual(['mfe-authn']);
+    expect([...config.capabilities].sort()).toEqual(['instructor-dashboard', 'mfe-authn']);
   });
 
   test('rejects opting out of a capability that is off unless declared', () => {

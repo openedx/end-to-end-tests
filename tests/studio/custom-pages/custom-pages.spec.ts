@@ -65,7 +65,7 @@ test.describe('Custom Pages', { tag: ['@studio', '@author', '@mfe-authoring'] },
         // The learner-facing course-home tabs show the same order.
         await expect.poll(lmsOrder).toEqual([NAME_B, NAME_A]);
 
-        // `STUDIO-008` (see `.private/findings.md`): the authoring MFE renders the
+        // `STUDIO-008` (see `docs/findings.md`): the authoring MFE renders the
         // draggable custom-page list as a `<ul>` whose direct children are the
         // sortable `<div>`s, a serious `list` violation in the MFE's own markup.
         // Tolerated on this screen only; remove when STUDIO-008 lands upstream.

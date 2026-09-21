@@ -66,6 +66,31 @@ export {
   STUDIO_UNIT_PAGE_SELECTORS,
   STUDIO_EDITOR_SELECTORS,
   COURSE_CREATOR_ADMIN_SELECTORS,
+  CERTIFICATE_GENERATION_ADMIN_SELECTORS,
+  INSTRUCTOR_CERTIFICATE_FILTERS,
+  INSTRUCTOR_DASHBOARD_SELECTORS,
+  INSTRUCTOR_REPORT_ROWS,
+  INSTRUCTOR_TAB_IDS,
+  instructorTabLink,
+  instructorTabPath,
+  type InstructorReportType,
+  type InstructorTabId,
+} from './selectors';
+export {
+  COURSE_LIBRARY_SYNC_SELECTORS,
+  LEGACY_MIGRATION_SELECTORS,
+  LIBRARY_CONTAINER_TYPES,
+  LIBRARY_PICKER_SELECTORS,
+  LIBRARY_SELECTORS,
+  LIBRARY_TABS,
+  courseLibrariesPath,
+  createLibraryPath,
+  legacyMigrationPath,
+  libraryCollectionPath,
+  libraryContainerPath,
+  libraryPath,
+  type LibraryContainerType,
+  type LibraryTab,
 } from './selectors';
 
 let cached: AppConfig | undefined;
@@ -107,13 +132,6 @@ function printRuntimeWarningsOnce(config: AppConfig): void {
   }
 }
 
-/**
- * Returns the validated configuration for the current process, loading `.env`
- * and `process.env` on first call and memoizing the result.
- *
- * Runtime advisories are printed once per run (see {@link WARNINGS_SHOWN_ENV}).
- * Fails fast with a {@link ConfigError} if the environment is invalid.
- */
 /** Loads `.env` into `process.env` once per process (idempotent). */
 function ensureDotenvLoaded(): void {
   if (!dotenvLoaded) {

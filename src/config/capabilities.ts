@@ -31,7 +31,27 @@ export const CAPABILITIES = [
   'badges',
   'credly-badges',
   'cohorts',
+  // Content libraries v2 (Learning Core): the library-authoring MFE
+  // (`/library/<lib key>` inside the authoring app), the `/api/libraries/v2/`
+  // CMS API, and the course side of reuse — "Library Content" in a unit's
+  // add-component bar, library units/sections in the outline, and the
+  // `/api/contentstore/v2/downstreams/` sync API. Both `main` and `verawood`
+  // ship all of it, containers included, so `.ci/openedx-releases.json`
+  // declares it for them; `ulmo` and earlier are left undeclared and the
+  // `tests/studio/library/` tree skips there. Studio's home API reports it as
+  // `libraries_v2_enabled`. Team management is *not* covered by this
+  // capability: where the admin console MFE is configured (`ADMIN_CONSOLE_URL`)
+  // the library MFE hands "Manage team" to it, which is the `rbac` epic's
+  // surface. Deleting a library that ever held a container fails on the
+  // platform (`LIB-001`), so the fixtures tear down best-effort.
   'content-libraries',
+  // Legacy (modulestore, `library-v1:`) content libraries and the tool that
+  // migrates them into v2 libraries (`/api/modulestore_migrator/v1/`). Legacy
+  // libraries are deprecated and hidden once an installation enables the
+  // `contentstore.new_studio_mfe.disable_legacy_libraries` waffle flag; a
+  // default install (measured on `main`) still creates them, so `main` and
+  // `verawood` declare this. Gates only the BTR migration cases.
+  'content-libraries-v1',
   // The learning MFE's in-course outline sidebar, behind the
   // `courseware.enable_navigation_sidebar` waffle flag. Its counterpart covers the
   // installations that keep the older in-course navigation instead.
@@ -67,6 +87,33 @@ export const CAPABILITIES = [
   'lti', // `lti_consumer` under the "Advanced" tile (no tool launch is asserted)
   'scorm', // `scorm` under the "Advanced" tile
   'edx-sga', // Staff Graded Assignment (`staffgradedxblock`) under the "Problem" tile
+  // The LMS instructor dashboard as the instructor-dashboard MFE
+  // (`frontend-app-instructor-dashboard`, served at
+  // `${APPS_BASE_URL}/instructor-dashboard/<course>`), driven by the
+  // `/api/instructor/v2/` API. From verawood onward the LMS redirects the legacy
+  // `/courses/<key>/instructor` dashboard to it unless the
+  // `instructor.legacy_instructor_dashboard` waffle flag is on (the legacy
+  // dashboard is deprecated: DEPR-38432, removal targeted for 2026-11). Default
+  // on, because that is what the platform ships; ulmo and earlier — legacy
+  // dashboard, no v2 API — opt out with `-instructor-dashboard` in
+  // `.ci/openedx-releases.json`, and the `tests/lms/instructor/` tree skips.
+  // A legacy-dashboard implementation, if BTR ever needs one for older releases,
+  // would be the other half of a mutually-exclusive pair named
+  // `instructor-dashboard-legacy`; it is not added until it has coverage.
+  'instructor-dashboard',
+  // Course certificates can be generated on the installation. Certificates ship
+  // with the platform but the platform-wide switch
+  // (`CertificateGenerationConfiguration`, Django admin) is off on a default
+  // install; the suite turns it on once per run through the admin account and
+  // skips this coverage with a reason where no admin account is configured.
+  // Gates the instructor dashboard's Certificates tab (BTR TC-00536–00538).
+  'certificates',
+  // Reserved for the Superset / Aspects analytics reports on the instructor
+  // dashboard (BTR TC-00542–00559). Aspects is a separate deployment, not part
+  // of a default install; no spec uses this capability yet, so declaring it has
+  // no effect — it exists so the tag vocabulary is settled before that coverage
+  // is written.
+  'analytics',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -92,8 +139,17 @@ export type Capability = (typeof CAPABILITIES)[number];
  * — serves its MFEs in the shell; a named release still on the separate-MFE model
  * (verawood and earlier) opts out with `-frontend-base`, which is what
  * `.ci/openedx-releases.json` declares for them.
+ *
+ * `instructor-dashboard` is on by default because verawood and every later
+ * release serve the instructor dashboard as its MFE; ulmo and earlier, which
+ * still render the legacy dashboard, opt out with `-instructor-dashboard` in
+ * `.ci/openedx-releases.json`.
  */
-export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = ['mfe-authn', 'frontend-base'];
+export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = [
+  'mfe-authn',
+  'frontend-base',
+  'instructor-dashboard',
+];
 
 /** Marks an opt-out in `CAPABILITIES`, e.g. `-mfe-authn`. */
 export const CAPABILITY_OPT_OUT_PREFIX = '-';

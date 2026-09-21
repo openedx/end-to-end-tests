@@ -23,3 +23,16 @@ export const COURSE_CREATOR_ADMIN_SELECTORS = {
   /** Change form: "Save". */
   saveButton: 'input[name="_save"]',
 } as const;
+
+/**
+ * The LMS Django admin page that turns on platform-wide certificate generation
+ * (`/admin/certificates/certificategenerationconfiguration/add/`). A
+ * `ConfigurationModel`: saving a new row with "Enabled" checked is what enables
+ * it, and re-adding one is harmless. Stock Django admin markup.
+ */
+export const CERTIFICATE_GENERATION_ADMIN_SELECTORS = {
+  /** Add form: "Enabled". */
+  enabledCheckbox: '#id_enabled',
+  /** Add form: "Save". */
+  saveButton: 'input[name="_save"]',
+} as const;

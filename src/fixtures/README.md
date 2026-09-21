@@ -66,4 +66,25 @@ Rules:
   session-auth, not JWT: drive them from a fresh `loginSession` on a throwaway
   context, not the author's JWT-only session (see the `api/` README /
   `studio-auth-resilience.md`).
+- **The instructor is the author.** The `instructor*` page fixtures bind the
+  dashboard's tab page objects to the author's `page`; `contentCourse`'s seed
+  grants the author the `data_researcher` role and lets beta testers in early;
+  `gradedProblemWithWrongAnswer` arranges a graded problem a `roundTripLearner`
+  has answered wrong (through `page.request`, after `studioAuthorSession`).
+- **Certificates need a course, a learner and the platform switch.**
+  `certificateCourse` (worker) is seeded so certificates can be issued;
+  `certificateLearner` enrolls a fresh learner `honor` on its first enrollment;
+  `certificateGenerationEnabled` flips the platform-wide switch through a fresh
+  admin `loginSession` under the admin lock, and skips without an admin account.
+- **The library admin is the author, and libraries are seeded per test.**
+  `seededLibrary` (a published text / problem / video / PDF block, a unit, a
+  subsection, a section and a collection) and the empty `authoringLibrary` are
+  built on `page.request` and torn down best-effort (`LIB-001`);
+  `legacyLibrary` needs `content-libraries-v1`. Second actors are course
+  creators from `studioColleague`. Because v2 writes rotate the Studio session
+  and the API SSO handshake corrupts a stale one, library specs call
+  `resyncStudioAuthor()` (a browser re-sync) before their course writes and take
+  their learner from the deferred `roundTripLearnerLater` /
+  `authoringCourseLearnerLater`; `ownSection` / `authorSection` build first and
+  handshake only on a 302 (`buildWithAuthorWriteSession`).
 - This is the only layer that reaches across all the others.
