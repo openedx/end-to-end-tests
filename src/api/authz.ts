@@ -102,6 +102,11 @@ async function authzGet<T>(
   return (await response.json()) as T;
 }
 
+/**
+ * Builds a query string. Values are passed **raw**: `URLSearchParams` encodes
+ * them, and handing it an already-encoded scope key would double-encode the `+`
+ * of a course key into `%252B`, which matches nothing.
+ */
 function queryString(params: Readonly<Record<string, string | number | undefined>>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -273,7 +278,7 @@ export async function listAssignments(
     config,
     `assignments/${queryString({
       ...pagingParams(query),
-      scopes: query.scopes?.map(authzScopeKey).join(','),
+      scopes: query.scopes?.join(','),
       orgs: query.orgs?.join(','),
       roles: query.roles?.join(','),
     })}`,
@@ -334,7 +339,7 @@ export async function listAuthzUsers(
     config,
     `users/${queryString({
       ...pagingParams(query),
-      scopes: query.scopes?.map(authzScopeKey).join(','),
+      scopes: query.scopes?.join(','),
       orgs: query.orgs?.join(','),
     })}`,
     'Listing authz users',

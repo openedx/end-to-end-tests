@@ -44,6 +44,7 @@ import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
+import { AdminConsolePage, TeamMembersTable } from '../pages/admin-console';
 import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.page';
 import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
 import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
@@ -125,6 +126,7 @@ import {
   fetchCourseOutline,
   primeCoursewareForLearner,
   fetchCourseProgress,
+  learnerIdentityFor,
   newLearnerIdentity,
   unitsWithHtml5Video,
   type CourseDetail,
@@ -358,6 +360,13 @@ export interface TestFixtures {
    * (no admin account, or the `rbac` capability undeclared).
    */
   authzTarget: AuthzCourse;
+  /**
+   * The Roles and Permissions console, addressed at the `ADMIN_CONSOLE_URL` this
+   * installation advertises in its authoring MFE config. Where `rbac` is
+   * declared but no console is configured this **fails** rather than skipping:
+   * that is a misconfigured target, not absent coverage.
+   */
+  adminConsole: AdminConsoleFixture;
   /**
    * Skips unless this target leaves AuthZ migration to an operator — the stock
    * default, where saving a waffle override migrates nothing. The cases that
@@ -847,6 +856,16 @@ export interface WorkerAuthor {
   readonly stateFile: string;
 }
 
+/** What {@link TestFixtures.adminConsole} hands a spec. */
+export interface AdminConsoleFixture {
+  /** The console's origin, as the installation advertises it. */
+  readonly origin: string;
+  /** The console shell: tabs, the Assign Role button, the scope preset. */
+  readonly console: AdminConsolePage;
+  /** The Team Members tab's table, search and filters. */
+  readonly teamMembers: TeamMembersTable;
+}
+
 /** Runs one unit of admin work on a fresh LMS Django session, under the admin lock. */
 export type AdminLmsRunner = <T>(work: (session: APIRequestContext) => Promise<T>) => Promise<T>;
 
@@ -951,6 +970,50 @@ export const CERTIFICATE_COURSE_END = '2100-01-01T00:00:00Z';
  * `seed` runs after the course exists, on the same authenticated context, for
  * the one-time settings a fixture needs on its course; it must be idempotent.
  */
+/**
+ * Runs `work` on an **LMS Django session** for the admin, under the cross-worker
+ * admin lock.
+ *
+ * The session lives in `.auth/admin-lms.json` and is shared by every worker: the
+ * Django admin needs a session cookie (it refuses the captured staff API state),
+ * a sign-in per call exhausts the login rate limit, and each sign-in ends the
+ * session another worker holds (`PREVENT_CONCURRENT_LOGINS`). A caller that
+ * finds the session dead signs in once and republishes it, so the cost is one
+ * login per eviction rather than one per call.
+ */
+async function withAdminLmsSession<T>(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  config: AppConfig,
+  credentials: { emailOrUsername: string; password: string },
+  work: (session: APIRequestContext) => Promise<T>,
+): Promise<T> {
+  const stateFile = path.join(AUTH_STATE_DIR, 'admin-lms.json');
+  const isDeadSession = (error: unknown): boolean =>
+    error instanceof ApiError && /did not render|HTTP 40[13]/.test(error.message);
+
+  return withAdminSession(async () => {
+    const run = async (signIn: boolean): Promise<T> => {
+      const reuse = !signIn && isUsableStateFile(stateFile);
+      const session = await playwright.request.newContext(reuse ? { storageState: stateFile } : {});
+      try {
+        if (!reuse) {
+          await loginSession(session, config, credentials);
+          persistStorageState(await session.storageState(), stateFile);
+        }
+        return await work(session);
+      } finally {
+        await session.dispose();
+      }
+    };
+    try {
+      return await run(false);
+    } catch (error) {
+      if (!isDeadSession(error)) throw error;
+      return await run(true);
+    }
+  });
+}
+
 async function provisionWorkerCourse(
   playwright: PlaywrightWorkerArgs['playwright'],
   workerAuthor: WorkerAuthor | undefined,
@@ -1456,7 +1519,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           const resumed = await playwright.request.newContext({ storageState: stateFile });
           try {
             const username = await fetchStudioUsername(resumed, config);
-            await use({ identity: newLearnerIdentity({ username }), stateFile });
+            await use({ identity: learnerIdentityFor(username), stateFile });
             return;
           } finally {
             await resumed.dispose();
@@ -1748,19 +1811,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       // changes nobody's access; a target that migrates by itself still records
       // a run (with nothing in it), which is the whole signal.
       const org = `E2EAUTHZ${getRunId()}W${workerInfo.parallelIndex}`.toUpperCase();
-      let probe: MigrationModeProbe | undefined;
-      await withAdminSession(async () => {
-        const session = await playwright.request.newContext();
-        try {
-          await loginSession(session, config, {
-            emailOrUsername: admin.username,
-            password: admin.password,
-          });
-          probe = await probeMigrationMode(session, config, org);
-        } finally {
-          await session.dispose();
-        }
-      });
+      const probe = await withAdminLmsSession(
+        playwright,
+        config,
+        { emailOrUsername: admin.username, password: admin.password },
+        (session) => probeMigrationMode(session, config, org),
+      );
       await use(probe);
     },
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
@@ -1783,22 +1839,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       const course = await provisionWorkerCourse(playwright, workerAuthor, identity);
       const note = `e2e ${getRunId()} authz course`;
 
-      const withAdminLms = async (work: (session: APIRequestContext) => Promise<void>) => {
-        await withAdminSession(async () => {
-          const session = await playwright.request.newContext();
-          try {
-            await loginSession(session, config, {
-              emailOrUsername: admin.username,
-              password: admin.password,
-            });
-            await work(session);
-          } finally {
-            await session.dispose();
-          }
-        });
-      };
+      const withAdminLms = async (work: (session: APIRequestContext) => Promise<void>) =>
+        withAdminLmsSession(
+          playwright,
+          config,
+          { emailOrUsername: admin.username, password: admin.password },
+          work,
+        );
 
       await withAdminLms(async (session) => {
+        // Clear first: a previous attempt in this slot may have left the override
+        // on (worker teardown does not always run), and enabling twice would
+        // stack rows without migrating again.
+        await disableAuthzForCourse(session, config, course.courseKey, {
+          mode: authzMigrationMode.mode,
+          note: `${note} preflight`,
+        });
         await enableAuthzForCourse(session, config, course.courseKey, {
           mode: authzMigrationMode.mode,
           note,
@@ -1823,12 +1879,25 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
       // Neutralize the override. Where the target migrates by itself this is
       // also the rollback, so the course goes back to legacy roles.
-      await withAdminLms(async (session) => {
-        await disableAuthzForCourse(session, config, course.courseKey, {
-          mode: authzMigrationMode.mode,
-          note: `${note} teardown`,
+      //
+      // Best-effort, and it says so when it fails: the course is unique to this
+      // run, so a leftover override strands only a course nothing else uses, and
+      // failing the worker here would report a teardown problem as a test
+      // failure. Playwright also does not always reach worker teardown, which is
+      // why setup clears the override before enabling it.
+      try {
+        await withAdminLms(async (session) => {
+          await disableAuthzForCourse(session, config, course.courseKey, {
+            mode: authzMigrationMode.mode,
+            note: `${note} teardown`,
+          });
         });
-      });
+      } catch (error) {
+        console.warn(
+          `[authzCourse] could not turn AuthZ off again for ${course.courseKey}: ` +
+            `${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     },
     { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
   ],
@@ -2044,20 +2113,27 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       'This coverage writes through the Django admin, which needs a superuser session. Set ' +
         'ADMIN_USERNAME and ADMIN_PASSWORD.',
     );
-    await use(async (work) =>
-      withAdminSession(async () => {
-        const session = await playwright.request.newContext();
-        try {
-          await loginSession(session, config, {
-            emailOrUsername: (admin as NonNullable<typeof admin>).username,
-            password: (admin as NonNullable<typeof admin>).password,
-          });
-          return await work(session);
-        } finally {
-          await session.dispose();
-        }
-      }),
-    );
+    const credentials = {
+      emailOrUsername: (admin as NonNullable<typeof admin>).username,
+      password: (admin as NonNullable<typeof admin>).password,
+    };
+    await use(async (work) => withAdminLmsSession(playwright, config, credentials, work));
+  },
+
+  adminConsole: async ({ page, config, request }, use) => {
+    const mfe = await fetchAuthoringMfeConfig(request, config);
+    if (mfe.adminConsoleUrl === undefined) {
+      throw new Error(
+        'The `rbac` capability is declared but this installation advertises no ADMIN_CONSOLE_URL ' +
+          'in its authoring MFE config, so the Roles and Permissions console is not served. ' +
+          'Deploy the admin-console MFE or stop declaring `rbac`.',
+      );
+    }
+    await use({
+      origin: mfe.adminConsoleUrl,
+      console: new AdminConsolePage(page, config, mfe.adminConsoleUrl),
+      teamMembers: new TeamMembersTable(page),
+    });
   },
 
   manualMigrationTarget: async ({ authzTarget }, use) => {
