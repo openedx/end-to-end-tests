@@ -9,7 +9,7 @@ import {
 } from '../../../src/api';
 import { getRunId } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
-import { testId } from '../../../src/reporting';
+import { knownGap, testId } from '../../../src/reporting';
 import { createCourseThroughStudioHome } from '../../../src/steps';
 
 /**
@@ -73,7 +73,7 @@ test.describe(
         expect(detail.org).toBe(lifecycleCourse.org);
         expect(detail.number).toBe(lifecycleCourse.number);
 
-        // `STUDIO-003` (see `.private/findings.md`): the authoring MFE's course
+        // `STUDIO-003` (see `docs/findings.md`): the authoring MFE's course
         // outline ships two critical axe violations in its own chrome — the
         // right-hand sidebar's icon buttons carry `aria-selected` (not allowed on
         // a plain button), and the card action toggle has no accessible name.
@@ -153,27 +153,31 @@ test.describe(
       await checkA11y(page, { label: 'studio-home' });
     });
 
-    // `STUDIO-002` (see `.private/findings.md`): the MFE hides the "new
+    // `STUDIO-002` (see `docs/findings.md`): the MFE hides the "new
     // organization" option from an author whose `allow_to_create_new_org` is
     // false — the org control is a dropdown of allowed orgs — yet Studio accepts a
     // `POST /course/` from that author under an organization that does not exist
     // and creates both. The flag is enforced in the UI only. Lift when the server
     // refuses (403) an org the session may not create.
-    test.fixme('refuses an author a course under an organization they may not create', async ({
-      request,
-      config,
-      lifecycleCourse,
-    }) => {
-      // Only meaningful where the author may not create organizations.
-      expect((await fetchStudioHome(request, config)).allowToCreateNewOrg).toBe(false);
-      const org = `E2EDENY${getRunId()}`.toUpperCase();
-      const identity = newCourseIdentity(
-        { ...config, org },
-        getRunId(),
-        lifecycleCourse.number.slice(-8),
-        'deny',
-      );
-      await expect(createCourse(request, config, identity)).rejects.toThrow(/403/);
-    });
+    test.fixme(
+      'refuses an author a course under an organization they may not create',
+      {
+        annotation: knownGap(
+          'STUDIO-002: Studio enforces allow_to_create_new_org in the MFE only; POST /course/ accepts an organization the author may not create',
+        ),
+      },
+      async ({ request, config, lifecycleCourse }) => {
+        // Only meaningful where the author may not create organizations.
+        expect((await fetchStudioHome(request, config)).allowToCreateNewOrg).toBe(false);
+        const org = `E2EDENY${getRunId()}`.toUpperCase();
+        const identity = newCourseIdentity(
+          { ...config, org },
+          getRunId(),
+          lifecycleCourse.number.slice(-8),
+          'deny',
+        );
+        await expect(createCourse(request, config, identity)).rejects.toThrow(/403/);
+      },
+    );
   },
 );

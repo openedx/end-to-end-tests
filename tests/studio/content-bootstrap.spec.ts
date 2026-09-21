@@ -1,5 +1,6 @@
 import { expect, test } from '../../src/fixtures';
 import { TIMEOUTS } from '../../src/config';
+import { knownGap } from '../../src/reporting';
 import {
   courseUsageKey,
   fetchCourseMetadata,
@@ -21,6 +22,11 @@ test.describe(
   'Authoring content bootstrap',
   { tag: ['@regression', '@studio', '@author', '@mfe-authoring'] },
   () => {
+    // The round trips poll the learner under TIMEOUTS.contentPublish, which is
+    // longer than the default per-test budget; under CI load (publish fan-out
+    // on the CMS workers) that poll was being cut off by the 60s test timeout.
+    test.describe.configure({ timeout: TIMEOUTS.contentTest });
+
     test('the worker has a content course and a future course, distinct from the settings course', async ({
       studio,
       authoredCourse,
@@ -163,18 +169,22 @@ test.describe(
     // HTTP 500 (`Field self_paced does not exist`) where every neighbouring
     // endpoint answers 403. Written against the intended behaviour and declared
     // `fixme` so no fixtures are set up for it until the platform is fixed.
-    test.fixme('the Blocks API refuses, rather than crashes on, a learner whose course has not started (PLAT-007)', async ({
-      studio,
-      futureCourseLearner,
-      config,
-    }) => {
-      void studio;
-      const response = await futureCourseLearner.request.get(
-        `${config.baseUrls.lms}${COURSE_BLOCKS_PATH}?course_id=${encodeURIComponent(
-          futureCourseLearner.courseKey,
-        )}&username=${futureCourseLearner.identity.username}&depth=all`,
-      );
-      expect(response.status()).toBeLessThan(500);
-    });
+    test.fixme(
+      'the Blocks API refuses, rather than crashes on, a learner whose course has not started (PLAT-007)',
+      {
+        annotation: knownGap(
+          'PLAT-007: the Blocks API answers a learner on a not-yet-started course with HTTP 500 instead of 403',
+        ),
+      },
+      async ({ studio, futureCourseLearner, config }) => {
+        void studio;
+        const response = await futureCourseLearner.request.get(
+          `${config.baseUrls.lms}${COURSE_BLOCKS_PATH}?course_id=${encodeURIComponent(
+            futureCourseLearner.courseKey,
+          )}&username=${futureCourseLearner.identity.username}&depth=all`,
+        );
+        expect(response.status()).toBeLessThan(500);
+      },
+    );
   },
 );

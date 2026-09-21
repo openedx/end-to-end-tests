@@ -1,16 +1,16 @@
 /**
+ * The arrow pagination control in the results footer. Split out because both
+ * arrows are scoped to it — see `nextPageButton` for why the variant matters.
+ */
+const PAGINATION_ARROWS = '[data-testid="table-footer"] nav.pagination-minimal ul.pagination';
+
+/**
  * Course catalog (`frontend-app-catalog`, served at `${APPS}/catalog/courses`;
  * the LMS `/courses` route redirects there).
  *
  * Each anchor names the localized string it stands in for, per
  * `src/config/selectors/README.md`.
  */
-/**
- * The arrow pagination control in the results footer. Split out because both
- * arrows are scoped to it — see `nextPageButton` for why the variant matters.
- */
-const PAGINATION_ARROWS = '[data-testid="table-footer"] nav.pagination-minimal ul.pagination';
-
 export const CATALOG_SELECTORS = {
   /** A single course result. Its `href` carries the course key and `/about`. */
   courseCard: '[data-testid="course-card"]',

@@ -14,6 +14,14 @@ export const STUDIO_EDITOR_SELECTORS = {
    * Visible toggle with no aria-label) do not, so this picks the editor's Save.
    */
   saveButton: 'button.btn-primary[aria-label]:not(.btn-sm)',
+  /** The component editor dialog (`aria-label="Editor Dialog"`, an xl modal). */
+  editorDialog: '[role="dialog"].pgn__modal-xl',
+  /**
+   * The editor dialog's title controls: the small icon button beside the title
+   * ("Edit Title") and the input it swaps in.
+   */
+  editorTitleEditButton: '[role="dialog"].pgn__modal-xl .pgn__modal-header button.btn-icon-sm',
+  editorTitleInput: '[role="dialog"].pgn__modal-xl .pgn__modal-header input',
   /** The editor's "Cancel"/"Discard" button. */
   cancelButton: 'button.btn-tertiary',
 
@@ -35,4 +43,18 @@ export const STUDIO_EDITOR_SELECTORS = {
   videoSourceCollapsible: '.collapsible-body',
   videoUrlInput: '.collapsible-body input.form-control',
   videoDownloadCheckbox: '.collapsible-body input[type="checkbox"]',
+  /**
+   * The video editor's "Duration" widget: the one collapsible body laid out as a
+   * `form-row` of two floating-label inputs — "Start time" then "Stop time",
+   * `hh:mm:ss`. Measured in the library MFE's editor (2026-09-15).
+   */
+  videoDurationInput: '[role="dialog"] .collapsible-body .form-row input.form-control',
+  /**
+   * The "Transcripts" widget: "Add a transcript" is the small link button in the
+   * one collapsible whose body holds no input; it reveals a language row with an
+   * `.srt` file input.
+   */
+  videoAddTranscriptButton:
+    '[role="dialog"] .collapsible-card:not(:has(input)) button.btn-link.btn-sm',
+  videoTranscriptFileInput: '[role="dialog"] input.upload[type="file"]',
 } as const;

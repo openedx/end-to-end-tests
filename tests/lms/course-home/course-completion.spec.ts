@@ -1,7 +1,7 @@
 import { totalUnits, type CourseUnit } from '../../../src/api';
 import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
-import { testId } from '../../../src/reporting';
+import { knownGap, testId } from '../../../src/reporting';
 import {
   canCompleteUnit,
   completeUnit,
@@ -76,7 +76,12 @@ test.describe('Course completion', () => {
     'completes every unit the suite can drive and the platform records it',
     {
       tag: ['@regression', '@authenticated', '@mfe-learning'],
-      annotation: testId('TC-00022'),
+      annotation: [
+        testId('TC-00022'),
+        knownGap(
+          'Demo course has no drivable completion path for its video, ORA, LTI and custom-JS units',
+        ),
+      ],
     },
     async ({ page, unitPage, courseOutline, courseProgress, enrolledCourse, stubVideoSources }) => {
       const drivable = courseOutline.units.filter(canCompleteUnit);

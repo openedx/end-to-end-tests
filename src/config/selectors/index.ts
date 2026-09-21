@@ -43,4 +43,33 @@ export { STUDIO_PAGES_RESOURCES_SELECTORS } from './studio-pages-resources';
 export { STUDIO_CUSTOM_PAGES_SELECTORS } from './studio-custom-pages';
 export { STUDIO_UNIT_PAGE_SELECTORS } from './studio-unit';
 export { STUDIO_EDITOR_SELECTORS } from './studio-editors';
-export { COURSE_CREATOR_ADMIN_SELECTORS } from './django-admin';
+export {
+  CERTIFICATE_GENERATION_ADMIN_SELECTORS,
+  COURSE_CREATOR_ADMIN_SELECTORS,
+} from './django-admin';
+export {
+  INSTRUCTOR_CERTIFICATE_FILTERS,
+  INSTRUCTOR_DASHBOARD_SELECTORS,
+  INSTRUCTOR_REPORT_ROWS,
+  INSTRUCTOR_TAB_IDS,
+  instructorTabLink,
+  instructorTabPath,
+  type InstructorReportType,
+  type InstructorTabId,
+} from './instructor';
+export {
+  COURSE_LIBRARY_SYNC_SELECTORS,
+  LEGACY_MIGRATION_SELECTORS,
+  LIBRARY_CONTAINER_TYPES,
+  LIBRARY_PICKER_SELECTORS,
+  LIBRARY_SELECTORS,
+  LIBRARY_TABS,
+  courseLibrariesPath,
+  createLibraryPath,
+  legacyMigrationPath,
+  libraryCollectionPath,
+  libraryContainerPath,
+  libraryPath,
+  type LibraryContainerType,
+  type LibraryTab,
+} from './library';

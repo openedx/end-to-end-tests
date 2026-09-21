@@ -8,7 +8,9 @@ their own Open edX installation through configuration alone, without editing tes
 code.
 
 See [ADR-0002](docs/decisions/0002-core-principles.rst) for the core principles
-guiding development.
+guiding development, and [`docs/findings.md`](docs/findings.md) for the defects
+this suite has surfaced upstream — the reason behind every `test.fixme()` and
+workaround in the tree.
 
 ## Prerequisites
 
@@ -97,7 +99,18 @@ The authoring suite adds opt-in capabilities for features and component types th
 are not on every install: `cohorts` and `courseware-navigation-sidebar`, and the
 component gates `ora`, `drag-and-drop-v2`, `pdf-xblock`, `lti`, `scorm` and
 `edx-sga` (the last two ship with the platform; the others may be plugins). The
-full vocabulary, with which ship by default, is in `.env.example`.
+instructor-dashboard suite adds the default-on `instructor-dashboard` (the LMS
+instructor dashboard as its MFE, `verawood` onward — ulmo and earlier opt out
+with `-instructor-dashboard`) and the opt-in `certificates` (course certificates
+can be issued; the platform-wide switch is turned on through the admin account,
+so that coverage skips without one). The content-libraries suite adds
+`content-libraries` (the v2 library-authoring MFE and `/api/libraries/v2/` —
+`tests/studio/library/`; declared on `main` and `verawood`) and the opt-in
+`content-libraries-v1` (legacy `library-v1:` libraries and their migration into
+v2; an install that has disabled the legacy library index leaves it
+undeclared). `analytics` is reserved for the Superset/Aspects reports and has no
+specs yet. The full vocabulary, with which ship by default, is in
+`.env.example`.
 Sign-in and sign-out coverage is not gated — it runs through the account
 backend's own UI flows, whatever those are.
 
@@ -307,9 +320,19 @@ implement `grantCourseCreator` in an account backend plugin
 keeps the count low: the settings specs share **one course per worker**
 (`authoredCourse`), the authoring-to-learner round-trip specs share **two more
 per worker** (`contentCourse` and `futureCourse`, with `authoringCourse` giving a
-per-test course only where a spec needs isolation), and each builds a uniquely
-named **section** inside its course rather than a new course. Only the specs whose
-subject is course creation make their own. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
+per-test course only where a spec needs isolation), the instructor-dashboard
+certificate specs share **one more** (`certificateCourse`, set up so certificates
+can be issued), and each builds a uniquely named **section** inside its course
+rather than a new course. Only the specs whose
+subject is course creation make their own. **Content libraries accumulate the
+same way:** `DELETE /api/libraries/v2/<lib>/` answers 500 for any library that
+ever held a unit, subsection or section ([`LIB-001`](docs/findings.md), filed as
+[edx-platform#39117](https://github.com/openedx/openedx-platform/issues/39117)),
+so the library specs seed
+one small library per test (`seededLibrary`, plus an empty `authoringLibrary`
+where a spec mutates), attempt the delete, and rely on run-unique slugs
+(`e2e-<run id>-…`) to keep runs apart; every list they select a library from is
+filtered by that slug or title first. Every suite course is numbered `E2E<run id><slot>` under `ORG` (or
 `E2E` when `ORG` is unset). On a persistent target, purge them with the CMS
 management command — it prompts, so pipe `yes` into it:
 
@@ -318,8 +341,18 @@ yes | tutor local exec cms ./manage.py cms delete_course <course key>
 ```
 
 then `./manage.py cms reindex_course --all --setup` if deleted courses still show
-in catalog search. CI's Tutor installs are ephemeral, so nothing accumulates
-there.
+in catalog search.
+
+**There is no equivalent for v2 libraries today.** The CMS offers
+`export_content_library`, `import_content_library` and
+`migrate_course_legacy_library_blocks_to_item_bank`, but nothing that deletes a
+v2 library, and `LIB-001` blocks the per-library API for any library that held a
+container — so the libraries the suite seeds stay on a persistent target. The
+legacy half is different: `./manage.py cms delete_v1_libraries` (run it with
+`--help` for its arguments) covers the `library-v1:` libraries the
+`legacyLibrary` fixture creates.
+
+CI's Tutor installs are ephemeral, so nothing accumulates there.
 
 ## Quality gates
 
@@ -358,14 +391,15 @@ Triggers:
 
 - **`workflow_dispatch`** — run on demand with:
 
-  | Input              | Description                                                                                                                                   |
-  | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `openedx_release`  | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`. |
-  | `test_ref`         | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                |
-  | `domains`          | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                              |
-  | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                         |
-  | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                           |
-  | `capabilities`     | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.              |
+  | Input              | Description                                                                                                                                                     |
+  | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `openedx_release`  | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`.                   |
+  | `test_ref`         | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                                  |
+  | `domains`          | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                                                |
+  | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                                           |
+  | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                             |
+  | `capabilities`     | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.                                |
+  | `btr_sheet_url`    | Override: publish BTR results to this Google Sheet instead of the release's `BTR_SHEET_URL_<RELEASE>` variable (see [BTR results sheets](#btr-results-sheets)). |
 
 - **`schedule`** — automatically at **09:00 UTC (5am US Eastern in daylight
   time), Mondays and Fridays**,
@@ -402,25 +436,61 @@ Credentials are sourced from a **GitHub Environment** (Settings → Environments
 rather than hard-coded, so different targets (and their approval/protection
 rules) stay isolated from each other:
 
-| Input                      | Description                                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                     |
-| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                 |
-| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                              |
-| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                            |
-| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                             |
-| `org`                      | Organization short code.                                                                                     |
-| `course_key`               | Default course for course-completion specs.                                                                  |
-| `capabilities`             | Comma-separated capabilities enabled on the target.                                                          |
-| `account_backend`          | `automatic` (default; works on the default install, see above) or `manual` (interactive — not usable in CI). |
-| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                           |
-| `domains` / `features`     | Same filters as above.                                                                                       |
-| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.          |
+| Input                      | Description                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                                                    |
+| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                                                |
+| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                                                             |
+| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                                                           |
+| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                                                            |
+| `org`                      | Organization short code.                                                                                                                    |
+| `course_key`               | Default course for course-completion specs.                                                                                                 |
+| `capabilities`             | Comma-separated capabilities enabled on the target.                                                                                         |
+| `account_backend`          | `automatic` (default; works on the default install, see above) or `manual` (interactive — not usable in CI).                                |
+| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                                          |
+| `domains` / `features`     | Same filters as above.                                                                                                                      |
+| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                         |
+| `openedx_release`          | Release the target runs (a key of `.ci/openedx-releases.json`). Enables publishing to that release's BTR results sheet. Empty = no publish. |
+| `btr_sheet_url`            | Override sheet URL for this run; requires `openedx_release`.                                                                                |
 
 To run it against your own installation: create a GitHub Environment (e.g.
 `staging`) with `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets (and any required
 approval rule), then trigger the workflow with that environment name and your
 target's base URLs.
+
+### BTR results sheets
+
+Every run writes `test-results/btr-run.json`: one row per BTR Release Test Plan
+case exercised (spec, result, notes, timing) plus the run's metadata. Scheduled
+and manually dispatched runs can **publish** that file to a Google Sheet, one
+spreadsheet per Open edX release, kept separate from the manually maintained
+BTR sheet. Each publish overwrites the sheet's `Latest` tab (for an unfiltered
+run of the default branch), appends a row to the `Runs` index, and adds a
+timestamped tab that is kept for comparison over time. PR and push runs never
+publish.
+
+To enable it for a release, in the repository (or a fork, or a provider's
+deployment):
+
+1. Create a Google Cloud **service account**, download a JSON key, and store the
+   key's text as the `BTR_SHEET_CREDENTIALS` secret (repository-wide, or on the
+   GitHub Environment an external target uses).
+2. Create an **empty Google Sheet** per release and share each one with the
+   service account's `client_email` as an **Editor**.
+3. Set a repository variable **`BTR_SHEET_URL_<RELEASE>`** per sheet, with the
+   release upper-cased: `BTR_SHEET_URL_MAIN`, `BTR_SHEET_URL_VERAWOOD`, … An
+   Environment-scoped variable of the same name overrides the repository one
+   for `run_tests_external.yml` runs.
+
+The credentials always come from that secret — no workflow or action input
+passes them in. A repository without it (a fork, say) still runs the suite: the
+publish step warns and skips, leaving the run's result unchanged.
+
+The first publish bootstraps the sheet (tabs, headers, title). A sheet
+remembers its release and refuses runs for another one, so a mis-set variable
+cannot mix releases. `ci.yml` warns (without failing) about releases that have
+no variable. Details and the local re-publish command:
+[`src/reporting/README.md`](src/reporting/README.md#publishing-to-the-btr-results-sheets).
 
 ## Project structure
 
@@ -432,6 +502,8 @@ tests/                 # specs, grouped by platform domain (lms/, studio/)
   lms/course-home/     # learning MFE: outline, progress, unit/course completion
   lms/courseware/      # learning MFE: outline sidebar
   lms/dashboard/       # learner dashboard
+  lms/instructor/      # instructor dashboard MFE: course info, enrollments, grading,
+                       #   date extensions, data downloads, certificates
   lms/landing.spec.ts  # proof-of-life smoke test
   studio/              # authoring MFE + Studio APIs (bootstrap: author session, course factory)
   conventions/         # suite-wide rules enforced as tests (no displayed text)
@@ -448,7 +520,7 @@ src/
   steps/               # reusable multi-page business flows
   fixtures/            # composition root (config + pages + api + auth + skips)
     assets/            # bundled media served in place of course-hosted sources
-  reporting/           # BTR test_id annotations, coverage + a11y reporters
+  reporting/           # BTR test_id annotations, coverage + run-detail + a11y reporters
   a11y/                # @axe-core/playwright WCAG 2.2 AA gate
 plugins/               # example account-backend plugin (openinbox)
 .ci/                   # per-release CI configuration (openedx-releases.json)
@@ -472,3 +544,7 @@ well-formed spec, with links into the detailed documents.
 - Keep configuration centralized in `src/config/` — never read `process.env`
   directly in specs.
 - Never commit a real `.env` or captured auth state (both are gitignored).
+- When a change works around an upstream defect, or skips a case because of one,
+  record it in [`docs/findings.md`](docs/findings.md) and quote its ID in the
+  `test.fixme()` reason or the comment. Add the entry in the pull request that
+  needs it, so a reviewer can see what the branch worked around and why.

@@ -19,3 +19,22 @@ export {
   type StudioCourseCreation,
 } from './studio';
 export { satisfyPrerequisiteByScore, submitProblem } from './gating';
+export {
+  ensureDataResearcher,
+  mintCertificateByException,
+  waitForInstructorTask,
+  waitForLearnerProgress,
+  waitForReport,
+  type CertificateMintOutcome,
+  type TaskWaitOutcome,
+} from './instructor';
+export {
+  authorLibrary,
+  waitForLearnerBlock,
+  waitForMigration,
+  waitForSyncAvailable,
+  type AuthoredLibrary,
+  type LibraryBlockSpec,
+  type LibraryShape,
+} from './library';
+export { pollUntil, type PollOutcome } from './poll';

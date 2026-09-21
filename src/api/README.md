@@ -118,3 +118,46 @@ The auth primitives are what the default auth provider (`src/auth/`) and the
 account backends compose into a captured storage state; the course primitives
 are what specs assert on ("the UI drives the action; the API decides the
 outcome").
+
+### Instructor clients
+
+- `instructor.ts` — the LMS `/api/instructor/v2/courses/<key>/…` API the
+  instructor-dashboard MFE is built on (`verawood` onward): the dashboard model
+  (`fetchInstructorCourse`: identifiers, counts, the caller's `permissions`, the
+  tabs it may see), in-flight tasks and one task by id, reports (`listReports`,
+  `downloadReport` with `resolveReportUrl` — `generate` itself is a UI action
+  here and returns no task id, see `INSTR-002`), the enrollment list and
+  learner / per-problem readings, the two grading writes the seeds and steps
+  need (`resetAttempts`, `overrideScore`), extensions (`listUnitExtensions`),
+  the certificate reads and the writes the certificate step composes, and
+  `grantCourseTeamRole` (report generation needs `data_researcher`). Only what
+  a page object, step, fixture or spec calls is here; the rest of the surface
+  is driven through the dashboard and asserted on the response it returns. DRF views that accept the JWT, so the author's
+  `page.request` drives them. A `400 "already running"` is a
+  `TaskAlreadyRunningError`.
+- `certificate-generation-config.ts` — `ensureCertificateGenerationEnabled`: the
+  platform-wide certificate switch, which has no REST API — only the LMS Django
+  admin, session-auth, so it takes a fresh admin `loginSession` context.
+
+### Library clients
+
+- `libraries.ts` — the content libraries v2 API (`/api/libraries/v2/`) the
+  library-authoring MFE is built on: libraries (`createLibrary` with a typed
+  `LibraryExistsError` keyed on the `slug` field error, `fetchLibrary`,
+  `listLibraries` with `textSearch`, `updateLibrary`, `deleteLibrary` typing the
+  `LIB-001` 500 as `LibraryDeleteRestrictedError`), publish / commit, blocks and
+  their OLX and assets (`libraryOlx` builds escaped html / video / pdf / problem
+  OLX), containers (unit / subsection / section) with `children/` and
+  `hierarchy/`, collections and their items, and the library team. Keys:
+  `libraryKeyFor(org, slug)`, `newLibrarySlug`. Studio-session-authenticated
+  (measured: no JWT needed), so the author's `page.request` drives it; responses
+  are read through `studioJson` with `allowEmpty` (204s) and the membership
+  `forbiddenHint`.
+- `library-sync.ts` — the course side of reuse: `importLibraryContent`
+  (`POST /xblock/` with `library_content_key`; `category` is mandatory), the
+  downstream link (`fetchDownstream`, `listDownstreams` — course key
+  URL-encoded) and `acceptSync` / `declineSync`.
+- `legacy-libraries.ts` — legacy `library-v1:` libraries (`createLegacyLibrary`,
+  `addLegacyLibraryBlock`, `listLegacyLibraries`) and the modulestore migrator
+  (`startMigration`, `fetchMigration` — `undefined` on the retrieve-404 race a
+  caller polls through — `isMigrationSettled`).

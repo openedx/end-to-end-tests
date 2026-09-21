@@ -22,6 +22,23 @@ Page objects live in the same platform-domain folder as the specs that use them,
 - `pages/studio/editors/text-editor.ts` and `video-editor.ts` drive the text
   (TinyMCE) and video component editors the add-component tiles open
 
+- `pages/lms/instructor/dashboard.page.ts` is the instructor-dashboard MFE's shell
+  (reach a tab by URL, prove it by its nav link, wait for the instructor-API
+  request an action fires); the tab page objects (`course-info`, `enrollments`,
+  `grading`, `date-extensions`, `data-downloads`, `certificates`) build on it and
+  return the response of every write they trigger
+- `pages/studio/library/` is the library-authoring MFE: `library.page.ts`
+  (header, tabs, search / sort / filters, cards and their menus, the Add
+  Content panel whose component buttons open the shared editors),
+  `library-sidebar.ts` (info, publish status, the public-read switch),
+  `library-container.page.ts`, `create-library.page.ts`,
+  `library-picker.dialog.ts` (the course's "Library Content" picker — paginated,
+  so it searches by title before selecting), `preview-changes.dialog.ts` (reads
+  its footer structurally: a customized block swaps the sync for "Keep course
+  content" as its primary), `course-libraries.page.ts` (reload-polls the Review
+  tab, `LIB-002`) and `legacy-migration.page.ts` (searches the destination list
+  by slug). Serves `tests/studio/library/`.
+
 A component rendered _inside_ a surface — an XBlock in a unit — is a `*.block.ts`
 object beside its page (`courseware/problem.block.ts`, `courseware/video.block.ts`),
 constructed with the page's content frame and the block ID. `VideoBlock` drives

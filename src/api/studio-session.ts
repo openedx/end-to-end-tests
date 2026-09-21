@@ -61,10 +61,6 @@ export async function establishStudioSession(
 }
 
 /**
- * Whether the request context already has a Studio session. Cheap probe for
- * callers that want to skip the handshake when it has been done.
- */
-/**
  * The username of the session `request` holds, read from Studio's `me` endpoint.
  * A plain read (no SSO handshake), so it does not create or rotate a session — use
  * it when you only need the identity of an already-authenticated context.
@@ -95,6 +91,10 @@ export async function fetchStudioUsername(
   return body.username;
 }
 
+/**
+ * Whether the request context already has a Studio session. Cheap probe for
+ * callers that want to skip the handshake when it has been done.
+ */
 export async function hasStudioSession(
   request: APIRequestContext,
   config: AppConfig,

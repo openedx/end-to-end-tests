@@ -8,6 +8,7 @@ import {
   type BrowserContext,
   type Page,
   type PlaywrightWorkerArgs,
+  type TestInfo,
 } from '@playwright/test';
 
 import {
@@ -36,6 +37,22 @@ import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
+import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.page';
+import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
+import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
+import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
+import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
+import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
+import { authorLibrary, ensureDataResearcher, submitProblem, type AuthoredLibrary } from '../steps';
+import {
+  CourseLibrariesPage,
+  CreateLibraryPage,
+  LegacyMigrationPage,
+  LibraryContainerPage,
+  LibraryPage,
+  LibraryPickerDialog,
+  PreviewChangesDialog,
+} from '../pages/studio/library';
 import {
   AUTH_STATE_DIR,
   authStateFile,
@@ -66,6 +83,17 @@ import {
   fetchStudioHome,
   fetchCourseSettingsFlags,
   ensureCertificateBearingMode,
+  fetchCertificateConfiguration,
+  fetchCertificateGenerationEnabled,
+  firstProblem,
+  ensureCertificateGenerationEnabled,
+  createCertificate,
+  setCertificateActive,
+  setCourseCertificateGeneration,
+  updateGradingPolicy,
+  updateXBlock,
+  loginSession,
+  type AuthoredProblem,
   courseKeySkipReason,
   enrollInCourseViaApi,
   fetchCourseDetail,
@@ -79,6 +107,24 @@ import {
   type CourseProgress,
   type CourseUnit,
   type LearnerIdentity,
+  DEFAULT_COURSE_ORG,
+  LibraryDeleteRestrictedError,
+  LibraryExistsError,
+  addLegacyLibraryBlock,
+  addLibraryTeamMember,
+  createLegacyLibrary,
+  createLibrary,
+  deleteLibrary,
+  fetchBlockHierarchy,
+  fetchLibrary,
+  libraryKeyFor,
+  listCollections,
+  listLibraryBlocks,
+  type ContentLibrary,
+  type LibraryAccessLevel,
+  type LibraryBlock,
+  type LibraryCollection,
+  type LibraryContainer,
 } from '../api';
 import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
@@ -239,6 +285,36 @@ export interface TestFixtures {
   groupConfigurationsPage: StudioGroupConfigurationsPage;
   /** Certificates page object (authoring MFE). */
   certificatesPage: StudioCertificatesPage;
+  /** Instructor dashboard tab page objects, on the author's page. */
+  instructorCourseInfo: InstructorCourseInfoPage;
+  instructorEnrollments: InstructorEnrollmentsPage;
+  instructorGrading: InstructorGradingPage;
+  instructorDateExtensions: InstructorDateExtensionsPage;
+  instructorDataDownloads: InstructorDataDownloadsPage;
+  instructorCertificates: InstructorCertificatesPage;
+  /**
+   * Makes sure the **platform** allows certificate generation
+   * (`CertificateGenerationConfiguration`, off on a default install). It has no
+   * REST API, only the LMS Django admin, which needs a live admin Django
+   * session: a throwaway context signed in with `loginSession` under the admin
+   * lock. Skips with a reason when no admin account is configured — "not
+   * configured", as `courseKey` distinguishes it from "misconfigured".
+   */
+  certificateGenerationEnabled: void;
+  /**
+   * A learner of the test's own in {@link WorkerFixtures.certificateCourse},
+   * enrolled in the **honor** track on its first enrollment (the platform does
+   * not move an existing audit enrollment), so a certificate can be generated
+   * for it. Own browser and request contexts, disposed at test end.
+   */
+  certificateLearner: RoundTripLearner;
+  /**
+   * The arrangement the gradebook cases start from: a published graded section
+   * with a single-choice problem in the content course, a due date on its
+   * subsection, and a {@link roundTripLearner} who has already submitted the
+   * **wrong** answer. The instructor's adjustment is then the test's own act.
+   */
+  gradedProblemWithWrongAnswer: GradedProblemSetup;
   /** Course Export page object (authoring MFE). */
   exportPage: StudioExportPage;
   /** Course Import page object (authoring MFE). */
@@ -331,6 +407,31 @@ export interface TestFixtures {
    */
   roundTripLearner: RoundTripLearner;
   /**
+   * A {@link roundTripLearner} that is **not** provisioned until the returned
+   * function is first awaited — for library round-trip specs, which must run
+   * `establishStudioSession` on `page.request` (to re-sync the Studio session
+   * the v2 library writes rotate) *before* any learner exists. Provisioning a
+   * learner leaves the author's LMS session stale, and the SSO handshake then
+   * corrupts the working CMS session instead of healing it. So these specs do
+   * all their `page.request` authoring first, then `await roundTripLearnerLater()`
+   * for the learner half. The result is memoised (repeat calls return the same
+   * learner) and disposed at test end.
+   */
+  roundTripLearnerLater: () => Promise<RoundTripLearner>;
+  /**
+   * Re-syncs the worker author's Studio session on `page`/`page.request` through
+   * the **browser** — a real navigation to Studio Home that completes the cms-sso
+   * handshake and, if the loaded session has decayed, a single UI sign-in that
+   * refreshes both the LMS and the Studio halves. Library round-trip specs call
+   * this (not `establishStudioSession`) after the seeded library's v2 writes have
+   * rotated `page.request`'s Studio session: the API-side SSO handshake heals a
+   * live session but *corrupts* one whose LMS half a prior test's learner has
+   * left stale, whereas the browser path detects that and re-logs-in instead.
+   * Idempotent; the refreshed session is persisted to the worker author's state
+   * file so later tests load it.
+   */
+  resyncStudioAuthor: () => Promise<void>;
+  /**
    * Two independent {@link roundTripLearner}s — for a case whose point is that
    * two learners see different content (a cohort-restricted unit).
    */
@@ -348,8 +449,110 @@ export interface TestFixtures {
   authoringCourse: AuthoredCourse;
   /** A {@link roundTripLearner} enrolled in this test's {@link authoringCourse}. */
   authoringCourseLearner: RoundTripLearner;
+  /**
+   * A deferred {@link roundTripLearnerLater} enrolled in this test's
+   * {@link authoringCourse} — provisioned only when first awaited, so a library
+   * round-trip spec can finish its `page.request` authoring first.
+   */
+  authoringCourseLearnerLater: () => Promise<RoundTripLearner>;
   /** Two independent learners in this test's {@link authoringCourse} (cohort in/out cases). */
   authoringCourseLearners: readonly [RoundTripLearner, RoundTripLearner];
+
+  // --- Content libraries (Epic 10) --------------------------------------------
+
+  /** The library page object (library home, tabs, cards, sidebar, collections). */
+  libraryPage: LibraryPage;
+  /** A unit / subsection / section landing page in the library MFE. */
+  libraryContainerPage: LibraryContainerPage;
+  /** The "Create new library" form. */
+  createLibraryPage: CreateLibraryPage;
+  /** The course-side "Library Content" picker modal. */
+  libraryPicker: LibraryPickerDialog;
+  /** The "Preview changes" (accept / ignore a library update) modal. */
+  previewChangesDialog: PreviewChangesDialog;
+  /** The course's Libraries page (Review Content Updates). */
+  courseLibrariesPage: CourseLibrariesPage;
+  /** The legacy-library migration stepper. */
+  legacyMigrationPage: LegacyMigrationPage;
+  /**
+   * A **published** library seeded for this test with the shape every
+   * shared-read case needs (search, filters, hierarchy, reuse, overrides,
+   * public read): a text / problem / video / PDF block, a unit, a subsection, a
+   * section and a collection. Per test, not per worker — the seed's v2 writes
+   * rotate the seeding context's Studio session, so it is built on the test's
+   * own `page.request` (see CONVENTIONS.md "Library round trips"). Specs never
+   * delete from it; destructive cases take {@link authoringLibrary}.
+   */
+  seededLibrary: SeededLibrary;
+  /**
+   * A fresh, **empty** library of this test's own — for cases that create,
+   * delete or publish items and would otherwise disturb the shared library.
+   * Idempotent per test and retry. Torn down best-effort at test end: the
+   * platform refuses to delete a library that has held a container (`LIB-001`),
+   * and those are left in place under their run-unique slug.
+   */
+  authoringLibrary: ContentLibrary;
+  /**
+   * A **legacy** (`library-v1:`) library of this test's own with two components,
+   * the source of the migration cases. Skips unless `content-libraries-v1` is
+   * declared; fails if it is declared but Studio reports legacy libraries off
+   * (misconfiguration, not optional coverage). Legacy libraries cannot be
+   * deleted through any API, so none is torn down.
+   */
+  legacyLibrary: LegacyLibraryFixture;
+  /**
+   * Makes a second **Studio user** for a library access case — a fresh
+   * course-creator account (public read grants nothing to a plain learner), on
+   * its own request context and browser page, optionally added to a library's
+   * team at an access level by the worker author. Each call provisions one;
+   * contexts are disposed when the test ends. Costs one registration and, on an
+   * install with `ENABLE_CREATOR_GROUP`, one course-creator grant per call.
+   */
+  studioColleague: (options?: StudioColleagueOptions) => Promise<StudioColleague>;
+}
+
+/** What {@link TestFixtures.seededLibrary} hands a spec: the seeded library and its items by role. */
+export interface SeededLibrary {
+  readonly org: string;
+  readonly library: ContentLibrary;
+  readonly libraryKey: string;
+  readonly blocks: {
+    readonly text: LibraryBlock;
+    readonly problem: LibraryBlock;
+    readonly video: LibraryBlock;
+    readonly pdf: LibraryBlock;
+  };
+  readonly units: { readonly unit: LibraryContainer };
+  readonly subsections: { readonly subsection: LibraryContainer };
+  readonly sections: { readonly section: LibraryContainer };
+  readonly collections: { readonly collection: LibraryCollection };
+}
+
+/** What {@link TestFixtures.legacyLibrary} hands a spec. */
+export interface LegacyLibraryFixture {
+  readonly libraryKey: string;
+  readonly displayName: string;
+  /** The two components' display names (our own data). */
+  readonly blockNames: readonly [string, string];
+}
+
+export interface StudioColleagueOptions {
+  /** Add the colleague to this library's team at this level, as the worker author. */
+  readonly libraryAccess?: { readonly libraryKey: string; readonly level: LibraryAccessLevel };
+}
+
+/** What one {@link TestFixtures.studioColleague} call hands a spec. */
+export interface StudioColleague {
+  readonly identity: LearnerIdentity;
+  /** Request context holding the colleague's LMS + Studio session. */
+  readonly request: APIRequestContext;
+  /** Browser context (and its one page) carrying the same session. */
+  readonly context: BrowserContext;
+  readonly page: Page;
+  /** Page objects bound to the colleague's page. */
+  readonly libraryPage: LibraryPage;
+  readonly unitPage: StudioUnitPage;
+  readonly libraryPicker: LibraryPickerDialog;
 }
 
 /** What {@link TestFixtures.roundTripLearner} hands a spec. */
@@ -464,6 +667,18 @@ export interface WorkerFixtures {
    * paste. One per worker.
    */
   futureCourse: AuthoredCourse;
+  /**
+   * One course per worker set up so certificates can be issued: start in the
+   * past, end in the future, certificates shown as soon as earned
+   * (`certificates_display_behavior: early_no_info` — `PUT course_details`
+   * ignores `self_paced`, PLAT-006), an `honor` mode, an active Studio
+   * certificate, student-generated certificates on, a grading policy of one
+   * assignment type at 100 %, one graded section with a single-choice problem,
+   * and the `data_researcher` role for the worker author. Specs share it **by
+   * learner**: each test provisions its own ({@link TestFixtures.certificateLearner}),
+   * so allowlist and invalidation state never crosses tests.
+   */
+  certificateCourse: CertificateCourse;
 }
 
 /** What {@link WorkerFixtures.workerAuthor} holds. */
@@ -477,6 +692,28 @@ export interface WorkerAuthor {
 export interface AuthoredCourse extends CourseIdentity {
   /** The course's Studio URL (redirects to the authoring MFE where applicable). */
   readonly studioUrl: string;
+}
+
+/** What {@link TestFixtures.gradedProblemWithWrongAnswer} hands a spec. */
+export interface GradedProblemSetup {
+  readonly section: AuthoredSection;
+  /** The graded subsection (carries the due date). */
+  readonly subsectionKey: string;
+  readonly problem: AuthoredProblem;
+  /** The due date set on the subsection (ISO). */
+  readonly due: string;
+  /** The learner who answered wrong; its `progress` is the learner-side oracle. */
+  readonly learner: RoundTripLearner;
+}
+
+/** What {@link WorkerFixtures.certificateCourse} hands a spec. */
+export interface CertificateCourse extends AuthoredCourse {
+  /** The one graded subsection (100 % of the grade). */
+  readonly subsectionKey: string;
+  /** Its single-choice problem, with the answers that pass and fail. */
+  readonly problem: AuthoredProblem;
+  /** Whether a certificate-bearing (`honor`) mode could be added — needs the staff session. */
+  readonly certificateBearingMode: boolean;
 }
 
 /** What {@link TestFixtures.courseLearner} hands a spec. */
@@ -506,14 +743,6 @@ export interface CompletionUnits {
 export type EnrolledCourse = CourseLearner;
 
 /**
- * The composition root. Specs import `test`/`expect` from here (not directly from
- * `@playwright/test`) so they receive fully-composed, typed objects.
- *
- * Requesting `config` also fails fast with a clear {@link ConfigError} when the
- * environment is invalid, rather than surfacing later as a confusing navigation
- * failure.
- */
-/**
  * Builds a test fixture that hands the spec a page object constructed from the
  * `page` and `config` fixtures — the shape almost every page-object fixture takes.
  * Playwright reads the returned function's destructured parameters to wire its
@@ -533,6 +762,8 @@ function pageObjectFixture<T>(
  * release-date specs place their own dates on either side of it.
  */
 export const CONTENT_COURSE_START = '2000-01-01T00:00:00Z';
+/** End date of the certificate course: far enough out never to matter. */
+export const CERTIFICATE_COURSE_END = '2100-01-01T00:00:00Z';
 
 /**
  * Provisions one worker-scoped course as the worker's author — the body every
@@ -623,10 +854,11 @@ async function provisionRoundTripLearner(
   browser: Browser,
   config: AppConfig,
   courseKey: string,
+  options: { readonly mode?: string } = {},
 ): Promise<RoundTripLearner> {
   const request = await playwright.request.newContext();
   const identity = await provisionLearnerSession(request, config);
-  await enrollInCourseViaApi(request, config, courseKey);
+  await enrollInCourseViaApi(request, config, courseKey, options);
   const context = await browser.newContext();
   await context.addCookies((await request.storageState()).cookies);
   const page = await context.newPage();
@@ -663,10 +895,20 @@ async function disposeRoundTripLearner(learner: RoundTripLearner): Promise<void>
  * session-only write cannot. The SSO handshake rebuilds the Studio session off
  * this context's login JWT (the JWT authorizes the `cms-sso` OAuth flow), so it
  * recovers an evicted session on its own **as long as the JWT is still valid**.
- * Idempotent: a no-op when the session is already live.
  *
- * The one case it cannot heal is a **lapsed JWT** (a worker run past the ~1 h
- * clock): there is then nothing to authorize the handshake, and no clean context
+ * The handshake runs **only after a write has actually 302'd**, never up front.
+ * Measured (Epic 10): a Studio session that is live for `/xblock/` writes can
+ * still have a *stale LMS half* — a sibling fixture provisioning a learner
+ * leaves it so — and the SSO handshake then does not no-op on it but replaces
+ * the working Studio session with a dead one, so the very write it was meant to
+ * protect 302s (content-bootstrap's "hiding a subsection" flaked exactly this
+ * way on both releases). No cheap Studio GET distinguishes the two states on an
+ * API context (measured: the JWT-tolerant legacy reads answer 200 either way),
+ * so the write itself is the probe: build, and on the typed 302 rebuild the
+ * session and retry once.
+ *
+ * The one case the handshake cannot heal is a **lapsed JWT** (a worker run past
+ * the ~1 h clock): there is then nothing to authorize it, and no clean context
  * to sign into here. That is pre-empted upstream — the `storageState` fixture
  * refreshes the state file before this context is built once the stored JWT is
  * stale — so if it is still hit, the session is genuinely gone: surface it as
@@ -674,10 +916,19 @@ async function disposeRoundTripLearner(learner: RoundTripLearner): Promise<void>
  * context and retry" signal) rather than a bare handshake error, so a retry's
  * heal is reached and the failure reads correctly.
  */
-async function establishAuthorWriteSession(
+async function buildWithAuthorWriteSession<T>(
   request: APIRequestContext,
   config: AppConfig,
-): Promise<void> {
+  build: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await build();
+  } catch (error) {
+    if (!(error instanceof StudioSessionExpiredError)) throw error;
+  }
+  // The first write 302'd: the Studio session is gone (cache eviction). A dead
+  // session dies on its first write, so nothing was created — rebuild off the
+  // JWT and retry the whole build once.
   try {
     await establishStudioSession(request, config);
   } catch (error) {
@@ -686,6 +937,177 @@ async function establishAuthorWriteSession(
       status: error instanceof ApiError ? error.status : 0,
     });
   }
+  return build();
+}
+
+/** A library slug unique to this run and `scope` (a worker slot or a test id): lowercase, `[a-z0-9-]`. */
+function librarySlug(scope: string): string {
+  return `e2e-${getRunId()}-${scope}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
+
+/**
+ * Tears a library down where the platform allows it: `DELETE <lib>/` is 500
+ * for any library that ever held a container (`LIB-001`), so that answer is
+ * recorded on the test as a note and the library is left in place. The note
+ * carries the response body, because the classification is by status alone —
+ * an unrelated 500 on this endpoint lands here too, and has to stay readable.
+ */
+async function deleteLibraryBestEffort(
+  request: APIRequestContext,
+  config: AppConfig,
+  libraryKey: string,
+  testInfo: TestInfo,
+): Promise<void> {
+  await deleteLibrary(request, config, libraryKey).catch((error: unknown) => {
+    if (!(error instanceof LibraryDeleteRestrictedError)) throw error;
+    testInfo.annotations.push({
+      type: 'note',
+      description:
+        `${libraryKey} could not be deleted (LIB-001); left in place. ` +
+        `Platform answered: ${error.body.slice(0, 300)}`,
+    });
+  });
+}
+
+/**
+ * A {@link RoundTripLearner} provisioned on first call and disposed at test end
+ * — the body of the `…LearnerLater` fixtures (see
+ * {@link TestFixtures.roundTripLearnerLater} for why library round trips defer it).
+ */
+async function deferredLearner(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  browser: Browser,
+  config: AppConfig,
+  courseKey: string,
+  use: (get: () => Promise<RoundTripLearner>) => Promise<void>,
+): Promise<void> {
+  let learner: RoundTripLearner | undefined;
+  const get = async (): Promise<RoundTripLearner> => {
+    learner ??= await provisionRoundTripLearner(playwright, browser, config, courseKey);
+    return learner;
+  };
+  try {
+    await use(get);
+  } finally {
+    if (learner !== undefined) await disposeRoundTripLearner(learner);
+  }
+}
+
+/**
+ * Creates the seeded library (a text/problem/video/pdf component, a unit, a
+ * subsection, a section and a collection) or, when a retried worker finds its
+ * predecessor's library under the same slug, re-derives the seeded items from
+ * the API so the fixture hands out the same shape either way.
+ */
+async function provisionLibrary(
+  request: APIRequestContext,
+  config: AppConfig,
+  org: string,
+  slug: string,
+): Promise<SeededLibrary> {
+  // No leading dash in the label: the search cases type it into Meilisearch.
+  const label = `E2E library ${getRunId()} ${slug.split('-').pop() ?? ''}`;
+  const pick = <T>(map: Readonly<Record<string, T>>, key: string): T => {
+    const entry = map[key];
+    if (entry === undefined) throw new Error(`The seeded library has no "${key}".`);
+    return entry;
+  };
+  const shape = (authored: AuthoredLibrary): SeededLibrary => ({
+    org,
+    library: authored.library,
+    libraryKey: authored.libraryKey,
+    blocks: {
+      text: pick(authored.blocks, 'text'),
+      problem: pick(authored.blocks, 'problem'),
+      video: pick(authored.blocks, 'video'),
+      pdf: pick(authored.blocks, 'pdf'),
+    },
+    units: { unit: pick(authored.units, 'unit') },
+    subsections: { subsection: pick(authored.subsections, 'subsection') },
+    sections: { section: pick(authored.sections, 'section') },
+    collections: { collection: pick(authored.collections, 'collection') },
+  });
+  try {
+    return shape(
+      await authorLibrary(request, config, {
+        org,
+        slug,
+        title: label,
+        allowPublicRead: true,
+        blocks: {
+          text: { type: 'html', displayName: `${label} text`, content: `${label} text body` },
+          problem: { type: 'problem', displayName: `${label} problem` },
+          video: { type: 'video', displayName: `${label} video` },
+          pdf: {
+            type: 'pdf',
+            displayName: `${label} pdf`,
+            content: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+          },
+        },
+        units: { unit: { displayName: `${label} unit`, blocks: ['text', 'problem'] } },
+        subsections: { subsection: { displayName: `${label} subsection`, units: ['unit'] } },
+        sections: { section: { displayName: `${label} section`, subsections: ['subsection'] } },
+        collections: { collection: { title: `${label} collection`, items: ['text'] } },
+      }),
+    );
+  } catch (error) {
+    if (!(error instanceof LibraryExistsError)) throw error;
+  }
+  const libraryKey = libraryKeyFor(org, slug);
+  const library = await fetchLibrary(request, config, libraryKey);
+  const blocks = (await listLibraryBlocks(request, config, libraryKey)).results;
+  const byType = (type: string) => {
+    const block = blocks.find((b) => b.block_type === type);
+    if (block === undefined) {
+      throw new Error(`The seeded library ${libraryKey} exists but has no ${type} block.`);
+    }
+    return block;
+  };
+  const text = byType('html');
+  const hierarchy = await fetchBlockHierarchy(request, config, text.id);
+  const one = <T extends { id: string; display_name: string }>(
+    list: readonly T[],
+    what: string,
+  ) => {
+    const [entry] = list;
+    if (entry === undefined) {
+      throw new Error(`The seeded library ${libraryKey} exists but has no ${what}.`);
+    }
+    return entry;
+  };
+  const unit = one(hierarchy.units, 'unit');
+  const subsection = one(hierarchy.subsections, 'subsection');
+  const section = one(hierarchy.sections, 'section');
+  const container = (
+    entry: { id: string; display_name: string },
+    type: 'unit' | 'subsection' | 'section',
+  ) => ({
+    ...text,
+    id: entry.id,
+    display_name: entry.display_name,
+    container_type: type,
+    container_type_code: type,
+  });
+  const collection = one(
+    (await listCollections(request, config, libraryKey)).results.map((c) => ({
+      ...c,
+      id: String(c.id),
+      display_name: c.title,
+    })),
+    'collection',
+  );
+  return {
+    org,
+    library,
+    libraryKey,
+    blocks: { text, problem: byType('problem'), video: byType('video'), pdf: byType('pdf') },
+    units: { unit: container(unit, 'unit') },
+    subsections: { subsection: container(subsection, 'subsection') },
+    sections: { section: container(section, 'section') },
+    collections: {
+      collection: { ...collection, id: Number(collection.id) },
+    },
+  };
 }
 
 /** A section label unique to this test and run, safe to match as the test's own data. */
@@ -693,6 +1115,14 @@ function sectionLabel(testInfo: { testId: string; retry: number }, ordinal: numb
   return `E2E ${getRunId()} ${testInfo.testId.slice(-6)}R${testInfo.retry} S${ordinal}`;
 }
 
+/**
+ * The composition root. Specs import `test`/`expect` from here (not directly from
+ * `@playwright/test`) so they receive fully-composed, typed objects.
+ *
+ * Requesting `config` also fails fast with a clear {@link ConfigError} when the
+ * environment is invalid, rather than surfacing later as a confusing navigation
+ * failure.
+ */
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   // eslint-disable-next-line no-empty-pattern
   config: async ({}, use) => {
@@ -887,7 +1317,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     //   * the stored login JWT has lapsed (or is within the refresh margin) —
     //     a worker whose Studio run outlives the ~1 h JWT. While the JWT is live a
     //     decayed session behind it needs no refresh here (the SSO handshake in
-    //     `establishAuthorWriteSession` rebuilds it off the JWT); once the JWT
+    //     `buildWithAuthorWriteSession` rebuilds it off the JWT); once the JWT
     //     itself lapses there is nothing left to authorize that handshake, and the
     //     author-write fixtures (`ownSection`, `authorSection`) would otherwise
     //     throw at setup. `storedSessionNeedsRefresh` reads the file to decide.
@@ -949,13 +1379,110 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
             });
             await updateAdvancedSettings(request, config, courseKey, {
               enable_subsection_gating: true,
+              // Beta testers may see content up to a year before its release
+              // (the instructor dashboard's beta-tester case); Epic 8's fixed
+              // 2100 release dates stay out of reach.
+              days_early_for_beta: 365,
             });
+            // Report generation on the instructor dashboard needs the course
+            // `data_researcher` role, which the creator does not get by default.
+            // The grant goes through the v2 instructor API, which only exists
+            // where the dashboard MFE does (verawood onward) — a worker seed is not
+            // protected by the test-level capability gate, so guard it here.
+            if (config.capabilities.has('instructor-dashboard')) {
+              await ensureDataResearcher(request, config, courseKey);
+            }
           },
         ),
       );
     },
-    // Two extra Studio writes on top of the create.
+    // Three extra Studio/LMS writes on top of the create.
     { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
+  ],
+
+  certificateCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}K`,
+        'certificates',
+      );
+      let seeded:
+        Pick<CertificateCourse, 'subsectionKey' | 'problem' | 'certificateBearingMode'> | undefined;
+      const course = await provisionWorkerCourse(
+        playwright,
+        workerAuthor,
+        identity,
+        async (request, courseKey) => {
+          // Every write is idempotent, so a restarted worker re-seeds harmlessly.
+          await updateCourseDetails(request, config, courseKey, {
+            start_date: CONTENT_COURSE_START,
+            end_date: CERTIFICATE_COURSE_END,
+            certificates_display_behavior: 'early_no_info',
+          });
+          await updateGradingPolicy(request, config, courseKey, {
+            graders: [
+              { type: 'Homework', min_count: 1, drop_count: 0, short_label: 'HW', weight: 100 },
+            ],
+            grade_cutoffs: { Pass: 0.5 },
+            grace_period: null,
+            minimum_grade_credit: 0.8,
+          });
+          if (config.capabilities.has('instructor-dashboard')) {
+            await ensureDataResearcher(request, config, courseKey);
+          }
+          // A certificate-bearing mode needs the staff session; without one the
+          // course is still seeded and `certificateGenerationEnabled` skips.
+          // (`ensureCertificateBearingMode` answers whether it *added* a mode;
+          // either way the mode exists once it returns.)
+          let certificateBearingMode = false;
+          const staffState = authStateFile('staff');
+          if (config.credentials.admin !== undefined && isUsableStateFile(staffState)) {
+            const staff = await playwright.request.newContext({ storageState: staffState });
+            try {
+              await ensureCertificateBearingMode(staff, config, courseKey);
+              certificateBearingMode = true;
+            } finally {
+              await staff.dispose();
+            }
+          }
+          // Studio never refuses a duplicate certificate, so a re-seed must check
+          // before creating rather than rely on an error.
+          const existing = await fetchCertificateConfiguration(request, config, courseKey);
+          if (existing.certificates.length === 0) {
+            await createCertificate(request, config, courseKey, {
+              name: `E2E certificate ${getRunId()}`,
+              signatories: [
+                { name: 'E2E Signatory', title: 'Instructor', organization: identity.org },
+              ],
+            });
+          }
+          await setCertificateActive(request, config, courseKey, true);
+          await setCourseCertificateGeneration(request, config, courseKey, true);
+          const section = await buildSection(
+            request,
+            config,
+            courseKey,
+            `E2E certificate ${getRunId()} W${workerInfo.parallelIndex}`,
+            {
+              subsections: [
+                { gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] },
+              ],
+              publish: true,
+            },
+          );
+          seeded = { ...firstProblem(section), certificateBearingMode };
+        },
+      );
+      if (seeded === undefined) {
+        throw new Error(`The certificate course ${identity.courseKey} was not seeded.`);
+      }
+      await use({ ...course, ...seeded });
+    },
+    // Around ten Studio/LMS writes on top of the create.
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 3 },
   ],
 
   futureCourse: [
@@ -1200,14 +1727,15 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   ownSection: async ({ request, config, contentCourse }, use, testInfo) => {
-    await establishAuthorWriteSession(request, config);
     await use(
-      await buildSection(
-        request,
-        config,
-        contentCourse.courseKey,
-        sectionLabel(testInfo, 0),
-        DEFAULT_SECTION_SHAPE,
+      await buildWithAuthorWriteSession(request, config, () =>
+        buildSection(
+          request,
+          config,
+          contentCourse.courseKey,
+          sectionLabel(testInfo, 0),
+          DEFAULT_SECTION_SHAPE,
+        ),
       ),
     );
   },
@@ -1216,13 +1744,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     let ordinal = 0;
     await use(async (shape = DEFAULT_SECTION_SHAPE, label) => {
       ordinal += 1;
-      await establishAuthorWriteSession(request, config);
-      return buildSection(
-        request,
-        config,
-        contentCourse.courseKey,
-        label ?? sectionLabel(testInfo, ordinal),
-        shape,
+      return buildWithAuthorWriteSession(request, config, () =>
+        buildSection(
+          request,
+          config,
+          contentCourse.courseKey,
+          label ?? sectionLabel(testInfo, ordinal),
+          shape,
+        ),
       );
     });
   },
@@ -1239,6 +1768,41 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await disposeRoundTripLearner(learner);
     }
+  },
+
+  resyncStudioAuthor: async ({ page, config, workerAuthor }, use) => {
+    const resync = async (): Promise<void> => {
+      // A real navigation to Studio Home re-completes the cms-sso handshake on
+      // the browser's (and so `page.request`'s) shared cookie jar, healing the
+      // session the library's v2 writes rotated — without the API `/login/`
+      // handshake that corrupts a stale-LMS session.
+      const live = await establishStudioBrowserSession(page, config);
+      if (!live) {
+        // The session had genuinely decayed (a prior test's learner left the
+        // LMS half stale, or an eviction): a single UI sign-in refreshes both
+        // halves. Uses the worker author's own identity so it never depends on
+        // the (equally stale) API session.
+        if (workerAuthor === undefined) {
+          throw new Error(
+            'resyncStudioAuthor found a decayed Studio session but no worker author to sign ' +
+              'back in as: it needs the studio-author project (workerAuthor).',
+          );
+        }
+        const username = workerAuthor.identity.username;
+        await signInToStudioThroughUi(page, config, {
+          emailOrUsername: username,
+          password: DEFAULT_PASSWORD,
+        });
+      }
+      if (workerAuthor) {
+        persistStorageState(await page.context().storageState(), workerAuthor.stateFile);
+      }
+    };
+    await use(resync);
+  },
+
+  roundTripLearnerLater: async ({ playwright, browser, config, contentCourse }, use) => {
+    await deferredLearner(playwright, browser, config, contentCourse.courseKey, use);
   },
 
   roundTripLearners: async ({ playwright, browser, config, contentCourse }, use) => {
@@ -1265,6 +1829,102 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await disposeRoundTripLearner(learner);
     }
+  },
+
+  instructorCourseInfo: pageObjectFixture(InstructorCourseInfoPage),
+  instructorEnrollments: pageObjectFixture(InstructorEnrollmentsPage),
+  instructorGrading: pageObjectFixture(InstructorGradingPage),
+  instructorDateExtensions: pageObjectFixture(InstructorDateExtensionsPage),
+  instructorDataDownloads: pageObjectFixture(InstructorDataDownloadsPage),
+  instructorCertificates: pageObjectFixture(InstructorCertificatesPage),
+
+  certificateGenerationEnabled: async ({ page, playwright, config, certificateCourse }, use) => {
+    const admin = config.credentials.admin;
+    base.skip(
+      admin === undefined || !certificateCourse.certificateBearingMode,
+      'Certificates need the administrator: the platform-wide certificate switch lives in ' +
+        'the Django admin and the honor course mode needs a staff session. Set ' +
+        'ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
+    );
+    // The switch is platform-wide and usually already on after the first test of a
+    // run: read it as the author first (a JWT read), and only when it is off pay
+    // for an admin sign-in — every credential login counts against the per-account
+    // rate limit and evicts the admin's other LMS session.
+    if (
+      !(await fetchCertificateGenerationEnabled(page.request, config, certificateCourse.courseKey))
+    ) {
+      // A Django-admin write needs the admin's *session* cookie: sign in afresh on a
+      // throwaway context, under the admin lock (PREVENT_CONCURRENT_LOGINS).
+      await withAdminSession(async () => {
+        const session = await playwright.request.newContext();
+        try {
+          await loginSession(session, config, {
+            emailOrUsername: (admin as NonNullable<typeof admin>).username,
+            password: (admin as NonNullable<typeof admin>).password,
+          });
+          await ensureCertificateGenerationEnabled(session, config, certificateCourse.courseKey);
+        } finally {
+          await session.dispose();
+        }
+      });
+    }
+    await use();
+  },
+
+  certificateLearner: async (
+    { playwright, browser, config, certificateCourse, certificateGenerationEnabled },
+    use,
+  ) => {
+    // Depends on the skip above: without an admin there is no honor mode to
+    // enroll into, and the spec must skip rather than fail here.
+    void certificateGenerationEnabled;
+    const learner = await provisionRoundTripLearner(
+      playwright,
+      browser,
+      config,
+      certificateCourse.courseKey,
+      { mode: 'honor' },
+    );
+    try {
+      await use(learner);
+    } finally {
+      await disposeRoundTripLearner(learner);
+    }
+  },
+
+  gradedProblemWithWrongAnswer: async (
+    { page, config, contentCourse, roundTripLearner, studioAuthorSession },
+    use,
+    testInfo,
+  ) => {
+    void studioAuthorSession;
+    // Same user in browser and API → `page.request` (a separate `request` context
+    // is evicted by the browser's own Studio session work; see
+    // tests/studio/home/course-lifecycle.spec.ts).
+    const author = page.request;
+    const section = await buildSection(
+      author,
+      config,
+      contentCourse.courseKey,
+      sectionLabel(testInfo, 1),
+      {
+        subsections: [{ gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] }],
+        publish: true,
+      },
+    );
+    const { subsectionKey, problem } = firstProblem(section);
+    // A due date a week out: what the extension case extends, harmless otherwise.
+    const due = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    await updateXBlock(author, config, subsectionKey, { metadata: { due } });
+    await roundTripLearner.prime(subsectionKey);
+    await submitProblem(
+      roundTripLearner.request,
+      config,
+      section.courseKey,
+      problem,
+      problem.incorrect,
+    );
+    await use({ section, subsectionKey, problem, due, learner: roundTripLearner });
   },
 
   authoringCourse: async ({ playwright, workerAuthor }, use, testInfo) => {
@@ -1305,6 +1965,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
+  authoringCourseLearnerLater: async ({ playwright, browser, config, authoringCourse }, use) => {
+    await deferredLearner(playwright, browser, config, authoringCourse.courseKey, use);
+  },
+
   authoringCourseLearners: async ({ playwright, browser, config, authoringCourse }, use) => {
     const learners = await Promise.all([
       provisionRoundTripLearner(playwright, browser, config, authoringCourse.courseKey),
@@ -1314,6 +1978,145 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       await use([learners[0], learners[1]]);
     } finally {
       await Promise.all(learners.map(disposeRoundTripLearner));
+    }
+  },
+
+  // --- Content libraries (Epic 10) ------------------------------------------------
+
+  libraryPage: pageObjectFixture(LibraryPage),
+
+  libraryContainerPage: pageObjectFixture(LibraryContainerPage),
+
+  createLibraryPage: pageObjectFixture(CreateLibraryPage),
+
+  libraryPicker: pageObjectFixture(LibraryPickerDialog),
+
+  previewChangesDialog: pageObjectFixture(PreviewChangesDialog),
+
+  courseLibrariesPage: pageObjectFixture(CourseLibrariesPage),
+
+  legacyMigrationPage: pageObjectFixture(LegacyMigrationPage),
+
+  seededLibrary: async ({ page, config, studioAuthorSession }, use, testInfo) => {
+    void studioAuthorSession;
+    // On the test's own `page.request`, never a side context: a side context
+    // either shares (and rotates) this session or signs in a second account that
+    // evicts it. The spec re-syncs once through `resyncStudioAuthor` before its
+    // course writes — CONVENTIONS.md "Library round trips" has the measurements.
+    const org = config.org ?? DEFAULT_COURSE_ORG;
+    const slug = librarySlug(
+      `w${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}r${testInfo.retry}`,
+    );
+    const library = await provisionLibrary(page.request, config, org, slug);
+    try {
+      await use(library);
+    } finally {
+      await deleteLibraryBestEffort(page.request, config, library.libraryKey, testInfo);
+    }
+  },
+
+  authoringLibrary: async ({ page, config, studioAuthorSession }, use, testInfo) => {
+    void studioAuthorSession;
+    // Same user in browser and API → `page.request` (course-lifecycle.spec.ts).
+    const request = page.request;
+    const org = config.org ?? DEFAULT_COURSE_ORG;
+    const slug = librarySlug(
+      `a${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}r${testInfo.retry}`,
+    );
+    let library: ContentLibrary;
+    try {
+      library = await createLibrary(request, config, {
+        org,
+        slug,
+        title: `E2E library ${getRunId()} ${testInfo.testId.slice(-6)}`,
+      });
+    } catch (error) {
+      if (!(error instanceof LibraryExistsError)) throw error;
+      library = await fetchLibrary(request, config, libraryKeyFor(org, slug));
+    }
+    try {
+      await use(library);
+    } finally {
+      await deleteLibraryBestEffort(request, config, library.id, testInfo);
+    }
+  },
+
+  legacyLibrary: async (
+    { page, config, studioAuthorSession, resyncStudioAuthor },
+    use,
+    testInfo,
+  ) => {
+    void studioAuthorSession;
+    base.skip(
+      !config.capabilities.has('content-libraries-v1'),
+      'Legacy (v1) content libraries are not declared for this installation (content-libraries-v1).',
+    );
+    const request = page.request;
+    // The legacy `/library/` writes below are session-authed like `/xblock/`;
+    // re-sync through the browser first (CONVENTIONS.md "Library round trips").
+    await resyncStudioAuthor();
+    const home = await fetchStudioHome(request, config);
+    if (!home.librariesV1Enabled) {
+      throw new Error(
+        'content-libraries-v1 is declared but Studio reports legacy libraries disabled ' +
+          '(libraries_v1_enabled: false). Remove the capability or enable legacy libraries.',
+      );
+    }
+    const org = config.org ?? DEFAULT_COURSE_ORG;
+    const number = `L${getRunId()}${testInfo.testId.replace(/[^\w]/g, '').slice(-6)}R${testInfo.retry}`;
+    const displayName = `E2E legacy ${getRunId()} ${testInfo.testId.slice(-6)}`;
+    const libraryKey = await createLegacyLibrary(request, config, { org, number, displayName });
+    const blockNames = [`${displayName} text`, `${displayName} problem`] as const;
+    await addLegacyLibraryBlock(request, config, libraryKey, 'html', blockNames[0]);
+    await addLegacyLibraryBlock(request, config, libraryKey, 'problem', blockNames[1]);
+    await use({ libraryKey, displayName, blockNames });
+  },
+
+  studioColleague: async ({ playwright, browser, page, config }, use) => {
+    const made: StudioColleague[] = [];
+    await use(async (options = {}) => {
+      const request = await playwright.request.newContext();
+      const staffState = authStateFile('staff');
+      let identity: LearnerIdentity;
+      try {
+        identity = await provisionAuthorSession(request, config, {
+          adminStorageState: isUsableStateFile(staffState) ? staffState : undefined,
+        });
+      } catch (error) {
+        if (error instanceof AccountNotConfiguredError) {
+          base.skip(true, error.message);
+        }
+        throw error;
+      }
+      if (options.libraryAccess !== undefined) {
+        // The worker author (the library's admin) adds the colleague; the
+        // author's own session rides `page.request`.
+        await addLibraryTeamMember(
+          page.request,
+          config,
+          options.libraryAccess.libraryKey,
+          identity.email,
+          options.libraryAccess.level,
+        );
+      }
+      const context = await browser.newContext();
+      await context.addCookies((await request.storageState()).cookies);
+      const colleaguePage = await context.newPage();
+      const colleague: StudioColleague = {
+        identity,
+        request,
+        context,
+        page: colleaguePage,
+        libraryPage: new LibraryPage(colleaguePage, config),
+        unitPage: new StudioUnitPage(colleaguePage, config),
+        libraryPicker: new LibraryPickerDialog(colleaguePage, config),
+      };
+      made.push(colleague);
+      return colleague;
+    });
+    for (const colleague of made) {
+      await colleague.context.close();
+      await colleague.request.dispose();
     }
   },
 

@@ -14,7 +14,7 @@ import {
   publishXBlock,
   updateXBlock,
 } from '../../../src/api';
-import { testId } from '../../../src/reporting';
+import { knownGap, testId } from '../../../src/reporting';
 
 /**
  * Learner-sidebar cases that need authored content: unit-type icons (TC-00054),
@@ -70,14 +70,19 @@ test.describe(
       },
     );
 
-    // PLAT-009 (see `.private/findings.md`): between a publish and the CMS worker's
+    // PLAT-009 (see `docs/findings.md`): between a publish and the CMS worker's
     // `learning_sequences` outline task landing, the navigation view raises
     // `CourseOutlineData.DoesNotExist` and answers HTTP 500 rather than an empty
     // model. `fetchCourseNavigation` rides that out for the other specs; this test
     // records the intended answer and is `fixme` until the platform is fixed.
     test.fixme(
       'answers the navigation model without a server error right after a publish (PLAT-009)',
-      { tag: '@courseware-navigation-sidebar' },
+      {
+        tag: '@courseware-navigation-sidebar',
+        annotation: knownGap(
+          'PLAT-009: the navigation view answers HTTP 500 between a publish and the CMS worker outline task landing',
+        ),
+      },
       async ({ page, config, authoringCourse, studioAuthorSession, authoringCourseLearner }) => {
         void studioAuthorSession;
         await buildSection(

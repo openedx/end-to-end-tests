@@ -140,6 +140,31 @@ signed in on the author's `page`. Cohort and other LMS session-auth writes, whic
 a JWT-only context cannot make, run on a third throwaway context signed in afresh
 as the author (see [`.private/studio-auth-resilience.md`](.private/studio-auth-resilience.md)).
 
+The **instructor** persona is the same worker author: a course's creator holds
+the `instructor` and `staff` course roles on it (course-team membership is data,
+not a session role — see `src/auth/roles.ts`), the seeds add the `data_researcher`
+role, and the instructor-dashboard MFE's `/api/instructor/v2/` accepts the JWT, so
+`tests/lms/instructor/` runs in `studio-author` on `page` / `page.request` with a
+`roundTripLearner` as the second actor. The global `instructor` role stays
+installation-supplied. The one session-only write in that tree — enabling
+platform-wide certificate generation in the LMS Django admin — runs on a fresh
+admin `loginSession` context under the admin lock.
+
+The **library admin** persona is the same worker author too: creating a content
+library (v2) makes its creator the library's `admin`, and the
+`/api/libraries/v2/` API rides the author's Studio session (measured: no JWT
+needed), so `tests/studio/library/` runs in
+`studio-author` on `page` / `page.request`. Its second actors — a library
+member, an unaffiliated Studio user — are **course creators** provisioned per
+test on their own contexts (`studioColleague`), because `allow_public_read`
+grants a plain learner nothing. The legacy library writes and the course-side
+import are session-authed, and the v2 writes rotate the Studio session while
+the API SSO handshake corrupts one whose LMS half a provisioned learner has left
+stale; so these specs re-sync through the browser (`resyncStudioAuthor`) and
+provision their learner last, and the `request`-context fixtures handshake only
+after a write has 302'd (see [`CONVENTIONS.md`](CONVENTIONS.md) "Library round
+trips").
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the
@@ -171,10 +196,10 @@ collide. We never disable browser security to paper over cross-origin auth.
 
 Two `src/` modules support specs across every domain rather than a single layer:
 
-| Module           | Responsibility                                                                                                                                                                          |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/reporting/` | BTR `test_id` annotations + coverage reporter (`test-results/btr-coverage.json`), and the accessibility reporter that consolidates every scan into `test-results/a11y-violations.json`. |
-| `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline. Per-scan results are attached to each test and aggregated by the reporter above.             |
+| Module           | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/reporting/` | BTR `test_id` / `known_gap` annotations, the coverage reporter (`test-results/btr-coverage.json`), the run-detail reporter (`test-results/btr-run.json`, per-case specs/notes/timing + run metadata, the input to the results-sheet publisher in `scripts/btr-sheet/`), the accessibility reporter that consolidates every scan into `test-results/a11y-violations.json`, and the timing reporter that writes per-test / per-step durations to `test-results/timings-*.csv`. |
+| `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline. Per-scan results are attached to each test and aggregated by the reporter above.                                                                                                                                                                                                                                                                                                  |
 
 Configuration lives in [`playwright.config.ts`](playwright.config.ts); timeouts
 are centralized in `src/config/timeouts.ts` (no fixed sleeps).

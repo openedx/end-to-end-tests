@@ -1,7 +1,7 @@
 import { checkA11y } from '../../../src/a11y';
 import { fetchCertificateConfiguration, resetCertificates } from '../../../src/api';
 import { expect, test } from '../../../src/fixtures';
-import { testId } from '../../../src/reporting';
+import { knownGap, testId } from '../../../src/reporting';
 
 /**
  * Certificates (authoring MFE), on the worker's own course.
@@ -129,7 +129,15 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
   // until there is a supported way to set it.
   test.fixme(
     'enables automatic certificate generation',
-    { tag: '@regression', annotation: testId('TC-00277') },
+    {
+      tag: '@regression',
+      annotation: [
+        testId('TC-00277'),
+        knownGap(
+          'Automatic certificate generation is a Django-admin waffle switch the authoring MFE does not expose',
+        ),
+      ],
+    },
     async ({ request, config, authoredCourse }) => {
       const cfg = await fetchCertificateConfiguration(request, config, authoredCourse.courseKey);
       expect(cfg.hasCertificateModes).toBe(true);
@@ -141,7 +149,15 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
   // certificate annotation in `tests/lms/course-home/progress.spec.ts`.
   test.fixme(
     'a student who passes receives the certificate',
-    { tag: '@regression', annotation: testId('TC-00278') },
+    {
+      tag: '@regression',
+      annotation: [
+        testId('TC-00278'),
+        knownGap(
+          'Needs gradable authored content and a passing learner; certificate issuance is not yet driven end to end',
+        ),
+      ],
+    },
     async ({ request, config, authoredCourse }) => {
       const cfg = await fetchCertificateConfiguration(request, config, authoredCourse.courseKey);
       expect(cfg.isActive).toBe(true);

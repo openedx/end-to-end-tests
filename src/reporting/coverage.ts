@@ -24,6 +24,24 @@ export interface TestAttempt extends TestOutcome {
 }
 
 /**
+ * Reads one attempt's status the way the BTR sheet should see it, honouring
+ * `test.fail()`. A test marked as an expected failure (a known upstream defect,
+ * see CONVENTIONS "Known upstream defects") that duly fails is a *known gap*, not
+ * a regression, so it counts as `skipped` — the same reading a `test.fixme` gets.
+ * If it unexpectedly passes, the defect has been fixed and the marker is stale;
+ * Playwright fails the run for that, and so does this report.
+ */
+export function normalizeStatus(expectedStatus: TestStatus, status: TestStatus): TestStatus {
+  if (status === 'skipped') {
+    return 'skipped';
+  }
+  if (expectedStatus === 'failed') {
+    return status === 'passed' ? 'failed' : 'skipped';
+  }
+  return status;
+}
+
+/**
  * Collapses per-attempt results to one outcome per test: the **last** attempt
  * wins, because that is the result Playwright itself reports for the test. A test
  * that fails and then passes on retry is flaky, not failed, and must count once —

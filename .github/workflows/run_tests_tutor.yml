@@ -15,6 +15,14 @@ name: Tutor E2E Test
 #
 # For the "main" release the Docker images come prebuilt from
 # build_tutor_main_images.yml (nightly, pushed to ghcr.io); see that workflow.
+#
+# BTR results sheet: schedule and workflow_dispatch runs publish the run's
+# BTR-tagged results to the per-release Google Sheet named by the repository
+# variable BTR_SHEET_URL_<RELEASE> (e.g. BTR_SHEET_URL_VERAWOOD), using the
+# repository/Environment secret BTR_SHEET_CREDENTIALS. Credentials are never a
+# workflow input: without that secret the publish is skipped with a warning and
+# the run still passes. Unset variable = no publish. Runs called from ci.yml
+# (PR/push) never publish. See src/reporting/README.md.
 
 on:
   schedule:
@@ -52,6 +60,10 @@ on:
         default: ''
       capabilities:
         description: 'Override capabilities for this run (comma-separated). Empty = use the release default from .ci/openedx-releases.json.'
+        type: string
+        default: ''
+      btr_sheet_url:
+        description: 'Override: publish BTR results to this Google Sheet instead of the release''s BTR_SHEET_URL_<RELEASE> variable. Empty = use the variable (or do not publish if unset).'
         type: string
         default: ''
   workflow_call:
@@ -101,6 +113,10 @@ jobs:
       # workflow_dispatch runs use the chosen input (default: verawood);
       # schedule runs always target the "main" Open edX release.
       OPENEDX_RELEASE: ${{ (github.event_name == 'schedule' && 'main') || inputs.openedx_release }}
+      # Read by scripts/publish-btr-sheet.mts inside the run-suite action, which
+      # takes no credential input. Absent on workflow_call runs from ci.yml,
+      # which do not publish anyway; the publisher warns and skips.
+      BTR_SHEET_CREDENTIALS: ${{ secrets.BTR_SHEET_CREDENTIALS }}
     steps:
       - name: Checkout (test ref)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -234,7 +250,7 @@ jobs:
 
       # Necessary to keep github from killing our build process
       - name: Setup Docker Buildx (main only, pull failed)
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@594f3bf4285d9ea8dc53c9a0c9c4092420091003 # v4.4.0
         if: env.OPENEDX_RELEASE == 'main' && steps.pull_images.outputs.pulled != 'true'
         with:
           buildkitd-config-inline: |
@@ -390,6 +406,45 @@ jobs:
           echo "::error::LMS did not become healthy in time."
           exit 1
 
+      # Which sheet (if any) this run publishes to, and whether it may replace the
+      # sheet's "Latest" tab. `vars` is dumped as JSON because expressions have no
+      # upper-case function to build the variable name from the release.
+      - name: Resolve BTR results sheet
+        id: btr
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          OVERRIDE_URL: ${{ inputs.btr_sheet_url }}
+          VARS_JSON: ${{ toJSON(vars) }}
+          TEST_REF: ${{ inputs.test_ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          FILTERED: ${{ inputs.domains != '' || inputs.features != '' || inputs.exclude_features != '' }}
+        run: |
+          set -euo pipefail
+          VAR_NAME="BTR_SHEET_URL_${OPENEDX_RELEASE^^}"
+          URL=""
+          case "$EVENT_NAME" in
+            schedule|workflow_dispatch)
+              URL="${OVERRIDE_URL:-$(jq -r --arg k "$VAR_NAME" '.[$k] // empty' <<< "$VARS_JSON")}"
+              if [ -z "$URL" ]; then
+                echo "::notice::No BTR results sheet for '${OPENEDX_RELEASE}': set the ${VAR_NAME} repository variable (or the btr_sheet_url input) to publish."
+              fi
+              ;;
+            *)
+              echo "BTR results are not published for '${EVENT_NAME}' runs."
+              ;;
+          esac
+          REF="${TEST_REF:-$GITHUB_REF_NAME}"
+          UPDATE_LATEST=false
+          if [ "$FILTERED" != "true" ] && [ "$REF" = "$DEFAULT_BRANCH" ]; then
+            UPDATE_LATEST=true
+          fi
+          {
+            echo "sheet_url=${URL}"
+            echo "test_ref=${TEST_REF}"
+            echo "update_latest=${UPDATE_LATEST}"
+          } >> "$GITHUB_OUTPUT"
+          [ -n "$URL" ] && echo "Publishing to ${URL} (update Latest: ${UPDATE_LATEST}, ref: ${REF})" || true
+
       - name: Run E2E suite
         uses: ./.github/actions/run-suite
         with:
@@ -408,6 +463,10 @@ jobs:
           # already runs them.
           exclude_features: ${{ inputs.exclude_features }} @unit
           artifact_suffix: ${{ env.OPENEDX_RELEASE }}
+          btr_release: ${{ env.OPENEDX_RELEASE }}
+          btr_test_ref: ${{ steps.btr.outputs.test_ref }}
+          btr_sheet_url: ${{ steps.btr.outputs.sheet_url }}
+          btr_update_latest: ${{ steps.btr.outputs.update_latest }}
 
       # Collect the LMS/Studio logs whatever the outcome (`always()`, so they
       # survive a failed or cancelled run). `docker ps -a` catches the case
