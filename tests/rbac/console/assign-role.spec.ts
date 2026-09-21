@@ -184,7 +184,7 @@ test.describe(
     test(
       'shows a success message that clears itself',
       { annotation: [testId('TC-00454'), testId('TC-00455')] },
-      async ({ adminConsole, authoringLibrary, studioAuthorSession, studioColleague }) => {
+      async ({ page, adminConsole, authoringLibrary, studioAuthorSession, studioColleague }) => {
         void studioAuthorSession;
         const wizard = adminConsole.assignRole;
         const subject = await studioColleague();
@@ -197,6 +197,16 @@ test.describe(
 
         // Shown on success, and gone again without anyone dismissing it.
         await expect(wizard.toast).toBeVisible();
+
+        // The pointer is parked away from the message first. Paragon's `Toast`
+        // treats a hover (or a focus) as "the reader is still looking at this"
+        // and cancels the auto-hide, and where the save control sits relative to
+        // the toast differs by release — on `verawood` the click leaves the
+        // pointer on it, which kept the toast up for the whole wait and failed
+        // this case three attempts running. Nobody in the case is hovering the
+        // message, so this removes an interaction the case does not describe
+        // rather than weakening it.
+        await page.mouse.move(0, 0);
         await expect(wizard.toast).toBeHidden({ timeout: TIMEOUTS.blockCompletion });
       },
     );
