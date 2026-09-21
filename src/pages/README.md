@@ -40,8 +40,11 @@ Page objects live in the same platform-domain folder as the specs that use them,
   by slug). Serves `tests/studio/library/`.
 
 A component rendered _inside_ a surface — an XBlock in a unit — is a `*.block.ts`
-object beside its page (`courseware/problem.block.ts`), constructed with the
-page's content frame and the block ID.
+object beside its page (`courseware/problem.block.ts`, `courseware/video.block.ts`),
+constructed with the page's content frame and the block ID. `VideoBlock` drives
+the platform's own HTML5 player (seek to the completion threshold, play muted,
+wait for the block's `publish_completion`); it cannot reach a YouTube-only
+video, which plays in a cross-origin iframe.
 
 Rules:
 

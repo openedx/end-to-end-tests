@@ -3,9 +3,9 @@ import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { knownGap, testId } from '../../../src/reporting';
 import {
-  COMPLETABLE_BLOCK_TYPES,
   canCompleteUnit,
   completeUnit,
+  undrivableBlockKinds,
   type UnviewedBlock,
 } from '../../../src/steps';
 
@@ -21,18 +21,15 @@ import {
  * **Not every unit can be completed, and that is a property of the course, not a
  * failure.** Two kinds of obstacle are distinguished:
  *
- * - *Not drivable* — the unit holds a video, an ORA, an LTI launch or a
- *   custom-JS problem with no controls to drive. Reported as an inventory
- *   attachment, because it changes when the course changes.
+ * - *Not drivable* — the unit holds a YouTube-only video, an ORA, an LTI launch
+ *   or a custom-JS problem with no controls to drive. Reported as an inventory
+ *   attachment, because it changes when the course changes. A video **with an
+ *   HTML5 source** is drivable: its player is watched past the completion
+ *   threshold, with the bytes served from the suite's bundled clip.
  * - *Should have completed but did not* — an HTML block that was shown and
  *   reported nothing, or one too tall to show in full. These are asserted on:
  *   they mean the platform or the suite is wrong, not the course.
  */
-
-/** The block types in a unit that have no completion path the suite can drive. */
-function undrivableTypes(unit: CourseUnit): readonly string[] {
-  return [...new Set(unit.childTypes.filter((type) => !COMPLETABLE_BLOCK_TYPES.has(type)))];
-}
 
 interface UnitOutcome {
   readonly unit: string;
@@ -86,9 +83,13 @@ test.describe('Course completion', () => {
         ),
       ],
     },
-    async ({ page, unitPage, courseOutline, courseProgress, enrolledCourse }) => {
+    async ({ page, unitPage, courseOutline, courseProgress, enrolledCourse, stubVideoSources }) => {
       const drivable = courseOutline.units.filter(canCompleteUnit);
       expect(drivable.length, 'the course offers units the suite can drive').toBeGreaterThan(0);
+
+      // Every HTML5 video in the course plays the bundled clip, so no unit's
+      // completion depends on where the course's media is hosted.
+      await stubVideoSources(courseOutline.units);
 
       const before = await courseProgress();
       expect(before.completionSummary.completeCount).toBe(0);
@@ -121,7 +122,7 @@ test.describe('Course completion', () => {
           .filter((unit) => !canCompleteUnit(unit))
           .map((unit) => ({
             unit: unit.displayName ?? unit.id,
-            blockedBy: undrivableTypes(unit),
+            blockedBy: undrivableBlockKinds(unit),
           })),
       };
 
@@ -143,17 +144,19 @@ test.describe('Course completion', () => {
 
   // The definition of done for course completion — `complete_count == unit count`
   // — and currently unreachable for any learner, let alone a test: the course
-  // contains videos (no drivable completion path), ORA, LTI launches and custom-JS
-  // problems. Kept as written so the criterion stays documented; declared `fixme`
-  // so no fixtures (a learner, an enrollment, the outline) are set up for a body
-  // that cannot run. Promote to a real test as those paths become drivable.
+  // contains YouTube-only videos (no drivable completion path), ORA, LTI launches
+  // and custom-JS problems. Kept as written so the criterion stays documented;
+  // declared `fixme` so no fixtures (a learner, an enrollment, the outline) are
+  // set up for a body that cannot run. Promote to a real test as those paths
+  // become drivable.
   test.fixme(
     'completes every unit in the course',
     {
       tag: ['@regression', '@authenticated', '@mfe-learning'],
       annotation: testId('TC-00022'),
     },
-    async ({ page, unitPage, courseOutline, courseProgress, enrolledCourse }) => {
+    async ({ page, unitPage, courseOutline, courseProgress, enrolledCourse, stubVideoSources }) => {
+      await stubVideoSources(courseOutline.units);
       const report = await crawl(
         (unit) => completeUnit(page, unitPage, enrolledCourse.courseKey, unit),
         courseOutline.units,

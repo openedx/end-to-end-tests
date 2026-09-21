@@ -1,24 +1,58 @@
 import type { Page } from '@playwright/test';
 
-import type { CourseUnit } from '../api';
+import { hasHtml5Source, type CourseUnit } from '../api';
 import { TIMEOUTS } from '../config';
 import { ProblemBlock } from '../pages/lms/courseware/problem.block';
 import type { UnitPage } from '../pages/lms/courseware/unit.page';
+import { VideoBlock } from '../pages/lms/courseware/video.block';
 
 /**
  * Block types this suite knows how to complete on its own.
  *
- * Everything else — `video`, `openassessment`, `lti`, `edx_sga` and friends —
- * either needs a third-party service or has no automatable completion path on
- * this platform version, so a unit containing one cannot be driven to completion
- * (see {@link canCompleteUnit}).
+ * Everything else — `openassessment`, `lti`, `edx_sga` and friends — either
+ * needs a third-party service or has no automatable completion path on this
+ * platform version, so a unit containing one cannot be driven to completion (see
+ * {@link canCompleteUnit}). A `video` is completable only when it has an HTML5
+ * source; the per-block check is {@link isDrivableBlock}.
  */
 export const COMPLETABLE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   // Completes after being visible for the platform's dwell delay.
   'html',
   // Completes on submission, correct or not.
   'problem',
+  // Completes once the platform's own player has been watched past its
+  // completion threshold — drivable for an HTML5 source, not for YouTube-only.
+  'video',
 ]);
+
+/**
+ * Whether the block at `index` in `unit` has a completion path the suite can
+ * drive. Type decides for every block but a video, whose source decides: a
+ * YouTube-only video plays in a cross-origin iframe the suite cannot script, and
+ * driving it would depend on youtube.com being reachable from the test runner.
+ */
+export function isDrivableBlock(unit: CourseUnit, index: number): boolean {
+  const type = unit.childTypes[index] ?? 'unknown';
+  if (!COMPLETABLE_BLOCK_TYPES.has(type)) {
+    return false;
+  }
+  return type !== 'video' || hasHtml5Source(unit, unit.childIds[index] ?? '');
+}
+
+/**
+ * The kinds of block in a unit the suite cannot drive, for reporting. A
+ * YouTube-only video is named as such so it is not confused with a block type
+ * the suite has no strategy for at all.
+ */
+export function undrivableBlockKinds(unit: CourseUnit): readonly string[] {
+  const kinds = unit.childTypes.flatMap((type, index) => {
+    if (isDrivableBlock(unit, index)) {
+      return [];
+    }
+    return [type === 'video' ? 'video (no HTML5 source)' : type];
+  });
+  return [...new Set(kinds)];
+}
 
 /**
  * Block types that complete by being **viewed**, and so report completion with a
@@ -39,14 +73,17 @@ export interface UnviewedBlock {
    * count it as viewed. `timed-out` — it was shown but reported nothing.
    * `unsupported-problem` — its answer controls are a problem type the suite has
    * no strategy for. `not-drivable` — its block type has no completion path the
-   * suite can drive at all (video, ORA, LTI, …).
+   * suite can drive at all (a YouTube-only video, ORA, LTI, …).
+   * `source-not-loaded` — an HTML5 video whose source never reported a duration,
+   * so there was nothing to watch.
    */
-  readonly reason: 'too-tall' | 'timed-out' | 'unsupported-problem' | 'not-drivable';
+  readonly reason:
+    'too-tall' | 'timed-out' | 'unsupported-problem' | 'not-drivable' | 'source-not-loaded';
 }
 
 /** Whether every block in a unit has a completion path this suite can drive. */
 export function canCompleteUnit(unit: CourseUnit): boolean {
-  return unit.childTypes.every((type) => COMPLETABLE_BLOCK_TYPES.has(type));
+  return unit.childTypes.every((_, index) => isDrivableBlock(unit, index));
 }
 
 /** Records which of a unit's blocks have reported completion so far. */
@@ -117,11 +154,24 @@ export async function viewAllBlocksInUnit(
         continue;
       }
 
-      // A block type with no completion path the suite can drive is reported, not
+      // A block with no completion path the suite can drive is reported, not
       // skipped quietly: a unit completes only when *every* child does, so
       // staying silent here would report a unit as completed when it cannot be.
-      if (!COMPLETABLE_BLOCK_TYPES.has(blockType)) {
+      if (!isDrivableBlock(unit, index)) {
         skipped.push({ blockId, blockType, reason: 'not-drivable' });
+        continue;
+      }
+
+      // An HTML5 video completes by being watched, not viewed: the block is
+      // brought into view like any other, then its player is driven past the
+      // completion threshold. `watchToEnd` itself waits for the block's
+      // `publish_completion` answer.
+      if (blockType === 'video') {
+        await unitPage.showBlock(blockId);
+        const watched = await new VideoBlock(page, unitPage.contentFrame, blockId).watchToEnd();
+        if (!watched && !completed.has(blockId)) {
+          skipped.push({ blockId, blockType, reason: 'source-not-loaded' });
+        }
         continue;
       }
 
