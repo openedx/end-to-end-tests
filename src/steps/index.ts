@@ -42,6 +42,7 @@ export {
   enableAuthzForCourse,
   probeMigrationMode,
   readFlagScopes,
+  seedScopeAssignments,
   waitForCourseFlagState,
   waitForMigrationRun,
   type AuthzEnableOutcome,
