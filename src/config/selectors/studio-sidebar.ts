@@ -100,7 +100,15 @@ export const STUDIO_SIDEBAR_SELECTORS = {
    */
   unitPublishButton: '.sidebar-content .course-unit-sidebar-footer button.btn-primary',
 
-  /** Help-panel links (documentation `href`s — not localized), the Help content oracle. */
+  /**
+   * One Help-panel topic: the panel renders a heading per topic for the level
+   * that is selected. This is the portable Help oracle — whether a topic also
+   * carries a documentation link depends on the installation's docs URLs, and a
+   * build that has none renders the headings alone (measured on CI `main`,
+   * 2026-09-22, where the same panel had links a week earlier).
+   */
+  helpTopic: '.sidebar-content h3',
+  /** A Help-panel documentation link, where the installation configures one. */
   helpLink: '.sidebar-content a[href]',
 
   /** A dropdown menu item that is not tagged (used to reach an untagged menu action). */

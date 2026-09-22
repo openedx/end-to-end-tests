@@ -173,19 +173,22 @@ test.describe(
         await studioCourseOutlinePage.goto(authoringCourse.courseKey);
         await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
 
-        // Course-level Help renders contextual documentation links.
+        // Course-level Help renders the topics for that level. The topics are the
+        // assertion, not the documentation links they sometimes carry: whether a
+        // topic links out depends on the installation's docs URLs, and a build
+        // without them renders the headings alone.
         await authoringSidebar.openPage('help');
-        expect((await authoringSidebar.panelLinkHrefs()).length).toBeGreaterThan(0);
+        await expect(authoringSidebar.helpTopics.first()).toBeVisible();
 
-        // Selecting a section and reopening Help still renders contextual links
-        // (the per-level difference is in the localized descriptions, which the
-        // suite does not assert on; the doc links themselves can coincide).
+        // Selecting a section and reopening Help still renders topics (the
+        // per-level difference is in the localized descriptions, which the suite
+        // does not assert on).
         await studioCourseOutlinePage.select(
           studioCourseOutlinePage.sectionCards.first(),
           'section',
         );
         await authoringSidebar.openPage('help');
-        expect((await authoringSidebar.panelLinkHrefs()).length).toBeGreaterThan(0);
+        await expect(authoringSidebar.helpTopics.first()).toBeVisible();
       },
     );
   },
