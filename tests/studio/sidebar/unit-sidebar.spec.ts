@@ -1,6 +1,6 @@
 import { checkA11y } from '../../../src/a11y';
 import { buildSection, fetchXBlockOutline } from '../../../src/api';
-import { TIMEOUTS } from '../../../src/config';
+import { TIMEOUTS, STUDIO_SIDEBAR_SELECTORS as S } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 import { SIDEBAR_A11Y_BASELINE } from './helpers';
@@ -93,8 +93,8 @@ test.describe(
         await studioUnitPage.goto(unit.usageKey);
 
         // The unit Info panel offers Details (default) and Settings tabs.
-        await expect(authoringSidebar.tab('unit-info-sidebar-tabs-tab-details')).toBeVisible();
-        await expect(authoringSidebar.tab('unit-info-sidebar-tabs-tab-settings')).toBeVisible();
+        await expect(authoringSidebar.tab(S.unitInfoTab('details'))).toBeVisible();
+        await expect(authoringSidebar.tab(S.unitInfoTab('settings'))).toBeVisible();
 
         // The freshly built unit is unpublished, so the panel offers Publish (the
         // API is the source of truth for the draft state).

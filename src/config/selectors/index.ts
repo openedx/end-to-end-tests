@@ -78,3 +78,4 @@ export {
   type LibraryContainerType,
   type LibraryTab,
 } from './library';
+export * from './studio-updates';

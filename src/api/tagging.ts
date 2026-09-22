@@ -251,20 +251,6 @@ export async function listTaxonomyTags(
   }));
 }
 
-/** The download URL for a taxonomy export (the export modal / re-import step). */
-export function taxonomyExportUrl(
-  config: AppConfig,
-  taxonomyId: number,
-  format: 'csv' | 'json',
-): string {
-  return `${studioOrigin(config)}${TAGGING_BASE}/taxonomies/${taxonomyId}/export/?output_format=${format}&download=1`;
-}
-
-/** The download URL for the blank import template (the Download template button). */
-export function taxonomyTemplateUrl(config: AppConfig, format: 'csv' | 'json'): string {
-  return `${studioOrigin(config)}${TAGGING_BASE}/taxonomies/import/template.${format}`;
-}
-
 /** One applied tag on an object, with its full lineage (parents first). */
 export interface AppliedTag {
   readonly value: string;
@@ -389,9 +375,4 @@ export async function fetchObjectTagCounts(
 /** The count for one object, defaulting an absent key to 0. */
 export function tagCountFor(counts: Record<string, number>, objectId: string): number {
   return counts[objectId] ?? 0;
-}
-
-/** The download URL for a course's object-tags export (the outline's "export tags"). */
-export function objectTagsExportUrl(config: AppConfig, courseKey: string): string {
-  return `${studioOrigin(config)}${TAGGING_BASE}/object_tags/${encodeURIComponent(courseKey)}/export/`;
 }

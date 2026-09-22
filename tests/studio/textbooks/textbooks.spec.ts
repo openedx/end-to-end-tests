@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 
 import { fetchCourseMetadata, fetchTextbooks } from '../../../src/api';
 import { TIMEOUTS, type AppConfig } from '../../../src/config';
+import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -46,6 +47,17 @@ test.describe(
 
         // The course gains a tab titled after the textbook.
         await expect.poll(() => tabTitles(page, config, key)).toContain(title);
+
+        // `STUDIO-010`: the Textbooks page nests a non-`<li>` child in a list,
+        // and on releases before `main` the textbook card's three icon-only
+        // actions carry no accessible name. Both are baselined on this scan
+        // only, so every other rule still gates here and these two still gate
+        // every other page. The `button-name` entry comes out once the oldest
+        // supported release has the labelled card actions `main` already ships.
+        await checkA11y(page, {
+          label: 'studio-textbooks',
+          additionalBaseline: ['list', 'button-name'],
+        });
       },
     );
 

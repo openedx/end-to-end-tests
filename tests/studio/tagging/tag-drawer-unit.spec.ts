@@ -11,6 +11,7 @@ import { TIMEOUTS, encodedTagValue, type AppConfig } from '../../../src/config';
 import type { AuthoringSidebar } from '../../../src/pages/studio/sidebar/authoring-sidebar.page';
 import type { StudioUnitPage } from '../../../src/pages/studio/unit.page';
 import type { TagDrawer } from '../../../src/pages/studio/sidebar/tag-drawer.page';
+import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 import { TAG } from '../../../src/steps';
@@ -133,6 +134,14 @@ for (const { surface, ids } of SURFACES) {
           await prepare(ctx, surface, `E2E view ${test.info().testId.slice(-6)}`);
           await tagDrawer.beginEditing();
           expect(await tagDrawer.taxonomyNames()).toContain(workerTaxonomy.taxonomy.name);
+
+          // `TAG-003`: the drawer's taxonomy tree ships ~40 unlabelled form
+          // controls, two unnamed buttons and a disallowed ARIA attribute.
+          // Baselined on this scan only; everything else still gates.
+          await checkA11y(page, {
+            label: 'studio-tag-drawer',
+            additionalBaseline: ['aria-allowed-attr', 'button-name', 'label'],
+          });
         },
       );
 

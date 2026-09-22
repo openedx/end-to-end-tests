@@ -66,6 +66,9 @@ measured, and issues are opened by hand from them.
 | `TAG-002`   | `openedx/frontend-app-authoring` (outline tag counts, wg-build-test-release#592) | open, no `fixme` — the drawer cases assert the API, never the badge
 | `FILES-001` | `openedx/frontend-app-authoring` (TC-00137, frontend-app-authoring#3096) | **not reproduced** — case committed green on both targets
 | `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; copy asserted by URL resolution
+| `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
+| `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
+| `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
 
 ---
@@ -1271,3 +1274,56 @@ Confirmed in 0b: the earlier `403` on `object_tags` was a pre-migration course,
 not a permission model. A course the worker author creates in the run carries
 `course_admin`, so the author's own `PUT object_tags` succeeds (the basis for the
 `tagging-bootstrap` author case). No open issue.
+
+### `FILES-003`, `TAG-003`, `STUDIO-010` — a11y debt the new page scans found
+
+**Where:** the authoring MFE's Files page, tag drawer and Textbooks page, on
+`main` and on `verawood`.
+
+**What happens:** none of these pages had an accessibility gate until now (Epic
+11 scanned only the sidebar). Adding one to each surfaced, on a clean course:
+
+```
+Files page      aria-allowed-attr (critical, 2 nodes)
+Tag drawer      aria-allowed-attr (critical, 3 nodes)
+                button-name       (critical, 2 nodes)
+                label             (critical, ~40 nodes)
+Textbooks page  list              (serious, 1 node)
+                button-name       (critical, 3 nodes) — verawood only
+```
+
+The drawer's ~40 unlabelled form controls are its taxonomy tree: every checkbox
+in the tree is a form element with no accessible label.
+
+The Textbooks `button-name` violation is release-specific, and the only one of
+these rules that differs between releases: on `verawood` the textbook card's
+three icon-only actions render with no accessible name, and on `main` they are
+labelled. It is the one thing the first CI run of these new gates caught that
+local measurement on `main` could not — the scan passed on `main` and failed on
+`verawood` in the same run
+([#35794526218](https://github.com/openedx/end-to-end-tests/actions/runs/35794526218)).
+
+**Coverage impact:** open, no `fixme`. Each rule is baselined **on its own scan
+only**, the way `STUDIO-007`/`STUDIO-008` are, so the pages are gated against
+everything else and the debt is reported on every run. The Textbooks
+`button-name` entry is baselined unconditionally rather than gated on a
+capability — a capability describes a *feature* a release has, not debt it
+carries, and an unconditional per-scan entry keeps the rule gating every other
+page on both releases. It comes out when the oldest supported release ships the
+labelled card actions. This is the answer to the
+review question on PR #79 about whether these gates should wait: adding them cost
+three lines per page and found four rules across three pages.
+
+### The upload-agreement bump raced its own acceptance (suite-side)
+
+**Where:** `tests/studio/files/agreements.spec.ts` TC-00505, measured 2026-09-22.
+
+**What happens:** the admin stores `UserAgreement.updated` **to the second**, and
+`is_current` treats an acceptance at the same second as "at or after". Bumping
+`updated` to *now* therefore left the acceptance current whenever the two landed
+in the same second — the flake CI reported on this case in consecutive runs.
+
+**Coverage impact:** fixed in the suite, nothing to file. The bump is now taken
+from the acceptance the platform recorded plus one second, waited for rather than
+slept through, and clamped to the present so `updated` never lands in the future
+(which would leave the type outstanding for every worker sharing it).

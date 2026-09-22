@@ -383,12 +383,9 @@ export {
   importTaxonomy,
   listTaxonomies,
   listTaxonomyTags,
-  objectTagsExportUrl,
   setObjectTags,
   setTaxonomyOrgs,
   tagCountFor,
-  taxonomyExportUrl,
-  taxonomyTemplateUrl,
   type AppliedTag,
   type ImportTaxonomyOptions,
   type ListTaxonomiesOptions,
@@ -422,4 +419,4 @@ export {
 } from './assets';
 export { fetchTextbooks, type Textbook, type TextbookChapter } from './textbooks';
 export { fetchCourseUpdates, fetchHandouts, type CourseUpdate } from './course-updates';
-export { ensureAgreement, bumpAgreementUpdated } from './agreements-admin';
+export { ensureAgreement, editAgreement, bumpAgreementUpdated } from './agreements-admin';

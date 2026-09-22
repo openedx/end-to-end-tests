@@ -1,8 +1,8 @@
 import { checkA11y } from '../../../src/a11y';
 import { buildSection, courseUsageKey, fetchXBlockOutline, publishXBlock } from '../../../src/api';
-import { TIMEOUTS } from '../../../src/config';
+import { TIMEOUTS, STUDIO_SIDEBAR_SELECTORS as S } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { knownGap, testId } from '../../../src/reporting';
 import { SIDEBAR_A11Y_BASELINE } from './helpers';
 
 /**
@@ -44,12 +44,12 @@ test.describe(
 
         // The course Info panel offers a Details (default) and a Settings tab, and
         // a Taxonomy Alignments section with its Manage-tags control.
-        await expect(authoringSidebar.tab('course-info-tabs-tab-info')).toBeVisible();
-        await expect(authoringSidebar.tab('course-info-tabs-tab-settings')).toBeVisible();
+        await expect(authoringSidebar.tab(S.courseInfoTab('info'))).toBeVisible();
+        await expect(authoringSidebar.tab(S.courseInfoTab('settings'))).toBeVisible();
         await expect(authoringSidebar.taxonomySectionMenu).toBeVisible();
 
         // The Settings tab lists links into the course settings pages.
-        await authoringSidebar.openTab('course-info-tabs-tab-settings');
+        await authoringSidebar.openTab(S.courseInfoTab('settings'));
         expect((await authoringSidebar.panelLinkHrefs()).length).toBeGreaterThan(0);
 
         await checkA11y(page, {
@@ -86,8 +86,8 @@ test.describe(
 
         // The section Info panel has Details (default) and Settings tabs and a
         // Taxonomy Alignments section.
-        await expect(authoringSidebar.tab('add-content-tabs-tab-info')).toBeVisible();
-        await expect(authoringSidebar.tab('add-content-tabs-tab-settings')).toBeVisible();
+        await expect(authoringSidebar.tab(S.outlineItemInfoTab('info'))).toBeVisible();
+        await expect(authoringSidebar.tab(S.outlineItemInfoTab('settings'))).toBeVisible();
         await expect(authoringSidebar.taxonomySectionMenu).toBeVisible();
       },
     );
@@ -122,8 +122,8 @@ test.describe(
 
         // Details and Settings tabs render; the Settings tab exposes the grading
         // type control (its non-localized test id) for the graded subsection.
-        await expect(authoringSidebar.tab('add-content-tabs-tab-info')).toBeVisible();
-        await authoringSidebar.openTab('add-content-tabs-tab-settings');
+        await expect(authoringSidebar.tab(S.outlineItemInfoTab('info'))).toBeVisible();
+        await authoringSidebar.openTab(S.outlineItemInfoTab('settings'));
         await expect(page.locator('[data-testid="grader-type-select"]')).toBeVisible();
       },
     );
@@ -136,7 +136,6 @@ test.describe(
       {
         annotation: [
           testId('TC-00489'),
-          issue('https://github.com/openedx/end-to-end-tests/issues/auth-002'),
           knownGap(
             'AUTH-002: a unit is not selectable from the course outline; see docs/findings.md',
           ),

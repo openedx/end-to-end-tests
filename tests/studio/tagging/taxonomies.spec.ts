@@ -4,6 +4,7 @@ import type { APIRequestContext, Download } from '@playwright/test';
 
 import { deleteTaxonomy, fetchTaxonomy, listTaxonomies, listTaxonomyTags } from '../../../src/api';
 import { TIMEOUTS, type AppConfig } from '../../../src/config';
+import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 import {
@@ -59,6 +60,8 @@ test.describe(
           const csvTags = await listTaxonomyTags(taxonomyAdmin.request, config, csvId);
           expect(csvTags.map((t) => t.value)).toContain(TAG.parentTwo);
           expect(csvTags).toHaveLength(8);
+
+          await checkA11y(taxonomyAdmin.page, { label: 'studio-taxonomy-list' });
         } finally {
           await cleanup(taxonomyAdmin.request, config, created);
         }

@@ -2,6 +2,7 @@ import type { APIRequestContext, Locator } from '@playwright/test';
 
 import { fetchAllAssets, uploadAsset, type CourseAsset } from '../../../src/api';
 import { TIMEOUTS, type AppConfig } from '../../../src/config';
+import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -73,6 +74,13 @@ test.describe(
 
         await filesPage.setView('list');
         await expect(filesPage.rows).toHaveCount(2);
+
+        // `FILES-003`: the Files table carries an ARIA attribute its role does
+        // not allow. Baselined on this scan only, so every other rule gates here.
+        await checkA11y(page, {
+          label: 'studio-files',
+          additionalBaseline: ['aria-allowed-attr'],
+        });
       },
     );
 

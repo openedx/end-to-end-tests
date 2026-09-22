@@ -38,6 +38,17 @@ export const STUDIO_FILES_SELECTORS = {
   /** The hidden file input the "Add files" button drives (upload target). */
   uploadInput: '.files-table input.upload[type="file"]',
 
+  /**
+   * An outstanding upload agreement's banner — one warning alert per type the
+   * account has not accepted, each carrying an Agree action. Measured on Tutor
+   * `main` (2026-09-22): with `AGREEMENT_GATING` set and nothing accepted, the
+   * page renders the dropzone with its file input **disabled** behind these; on
+   * acceptance they disappear and the input is enabled.
+   */
+  agreementAlert: '[role="alert"].alert-warning',
+  /** The file input inside the dropzone, which gating disables. */
+  dropzoneInput: '[data-testid="files-dropzone"] input[type="file"]',
+
   /** The bulk "Actions" menu toggle (download / delete when rows are selected). */
   actionsToggle: '#actions-menu-toggle',
 

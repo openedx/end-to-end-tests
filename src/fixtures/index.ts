@@ -595,6 +595,8 @@ export interface UploadAgreements {
 export interface TaxonomyAdmin {
   readonly list: TaxonomyListPage;
   readonly detail: TaxonomyDetailPage;
+  /** The admin's own browser page — what an accessibility scan of these screens runs on. */
+  readonly page: Page;
   /** The admin browser's own API context (same session as the pages). */
   readonly request: APIRequestContext;
   /** The content org taxonomies are assigned to (whose courses' drawers list them). */
@@ -2270,6 +2272,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         await use({
           list: new TaxonomyListPage(page, config),
           detail: new TaxonomyDetailPage(page, config),
+          page,
           request: page.request,
           org,
         });

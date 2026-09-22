@@ -103,14 +103,18 @@ export class AuthoringSidebar {
   }
 
   /** A panel tab by its non-localized element id (see the selector helpers). */
-  tab(id: string): Locator {
-    return this.page.locator(`#${id}`);
+  tab(selector: string): Locator {
+    return this.page.locator(selector);
   }
 
-  /** Clicks a panel tab by its element id and waits for it to be selected. */
-  async openTab(id: string): Promise<void> {
-    await this.tab(id).click();
-    await this.tab(id).and(this.page.locator('[aria-selected="true"]')).waitFor();
+  /**
+   * Clicks a panel tab and waits for it to be selected. Callers pass one of
+   * `STUDIO_SIDEBAR_SELECTORS`' tab helpers rather than a hand-built id, so the
+   * three `Tabs` id schemes live in the selector module with the rest.
+   */
+  async openTab(selector: string): Promise<void> {
+    await this.tab(selector).click();
+    await this.tab(selector).and(this.page.locator('[aria-selected="true"]')).waitFor();
   }
 
   /** The `href`s of the links currently rendered in the panel (the Settings-tab links). */

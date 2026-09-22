@@ -1,18 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
-import { TIMEOUTS } from '../config';
-import {
-  acceptAgreement,
-  fetchObjectTagCounts,
-  importTaxonomy,
-  listTaxonomies,
-  setObjectTags,
-  setTaxonomyOrgs,
-  tagCountFor,
-  type Taxonomy,
-} from '../api';
-import { pollUntil, type PollOutcome } from './poll';
+import { importTaxonomy, listTaxonomies, setTaxonomyOrgs, type Taxonomy } from '../api';
 
 /**
  * The suite's own taxonomy tag values — our data, not localized platform copy,
@@ -132,57 +121,4 @@ export async function seedTaxonomy(
   });
   await setTaxonomyOrgs(request, config, taxonomy.id, [options.org]);
   return taxonomy;
-}
-
-/**
- * Applies a taxonomy's tag values to an object — a convenience over
- * {@link setObjectTags} for seeding a starting state. The caller must have write
- * access to the object's course.
- */
-export async function tagObject(
-  request: APIRequestContext,
-  config: AppConfig,
-  objectId: string,
-  taxonomyId: number,
-  tags: readonly string[],
-): Promise<void> {
-  await setObjectTags(request, config, objectId, taxonomyId, tags);
-}
-
-/**
- * Polls one object's implicit tag count until it reaches `expected` (the count
- * refreshes on a delay after a drawer Save — the sheet's own note on the card
- * badge). Never throws: returns the outcome with the last reading, under the
- * Meilisearch-backed lag budget the card badge shares.
- */
-export async function waitForTagCount(
-  request: APIRequestContext,
-  config: AppConfig,
-  objectId: string,
-  expected: number,
-): Promise<PollOutcome<number>> {
-  return pollUntil(
-    async () =>
-      tagCountFor(
-        await fetchObjectTagCounts(request, config, [objectId], { implicit: true }),
-        objectId,
-      ),
-    (count) => count === expected,
-    TIMEOUTS.librarySearch,
-  );
-}
-
-/**
- * Accepts every configured upload agreement for the caller, so a spec on a
- * gating-enabled install is not blocked from uploading. A no-op when the list is
- * empty. Runs on the caller's own JWT context.
- */
-export async function acceptUploadAgreements(
-  request: APIRequestContext,
-  config: AppConfig,
-  agreementTypes: readonly string[],
-): Promise<void> {
-  for (const type of agreementTypes) {
-    await acceptAgreement(request, config, type);
-  }
 }

@@ -1,5 +1,6 @@
 import { fetchCourseUpdates, fetchHandouts } from '../../../src/api';
 import { TIMEOUTS } from '../../../src/config';
+import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -45,6 +46,8 @@ test.describe(
         await updatesPage.editHandouts(text);
 
         await expect.poll(() => fetchHandouts(page.request, config, key)).toContain(text);
+
+        await checkA11y(page, { label: 'studio-updates' });
       },
     );
 

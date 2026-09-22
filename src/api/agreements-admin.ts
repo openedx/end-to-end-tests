@@ -123,28 +123,42 @@ export async function ensureAgreement(
   }
 }
 
-/** The admin change-list primary key of the agreement of `type`, or undefined. */
+/**
+ * The admin change-list primary key of the agreement of `type`, or undefined.
+ *
+ * Filtered by the **field**, not by the admin's search box: `UserAgreementAdmin`
+ * declares no `search_fields`, so Django drops `?q=` and renders the whole change
+ * list (measured — `?q=` for a type that does not exist still returns every row).
+ * A search that is silently ignored would hand back whichever row sorts first,
+ * which on an installation with an operator's own agreements is not ours.
+ * `?type=` is a plain local-field lookup, which `lookup_allowed` permits without
+ * `list_filter`, and `type` is unique.
+ */
 async function agreementPk(
   adminSession: APIRequestContext,
   config: AppConfig,
   type: string,
 ): Promise<string | undefined> {
-  const url = `${config.baseUrls.lms}${ADMIN_BASE}/?q=${encodeURIComponent(type)}`;
+  const url = `${config.baseUrls.lms}${ADMIN_BASE}/?type=${encodeURIComponent(type)}`;
   const html = await (await adminSession.get(url)).text();
   return new RegExp(`/agreements/useragreement/(\\d+)/change/`).exec(html)?.[1];
 }
 
 /**
- * Sets an agreement's `updated` time to `when` (default now) — the admin edit
- * behind TC-00504/00505. After a bump past a record's acceptance time, that
- * record's `is_current` flips back to false.
+ * Edits an agreement through the admin — the write behind TC-00504/00505.
+ *
+ * `when` moves the `updated` stamp; leaving it out **keeps the stamp the form
+ * rendered**, which is the no-op edit TC-00504 needs: the row is really saved
+ * (its summary changes), and an acceptance stays current because `is_current`
+ * compares against `updated` alone.
  */
-export async function bumpAgreementUpdated(
+export async function editAgreement(
   adminSession: APIRequestContext,
   config: AppConfig,
   type: string,
-  when: Date = new Date(),
+  changes: { readonly when?: Date; readonly summary?: string } = {},
 ): Promise<void> {
+  const when = changes.when;
   const pk = await agreementPk(adminSession, config, type);
   if (pk === undefined)
     throw new ApiError(`No agreement "${type}" to update.`, { status: 0, url: type, body: '' });
@@ -163,17 +177,17 @@ export async function bumpAgreementUpdated(
   // renders is read back and returned unchanged; only `updated` moves. Fields the
   // admin renders as a textarea (`summary`, `text`) have to be read as such — an
   // input-only read blanks them, which the admin rejects.
-  const stamp = splitDateTime(when);
+  const stamp = when === undefined ? undefined : splitDateTime(when);
   const saved = await adminSession.post(url, {
     form: {
       csrfmiddlewaretoken: token,
       type: formValue(html, 'type') || type,
       name: formValue(html, 'name'),
-      summary: formValue(html, 'summary'),
+      summary: changes.summary ?? formValue(html, 'summary'),
       text: formValue(html, 'text'),
       url: formValue(html, 'url'),
-      updated_0: stamp.date,
-      updated_1: stamp.time,
+      updated_0: stamp?.date ?? formValue(html, 'updated_0'),
+      updated_1: stamp?.time ?? formValue(html, 'updated_1'),
       _save: 'Save',
     },
     headers: { Referer: url },
@@ -184,9 +198,23 @@ export async function bumpAgreementUpdated(
     const errors = formErrors(body);
     // A 200 is the change form re-rendered with its errors, not a saved row.
     throw new ApiError(
-      `Bumping agreement "${type}" failed (HTTP ${saved.status()})` +
+      `Editing agreement "${type}" failed (HTTP ${saved.status()})` +
         (errors === '' ? '.' : `: the admin rejected the form: ${errors}`),
       { status: saved.status(), url, body: body.slice(0, 500) },
     );
   }
+}
+
+/**
+ * Moves an agreement's `updated` time to `when` (default now) — TC-00505. After
+ * a bump past a record's acceptance time, that record's `is_current` flips back
+ * to false.
+ */
+export async function bumpAgreementUpdated(
+  adminSession: APIRequestContext,
+  config: AppConfig,
+  type: string,
+  when: Date = new Date(),
+): Promise<void> {
+  await editAgreement(adminSession, config, type, { when });
 }

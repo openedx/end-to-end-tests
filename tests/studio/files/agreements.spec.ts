@@ -3,12 +3,16 @@ import { request, type APIRequestContext } from '@playwright/test';
 import {
   acceptAgreement,
   bumpAgreementUpdated,
+  editAgreement,
   fetchAgreementRecord,
+  listAgreements,
+  setCourseTeamRole,
   loginSession,
   type AgreementGating,
 } from '../../../src/api';
 import { provisionLearnerSession, withAdminSession } from '../../../src/accounts';
-import { TIMEOUTS, type AppConfig } from '../../../src/config';
+import { STUDIO_FILES_SELECTORS, TIMEOUTS, type AppConfig } from '../../../src/config';
+import { FilesPage } from '../../../src/pages/studio/files/files.page';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -24,8 +28,8 @@ import { testId } from '../../../src/reporting';
  *
  * The banner and blurred dropzone are the same state rendered; the API decides.
  */
+/** Every gating key that applies to the Files page: the shared one and its own. */
 const FILES_KEYS = ['upload', 'upload.files'] as const;
-const VIDEOS_KEYS = ['upload', 'upload.videos'] as const;
 
 /** The distinct types a set of gating keys names. */
 function typesFor(gating: AgreementGating, keys: readonly string[]): string[] {
@@ -99,6 +103,51 @@ test.describe.serial(
     );
 
     test(
+      'shows the Files page as gated until the agreements are accepted',
+      { annotation: testId('TC-00501') },
+      async ({
+        page,
+        config,
+        authoringCourse,
+        uploadAgreements,
+        resyncStudioAuthor,
+        studioColleague,
+        studioAuthorSession,
+      }) => {
+        void studioAuthorSession;
+        // Every type the Files page is gated by, for an account that has
+        // accepted none of them.
+        const types = typesFor(uploadAgreements.gating, FILES_KEYS);
+        expect(types.length, 'AGREEMENT_GATING must gate the Files page').toBeGreaterThan(0);
+
+        const member = await studioColleague();
+        await resyncStudioAuthor();
+        await setCourseTeamRole(
+          page.request,
+          config,
+          authoringCourse.courseKey,
+          member.identity.email,
+          'staff',
+        );
+
+        // Gated: one banner per outstanding agreement, and the dropzone's file
+        // input cannot be used.
+        const files = new FilesPage(member.page, config);
+        await files.goto(authoringCourse.courseKey);
+        await expect(member.page.locator(STUDIO_FILES_SELECTORS.agreementAlert)).toHaveCount(
+          types.length,
+        );
+        await expect(member.page.locator(STUDIO_FILES_SELECTORS.dropzoneInput)).toBeDisabled();
+
+        // Accepted: the banners go and the upload control opens.
+        for (const t of types) await acceptAgreement(member.request, config, t);
+        await files.goto(authoringCourse.courseKey);
+        await expect(member.page.locator(STUDIO_FILES_SELECTORS.agreementAlert)).toHaveCount(0);
+        await expect(member.page.locator(STUDIO_FILES_SELECTORS.dropzoneInput)).toBeEnabled();
+      },
+    );
+
+    test(
       'gates video uploads by a distinct videos agreement',
       { annotation: testId('TC-00502') },
       async ({ config, uploadAgreements }) => {
@@ -133,18 +182,47 @@ test.describe.serial(
       { annotation: testId('TC-00506') },
       async ({ config, uploadAgreements, studioAuthorSession }) => {
         void studioAuthorSession;
-        void config;
-        await Promise.resolve();
-        const filesTypes = typesFor(uploadAgreements.gating, FILES_KEYS);
-        const videosTypes = typesFor(uploadAgreements.gating, VIDEOS_KEYS);
-        // The videos-only type is not among the files-only types.
-        const videosOnly = uploadAgreements.gating['upload.videos'] ?? [];
-        expect(videosOnly.length).toBeGreaterThan(0);
-        for (const v of videosOnly) {
-          if ((uploadAgreements.gating['upload.files'] ?? []).includes(v)) continue;
-          expect(filesTypes).not.toContain(v);
-        }
-        expect(videosTypes).toEqual(expect.arrayContaining([...videosOnly]));
+        // The two surfaces must be gated by **different** types for the case to
+        // mean anything; that much is configuration, so it is a precondition
+        // rather than the assertion.
+        // Each surface's **own** types: what gates it and neither the other
+        // surface nor the shared `upload` key, which by definition gates both.
+        const shared = uploadAgreements.gating.upload ?? [];
+        const onlyFor = (mine: readonly string[], theirs: readonly string[]): string[] =>
+          mine.filter((t) => !theirs.includes(t) && !shared.includes(t));
+        const filesOnly = onlyFor(
+          uploadAgreements.gating['upload.files'] ?? [],
+          uploadAgreements.gating['upload.videos'] ?? [],
+        );
+        const videosOnly = onlyFor(
+          uploadAgreements.gating['upload.videos'] ?? [],
+          uploadAgreements.gating['upload.files'] ?? [],
+        );
+        expect(
+          filesOnly.length,
+          'AGREEMENT_GATING must gate files by a type videos does not use',
+        ).toBeGreaterThan(0);
+        expect(
+          videosOnly.length,
+          'AGREEMENT_GATING must gate videos by a type files does not use',
+        ).toBeGreaterThan(0);
+
+        // The assertion is the platform's: accepting the files terms says
+        // nothing about the videos terms, and the account is still outstanding
+        // for the surface it has not agreed to.
+        const files = filesOnly[0] as string;
+        const videos = videosOnly[0] as string;
+        await withFreshUser(config, async (session) => {
+          await acceptAgreement(session, config, files);
+          expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
+          expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(false);
+
+          // …and the reverse, on the same account: accepting videos leaves the
+          // files acceptance alone.
+          await acceptAgreement(session, config, videos);
+          expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(true);
+          expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
+        });
       },
     );
 
@@ -172,10 +250,16 @@ test.describe.serial(
         await acceptAgreement(page.request, config, t);
         expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(true);
 
-        // Re-seeding is a no-op edit that leaves `updated` untouched; acceptance holds.
+        // A real edit of the agreement row that leaves `updated` where it was: the
+        // summary changes, the stamp does not. `is_current` compares an
+        // acceptance against `updated` alone, so the acceptance has to hold.
+        const summary = `E2E edited ${test.info().testId.slice(-6)}`;
         await withAdmin(config, async (session) => {
-          await acceptAgreement(session, config, t).catch(() => undefined);
+          await editAgreement(session, config, t, { summary });
         });
+        expect(
+          (await listAgreements(page.request, config)).find((a) => a.type === t)?.summary,
+        ).toBe(summary);
         expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(true);
       },
     );
@@ -191,15 +275,21 @@ test.describe.serial(
 
         // Bump `updated` past the acceptance: the record is no longer current.
         //
-        // To *now*, never into the future. `is_current` compares the acceptance
-        // against `updated`, so a future `updated` cannot be satisfied by any
-        // acceptance until that time arrives — the re-acceptance below would not
-        // take, and the type would stay outstanding for every other case and
-        // every other worker that shares it. The admin sign-in in between puts
-        // seconds between this stamp and the acceptance above, which is what
-        // makes the bump land strictly after it.
+        // Strictly after the acceptance, and never into the future. The admin
+        // stores `updated` **to the second**, so "now" is not enough on its own:
+        // an acceptance recorded in the same second reads as "at or after" and
+        // stays current, which is what made this case flaky. The stamp is taken
+        // from the acceptance the platform recorded, one second on — and clamped
+        // to now, because a future `updated` could not be satisfied by any
+        // acceptance until that time arrived, leaving the type outstanding for
+        // every other worker sharing it.
+        const acceptedAt = (await fetchAgreementRecord(page.request, config, t)).acceptedAt;
+        const justAfter = new Date(new Date(acceptedAt ?? Date.now()).getTime() + 1000);
+        await expect
+          .poll(() => Date.now() >= justAfter.getTime(), { timeout: TIMEOUTS.action })
+          .toBe(true);
         await withAdmin(config, async (session) => {
-          await bumpAgreementUpdated(session, config, t, new Date());
+          await bumpAgreementUpdated(session, config, t, justAfter);
         });
         await expect
           .poll(() => fetchAgreementRecord(page.request, config, t).then((r) => r.isCurrent))

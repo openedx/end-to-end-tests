@@ -1,5 +1,5 @@
 import { buildSection } from '../../../src/api';
-import { TIMEOUTS } from '../../../src/config';
+import { TIMEOUTS, STUDIO_SIDEBAR_SELECTORS as S } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -41,12 +41,12 @@ test.describe(
         await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
 
         await authoringSidebar.openPage('add');
-        await expect(authoringSidebar.tab('add-content-tabs-tab-addNew')).toBeVisible();
-        await expect(authoringSidebar.tab('add-content-tabs-tab-addExisting')).toBeVisible();
+        await expect(authoringSidebar.tab(S.outlineAddTab('addNew'))).toBeVisible();
+        await expect(authoringSidebar.tab(S.outlineAddTab('addExisting'))).toBeVisible();
 
         // Both tabs are reachable.
-        await authoringSidebar.openTab('add-content-tabs-tab-addExisting');
-        await authoringSidebar.openTab('add-content-tabs-tab-addNew');
+        await authoringSidebar.openTab(S.outlineAddTab('addExisting'));
+        await authoringSidebar.openTab(S.outlineAddTab('addNew'));
       },
     );
 
@@ -73,11 +73,11 @@ test.describe(
         await studioUnitPage.goto(unit.usageKey);
 
         await authoringSidebar.openPage('add');
-        await expect(authoringSidebar.tab('unit-add-sidebar-tab-add-new')).toBeVisible();
-        await expect(authoringSidebar.tab('unit-add-sidebar-tab-add-existing')).toBeVisible();
+        await expect(authoringSidebar.tab(S.unitAddTab('add-new'))).toBeVisible();
+        await expect(authoringSidebar.tab(S.unitAddTab('add-existing'))).toBeVisible();
 
-        await authoringSidebar.openTab('unit-add-sidebar-tab-add-existing');
-        await authoringSidebar.openTab('unit-add-sidebar-tab-add-new');
+        await authoringSidebar.openTab(S.unitAddTab('add-existing'));
+        await authoringSidebar.openTab(S.unitAddTab('add-new'));
       },
     );
   },
