@@ -65,6 +65,8 @@ export {
   availableComponentTypes,
   courseUsageKey,
   createXBlock,
+  duplicateXBlock,
+  moveXBlock,
   fetchContainer,
   fetchContainerChildren,
   fetchCourseIndex,
@@ -415,15 +417,22 @@ export {
   type UserAgreement,
 } from './agreements';
 export {
+  deleteAsset,
   fetchAssets,
   fetchAllAssets,
+  setAssetLock,
   uploadAsset,
   assetStudioUrl,
   type CourseAsset,
   type AssetQuery,
 } from './assets';
-export { fetchTextbooks, type Textbook, type TextbookChapter } from './textbooks';
-export { fetchCourseUpdates, fetchHandouts, type CourseUpdate } from './course-updates';
+export { createTextbook, fetchTextbooks, type Textbook, type TextbookChapter } from './textbooks';
+export {
+  createCourseUpdate,
+  fetchCourseUpdates,
+  fetchHandouts,
+  type CourseUpdate,
+} from './course-updates';
 export { ensureAgreement, editAgreement, bumpAgreementUpdated } from './agreements-admin';
 export {
   adminCsrfToken,
@@ -436,8 +445,10 @@ export {
   findAdminRowPk,
   openAdminForm,
   postAdminForm,
+  readAdminForm,
   splitAdminDateTime,
 } from './django-admin';
+export { USER_ADMIN, deactivateAccount } from './user-admin';
 export {
   COURSE_ACCESS_ROLE_ADMIN,
   LEGACY_COURSE_ROLES,
