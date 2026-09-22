@@ -48,11 +48,11 @@ test.describe(
         adminConsole,
         instructorEnrollments,
         studioAuthorSession,
-        studioColleague,
+        rbacCast,
       }) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const newMember = await studioColleague();
+        const newMember = await rbacCast('beta');
 
         // The legacy surface, driven as a user would: the dashboard's own
         // beta-tester dialog.
@@ -104,12 +104,12 @@ test.describe(
         authzTarget,
         adminLms,
         studioAuthorSession,
+        rbacCast,
         resyncStudioAuthor,
-        studioColleague,
       }) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const member = await studioColleague();
+        const member = await rbacCast('newcomer');
 
         // Added through Studio's own team endpoint — a legacy write on a
         // migrated course, which the platform routes into authz.
@@ -172,10 +172,10 @@ test.describe(
           issue('https://github.com/openedx/wg-build-test-release/issues/613'),
         ],
       },
-      async ({ config, authzTarget, studioAuthorSession, studioColleague }) => {
+      async ({ config, authzTarget, studioAuthorSession, rbacCast }) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const outsider = await studioColleague();
+        const outsider = await rbacCast('outsider');
 
         // The API is unambiguous: no authz role, no course.
         await expect(fetchCourseIndex(outsider.request, config, courseKey)).rejects.toMatchObject({
@@ -257,12 +257,12 @@ test.describe(
         authzTarget,
         adminConsole,
         studioAuthorSession,
+        rbacCast,
         resyncStudioAuthor,
-        studioColleague,
       }) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const member = await studioColleague();
+        const member = await rbacCast('newcomer');
         await resyncStudioAuthor();
         await setCourseTeamRole(page.request, config, courseKey, member.identity.email, 'staff');
 

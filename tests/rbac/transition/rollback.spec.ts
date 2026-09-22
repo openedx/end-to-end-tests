@@ -1,4 +1,4 @@
-import { expect, test } from '../../../src/fixtures';
+import { expect, test, type StudioColleague } from '../../../src/fixtures';
 import {
   AUTHZ_COURSE_AUTHORING_FLAG,
   clearOrgFlagOverride,
@@ -40,6 +40,15 @@ import { writableSection } from '../roles/helpers';
  * adding a row that says off, and on an automatic target that same save restores
  * the legacy roles and clears the authz assignments.
  */
+/** Which cast part plays each legacy role. */
+const CAST_PART = {
+  instructor: 'instructor',
+  staff: 'staff',
+  limited_staff: 'limitedStaff',
+  data_researcher: 'dataResearcher',
+  beta: 'beta',
+} as const;
+
 test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSITION_TAGS] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
@@ -73,7 +82,7 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
         authzTarget,
         automaticMigrationTarget,
         studioAuthorSession,
-        studioColleague,
+        rbacCast,
         resyncStudioAuthor,
       },
       testInfo,
@@ -91,10 +100,13 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
       const roles = ['instructor', 'staff', 'limited_staff', 'data_researcher', 'beta'] as const;
       const actors: {
         role: (typeof roles)[number];
-        actor: Awaited<ReturnType<typeof studioColleague>>;
+        actor: StudioColleague;
       }[] = [];
       for (const role of roles) {
-        actors.push({ role, actor: await studioColleague() });
+        // One account per part, shared by the worker's RBAC specs: these cases
+        // give each of them the same legacy role every time, on a course of
+        // their own, so reuse cannot carry a surprise.
+        actors.push({ role, actor: await rbacCast(CAST_PART[role]) });
       }
       await seedLegacyTeam(
         page.request,
@@ -102,7 +114,7 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
         courseKey,
         actors.map(({ role, actor }) => ({ email: actor.identity.email, role })),
       );
-      const learner = await studioColleague();
+      const learner = await rbacCast('learner');
       await enrollInCourseViaApi(learner.request, config, courseKey);
       await resyncStudioAuthor();
       const writableBlock = await writableSection(
@@ -196,7 +208,7 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
         authzTarget,
         automaticMigrationTarget,
         studioAuthorSession,
-        studioColleague,
+        rbacCast,
         resyncStudioAuthor,
       },
       testInfo,
@@ -212,7 +224,7 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
         `B${testInfo.parallelIndex}`,
         org,
       );
-      const orgInstructor = await studioColleague();
+      const orgInstructor = await rbacCast('orgInstructor');
       await resyncStudioAuthor();
       const writableBlock = await writableSection(
         page.request,

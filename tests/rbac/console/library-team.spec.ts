@@ -28,14 +28,7 @@ test.describe(
     test(
       'pages the team at ten rows',
       { annotation: testId('TC-00374') },
-      async ({
-        page,
-        config,
-        adminConsole,
-        authoringLibrary,
-        studioAuthorSession,
-        studioColleague,
-      }) => {
+      async ({ page, config, adminConsole, authoringLibrary, studioAuthorSession, rbacCast }) => {
         void studioAuthorSession;
         const library = authoringLibrary.id;
 
@@ -43,9 +36,9 @@ test.describe(
         // user, so three accounts holding all four library roles are twelve rows
         // — plus the author's own, which creating the library granted.
         const colleagues = [
-          await studioColleague(),
-          await studioColleague(),
-          await studioColleague(),
+          await rbacCast('teamPagerA'),
+          await rbacCast('teamPagerB'),
+          await rbacCast('teamPagerC'),
         ];
         await seedScopeAssignments(
           page.request,

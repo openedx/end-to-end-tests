@@ -3,6 +3,8 @@ import type { APIRequestContext } from '@playwright/test';
 import type { AppConfig } from '../config';
 import { TIMEOUTS } from '../config';
 import {
+  ApiError,
+  AUTHZ_BASE,
   AUTHZ_COURSE_AUTHORING_FLAG,
   assignRole,
   clearCourseFlagOverride,
@@ -210,7 +212,26 @@ export async function seedScopeAssignments(
   roles: readonly string[],
 ): Promise<number> {
   for (const role of roles) {
-    await assignRole(request, config, { role, scopes: [scope], users: [...usernames] });
+    // Seeding is idempotent: the cast of accounts the RBAC specs share plays the
+    // same part in course after course, so an account often already holds the
+    // role a later case wants. The API reports that as an `errors[]` row
+    // (`user_already_has_role`) rather than a failure, and for a seed it is the
+    // wanted state — anything else still raises.
+    const result = await assignRole(
+      request,
+      config,
+      { role, scopes: [scope], users: [...usernames] },
+      { allowErrors: true },
+    );
+    const unexpected = result.errors.filter((row) => row.error !== 'user_already_has_role');
+    if (unexpected.length > 0) {
+      throw new ApiError(
+        `Seeding ${role} in ${scope} failed for ${unexpected
+          .map((row) => `${row.userIdentifier}: ${row.error ?? 'unknown error'}`)
+          .join('; ')}.`,
+        { status: 207, url: `${AUTHZ_BASE}/roles/users/`, body: JSON.stringify(result) },
+      );
+    }
   }
   return usernames.length * roles.length;
 }

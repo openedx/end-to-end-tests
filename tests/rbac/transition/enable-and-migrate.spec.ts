@@ -1,4 +1,4 @@
-import { expect, test } from '../../../src/fixtures';
+import { expect, test, type StudioColleague } from '../../../src/fixtures';
 import {
   AUTHZ_COURSE_AUTHORING_FLAG,
   LEGACY_ROLE_EQUIVALENTS,
@@ -42,6 +42,15 @@ import { writableSection } from '../roles/helpers';
  * rolls it back when it ends: migration is a one-way door for a scope's roles,
  * and the shared worker courses are not the place to open it.
  */
+/** Which cast part plays each legacy role. */
+const CAST_PART = {
+  instructor: 'instructor',
+  staff: 'staff',
+  limited_staff: 'limitedStaff',
+  data_researcher: 'dataResearcher',
+  beta: 'beta',
+} as const;
+
 test.describe(
   'AuthZ transition — enable and migrate',
   { tag: ['@regression', ...TRANSITION_TAGS] },
@@ -74,7 +83,7 @@ test.describe(
           authzTarget,
           automaticMigrationTarget,
           studioAuthorSession,
-          studioColleague,
+          rbacCast,
           resyncStudioAuthor,
         },
         testInfo,
@@ -94,10 +103,10 @@ test.describe(
         const roles = ['instructor', 'staff', 'limited_staff', 'data_researcher', 'beta'] as const;
         const actors: {
           role: (typeof roles)[number];
-          actor: Awaited<ReturnType<typeof studioColleague>>;
+          actor: StudioColleague;
         }[] = [];
         for (const role of roles) {
-          actors.push({ role, actor: await studioColleague() });
+          actors.push({ role, actor: await rbacCast(CAST_PART[role]) });
         }
         await seedLegacyTeam(
           page.request,
@@ -105,7 +114,7 @@ test.describe(
           courseKey,
           actors.map(({ role, actor }) => ({ email: actor.identity.email, role })),
         );
-        const learner = await studioColleague();
+        const learner = await rbacCast('learner');
         await enrollInCourseViaApi(learner.request, config, courseKey);
         await resyncStudioAuthor();
         const writableBlock = await writableSection(
@@ -220,7 +229,7 @@ test.describe(
           authzTarget,
           automaticMigrationTarget,
           studioAuthorSession,
-          studioColleague,
+          rbacCast,
           resyncStudioAuthor,
         },
         testInfo,
@@ -238,7 +247,7 @@ test.describe(
           `O${testInfo.parallelIndex}`,
           org,
         );
-        const orgInstructor = await studioColleague();
+        const orgInstructor = await rbacCast('orgInstructor');
         await resyncStudioAuthor();
         const writableBlock = await writableSection(
           page.request,

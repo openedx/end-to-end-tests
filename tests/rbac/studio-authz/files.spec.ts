@@ -35,12 +35,12 @@ test.describe('Studio under AuthZ — files', { tag: ['@regression', ...STUDIO_A
     'uploads a file as course staff',
     { annotation: testId('TC-00623') },
     async (
-      { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, studioColleague },
+      { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, rbacCast },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = authzTarget.courseKey;
-      const staff = await studioColleague();
+      const staff = await rbacCast('courseStaff');
       await seedScopeAssignments(
         page.request,
         config,
@@ -71,12 +71,12 @@ test.describe('Studio under AuthZ — files', { tag: ['@regression', ...STUDIO_A
     'deletes a file as course staff',
     { annotation: testId('TC-00624') },
     async (
-      { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, studioColleague },
+      { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, rbacCast },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = authzTarget.courseKey;
-      const staff = await studioColleague();
+      const staff = await rbacCast('courseStaff');
       await seedScopeAssignments(
         page.request,
         config,
@@ -135,7 +135,7 @@ test.describe('Studio under AuthZ — files', { tag: ['@regression', ...STUDIO_A
   test(
     'opens the video surface to a course admin and not to an outsider',
     { annotation: testId('TC-00642') },
-    async ({ page, config, authzTarget, studioAuthorSession, studioColleague }) => {
+    async ({ page, config, authzTarget, studioAuthorSession, rbacCast }) => {
       void studioAuthorSession;
       const courseKey = authzTarget.courseKey;
       // The course's AuthZ administrator is the worker author itself: migrating
@@ -144,7 +144,7 @@ test.describe('Studio under AuthZ — files', { tag: ['@regression', ...STUDIO_A
       // rate limit.
       expect(await canI(page.request, config, 'courses.manage_course_team', courseKey)).toBe(true);
       const admin = { request: page.request };
-      const outsider = await studioColleague();
+      const outsider = await rbacCast('outsider');
       const videos = `${studioOrigin(config)}/api/contentstore/v1/videos/${courseKey}`;
 
       // The role is served the page's own data — including the handler it would
