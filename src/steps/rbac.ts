@@ -11,7 +11,13 @@ import {
   fetchWaffleFlagStates,
   isAuthzEnabledForCourse,
   setCourseFlagOverride,
+  fetchCourseIndex,
+  fetchCourseOutline,
+  fetchInstructorCourse,
+  listEnrollments,
+  listReports,
   setOrgFlagOverride,
+  updateXBlock,
   type MigrationType,
 } from '../api';
 import { pollUntil, type PollOutcome } from './poll';
@@ -219,4 +225,127 @@ export async function readFlagScopes(
     on: [...states.courseOverrides.on, ...states.orgOverrides.on],
     off: [...states.courseOverrides.off, ...states.orgOverrides.off],
   };
+}
+
+// --- the permission matrix --------------------------------------------------------------------
+
+/**
+ * The capabilities one course-role reading covers, by a **non-localized** name.
+ *
+ * Each is one request the role either may or may not make, chosen so the six of
+ * them tell every legacy role apart (measured 2026-09-21 on `main`): the Studio
+ * outline separates `staff` from `limited_staff`, the enrollment list separates
+ * `limited_staff` from `data_researcher`, the instructor dashboard separates
+ * both from a `beta_testers` holder, and the Blocks API separates an enrolled
+ * learner from an account with no relationship to the course at all.
+ *
+ * The same table is read again after a migration and after a rollback
+ * (TC-00593–00599, TC-00606–00612), which is the point of naming the rows: a
+ * regression is one row's diff, and the failure message says which capability
+ * moved.
+ */
+export const COURSE_CAPABILITIES = [
+  'studioOutline',
+  'studioWrite',
+  'instructorDashboard',
+  'dataDownloads',
+  'enrollmentList',
+  'courseware',
+] as const;
+
+export type CourseCapability = (typeof COURSE_CAPABILITIES)[number];
+
+/** One actor's reading of the matrix: an HTTP status per capability. */
+export type PermissionReadings = Record<CourseCapability, number>;
+
+/** What {@link readCoursePermissions} needs in order to attempt a write. */
+export interface PermissionProbeTargets {
+  /**
+   * A block the actor may try to rename — the Studio write probe. It is renamed
+   * to a value derived from the actor's own username, so a successful write is
+   * visible to the caller and harmless to everything else.
+   */
+  readonly writableBlock: string;
+}
+
+/** The status an API call answered with, or `200` when it succeeded. */
+async function statusOf(work: Promise<unknown>): Promise<number> {
+  try {
+    await work;
+    return 200;
+  } catch (error) {
+    const status = (error as { status?: number }).status;
+    return status ?? -1;
+  }
+}
+
+/**
+ * Reads what one actor may do in one course, as a status per capability.
+ *
+ * This is deliberately a **reading**, not an assertion: the spec owns the
+ * expected table (ADR-0002), and the same reading is compared against a
+ * different expectation in each phase of the migration coverage. Every call is
+ * made with the actor's own request context, so what is measured is that
+ * account's rights and nothing else.
+ */
+export async function readCoursePermissions(
+  actor: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  username: string,
+  targets: PermissionProbeTargets,
+): Promise<PermissionReadings> {
+  return {
+    studioOutline: await statusOf(fetchCourseIndex(actor, config, courseKey)),
+    studioWrite: await statusOf(
+      updateXBlock(actor, config, targets.writableBlock, {
+        metadata: { display_name: `E2E permission probe ${username}` },
+      }),
+    ),
+    instructorDashboard: await statusOf(fetchInstructorCourse(actor, config, courseKey)),
+    dataDownloads: await statusOf(listReports(actor, config, courseKey)),
+    enrollmentList: await statusOf(listEnrollments(actor, config, courseKey)),
+    courseware: await statusOf(fetchCourseOutline(actor, config, courseKey, username)),
+  };
+}
+
+/** A full-access reading — what an instructor, or an org-wide instructor, gets. */
+export const FULL_COURSE_ACCESS: PermissionReadings = {
+  studioOutline: 200,
+  studioWrite: 200,
+  instructorDashboard: 200,
+  dataDownloads: 200,
+  enrollmentList: 200,
+  courseware: 200,
+};
+
+/** No relationship to the course at all: everything refused, including the content. */
+export const NO_COURSE_ACCESS: PermissionReadings = {
+  studioOutline: 403,
+  studioWrite: 403,
+  instructorDashboard: 403,
+  dataDownloads: 403,
+  enrollmentList: 403,
+  courseware: 403,
+};
+
+/**
+ * The instructor dashboard tabs an actor is offered, by their non-localized
+ * `tab_id`, sorted — the UI half of the matrix, and the reading that shows a
+ * multi-role account holding the **union** of its roles' tabs (TC-00586).
+ *
+ * An actor the dashboard refuses has no tabs at all, which is reported as an
+ * empty list rather than an error so a spec can put every role in one table.
+ */
+export async function instructorTabsFor(
+  actor: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<string[]> {
+  try {
+    const course = await fetchInstructorCourse(actor, config, courseKey);
+    return course.tabs.map((tab) => tab.tab_id).sort();
+  } catch {
+    return [];
+  }
 }
