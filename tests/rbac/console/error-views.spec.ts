@@ -58,10 +58,14 @@ test.describe(
         });
 
         // The view replaces the console: its one action is on screen, the table
-        // is gone, and — the case's point — nothing offers a retry.
+        // is gone, and — the case's point — nothing offers a retry. "No retry"
+        // is read as the console's own retry affordance being absent, which is
+        // its toast; the shells differ in what wraps the view, so nothing here
+        // anchors through a page region.
         await expect(page.locator(ADMIN_CONSOLE_SELECTORS.errorViewAction)).toBeVisible();
         await expect(adminConsole.teamMembers.table).toHaveCount(0);
-        await expect(page.locator(ADMIN_CONSOLE_SELECTORS.errorViewButtons)).toHaveCount(0);
+        await expect(adminConsole.console.toast).toHaveCount(0);
+        await expect(adminConsole.console.toastRetry).toHaveCount(0);
       },
     );
 

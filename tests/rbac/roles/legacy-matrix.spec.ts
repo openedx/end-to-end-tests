@@ -6,7 +6,7 @@ import {
   grantLegacyRole,
   revokeLegacyRole,
 } from '../../../src/api';
-import { TIMEOUTS } from '../../../src/config';
+import { TIMEOUTS, getRunId } from '../../../src/config';
 import {
   FULL_COURSE_ACCESS,
   NO_COURSE_ACCESS,
@@ -15,6 +15,7 @@ import {
 } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
 import { LEGACY_ROLE_TAGS, futureSection, seesUnit, writableSection } from './helpers';
+import { migrationCourse, newOrgName } from '../transition/helpers';
 
 /**
  * What each **legacy** course role may do — the permission matrix the AuthZ
@@ -315,8 +316,6 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
         page,
         config,
         contentCourse,
-        authoredCourse,
-        courseKey,
         adminLms,
         studioAuthorSession,
         studioColleague,
@@ -325,7 +324,21 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
       testInfo,
     ) => {
       void studioAuthorSession;
-      const org = contentCourse.org;
+      // An organization of this test's own, with a course of its own in it.
+      // Naming an existing organization would tie the case to how the target is
+      // configured: CI runs the suite with `ORG=OpenedX`, which is also the demo
+      // course's organization, so "another organization's course" has to be
+      // built rather than borrowed — and building the pair here keeps the shared
+      // worker courses free of this test's content.
+      const org = newOrgName(getRunId(), `M${testInfo.parallelIndex}`);
+      await resyncStudioAuthor();
+      const owned = await migrationCourse(
+        page.request,
+        config,
+        getRunId(),
+        `M${testInfo.parallelIndex}`,
+        org,
+      );
       const orgInstructor = await studioColleague();
 
       // An organization-wide role has no API: the admin's Course Access Role
@@ -339,39 +352,36 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
       );
 
       try {
-        // Both of this worker's courses are in that organization, and the role
-        // reaches each of them in full…
-        for (const target of [contentCourse.courseKey, authoredCourse.courseKey]) {
-          await resyncStudioAuthor();
-          const writableBlock = await writableSection(
-            page.request,
-            config,
-            target,
-            `E2E org ${testInfo.testId.slice(-6)}`,
-          );
-          expect(
-            await readCoursePermissions(
-              orgInstructor.request,
-              config,
-              target,
-              orgInstructor.identity.username,
-              { writableBlock },
-            ),
-            `the organization instructor should hold every capability in ${target}`,
-          ).toEqual(FULL_COURSE_ACCESS);
-        }
-
-        // …while a course in another organization is refused outright, which is
-        // what makes the role organization-scoped rather than global.
+        // The organization's course is theirs in full…
+        await resyncStudioAuthor();
+        const writableBlock = await writableSection(
+          page.request,
+          config,
+          owned,
+          `E2E org ${testInfo.testId.slice(-6)}`,
+        );
         expect(
           await readCoursePermissions(
             orgInstructor.request,
             config,
-            courseKey,
+            owned,
             orgInstructor.identity.username,
-            // The other course's root block: a write target that exists, so the
-            // refusal is the role's and not a malformed request's.
-            { writableBlock: courseUsageKey(courseKey) },
+            { writableBlock },
+          ),
+          'the organization instructor should hold every capability in its own organization',
+        ).toEqual(FULL_COURSE_ACCESS);
+
+        // …while a course outside it is refused outright, which is what makes
+        // the role organization-scoped rather than global.
+        expect(
+          await readCoursePermissions(
+            orgInstructor.request,
+            config,
+            contentCourse.courseKey,
+            orgInstructor.identity.username,
+            // That course's own root block: a write probe has to aim at the
+            // course it is probing, or it measures the wrong permission.
+            { writableBlock: courseUsageKey(contentCourse.courseKey) },
           ),
         ).toEqual(NO_COURSE_ACCESS);
       } finally {

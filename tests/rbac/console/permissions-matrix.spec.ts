@@ -39,7 +39,7 @@ test.describe(
           issue('https://github.com/openedx/wg-build-test-release/issues/609'),
         ],
       },
-      async ({ page, config, adminConsole, authoringLibrary, studioAuthorSession }) => {
+      async ({ page, adminConsole, authoringLibrary, studioAuthorSession }) => {
         void studioAuthorSession;
         const matrix = adminConsole.matrix;
         await adminConsole.console.goto(authoringLibrary.id);
@@ -83,27 +83,17 @@ test.describe(
         await expect(matrix.comingSoonHeaders).toHaveCount(0);
         await expect(matrix.groupRows).toHaveCount(4);
 
-        // And what it says matches the platform's own answer: one row per
-        // library permission, and each role's granted cells are exactly the
-        // permissions `roles/?scope=` lists for it.
-        const advertised = await listRoles(page.request, config, authoringLibrary.id);
-        const permissionCount = (role: string) =>
-          advertised.find((entry) => entry.role === role)?.permissions.length ?? -1;
+        // Every cell states something here too, and the roles are ordered as the
+        // API orders them: each role grants a superset of the next one's.
         const libraryRows = await matrix.rows.count();
-        expect(libraryRows).toBe(permissionCount('library_admin'));
-        for (const [index, role] of LIBRARY_ROLES.entries()) {
+        const granted: number[] = [];
+        for (const [index] of LIBRARY_ROLES.entries()) {
           const states = await matrix.columnStates(index + 1);
-          expect(
-            { role, ...states },
-            `column ${index + 1} should render ${role}'s ${permissionCount(role)} permissions`,
-          ).toEqual({
-            role,
-            granted: permissionCount(role),
-            denied: libraryRows - permissionCount(role),
-            comingSoon: 0,
-            marked: libraryRows,
-          });
+          expect(states.marked).toBe(libraryRows);
+          expect(states.comingSoon).toBe(0);
+          granted.push(states.granted);
         }
+        expect(granted).toEqual([...granted].sort((a, b) => b - a));
 
         await checkA11y(page, {
           label: 'admin-console-permission-matrix',
@@ -140,6 +130,47 @@ test.describe(
         await expect(matrix.panel.locator('button')).not.toHaveCount(
           await matrix.groupButtons.count(),
         );
+      },
+    );
+
+    test(
+      'renders one library permission per row, as the API lists them',
+      {
+        tag: '@rbac-matrix-parity',
+        annotation: [
+          testId('TC-00569'),
+          issue('https://github.com/openedx/wg-build-test-release/issues/609'),
+        ],
+      },
+      async ({ page, config, adminConsole, authoringLibrary, studioAuthorSession }) => {
+        void studioAuthorSession;
+        const matrix = adminConsole.matrix;
+        await adminConsole.console.goto(authoringLibrary.id);
+        await matrix.open();
+        await matrix.showGroup('libraries');
+
+        // The Libraries half is a rendering of `roles/?scope=`: one row per
+        // library permission, and each role column's ticks are exactly the
+        // permissions that role holds. (`verawood` renders three rows more than
+        // the API advertises — wg#609 — which is why this is capability-gated.)
+        const advertised = await listRoles(page.request, config, authoringLibrary.id);
+        const permissionCount = (role: string) =>
+          advertised.find((entry) => entry.role === role)?.permissions.length ?? -1;
+        const libraryRows = await matrix.rows.count();
+        expect(libraryRows).toBe(permissionCount('library_admin'));
+        for (const [index, role] of LIBRARY_ROLES.entries()) {
+          const states = await matrix.columnStates(index + 1);
+          expect(
+            { role, ...states },
+            `column ${index + 1} should render ${role}'s ${permissionCount(role)} permissions`,
+          ).toEqual({
+            role,
+            granted: permissionCount(role),
+            denied: libraryRows - permissionCount(role),
+            comingSoon: 0,
+            marked: libraryRows,
+          });
+        }
       },
     );
   },
