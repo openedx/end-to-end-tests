@@ -162,6 +162,15 @@ export const CAPABILITIES = [
   // console, which the authoring MFE renders from the flag read with no course
   // context (BTR TC-00560's first entry point).
   'rbac-global',
+  // The console's **library permission matrix matches the API's own permission
+  // list**, one row per permission. On `main` (openedx-authz 1.23) it does:
+  // eleven rows for eleven library permissions, and each role column's ticks
+  // equal that role's `roles/?scope=` permission count. On `verawood` (1.21) the
+  // same tab renders fourteen rows — the inaccuracy
+  // [wg-build-test-release#609](https://github.com/openedx/wg-build-test-release/issues/609)
+  // reported against that release. So the matrix's **structure** is asserted
+  // everywhere and its **fidelity to the API** only where the fix has landed.
+  'rbac-matrix-parity',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
