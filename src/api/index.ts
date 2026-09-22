@@ -437,6 +437,13 @@ export {
   splitAdminDateTime,
 } from './django-admin';
 export {
+  COURSE_ACCESS_ROLE_ADMIN,
+  LEGACY_COURSE_ROLES,
+  grantLegacyRole,
+  revokeLegacyRole,
+  type LegacyCourseRole,
+} from './course-access-role-admin';
+export {
   AUTHZ_BASE,
   COURSE_ROLES,
   LEGACY_ROLE_EQUIVALENTS,
