@@ -322,13 +322,13 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
       // course's organization, so "another organization's course" has to be
       // built rather than borrowed — and building the pair here keeps the shared
       // worker courses free of this test's content.
-      const org = newOrgName(getRunId(), `M${testInfo.parallelIndex}`);
+      const org = newOrgName(getRunId(), `M${testInfo.parallelIndex}R${testInfo.retry}`);
       await resyncStudioAuthor();
       const owned = await migrationCourse(
         page.request,
         config,
         getRunId(),
-        `M${testInfo.parallelIndex}`,
+        `M${testInfo.parallelIndex}R${testInfo.retry}`,
         org,
       );
       const orgInstructor = await rbacCast('orgInstructor');

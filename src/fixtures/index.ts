@@ -2409,6 +2409,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   resyncStudioAuthor: async ({ page, config, workerAuthor }, use) => {
     const resync = async (): Promise<void> => {
+      // No cheap pre-check here, deliberately: a Studio **read** can answer on a
+      // session whose **write** path then 302s to sign-in (measured — a
+      // `fetchStudioHome` probe passed and the next `POST /course/` was
+      // redirected), so "the API answered" does not mean "the session this
+      // fixture repairs is live". The navigation below is the check.
       // A real navigation to Studio Home re-completes the cms-sso handshake on
       // the browser's (and so `page.request`'s) shared cookie jar, healing the
       // session the library's v2 writes rotated — without the API `/login/`

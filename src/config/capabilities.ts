@@ -171,6 +171,13 @@ export const CAPABILITIES = [
   // reported against that release. So the matrix's **structure** is asserted
   // everywhere and its **fidelity to the API** only where the fix has landed.
   'rbac-matrix-parity',
+  // The console's **not-found view offers a working way back**. On `verawood`
+  // its "Back to Studio" action carries a URL and leaves the route; on `main`
+  // the same anchor has no `href` and its handler does nothing (`RBAC-008`), so
+  // the case has nothing to drive there. Declared where the action works, which
+  // makes the regression visible as an undeclared capability rather than as a
+  // permanently red case.
+  'rbac-error-view-action',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
