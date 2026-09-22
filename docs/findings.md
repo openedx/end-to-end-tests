@@ -1447,16 +1447,20 @@ platform does not enforce the rule at all: a library admin revoking its own
 a `knownGap` recording that the API does not enforce it. Upstream ask: refuse
 the self-revoke server-side.
 
-### `RBAC-008` — the 404 view's only action does nothing
+### `RBAC-008` — the 404 view's only action does nothing (a regression on `main`)
 
-**Where:** the console's not-found view (`/authz/<unknown route>`), `main`.
+**Where:** the console's not-found view (`/authz/<unknown route>`), `main` only.
 
 **What happens:** the view's single action ("Back to Studio") is an anchor with
-no `href` whose click handler leaves the route unchanged.
+no `href` whose click handler leaves the route unchanged. **`verawood` renders
+the same view with a working link**, so this is a regression in the newer
+console rather than a feature that was never built.
 
-**Coverage impact:** open. TC-00442 is a `test.fail` — the body clicks the
-action and waits for the route to change, which is the behaviour the fix should
-produce.
+**Coverage impact:** open. TC-00442 drives the action and waits for the route to
+change, gated on the `rbac-error-view-action` capability — declared for
+`verawood`, where it passes, and undeclared on `main`, where the case has
+nothing to drive. The regression is therefore visible as a capability `main`
+does not have, rather than as a permanently failing case.
 
 ### `RBAC-009` — the permission matrix loses its row labels sideways and offers no scroll to top
 

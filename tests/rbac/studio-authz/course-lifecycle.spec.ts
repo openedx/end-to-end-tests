@@ -55,7 +55,7 @@ test.describe(
         void studioAuthorSession;
         void automaticMigrationTarget;
         void authzTarget;
-        const org = newOrgName(getRunId(), `C${testInfo.parallelIndex}`);
+        const org = newOrgName(getRunId(), `C${testInfo.parallelIndex}R${testInfo.retry}`);
         // Any account the suite provisions may create courses (it is put in the
         // course-creator group), which is the "content creator" of TC-00627.
         const creator = await rbacCast('creator');
@@ -70,7 +70,11 @@ test.describe(
         );
 
         try {
-          const identity = newCourseIdentity(config, getRunId(), `C${testInfo.parallelIndex}`);
+          const identity = newCourseIdentity(
+            config,
+            getRunId(),
+            `C${testInfo.parallelIndex}R${testInfo.retry}`,
+          );
           const courseKey = await createCourse(creator.request, config, {
             ...identity,
             org,
@@ -130,7 +134,7 @@ test.describe(
         void studioAuthorSession;
         void automaticMigrationTarget;
         void authzTarget;
-        const org = newOrgName(getRunId(), `G${testInfo.parallelIndex}`);
+        const org = newOrgName(getRunId(), `G${testInfo.parallelIndex}R${testInfo.retry}`);
         const orgInstructor = await rbacCast('orgInstructor');
 
         const rowPk = await adminLms((session) =>
@@ -163,7 +167,7 @@ test.describe(
             page.request,
             config,
             getRunId(),
-            `GX${testInfo.parallelIndex}`,
+            `GX${testInfo.parallelIndex}R${testInfo.retry}`,
             org,
           );
           await expect
@@ -180,7 +184,11 @@ test.describe(
           // organization, and the legacy course-creator group the account holds
           // does not carry it across (`RBAC-015`). The case asks for creation to
           // succeed; the held case below is that expectation.
-          const identity = newCourseIdentity(config, getRunId(), `G${testInfo.parallelIndex}`);
+          const identity = newCourseIdentity(
+            config,
+            getRunId(),
+            `G${testInfo.parallelIndex}R${testInfo.retry}`,
+          );
           await expect(
             createCourse(orgInstructor.request, config, {
               ...identity,
@@ -222,12 +230,12 @@ test.describe(
         void studioAuthorSession;
         void automaticMigrationTarget;
         void authzTarget;
-        const org = newOrgName(getRunId(), `R${testInfo.parallelIndex}`);
+        const org = newOrgName(getRunId(), `R${testInfo.parallelIndex}R${testInfo.retry}`);
         const source = await migrationCourse(
           page.request,
           config,
           getRunId(),
-          `RR${testInfo.parallelIndex}`,
+          `RR${testInfo.parallelIndex}R${testInfo.retry}`,
           org,
         );
         const staff = await rbacCast('courseStaff');
@@ -254,7 +262,11 @@ test.describe(
           // refuses the course author, whose creator group is legacy
           // (`RBAC-015`). What this case is about is what the copy inherits.
           await resyncStudioAuthor();
-          const identity = newCourseIdentity(config, getRunId(), `RN${testInfo.parallelIndex}`);
+          const identity = newCourseIdentity(
+            config,
+            getRunId(),
+            `RN${testInfo.parallelIndex}R${testInfo.retry}`,
+          );
           const destination = {
             ...identity,
             org,
@@ -321,12 +333,12 @@ test.describe(
         void studioAuthorSession;
         void automaticMigrationTarget;
         void authzTarget;
-        const org = newOrgName(getRunId(), `L${testInfo.parallelIndex}`);
+        const org = newOrgName(getRunId(), `L${testInfo.parallelIndex}R${testInfo.retry}`);
         const courseKey = await migrationCourse(
           page.request,
           config,
           getRunId(),
-          `L${testInfo.parallelIndex}`,
+          `L${testInfo.parallelIndex}R${testInfo.retry}`,
           org,
         );
         const orgStaff = await rbacCast('orgStaff');
@@ -394,7 +406,7 @@ test.describe(
         void studioAuthorSession;
         void automaticMigrationTarget;
         void authzTarget;
-        const org = newOrgName(getRunId(), `H${testInfo.parallelIndex}`);
+        const org = newOrgName(getRunId(), `H${testInfo.parallelIndex}R${testInfo.retry}`);
         const orgInstructor = await rbacCast('orgInstructor');
         const rowPk = await adminLms((session) =>
           grantLegacyRole(session, config, {
@@ -413,7 +425,11 @@ test.describe(
               note: `e2e ${testInfo.testId}`,
             }),
           );
-          const identity = newCourseIdentity(config, getRunId(), `H${testInfo.parallelIndex}`);
+          const identity = newCourseIdentity(
+            config,
+            getRunId(),
+            `H${testInfo.parallelIndex}R${testInfo.retry}`,
+          );
           const courseKey = await createCourse(orgInstructor.request, config, {
             ...identity,
             org,
@@ -472,12 +488,12 @@ test.describe(
         void studioAuthorSession;
         void automaticMigrationTarget;
         void authzTarget;
-        const org = newOrgName(getRunId(), `W${testInfo.parallelIndex}`);
+        const org = newOrgName(getRunId(), `W${testInfo.parallelIndex}R${testInfo.retry}`);
         const source = await migrationCourse(
           page.request,
           config,
           getRunId(),
-          `WW${testInfo.parallelIndex}`,
+          `WW${testInfo.parallelIndex}R${testInfo.retry}`,
           org,
         );
         const staff = await rbacCast('courseStaff');
@@ -493,7 +509,11 @@ test.describe(
         );
 
         try {
-          const identity = newCourseIdentity(config, getRunId(), `WN${testInfo.parallelIndex}`);
+          const identity = newCourseIdentity(
+            config,
+            getRunId(),
+            `WN${testInfo.parallelIndex}R${testInfo.retry}`,
+          );
           const rerunKey = await adminLms(async (session) => {
             const key = await rerunCourse(session, config, source, {
               ...identity,

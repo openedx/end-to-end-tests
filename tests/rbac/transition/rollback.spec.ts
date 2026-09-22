@@ -94,7 +94,7 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
         page.request,
         config,
         getRunId(),
-        `R${testInfo.parallelIndex}`,
+        `R${testInfo.parallelIndex}R${testInfo.retry}`,
       );
 
       const roles = ['instructor', 'staff', 'limited_staff', 'data_researcher', 'beta'] as const;
@@ -216,12 +216,12 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
       void studioAuthorSession;
       void automaticMigrationTarget;
       void authzTarget;
-      const org = newOrgName(getRunId(), `B${testInfo.parallelIndex}`);
+      const org = newOrgName(getRunId(), `B${testInfo.parallelIndex}R${testInfo.retry}`);
       const courseKey = await migrationCourse(
         page.request,
         config,
         getRunId(),
-        `B${testInfo.parallelIndex}`,
+        `B${testInfo.parallelIndex}R${testInfo.retry}`,
         org,
       );
       const orgInstructor = await rbacCast('orgInstructor');

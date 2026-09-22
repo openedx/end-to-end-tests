@@ -95,7 +95,7 @@ test.describe(
           page.request,
           config,
           getRunId(),
-          `F${testInfo.parallelIndex}`,
+          `F${testInfo.parallelIndex}R${testInfo.retry}`,
         );
 
         // The five legacy roles the migration maps, plus a learner who holds none
@@ -239,12 +239,12 @@ test.describe(
         void authzTarget;
         // An organization of this test's own: an override there names every course
         // in it, so it must not be an organization anything else authors in.
-        const org = newOrgName(getRunId(), `O${testInfo.parallelIndex}`);
+        const org = newOrgName(getRunId(), `O${testInfo.parallelIndex}R${testInfo.retry}`);
         const courseKey = await migrationCourse(
           page.request,
           config,
           getRunId(),
-          `O${testInfo.parallelIndex}`,
+          `O${testInfo.parallelIndex}R${testInfo.retry}`,
           org,
         );
         const orgInstructor = await rbacCast('orgInstructor');

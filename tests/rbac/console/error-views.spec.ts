@@ -72,17 +72,13 @@ test.describe(
     test(
       'leads back out of an error view',
       {
+        tag: '@rbac-error-view-action',
         annotation: [
           testId('TC-00442'),
           issue('https://github.com/openedx/wg-build-test-release/issues/605'),
         ],
       },
       async ({ page, adminConsole, studioAuthorSession }) => {
-        test.fail(
-          true,
-          "The error view's only action does nothing: the anchor carries no href and its handler " +
-            'leaves the route unchanged (RBAC-008).',
-        );
         void studioAuthorSession;
         await page.goto(`${adminConsole.origin}/authz/e2e-no-such-route`, {
           waitUntil: 'domcontentloaded',
@@ -90,6 +86,10 @@ test.describe(
         const action = page.locator(ADMIN_CONSOLE_SELECTORS.errorViewAction);
         await expect(action).toBeVisible();
 
+        // The way out works where the console gives its action a destination.
+        // On `main` the same anchor carries no `href` and its handler leaves the
+        // route alone (`RBAC-008`), so the capability is undeclared there and
+        // this case has nothing to drive.
         await action.click();
         await page.waitForURL((url) => !url.pathname.includes('e2e-no-such-route'), {
           timeout: TIMEOUTS.optionalOverlay,

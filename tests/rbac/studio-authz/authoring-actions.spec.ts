@@ -126,7 +126,7 @@ test.describe(
           page.request,
           config,
           getRunId(),
-          `P${testInfo.parallelIndex}`,
+          `P${testInfo.parallelIndex}R${testInfo.retry}`,
         );
         await adminLms((session) =>
           enableAuthzForCourse(session, config, courseKey, { mode: 'automatic' }),
