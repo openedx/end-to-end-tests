@@ -443,7 +443,9 @@ export {
   LEGACY_COURSE_ROLES,
   countCourseAccessRoles,
   grantLegacyRole,
+  listCourseAccessRoles,
   revokeLegacyRole,
+  type CourseAccessRoleRow,
   type LegacyCourseRole,
 } from './course-access-role-admin';
 export {
