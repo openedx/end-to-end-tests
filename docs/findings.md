@@ -45,6 +45,7 @@ measured, and issues are opened by hand from them.
 | `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | open, `fixme` sibling on TC-00640                                              |
 | `RBAC-016`  | `openedx/edx-platform` (course re-run)                   | open, `fixme` sibling on TC-00632                                              |
 | `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-matrix-parity` |
+| `AUTH-004`  | `openedx/frontend-app-authoring`                         | open, not asserted — Help topics are, their doc links are not                  |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
 | `PLAT-004`  | `openedx/edx-platform` (`login_session`)                 | open, no `fixme` — the suite no longer makes the call                          |
 | `TUTOR-001` | `overhangio/tutor` (+ any plugin setting the old key)    | open, no `fixme` — handled by the `catalog-search` capability                  |
@@ -1606,3 +1607,21 @@ API answered" is not evidence that the session is live for authoring.
 **Coverage impact:** not a coverage gap — a rejected optimisation. `resyncStudioAuthor`
 deliberately keeps its browser navigation instead of a cheap API pre-check, and
 says so in a comment, so the shortcut is not re-introduced.
+
+### `AUTH-004` — the outline sidebar's Help topics carry documentation links on some builds and not others
+
+**Where:** the authoring MFE's course-outline sidebar, Help panel, `main`.
+
+**What happens:** the panel renders a heading per topic for the selected level
+("Creating your course organization", "Reorganizing your course", "Setting
+release dates and grading policies"). On some builds each topic is a link to the
+documentation; on others the same three render as headings alone, with no anchor
+in the panel at all. Both were seen on CI `main` within a week, with no change on
+this branch between them.
+
+**Coverage impact:** open, no `fixme`. TC-00492 asserted "the panel renders at
+least one link" and went red the day a build rendered none, three attempts
+running. It now asserts the **topics**, which every build renders; whether a
+topic links out depends on the installation's docs URLs, and a deployment-agnostic
+suite cannot require them. The Settings tab's links are a different thing — MFE
+routes, not docs — and are still asserted.

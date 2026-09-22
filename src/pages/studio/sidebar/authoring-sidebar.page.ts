@@ -117,6 +117,11 @@ export class AuthoringSidebar {
     await this.tab(selector).and(this.page.locator('[aria-selected="true"]')).waitFor();
   }
 
+  /** The topics the Help panel renders for the selected level. */
+  get helpTopics(): Locator {
+    return this.page.locator(this.s.helpTopic);
+  }
+
   /** The `href`s of the links currently rendered in the panel (the Settings-tab links). */
   async panelLinkHrefs(): Promise<string[]> {
     const links = await this.page.locator(this.s.helpLink).all();
