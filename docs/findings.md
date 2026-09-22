@@ -35,7 +35,7 @@ measured, and issues are opened by hand from them.
 | `RBAC-005`  | `openedx/frontend-app-admin-console`                     | open, pager located by position instead                                        |
 | `RBAC-006`  | `openedx/frontend-app-admin-console`                     | open, three axe rules baselined for console scans                              |
 | `RBAC-007`  | `openedx/openedx-authz` + console                        | open, `knownGap` on TC-00567                                                   |
-| `RBAC-008`  | `openedx/frontend-app-admin-console`                     | open, `test.fail` on TC-00442                                                  |
+| `RBAC-008`  | `openedx/frontend-app-admin-console`                     | open (regression on `main`), TC-00442 gated on `rbac-error-view-action`        |
 | `RBAC-009`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00569                                              |
 | `RBAC-010`  | `openedx/edx-platform` (content libraries)               | open, `fixme` sibling on TC-00573                                              |
 | `RBAC-011`  | `openedx/frontend-app-authoring`                         | open, asserted as a 403 on the offered action (TC-00572)                       |
@@ -44,6 +44,7 @@ measured, and issues are opened by hand from them.
 | `RBAC-014`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00620                                              |
 | `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | open, `fixme` sibling on TC-00640                                              |
 | `RBAC-016`  | `openedx/edx-platform` (course re-run)                   | open, `fixme` sibling on TC-00632                                              |
+| `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-matrix-parity` |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
 | `PLAT-004`  | `openedx/edx-platform` (`login_session`)                 | open, no `fixme` — the suite no longer makes the call                          |
 | `TUTOR-001` | `overhangio/tutor` (+ any plugin setting the old key)    | open, no `fixme` — handled by the `catalog-search` capability                  |
@@ -1575,3 +1576,33 @@ source's `course_staff` in `roles/users/?scope=` nor a legacy row for them.
 **Coverage impact:** open. TC-00632 asserts what the copy actually inherits and a
 `fixme` + `knownGap` sibling carries the case's expectation; the sheet marks this
 row failed as well.
+
+### `RBAC-017` — the library permission matrix is inaccurate on `verawood`
+
+**Where:** the console's Roles and Permissions tab, Libraries half, `verawood`
+(openedx-authz 1.21). Fixed on `main` (1.23).
+
+**What happens:** the matrix renders **14 rows** where `roles/?scope=<library>`
+advertises **11** permissions, so it is not a rendering of the API's own
+vocabulary. `main` renders exactly eleven, and each role column's ticks equal
+that role's permission count (11 / 9 / 8 / 3). This is the release the sheet
+measured when it filed wg#609 ("Library permissions tab info are not accurate"),
+which is closed against `main`.
+
+**Coverage impact:** open on `verawood` only. TC-00569's structural clauses run
+everywhere; the comparison against the API is a second test gated on the
+`rbac-matrix-parity` capability, declared for `main`. The gap is therefore
+visible as a capability `verawood` does not have, rather than as a red case on a
+release nobody is going to fix.
+
+### The console's Studio session answers reads it will refuse writes
+
+**Where:** Studio, measured while shortening `resyncStudioAuthor` (2026-09-22).
+
+**What happens:** a Studio **read** (`fetchStudioHome`) answered on a session
+whose very next **write** (`POST /course/`) was redirected to sign-in. So "the
+API answered" is not evidence that the session is live for authoring.
+
+**Coverage impact:** not a coverage gap — a rejected optimisation. `resyncStudioAuthor`
+deliberately keeps its browser navigation instead of a cheap API pre-check, and
+says so in a comment, so the shortcut is not re-introduced.
