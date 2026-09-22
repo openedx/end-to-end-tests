@@ -9,6 +9,7 @@ import {
 } from '../../../src/api';
 import { seedScopeAssignments } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
+import { RBAC_TAGS } from '../helpers';
 
 /**
  * The library half of the console's Team Members tab — the sheet's
@@ -21,7 +22,7 @@ import { testId } from '../../../src/reporting';
  */
 test.describe(
   'Roles and Permissions console — library team',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@rbac', '@content-libraries'] },
+  { tag: ['@regression', ...RBAC_TAGS, '@content-libraries'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

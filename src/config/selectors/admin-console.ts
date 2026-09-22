@@ -179,12 +179,6 @@ export const ADMIN_CONSOLE_SELECTORS = {
   // --- the error view an unknown console route renders --------------------------------------
 
   /**
-   * The page's own region, which the error view replaces wholesale. Present on
-   * `main`'s frontend-base shell; an older shell (`verawood`) renders the same
-   * view without this wrapper, so nothing anchors *through* it.
-   */
-  mainContent: '#main-content',
-  /**
    * The error view's single action ("Back to Studio"): the one link on the page
    * rendered as a primary button. On `main` it is an anchor with no `href` whose
    * handler does nothing (`RBAC-008`, TC-00442); `verawood` gives the same link a

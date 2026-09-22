@@ -1,8 +1,10 @@
 import { expect, test } from '../../../src/fixtures';
+import { checkA11y } from '../../../src/a11y';
 import { TIMEOUTS } from '../../../src/config';
 import { canI, listRoleUsers, listUserAssignments } from '../../../src/api';
 import { seedScopeAssignments } from '../../../src/steps';
 import { issue, testId } from '../../../src/reporting';
+import { ADMIN_CONSOLE_A11Y_BASELINE, RBAC_TAGS } from '../helpers';
 
 /**
  * The console's **Assign Role wizard**: who, which role, and where.
@@ -20,7 +22,7 @@ import { issue, testId } from '../../../src/reporting';
  */
 test.describe(
   'Roles and Permissions console — Assign Role',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@rbac', '@content-libraries'] },
+  { tag: ['@regression', ...RBAC_TAGS, '@content-libraries'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
@@ -193,6 +195,13 @@ test.describe(
         await wizard.fillWhoAndRole(subject.identity.username, 'library_user');
         await wizard.validateAndAdvance();
         await wizard.chooseScope(authoringLibrary.id);
+
+        // The wizard's own surface, scanned where it carries the most: both
+        // steps filled in and the scope list rendered.
+        await checkA11y(page, {
+          label: 'admin-console-assign-role',
+          additionalBaseline: ADMIN_CONSOLE_A11Y_BASELINE,
+        });
         await wizard.save();
 
         // Shown on success, and gone again without anyone dismissing it.

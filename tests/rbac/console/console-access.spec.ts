@@ -1,6 +1,7 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import { testId } from '../../../src/reporting';
+import { RBAC_TAGS } from '../helpers';
 
 /**
  * Reaching the **Roles and Permissions console**, and what it opens onto.
@@ -15,7 +16,7 @@ import { testId } from '../../../src/reporting';
  */
 test.describe(
   'Roles and Permissions console access',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@rbac'] },
+  { tag: ['@regression', ...RBAC_TAGS] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

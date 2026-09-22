@@ -491,7 +491,6 @@ export {
   type AuthzWriteOutcome,
   type AuthzWriteResult,
   type CourseRole,
-  type LibraryRole,
   type PermissionCheck,
   type UserValidation,
   type WaffleFlagStates,

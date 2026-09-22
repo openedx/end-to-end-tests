@@ -173,10 +173,50 @@ outcome").
   edit `UserAgreement` rows through the LMS Django admin (no REST API), on a
   `loginSession` context.
 - `assets.ts` — the Studio Files API (`/assets/<key>/`): `fetchAssets` /
-  `fetchAllAssets` / `uploadAsset` — the course asset oracle (lock and delete are
-  driven through the Files UI).
-- `textbooks.ts` — `fetchTextbooks`, the course PDF textbook oracle (add and
-  delete are driven through the Textbooks page); the learner effect is read via
+  `fetchAllAssets` / `uploadAsset`, plus `setAssetLock` and `deleteAsset` for the
+  role cases that must perform them as the account under test (the Files page
+  drives the same two in `tests/studio/files/`). Lock answers with the updated
+  asset on some releases and a bare `{"locked": …}` on others; both are read.
+- `textbooks.ts` — `fetchTextbooks`, the course PDF textbook oracle (deletion is
+  driven through the Textbooks page); `createTextbook` posts to the **legacy**
+  `/textbooks/<key>` handler, because the v1 API is read-only and answers a
+  `POST` with 405 (measured on `main`). The learner effect is read via
   `fetchCourseMetadata` tabs.
-- `course-updates.ts` — `fetchCourseUpdates` / `fetchHandouts`: the Course
-  Updates page's `course_info_update` and handouts-xblock oracles.
+- `course-updates.ts` — `fetchCourseUpdates` / `fetchHandouts` / `createCourseUpdate`:
+  the Course Updates page's `course_info_update` and handouts-xblock oracles.
+
+### Roles and permissions clients
+
+- `authz.ts` — the `openedx-authz` API (`/api/authz/v1/`) the Roles and
+  Permissions console is built on: the role vocabularies (`COURSE_ROLES`,
+  `LIBRARY_ROLES`, `PLATFORM_ROLES`, `LEGACY_ROLE_EQUIVALENTS`), `listRoles`,
+  `listRoleUsers`, `listAssignments`, `listUserAssignments`, `listAuthzUsers`,
+  `listScopes`, `listAuthzOrgs`, `validateMyPermissions` / `canI`,
+  `validateUsers`, and the 207-aware writes `assignRole` / `revokeRole` (an
+  `errors[]` row names the identifier and the code). `authzScopeKey` encodes a
+  scope once, in one place — a course key's `+` must survive the query string.
+  Also `fetchWaffleFlagStates` and `isAuthzEnabledForCourse`, the flag document
+  every override write waits on.
+- `waffle.ts` — `authz.enable_course_authoring` overrides through the Django
+  admin: `setCourseFlagOverride` / `setOrgFlagOverride` and their `clear…`
+  counterparts. The models are `ConfigurationModel`s, so nothing is ever
+  deleted: turning an override off means adding a disabled row.
+- `authz-migration.ts` — the read-only Course Authoring Migration Run admin:
+  `countMigrationRuns`, `hasCompletedMigrationRun` and `fetchMigrationRunLedger`,
+  which decodes the run's `metadata` into the per-assignment ledger
+  (`{role, scope, subject}`) that names every mapping a migration made. Filters
+  by the model's **raw** values, never by a rendered label.
+- `course-access-role-admin.ts` — the legacy `CourseAccessRole` admin:
+  `grantLegacyRole` (the only route to an **organization-wide** role — a row with
+  a blank course id), `revokeLegacyRole`, `listCourseAccessRoles` and
+  `countCourseAccessRoles`. Per-course legacy roles have an API
+  (`grantCourseTeamRole`) and use it.
+- `user-admin.ts` — `deactivateAccount`: turns an account's `is_active` off
+  through the LMS user admin, the only way to reach the platform's "registered
+  but not activated" behaviour on a target that activates on registration.
+- `django-admin.ts` — the admin-form mechanics the four clients above share:
+  `openAdminForm` / `postAdminForm` / `readAdminForm` (a whole change form,
+  inline formsets included, read back for re-posting), `findAdminRowPk`,
+  `countAdminResultRows`, and `assertAdminPage` — which is what stops an
+  **evicted** Django session from reading as an empty list, since `/admin/…`
+  answers a logged-out caller with a 302 the request context follows to a 200.

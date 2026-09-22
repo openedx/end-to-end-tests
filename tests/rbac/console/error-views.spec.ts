@@ -1,9 +1,11 @@
 import type { Route } from '@playwright/test';
 
 import { expect, test } from '../../../src/fixtures';
+import { checkA11y } from '../../../src/a11y';
 import { ADMIN_CONSOLE_SELECTORS, TIMEOUTS } from '../../../src/config';
 import { AUTHZ_BASE } from '../../../src/api';
 import { issue, testId } from '../../../src/reporting';
+import { ADMIN_CONSOLE_A11Y_BASELINE, RBAC_TAGS } from '../helpers';
 
 /**
  * What the console shows when a request cannot be served: an expired session, a
@@ -24,7 +26,7 @@ import { issue, testId } from '../../../src/reporting';
  */
 test.describe(
   'Roles and Permissions console — error views',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@rbac'] },
+  { tag: ['@regression', ...RBAC_TAGS] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
@@ -66,6 +68,12 @@ test.describe(
         await expect(adminConsole.teamMembers.table).toHaveCount(0);
         await expect(adminConsole.console.toast).toHaveCount(0);
         await expect(adminConsole.console.toastRetry).toHaveCount(0);
+
+        // An error screen is a screen: it carries the same bar as the rest.
+        await checkA11y(page, {
+          label: 'admin-console-not-found',
+          additionalBaseline: ADMIN_CONSOLE_A11Y_BASELINE,
+        });
       },
     );
 

@@ -29,7 +29,14 @@ installation that does not work at all.
 Decision
 ********
 
-Network interception is allowed **only to make a server response fail**, for
+This decision governs interception of **the platform's own responses** — the
+LMS, Studio and MFE APIs the suite asserts against. Third-party media is out of
+scope and keeps its existing treatment: ``stubVideoSources`` answers a course's
+HTML5 video sources with a bundled clip, because whether a runner can reach
+someone else's bucket says nothing about the platform, and the block, the player
+and the completion record it produces are all still the real thing.
+
+Interception of a platform response is allowed **only to make it fail**, for
 coverage whose subject is the UI's error handling. Concretely, an intercepted
 test must:
 
@@ -49,6 +56,9 @@ test must:
 A spec that intercepts says so in its header comment and names the case whose
 premise requires it.
 
+At the time of writing that is two specs — ``rbac/console/error-views.spec.ts``
+and ``rbac/console/assign-role-errors.spec.ts`` — plus the media stub above.
+
 Consequences
 ************
 
@@ -56,7 +66,8 @@ The suite keeps one narrow, documented exception to "drive the real platform":
 error-handling coverage that would otherwise be unreachable becomes testable,
 while a faked success remains impossible by rule. Reviewers have a short
 checklist to apply to any new ``page.route`` call, and ``grep`` over
-``page.route`` is enough to audit every use.
+``page.route`` is enough to audit every use: each hit is either a platform
+failure under this rule or the media stub named above.
 
 Where an error state *can* be produced honestly, it must be: clearing a
 context's cookies to get a ``401``, requesting a key that does not exist for a

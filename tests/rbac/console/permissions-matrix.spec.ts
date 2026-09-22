@@ -3,7 +3,7 @@ import { checkA11y } from '../../../src/a11y';
 import { LIBRARY_ROLES, listRoles } from '../../../src/api';
 import { TIMEOUTS } from '../../../src/config';
 import { issue, knownGap, testId } from '../../../src/reporting';
-import { ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
+import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
 
 /**
  * The console's **Roles and Permissions** tab — the static matrix of what each
@@ -27,7 +27,7 @@ import { ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
  */
 test.describe(
   'Roles and Permissions console — permission matrix',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@rbac', '@content-libraries'] },
+  { tag: ['@regression', ...RBAC_TAGS, '@content-libraries'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

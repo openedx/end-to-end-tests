@@ -4,7 +4,7 @@ import { LIBRARY_ROLES, listUserAssignments } from '../../../src/api';
 import { seedScopeAssignments } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
 import { knownGap, testId } from '../../../src/reporting';
-import { ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
+import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
 
 /**
  * The console's **user audit view**: every role one account holds, what each
@@ -18,7 +18,7 @@ import { ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
  */
 test.describe(
   'Roles and Permissions console — user audit view',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@rbac', '@content-libraries'] },
+  { tag: ['@regression', ...RBAC_TAGS, '@content-libraries'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

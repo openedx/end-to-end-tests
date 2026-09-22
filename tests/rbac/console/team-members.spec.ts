@@ -8,7 +8,7 @@ import {
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
 import { issue, knownGap, testId } from '../../../src/reporting';
-import { ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
+import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
 
 /**
  * The console's **Team Members** tab: what the table lists, how it narrows, and
@@ -21,7 +21,7 @@ import { ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
  */
 test.describe(
   'Roles and Permissions console — Team Members',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@rbac'] },
+  { tag: ['@regression', ...RBAC_TAGS] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
