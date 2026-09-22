@@ -2,7 +2,14 @@ import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
 import { ApiError } from './errors';
-import { adminCsrfToken, findAdminRowPk, openAdminForm, postAdminForm } from './django-admin';
+import {
+  adminCsrfToken,
+  assertAdminPage,
+  countAdminResultRows,
+  findAdminRowPk,
+  openAdminForm,
+  postAdminForm,
+} from './django-admin';
 
 /** The legacy role model's admin, the only way to grant an **organization-wide** role. */
 export const COURSE_ACCESS_ROLE_ADMIN = '/admin/student/courseaccessrole';
@@ -110,4 +117,25 @@ export async function revokeLegacyRole(
       body: (await response.text()).slice(0, 300),
     });
   }
+}
+
+/**
+ * How many legacy role rows the admin holds for one course (or for any other
+ * term its search covers) — the reading behind "the legacy role should have been
+ * removed" after a migration.
+ *
+ * The change list's own search box does the filtering, so nothing here depends
+ * on a rendered label, and the count is the result table's rows minus its
+ * header.
+ */
+export async function countCourseAccessRoles(
+  adminSession: APIRequestContext,
+  config: AppConfig,
+  search: string,
+): Promise<number> {
+  const url = `${config.baseUrls.lms}${COURSE_ACCESS_ROLE_ADMIN}/?q=${encodeURIComponent(search)}`;
+  const response = await adminSession.get(url);
+  const html = await response.text();
+  assertAdminPage(html, response.status(), url, `Counting the legacy roles matching ${search}`);
+  return countAdminResultRows(html);
 }

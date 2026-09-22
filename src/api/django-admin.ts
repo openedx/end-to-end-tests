@@ -47,6 +47,40 @@ export const decodeAdminEntities = (value: string): string =>
  * with the form re-rendered and its `errorlist`, rather than the 302 a save
  * gives.
  */
+/**
+ * Fails unless `html` really is a Django admin page.
+ *
+ * A Django session that has been evicted — `PREVENT_CONCURRENT_LOGINS` ends it
+ * whenever the same account signs in elsewhere — does not produce an error:
+ * `/admin/…` answers **302 to the admin login**, which the request context
+ * follows to the LMS landing page and reports as `200`. A reader that only
+ * checks the status then counts zero rows and reports "nothing there", which is
+ * indistinguishable from a real empty list and silently passes tests that should
+ * have failed or healed.
+ *
+ * The message deliberately contains "did not render", which is what
+ * `withAdminLmsSession` retries on: a guarded reader signs in again and repeats
+ * the work instead of lying.
+ */
+export function assertAdminPage(html: string, status: number, url: string, what: string): void {
+  if (status < 400 && html.includes('id="content"') && html.includes('/admin/')) return;
+  throw new ApiError(
+    `${what}: the admin page did not render (HTTP ${status}). The context must hold an LMS ` +
+      'Django session for a superuser, and that session must still be live.',
+    { status, url, body: html.slice(0, 300) },
+  );
+}
+
+/**
+ * The number of data rows in an admin change list — its `#result_list` minus the
+ * header row. A change list with no matches renders no result table at all.
+ */
+export function countAdminResultRows(html: string): number {
+  const table = /id="result_list"[\s\S]*?<\/table>/.exec(html)?.[0];
+  if (table === undefined) return 0;
+  return Math.max(0, (table.match(/<tr\b/g) ?? []).length - 1);
+}
+
 export function adminFormValue(html: string, name: string): string {
   const input = new RegExp(`<input[^>]*\\bname="${name}"[^>]*>`, 'i').exec(html)?.[0];
   if (input !== undefined) return decodeAdminEntities(/\bvalue="([^"]*)"/.exec(input)?.[1] ?? '');
