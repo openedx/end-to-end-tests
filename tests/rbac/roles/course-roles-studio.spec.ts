@@ -39,12 +39,12 @@ test.describe(
         ],
       },
       async (
-        { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, studioColleague },
+        { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, rbacCast },
         testInfo,
       ) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const staff = await studioColleague();
+        const staff = await rbacCast('courseStaff');
         await seedScopeAssignments(
           page.request,
           config,
@@ -76,7 +76,7 @@ test.describe(
         expect(await canI(staff.request, config, 'courses.manage_course_team', courseKey)).toBe(
           false,
         );
-        const other = await studioColleague();
+        const other = await rbacCast('outsider');
         await expect(
           assignRole(staff.request, config, {
             role: 'course_staff',
@@ -95,11 +95,11 @@ test.describe(
     test(
       'lets a course admin manage the team as well',
       { annotation: testId('TC-00577') },
-      async ({ page, config, authzTarget, studioAuthorSession, studioColleague }) => {
+      async ({ page, config, authzTarget, studioAuthorSession, rbacCast }) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const admin = await studioColleague();
-        const newcomer = await studioColleague();
+        const admin = await rbacCast('courseAdmin');
+        const newcomer = await rbacCast('newcomer');
         await seedScopeAssignments(
           page.request,
           config,
@@ -158,10 +158,10 @@ test.describe(
     test(
       'refuses Studio to an account with no course role',
       { annotation: testId('TC-00578') },
-      async ({ config, authzTarget, studioAuthorSession, studioColleague }) => {
+      async ({ config, authzTarget, studioAuthorSession, rbacCast }) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const outsider = await studioColleague();
+        const outsider = await rbacCast('outsider');
 
         await expect(fetchCourseIndex(outsider.request, config, courseKey)).rejects.toMatchObject({
           status: 403,
@@ -190,9 +190,9 @@ test.describe(
           ),
         ],
       },
-      async ({ authzTarget, studioAuthorSession, studioColleague }) => {
+      async ({ authzTarget, studioAuthorSession, rbacCast }) => {
         void studioAuthorSession;
-        const outsider = await studioColleague();
+        const outsider = await rbacCast('outsider');
         await outsider.studioHomePage.goto();
         await expect(outsider.studioHomePage.courseCardLink(authzTarget.courseKey)).toHaveCount(0);
       },

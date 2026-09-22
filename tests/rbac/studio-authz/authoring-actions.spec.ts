@@ -47,12 +47,12 @@ test.describe(
       'lets course staff build a unit and put a component in it',
       { annotation: testId('TC-00618') },
       async (
-        { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, studioColleague },
+        { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, rbacCast },
         testInfo,
       ) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const staff = await studioColleague();
+        const staff = await rbacCast('courseStaff');
         await seedScopeAssignments(
           page.request,
           config,
@@ -111,7 +111,7 @@ test.describe(
           authzTarget,
           automaticMigrationTarget,
           studioAuthorSession,
-          studioColleague,
+          rbacCast,
         },
         testInfo,
       ) => {
@@ -150,7 +150,7 @@ test.describe(
         expect((await fetchXBlockOutline(page.request, config, unitKey)).published).toBe(true);
 
         // Visible in the LMS to an enrolled learner.
-        const learner = await studioColleague();
+        const learner = await rbacCast('learner');
         await enrollInCourseViaApi(learner.request, config, courseKey);
         await expect
           .poll(
@@ -180,7 +180,7 @@ test.describe(
           authoringLibrary,
           studioAuthorSession,
           resyncStudioAuthor,
-          studioColleague,
+          rbacCast,
         },
         testInfo,
       ) => {
@@ -188,7 +188,7 @@ test.describe(
         const courseKey = authzTarget.courseKey;
         // This case drives the picker in a browser and needs a library role of
         // its own, so it takes an account rather than the worker author.
-        const admin = await studioColleague();
+        const admin = await rbacCast('courseAdmin');
         await seedScopeAssignments(
           page.request,
           config,
@@ -288,12 +288,12 @@ test.describe(
       'duplicates a unit and moves it to another section as course staff',
       { annotation: testId('TC-00647') },
       async (
-        { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, studioColleague },
+        { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, rbacCast },
         testInfo,
       ) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const staff = await studioColleague();
+        const staff = await rbacCast('courseStaff');
         await seedScopeAssignments(
           page.request,
           config,

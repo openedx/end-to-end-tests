@@ -48,7 +48,7 @@ test.describe(
           automaticMigrationTarget,
           studioAuthorSession,
           resyncStudioAuthor,
-          studioColleague,
+          rbacCast,
         },
         testInfo,
       ) => {
@@ -58,7 +58,7 @@ test.describe(
         const org = newOrgName(getRunId(), `C${testInfo.parallelIndex}`);
         // Any account the suite provisions may create courses (it is put in the
         // course-creator group), which is the "content creator" of TC-00627.
-        const creator = await studioColleague();
+        const creator = await rbacCast('creator');
 
         await adminLms((session) =>
           setOrgFlagOverride(session, config, org, {
@@ -123,7 +123,7 @@ test.describe(
           automaticMigrationTarget,
           studioAuthorSession,
           resyncStudioAuthor,
-          studioColleague,
+          rbacCast,
         },
         testInfo,
       ) => {
@@ -131,7 +131,7 @@ test.describe(
         void automaticMigrationTarget;
         void authzTarget;
         const org = newOrgName(getRunId(), `G${testInfo.parallelIndex}`);
-        const orgInstructor = await studioColleague();
+        const orgInstructor = await rbacCast('orgInstructor');
 
         const rowPk = await adminLms((session) =>
           grantLegacyRole(session, config, {
@@ -215,7 +215,7 @@ test.describe(
           automaticMigrationTarget,
           studioAuthorSession,
           resyncStudioAuthor,
-          studioColleague,
+          rbacCast,
         },
         testInfo,
       ) => {
@@ -230,7 +230,7 @@ test.describe(
           `RR${testInfo.parallelIndex}`,
           org,
         );
-        const staff = await studioColleague();
+        const staff = await rbacCast('courseStaff');
         await resyncStudioAuthor();
         await grantCourseTeamRole(page.request, config, source, [staff.identity.email], 'staff');
 
@@ -314,7 +314,7 @@ test.describe(
           authzTarget,
           automaticMigrationTarget,
           studioAuthorSession,
-          studioColleague,
+          rbacCast,
         },
         testInfo,
       ) => {
@@ -329,7 +329,7 @@ test.describe(
           `L${testInfo.parallelIndex}`,
           org,
         );
-        const orgStaff = await studioColleague();
+        const orgStaff = await rbacCast('orgStaff');
         const rowPk = await adminLms((session) =>
           grantLegacyRole(session, config, {
             email: orgStaff.identity.email,
@@ -388,21 +388,14 @@ test.describe(
         ],
       },
       async (
-        {
-          config,
-          adminLms,
-          authzTarget,
-          automaticMigrationTarget,
-          studioAuthorSession,
-          studioColleague,
-        },
+        { config, adminLms, authzTarget, automaticMigrationTarget, studioAuthorSession, rbacCast },
         testInfo,
       ) => {
         void studioAuthorSession;
         void automaticMigrationTarget;
         void authzTarget;
         const org = newOrgName(getRunId(), `H${testInfo.parallelIndex}`);
-        const orgInstructor = await studioColleague();
+        const orgInstructor = await rbacCast('orgInstructor');
         const rowPk = await adminLms((session) =>
           grantLegacyRole(session, config, {
             email: orgInstructor.identity.email,
@@ -472,7 +465,7 @@ test.describe(
           automaticMigrationTarget,
           studioAuthorSession,
           resyncStudioAuthor,
-          studioColleague,
+          rbacCast,
         },
         testInfo,
       ) => {
@@ -487,7 +480,7 @@ test.describe(
           `WW${testInfo.parallelIndex}`,
           org,
         );
-        const staff = await studioColleague();
+        const staff = await rbacCast('courseStaff');
         await resyncStudioAuthor();
         await grantCourseTeamRole(page.request, config, source, [staff.identity.email], 'staff');
         await adminLms((session) =>

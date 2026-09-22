@@ -51,7 +51,7 @@ test.describe('AuthZ library public reuse', { tag: ['@regression', ...RBAC_LIBRA
         contentCourse,
         resyncStudioAuthor,
         studioAuthorSession,
-        studioColleague,
+        rbacCast,
       },
       testInfo,
     ) => {
@@ -66,7 +66,7 @@ test.describe('AuthZ library public reuse', { tag: ['@regression', ...RBAC_LIBRA
 
       // The outsider: no role in the library, but staff on a course of ours, so
       // they have somewhere to reuse content into.
-      const outsider = await studioColleague();
+      const outsider = await rbacCast('courseStaff');
       await resyncStudioAuthor();
       await setCourseTeamRole(
         page.request,
@@ -131,11 +131,11 @@ test.describe('AuthZ library public reuse', { tag: ['@regression', ...RBAC_LIBRA
         issue('https://github.com/openedx/openedx-authz/issues/239'),
       ],
     },
-    async ({ page, config, authoringLibrary, studioAuthorSession, studioColleague }) => {
+    async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }) => {
       void studioAuthorSession;
       const library = authoringLibrary.id;
-      const author = await studioColleague();
-      const contributor = await studioColleague();
+      const author = await rbacCast('libraryAuthor');
+      const contributor = await rbacCast('libraryContributor');
       await seedScopeAssignments(
         page.request,
         config,

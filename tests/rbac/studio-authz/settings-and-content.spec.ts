@@ -233,10 +233,10 @@ test.describe(
     test(
       'changes the course schedule as course staff',
       { annotation: testId('TC-00643') },
-      async ({ page, config, authzTarget, studioAuthorSession, studioColleague }) => {
+      async ({ page, config, authzTarget, studioAuthorSession, rbacCast }) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
-        const staff = await studioColleague();
+        const staff = await rbacCast('courseStaff');
         await seedScopeAssignments(
           page.request,
           config,

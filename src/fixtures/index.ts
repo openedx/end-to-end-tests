@@ -696,6 +696,39 @@ export interface StudioColleagueOptions {
   readonly libraryAccess?: { readonly libraryKey: string; readonly level: LibraryAccessLevel };
 }
 
+/**
+ * The parts {@link WorkerFixtures.rbacCast} casts. Each name is a role the BTR
+ * plan's own cast list uses (`user_instructor_a`, `user_staff_a`, …), so an
+ * account only ever plays one of them.
+ */
+export const RBAC_CAST_PARTS = [
+  'instructor',
+  'staff',
+  'limitedStaff',
+  'dataResearcher',
+  'beta',
+  'learner',
+  'outsider',
+  'multiRole',
+  'orgInstructor',
+  'orgStaff',
+  'courseAdmin',
+  'courseStaff',
+  'newcomer',
+  'creator',
+  'libraryAuthor',
+  'libraryContributor',
+  'libraryUser',
+  // Three accounts that only ever hold **every** library role at once: the
+  // console's pagination case needs twelve assignments, and giving the parts
+  // above a role they do not play would change what the library specs measure.
+  'teamPagerA',
+  'teamPagerB',
+  'teamPagerC',
+] as const;
+
+export type RbacCastPart = (typeof RBAC_CAST_PARTS)[number];
+
 /** What one {@link TestFixtures.studioColleague} call hands a spec. */
 export interface StudioColleague {
   readonly identity: LearnerIdentity;
@@ -820,6 +853,26 @@ export interface WorkerFixtures {
    * itself, assigned here where it does not, because a flag-on course with no
    * authz roles locks its own team out of Studio. `undefined` without an admin.
    */
+  /**
+   * A cast of Studio accounts **shared by the worker's RBAC specs**, one per
+   * part they play (`instructor`, `course_staff`, `library_user`, …).
+   *
+   * Every account in `tests/rbac/` used to be provisioned per test, which put a
+   * full run of the tree past the platform's sign-in and registration limits —
+   * the failures it produced looked like slow renders and dead sessions rather
+   * than what they were. The cast fixes the arithmetic: a worker provisions each
+   * part **once, on first use**, and the specs take the part they need.
+   *
+   * It is keyed by part rather than by number on purpose. An account reused
+   * across tests keeps whatever roles those tests gave it, so reuse is only safe
+   * when the part is the same every time: `cast('staff')` may end up `staff` in
+   * several courses, which changes nothing about what `staff` may do in the
+   * course under test. A case that needs an account with **no** history — one it
+   * deactivates, or one whose emptiness is the assertion on a shared scope —
+   * still takes {@link TestFixtures.studioColleague}.
+   */
+  rbacCast: (part: RbacCastPart) => Promise<StudioColleague>;
+
   authzCourse: AuthzCourse | undefined;
   /**
    * The course the Studio settings specs act on — one per worker, created on
@@ -1860,6 +1913,55 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         (session) => probeMigrationMode(session, config, org),
       );
       await use(probe);
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
+  rbacCast: [
+    async ({ playwright, browser }, use) => {
+      const config = getConfig();
+      const cast = new Map<RbacCastPart, StudioColleague>();
+      const made: StudioColleague[] = [];
+
+      await use(async (part) => {
+        const existing = cast.get(part);
+        if (existing !== undefined) return existing;
+
+        const request = await playwright.request.newContext();
+        const staffState = authStateFile('staff');
+        let identity: LearnerIdentity;
+        try {
+          identity = await provisionAuthorSession(request, config, {
+            adminStorageState: isUsableStateFile(staffState) ? staffState : undefined,
+          });
+        } catch (error) {
+          if (error instanceof AccountNotConfiguredError) {
+            base.skip(true, error.message);
+          }
+          throw error;
+        }
+        const context = await browser.newContext();
+        await context.addCookies((await request.storageState()).cookies);
+        const castPage = await context.newPage();
+        const member: StudioColleague = {
+          identity,
+          request,
+          context,
+          page: castPage,
+          libraryPage: new LibraryPage(castPage, config),
+          unitPage: new StudioUnitPage(castPage, config),
+          libraryPicker: new LibraryPickerDialog(castPage, config),
+          studioHomePage: new StudioHomePage(castPage, config),
+        };
+        cast.set(part, member);
+        made.push(member);
+        return member;
+      });
+
+      for (const member of made) {
+        await member.context.close();
+        await member.request.dispose();
+      }
     },
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],

@@ -42,12 +42,12 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'gives an instructor every course capability, including the team and date tools',
     { annotation: testId('TC-00579') },
     async (
-      { page, config, contentCourse, studioAuthorSession, studioColleague, resyncStudioAuthor },
+      { page, config, contentCourse, studioAuthorSession, rbacCast, resyncStudioAuthor },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = contentCourse.courseKey;
-      const instructor = await studioColleague();
+      const instructor = await rbacCast('instructor');
       await grantCourseTeamRole(
         page.request,
         config,
@@ -88,12 +88,12 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'gives staff the same access but not the team or date tools',
     { annotation: testId('TC-00580') },
     async (
-      { page, config, contentCourse, studioAuthorSession, studioColleague, resyncStudioAuthor },
+      { page, config, contentCourse, studioAuthorSession, rbacCast, resyncStudioAuthor },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = contentCourse.courseKey;
-      const staff = await studioColleague();
+      const staff = await rbacCast('staff');
       await grantCourseTeamRole(page.request, config, courseKey, [staff.identity.email], 'staff');
       await resyncStudioAuthor();
       const writableBlock = await writableSection(
@@ -126,12 +126,12 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'keeps limited staff out of Studio while leaving the dashboard open',
     { annotation: testId('TC-00581') },
     async (
-      { page, config, contentCourse, studioAuthorSession, studioColleague, resyncStudioAuthor },
+      { page, config, contentCourse, studioAuthorSession, rbacCast, resyncStudioAuthor },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = contentCourse.courseKey;
-      const limited = await studioColleague();
+      const limited = await rbacCast('limitedStaff');
       await grantCourseTeamRole(
         page.request,
         config,
@@ -169,12 +169,12 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'gives a data researcher the downloads and nothing else',
     { annotation: testId('TC-00582') },
     async (
-      { page, config, contentCourse, studioAuthorSession, studioColleague, resyncStudioAuthor },
+      { page, config, contentCourse, studioAuthorSession, rbacCast, resyncStudioAuthor },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = contentCourse.courseKey;
-      const researcher = await studioColleague();
+      const researcher = await rbacCast('dataResearcher');
       await grantCourseTeamRole(
         page.request,
         config,
@@ -219,13 +219,13 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'gives a beta tester a learner’s access, early',
     { annotation: testId('TC-00583') },
     async (
-      { page, config, contentCourse, studioAuthorSession, studioColleague, resyncStudioAuthor },
+      { page, config, contentCourse, studioAuthorSession, rbacCast, resyncStudioAuthor },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = contentCourse.courseKey;
-      const beta = await studioColleague();
-      const student = await studioColleague();
+      const beta = await rbacCast('beta');
+      const student = await rbacCast('learner');
       await grantCourseTeamRole(page.request, config, courseKey, [beta.identity.email], 'beta');
       await enrollInCourseViaApi(student.request, config, courseKey);
       await resyncStudioAuthor();
@@ -268,13 +268,13 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'lets an enrolled student consume the course and nothing more',
     { annotation: testId('TC-00584') },
     async (
-      { page, config, contentCourse, studioAuthorSession, studioColleague, resyncStudioAuthor },
+      { page, config, contentCourse, studioAuthorSession, rbacCast, resyncStudioAuthor },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = contentCourse.courseKey;
-      const student = await studioColleague();
-      const outsider = await studioColleague();
+      const student = await rbacCast('learner');
+      const outsider = await rbacCast('outsider');
       await enrollInCourseViaApi(student.request, config, courseKey);
       await resyncStudioAuthor();
       const writableBlock = await writableSection(
@@ -312,15 +312,7 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'gives an organization instructor every course in that organization and none outside it',
     { annotation: testId('TC-00585') },
     async (
-      {
-        page,
-        config,
-        contentCourse,
-        adminLms,
-        studioAuthorSession,
-        studioColleague,
-        resyncStudioAuthor,
-      },
+      { page, config, contentCourse, adminLms, studioAuthorSession, rbacCast, resyncStudioAuthor },
       testInfo,
     ) => {
       void studioAuthorSession;
@@ -339,7 +331,7 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
         `M${testInfo.parallelIndex}`,
         org,
       );
-      const orgInstructor = await studioColleague();
+      const orgInstructor = await rbacCast('orgInstructor');
 
       // An organization-wide role has no API: the admin's Course Access Role
       // form, with the course id left blank, is the documented route.
@@ -394,13 +386,13 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'gives an account with two roles the union of both',
     { annotation: testId('TC-00586') },
     async (
-      { page, config, contentCourse, studioAuthorSession, studioColleague, resyncStudioAuthor },
+      { page, config, contentCourse, studioAuthorSession, rbacCast, resyncStudioAuthor },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = contentCourse.courseKey;
-      const both = await studioColleague();
-      const staffOnly = await studioColleague();
+      const both = await rbacCast('multiRole');
+      const staffOnly = await rbacCast('staff');
       await grantCourseTeamRole(page.request, config, courseKey, [both.identity.email], 'staff');
       await grantCourseTeamRole(
         page.request,

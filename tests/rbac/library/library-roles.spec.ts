@@ -89,10 +89,10 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
         issue('https://github.com/openedx/wg-build-test-release/issues/589'),
       ],
     },
-    async ({ page, config, authoringLibrary, studioAuthorSession, studioColleague }, testInfo) => {
+    async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {
       void studioAuthorSession;
       const library = authoringLibrary.id;
-      const author = await studioColleague();
+      const author = await rbacCast('libraryAuthor');
       await seedScopeAssignments(
         page.request,
         config,
@@ -159,10 +159,10 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
         issue('https://github.com/openedx/wg-build-test-release/issues/589'),
       ],
     },
-    async ({ page, config, authoringLibrary, studioAuthorSession, studioColleague }, testInfo) => {
+    async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {
       void studioAuthorSession;
       const library = authoringLibrary.id;
-      const contributor = await studioColleague();
+      const contributor = await rbacCast('libraryContributor');
       await seedScopeAssignments(
         page.request,
         config,
@@ -246,10 +246,10 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
         issue('https://github.com/openedx/wg-build-test-release/issues/589'),
       ],
     },
-    async ({ page, config, authoringLibrary, studioAuthorSession, studioColleague }, testInfo) => {
+    async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {
       void studioAuthorSession;
       const library = authoringLibrary.id;
-      const reader = await studioColleague();
+      const reader = await rbacCast('libraryUser');
       await seedScopeAssignments(
         page.request,
         config,
@@ -327,7 +327,7 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
         ),
       ],
     },
-    async ({ page, config, authoringLibrary, studioAuthorSession, studioColleague }, testInfo) => {
+    async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {
       void studioAuthorSession;
       const library = authoringLibrary.id;
       const published = libraryLabel('v1', testInfo.testId);
@@ -337,7 +337,7 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
       await setLibraryBlockOlx(page.request, config, block.id, libraryOlx.html(draft, draft));
       const neverPublished = await authorBlock(page.request, config, library, `${draft} new`);
 
-      const reader = await studioColleague();
+      const reader = await rbacCast('libraryUser');
       await seedScopeAssignments(
         page.request,
         config,
@@ -358,10 +358,10 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
   test(
     'shows a user with no role neither the library nor its content',
     { annotation: testId('TC-00574') },
-    async ({ config, authoringLibrary, studioColleague, studioAuthorSession }) => {
+    async ({ config, authoringLibrary, studioAuthorSession, rbacCast }) => {
       void studioAuthorSession;
       const library = authoringLibrary.id;
-      const outsider = await studioColleague();
+      const outsider = await rbacCast('outsider');
 
       // The platform refuses them the library outright.
       expect(await canI(outsider.request, config, 'content_libraries.view_library', library)).toBe(
