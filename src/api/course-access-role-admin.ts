@@ -5,7 +5,7 @@ import { ApiError } from './errors';
 import {
   adminCsrfToken,
   assertAdminPage,
-  countAdminResultRows,
+  decodeAdminEntities,
   findAdminRowPk,
   openAdminForm,
   postAdminForm,
@@ -119,23 +119,70 @@ export async function revokeLegacyRole(
   }
 }
 
+/** One row of the legacy role table, as its change list renders it. */
+export interface CourseAccessRoleRow {
+  readonly username: string;
+  readonly org: string;
+  /**
+   * Empty for an organization-wide row — the blank course id the plan's own
+   * instructions call for. (The admin renders an empty value as `-`; this is
+   * normalized back to an empty string so a caller compares against what it
+   * wrote.)
+   */
+  readonly courseKey: string;
+  readonly role: string;
+}
+
 /**
- * How many legacy role rows the admin holds for one course (or for any other
- * term its search covers) — the reading behind "the legacy role should have been
- * removed" after a migration.
+ * The legacy role rows matching a search term — the reading behind "the legacy
+ * role should have been removed" and, after a rollback, "the final state must
+ * match the original baseline".
  *
- * The change list's own search box does the filtering, so nothing here depends
- * on a rendered label, and the count is the result table's rows minus its
- * header.
+ * The change list's own search box does the filtering and Django's `field-<name>`
+ * cells carry the model's **raw** values (`beta_testers`, not a label), so a
+ * before-and-after comparison is exact and nothing here depends on displayed
+ * copy.
  */
+export async function listCourseAccessRoles(
+  adminSession: APIRequestContext,
+  config: AppConfig,
+  search: string,
+): Promise<CourseAccessRoleRow[]> {
+  const url = `${config.baseUrls.lms}${COURSE_ACCESS_ROLE_ADMIN}/?q=${encodeURIComponent(search)}`;
+  const response = await adminSession.get(url);
+  const html = await response.text();
+  assertAdminPage(html, response.status(), url, `Listing the legacy roles matching ${search}`);
+
+  const table = /id="result_list"[\s\S]*?<\/table>/.exec(html)?.[0];
+  if (table === undefined) return [];
+  const cell = (row: string, field: string): string => {
+    const match = new RegExp(
+      `<t[dh][^>]*class="[^"]*field-${field}[^"]*"[^>]*>([\\s\\S]*?)</t[dh]>`,
+    ).exec(row);
+    const text =
+      match === null ? '' : decodeAdminEntities((match[1] ?? '').replace(/<[^>]+>/g, '')).trim();
+    // Django renders an empty field as its "empty value display" (`-`), which is
+    // what an organization-wide row's blank course id looks like. Normalized back
+    // so a caller compares against the value it wrote.
+    return text === '-' ? '' : text;
+  };
+  return table
+    .split('<tr')
+    .slice(1)
+    .filter((row) => row.includes('field-role'))
+    .map((row) => ({
+      username: cell(row, 'user'),
+      org: cell(row, 'org'),
+      courseKey: cell(row, 'course_id'),
+      role: cell(row, 'role'),
+    }));
+}
+
+/** How many legacy role rows match a search term. */
 export async function countCourseAccessRoles(
   adminSession: APIRequestContext,
   config: AppConfig,
   search: string,
 ): Promise<number> {
-  const url = `${config.baseUrls.lms}${COURSE_ACCESS_ROLE_ADMIN}/?q=${encodeURIComponent(search)}`;
-  const response = await adminSession.get(url);
-  const html = await response.text();
-  assertAdminPage(html, response.status(), url, `Counting the legacy roles matching ${search}`);
-  return countAdminResultRows(html);
+  return (await listCourseAccessRoles(adminSession, config, search)).length;
 }
