@@ -41,6 +41,9 @@ measured, and issues are opened by hand from them.
 | `RBAC-011`  | `openedx/frontend-app-authoring`                         | open, asserted as a 403 on the offered action (TC-00572)                       |
 | `RBAC-012`  | sheet vs platform (`openedx-authz` roles)                | open, platform's model asserted on TC-00571                                    |
 | `RBAC-013`  | `openedx/frontend-app-authoring`                         | open, `fixme` sibling on TC-00575                                              |
+| `RBAC-014`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00620                                              |
+| `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | open, `fixme` sibling on TC-00640                                              |
+| `RBAC-016`  | `openedx/edx-platform` (course re-run)                   | open, `fixme` sibling on TC-00632                                              |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
 | `PLAT-004`  | `openedx/edx-platform` (`login_session`)                 | open, no `fixme` — the suite no longer makes the call                          |
 | `TUTOR-001` | `overhangio/tutor` (+ any plugin setting the old key)    | open, no `fixme` — handled by the `catalog-search` capability                  |
@@ -1523,3 +1526,48 @@ failure).
 
 **Coverage impact:** open. TC-00575 reads the outcome from the API and the
 outsider's picker; the message clause is a `fixme` + `knownGap` sibling.
+
+### `RBAC-014` — the console cannot remove a **course**-scope assignment
+
+**Where:** the console's user audit view, `main`.
+
+**What happens:** for an assignment whose scope is a course, the audit view's
+"Delete role action" control renders **disabled** (and in some renderings is
+absent altogether) — including for a viewer that holds
+`courses.manage_course_team` on that course and can remove the same assignment
+through Studio's own Course Team endpoint or `DELETE roles/users/`. Library-scope
+assignments are removable from the same view.
+
+**Coverage impact:** open. TC-00620 drives the removal through Studio's endpoint
+and asserts both systems clear; a `fixme` + `knownGap` sibling carries the
+console path. This is the mirror image of wg#603 — there the console offers an
+action the platform refuses, here it refuses one the platform allows.
+
+### `RBAC-015` — an organization-level override blocks course creation for legacy creators
+
+**Where:** Studio's course-creation endpoint for an organization under
+`authz.enable_course_authoring`, `main`.
+
+**What happens:** once an organization has an AuthZ override, Studio asks AuthZ
+for `create_course` in that organization and answers **403** to an account whose
+course-creator rights are legacy — including an organization-wide `instructor`
+that the migration itself has just created, and the course author that created
+the organization's other courses. A superuser is unaffected.
+
+**Coverage impact:** open. TC-00640 asserts the refusal as measured (and that the
+organization-wide role does reach the organization's existing courses); the
+sheet's expectation — that the organization-level permission enables creation —
+is a `fixme` + `knownGap` sibling. TC-00632 takes its re-run as the superuser for
+the same reason.
+
+### `RBAC-016` — a re-run does not copy a course's AuthZ team
+
+**Where:** Studio's course re-run of a course under AuthZ, `main`.
+
+**What happens:** re-running a migrated course produces the new run, but the
+source's AuthZ assignments do not come with it: the copy's team lists neither the
+source's `course_staff` in `roles/users/?scope=` nor a legacy row for them.
+
+**Coverage impact:** open. TC-00632 asserts what the copy actually inherits and a
+`fixme` + `knownGap` sibling carries the case's expectation; the sheet marks this
+row failed as well.

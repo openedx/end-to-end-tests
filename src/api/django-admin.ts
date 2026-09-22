@@ -92,6 +92,53 @@ export function adminFormValue(html: string, name: string): string {
 }
 
 /** The admin's own validation messages, when a POST came back as a re-rendered form. */
+/**
+ * Every field of a rendered admin form, as a form body ready to post back.
+ *
+ * Django's admin saves the **whole** form, inline formsets and all, so editing
+ * one value means returning everything else unchanged — a change form posted
+ * without its inline management fields is rejected outright. This reads the
+ * page: text-like inputs, checked checkboxes and radios, selected options
+ * (including multi-selects, joined the way a form body repeats them) and
+ * textareas. The CSRF token and the submit button are left to
+ * {@link postAdminForm}.
+ */
+export function readAdminForm(html: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+  const add = (name: string, value: string): void => {
+    fields[name] = name in fields ? `${fields[name]}\n${value}` : value;
+  };
+
+  for (const input of html.matchAll(/<input\b[^>]*>/g)) {
+    const tag = input[0];
+    const name = /name="([^"]+)"/.exec(tag)?.[1];
+    if (name === undefined || name === 'csrfmiddlewaretoken') continue;
+    const type = (/type="([^"]+)"/.exec(tag)?.[1] ?? 'text').toLowerCase();
+    if (type === 'submit' || type === 'file' || type === 'button') continue;
+    const value = decodeAdminEntities(/value="([^"]*)"/.exec(tag)?.[1] ?? '');
+    if (type === 'checkbox' || type === 'radio') {
+      if (/\bchecked\b/.test(tag)) add(name, value === '' ? 'on' : value);
+      continue;
+    }
+    add(name, value);
+  }
+
+  for (const select of html.matchAll(/<select\b[^>]*name="([^"]+)"[^>]*>([\s\S]*?)<\/select>/g)) {
+    const [, name = '', body = ''] = select;
+    for (const option of body.matchAll(/<option\b([^>]*)>/g)) {
+      const attributes = option[1] ?? '';
+      if (!/\bselected\b/.test(attributes)) continue;
+      add(name, decodeAdminEntities(/value="([^"]*)"/.exec(attributes)?.[1] ?? ''));
+    }
+  }
+
+  for (const area of html.matchAll(/<textarea\b[^>]*name="([^"]+)"[^>]*>([\s\S]*?)<\/textarea>/g)) {
+    add(area[1] ?? '', decodeAdminEntities(area[2] ?? ''));
+  }
+
+  return fields;
+}
+
 export function adminFormErrors(html: string): string {
   const lists = [...html.matchAll(/<ul[^>]*class="[^"]*errorlist[^"]*"[^>]*>([\s\S]*?)<\/ul>/g)];
   const items = lists

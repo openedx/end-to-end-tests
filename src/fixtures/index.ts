@@ -1022,7 +1022,11 @@ async function withAdminLmsSession<T>(
 ): Promise<T> {
   const stateFile = authStateFile('staff');
   const isDeadSession = (error: unknown): boolean =>
-    error instanceof ApiError && /did not render|HTTP 40[13]/.test(error.message);
+    error instanceof ApiError &&
+    // "did not render" is an admin page that came back as the login redirect;
+    // "redirected to sign-in" is the Studio half of the same session having
+    // decayed, which a `StudioSessionExpiredError` reports.
+    /did not render|redirected to sign-in|HTTP 40[13]/.test(error.message);
 
   return withAdminSession(async () => {
     const run = async (signIn: boolean): Promise<T> => {

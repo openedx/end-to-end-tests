@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import type { AccountCredentials } from '../accounts';
 import { studioOrigin, type CourseIdentity } from '../api';
 import type { AppConfig } from '../config';
-import { STUDIO_HOME_SELECTORS } from '../config';
+import { STUDIO_HOME_SELECTORS, TIMEOUTS } from '../config';
 import { signIn } from './auth';
 import type { StudioHomePage } from '../pages/studio/home/studio-home.page';
 import type { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
@@ -86,7 +86,12 @@ export async function establishStudioBrowserSession(
   // waiting for a header that will never come.
   const header = page.locator(STUDIO_HOME_SELECTORS.header);
   const loginField = page.locator('input[name="emailOrUsername"]');
-  await header.or(loginField).first().waitFor();
+  // Studio Home is a heavy first render, and this runs while several workers are
+  // authoring against the same installation: a session that is perfectly fine
+  // can take longer than a navigation budget to prove it. Waiting like a setup
+  // step (rather than the default 15 s) is what stops a slow render from being
+  // reported as a dead session.
+  await header.or(loginField).first().waitFor({ timeout: TIMEOUTS.studioSetup });
   return (await header.count()) > 0;
 }
 
