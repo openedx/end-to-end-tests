@@ -11,6 +11,10 @@ export const RBAC_TAGS: string[] = ['@studio', '@author', '@mfe-authoring', '@rb
  * Accessibility debt the admin-console MFE carries, reported on every run but
  * not failed until the console fixes it (`RBAC-006`). Applied to console scans
  * only, the way `LIBRARY_A11Y_BASELINE` is applied to the library MFE's.
+ *
+ * Every entry is re-measured rather than inherited: emptying this list makes
+ * each of the three fail a console scan again (checked 2026-09-22), so none of
+ * them is history.
  */
 export const ADMIN_CONSOLE_A11Y_BASELINE: readonly string[] = [
   // `RBAC-006`: the Team Members table nests `role="cell"` inside a cell, so the

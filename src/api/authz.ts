@@ -47,8 +47,6 @@ export const LIBRARY_ROLES = [
   'library_contributor',
   'library_user',
 ] as const;
-export type LibraryRole = (typeof LIBRARY_ROLES)[number];
-
 /**
  * Platform-level roles the console renders but cannot change — they are managed
  * in Django admin. Note that openedx-authz 1.23 does **not** expose assignment

@@ -46,7 +46,6 @@ export {
   instructorTabsFor,
   readCoursePermissions,
   probeMigrationMode,
-  readFlagScopes,
   seedScopeAssignments,
   waitForCourseFlagState,
   waitForMigrationRun,

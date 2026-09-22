@@ -10,7 +10,6 @@ import {
   clearCourseFlagOverride,
   clearOrgFlagOverride,
   countMigrationRuns,
-  fetchWaffleFlagStates,
   isAuthzEnabledForCourse,
   setCourseFlagOverride,
   fetchCourseIndex,
@@ -234,18 +233,6 @@ export async function seedScopeAssignments(
     }
   }
   return usernames.length * roles.length;
-}
-
-/** The flag's whole picture, for a spec that asserts one scope did not affect another. */
-export async function readFlagScopes(
-  request: APIRequestContext,
-  config: AppConfig,
-): Promise<{ readonly on: readonly string[]; readonly off: readonly string[] }> {
-  const states = await fetchWaffleFlagStates(request, config);
-  return {
-    on: [...states.courseOverrides.on, ...states.orgOverrides.on],
-    off: [...states.courseOverrides.off, ...states.orgOverrides.off],
-  };
 }
 
 // --- the permission matrix --------------------------------------------------------------------

@@ -27,7 +27,6 @@ import {
   waitForCourseImport,
 } from '../../../src/api';
 import { TIMEOUTS, type AppConfig } from '../../../src/config';
-import { StudioImportPage } from '../../../src/pages/studio/tools/import.page';
 import { seedScopeAssignments } from '../../../src/steps';
 import { issue, knownGap, testId } from '../../../src/reporting';
 import { STUDIO_AUTHZ_TAGS } from './helpers';
@@ -258,11 +257,11 @@ test.describe(
     test(
       'imports a course archive as a course admin',
       { annotation: testId('TC-00635') },
-      async ({ page, config, authzTarget, studioAuthorSession }) => {
+      async ({ page, config, authzTarget, importPage, studioAuthorSession }) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
         await asCourseAdmin(page.request, config, courseKey);
-        const admin = { request: page.request, page, identity: { username: '' } };
+        const admin = { request: page.request };
 
         // The archive is the course's own export, taken by the same account —
         // so the round trip is entirely this role's work.
@@ -270,9 +269,9 @@ test.describe(
         const { outputPath } = await waitForCourseExport(admin.request, config, courseKey);
         const tarball = await downloadCourseExport(admin.request, config, outputPath);
 
-        // The import is driven through the page this role would use, on its own
-        // browser: the dropzone is the only route the platform offers.
-        const importPage = new StudioImportPage(admin.page, config);
+        // The import is driven through the page a course admin would use — the
+        // dropzone is the only route the platform offers — on the author's own
+        // browser, which is the account holding `course_admin` here.
         const fileName = `e2e-authz-import-${Date.now().toString(36)}.tar.gz`;
         await importPage.goto(courseKey);
         await importPage.uploadArchive(fileName, tarball);

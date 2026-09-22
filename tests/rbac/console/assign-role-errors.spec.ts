@@ -2,6 +2,7 @@ import { expect, test } from '../../../src/fixtures';
 import { AUTHZ_BASE, listRoleUsers } from '../../../src/api';
 import { TIMEOUTS } from '../../../src/config';
 import { testId } from '../../../src/reporting';
+import { RBAC_TAGS } from '../helpers';
 
 /**
  * How the Assign Role wizard behaves when the **server** fails the write.
@@ -20,7 +21,7 @@ import { testId } from '../../../src/reporting';
  */
 test.describe(
   'Roles and Permissions console — Assign Role failures',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@rbac', '@content-libraries'] },
+  { tag: ['@regression', ...RBAC_TAGS, '@content-libraries'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
