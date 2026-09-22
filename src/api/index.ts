@@ -428,6 +428,8 @@ export { ensureAgreement, editAgreement, bumpAgreementUpdated } from './agreemen
 export {
   adminCsrfToken,
   adminFormErrors,
+  assertAdminPage,
+  countAdminResultRows,
   adminFormValue,
   adminSaveSucceeded,
   decodeAdminEntities,
@@ -439,6 +441,7 @@ export {
 export {
   COURSE_ACCESS_ROLE_ADMIN,
   LEGACY_COURSE_ROLES,
+  countCourseAccessRoles,
   grantLegacyRole,
   revokeLegacyRole,
   type LegacyCourseRole,
@@ -487,6 +490,8 @@ export {
   type MigrationRunQuery,
   type MigrationStatus,
   type MigrationType,
+  fetchMigrationRunLedger,
+  type MigrationRunLedger,
 } from './authz-migration';
 export {
   AUTHZ_COURSE_AUTHORING_FLAG,

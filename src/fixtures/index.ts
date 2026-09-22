@@ -382,6 +382,14 @@ export interface TestFixtures {
    */
   manualMigrationTarget: void;
   /**
+   * Skips unless this target migrates AuthZ roles **itself** when a waffle
+   * override is saved — the setting CI turns on
+   * (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`). The transition cases
+   * describe that path: without it there is no migration run to read and no
+   * roles move, so the coverage has no subject rather than a failure.
+   */
+  automaticMigrationTarget: void;
+  /**
    * A learner of the test's own in {@link WorkerFixtures.certificateCourse},
    * enrolled in the **honor** track on its first enrollment (the platform does
    * not move an existing audit enrollment), so a certificate can be generated
@@ -2179,6 +2187,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       auditFor: (other: Page) => new UserAuditPage(other, origin),
       consoleFor: (other: Page) => new AdminConsolePage(other, config, origin),
     });
+  },
+
+  automaticMigrationTarget: async ({ authzTarget }, use) => {
+    base.skip(
+      authzTarget.mode !== 'automatic',
+      'These cases describe a target that migrates AuthZ roles when a waffle override is saved ' +
+        `(${authzTarget.modeEvidence}). This one leaves migration to an operator, so there is no ` +
+        'migration run to read; set ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION to cover it.',
+    );
+    await use();
   },
 
   manualMigrationTarget: async ({ authzTarget }, use) => {
