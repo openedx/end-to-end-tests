@@ -27,6 +27,17 @@ Page objects live in the same platform-domain folder as the specs that use them,
   request an action fires); the tab page objects (`course-info`, `enrollments`,
   `grading`, `date-extensions`, `data-downloads`, `certificates`) build on it and
   return the response of every write they trigger
+- `pages/lms/notifications/tray.page.ts` is the notifications tray in any MFE's
+  header (no `goto`: navigate first, then `open()`); it opens tabs, reads rows by
+  notification id, and returns the new tab a row opens (`openRow`, since the
+  row is a `target="_blank"` link). `preferences.page.ts` is the account MFE's
+  `#notifications` section, whose switches each wait for the `PUT
+v3/configurations/` they send. Serves `tests/lms/notifications/`.
+- `pages/lms/discussions/discussions.page.ts` is the discussions MFE (post list,
+  search, views, the open post's hover actions and actions menu) plus its
+  `PostEditor`. It takes a `root` — the page, or the learning MFE's discussions
+  sidebar frame (`UnitPage.discussionsFrame`) — so the in-unit forum is driven by
+  the same object. Serves `tests/lms/discussions/`.
 - `pages/studio/library/` is the library-authoring MFE: `library.page.ts`
   (header, tabs, search / sort / filters, cards and their menus, the Add
   Content panel whose component buttons open the shared editors),
