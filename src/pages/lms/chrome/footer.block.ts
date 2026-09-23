@@ -44,4 +44,42 @@ export class FooterBlock {
         (img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0,
       );
   }
+
+  /** Rendered heights of the footer's image links' pictures, in document order. */
+  async imageHeights(): Promise<readonly number[]> {
+    await this.root.waitFor();
+    // Heights are only final once each picture has loaded.
+    await this.imageLinks.locator('img').evaluateAll((images) =>
+      Promise.all(
+        images.map((img) =>
+          (img as HTMLImageElement).complete
+            ? Promise.resolve()
+            : new Promise((resolve) => {
+                img.addEventListener('load', resolve, { once: true });
+                img.addEventListener('error', resolve, { once: true });
+              }),
+        ),
+      ),
+    );
+    return this.imageLinks
+      .locator('img')
+      .evaluateAll((images) => images.map((img) => img.getBoundingClientRect().height));
+  }
+
+  /**
+   * Picks the first language the shell's language menu offers other than the
+   * current one, and waits for the preference it stores. Returns the language
+   * code the menu stored — the menu items carry no code of their own.
+   */
+  async chooseAnotherLanguage(lmsBaseUrl: string): Promise<string> {
+    await this.languageMenuTrigger.click();
+    const stored = this.page.waitForResponse(
+      (r) =>
+        r.url().startsWith(`${lmsBaseUrl}/api/user/v1/preferences/`) &&
+        r.request().method() === 'PATCH',
+    );
+    await this.page.locator('.dropdown-menu a.dropdown-item:not(.active):visible').first().click();
+    const body = JSON.parse((await stored).request().postData() ?? '{}') as Record<string, string>;
+    return body['pref-lang'] ?? '';
+  }
 }

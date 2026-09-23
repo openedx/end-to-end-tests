@@ -67,6 +67,12 @@ export function anonymousHeaderExpectation(chrome: ChromeConfig): AnonymousHeade
 }
 
 /**
+ * What a chrome case is checking, where a known defect only breaks one of a
+ * case's tests (the Help link's absence, not its presence).
+ */
+export type ChromeScenario = 'help-link' | 'no-help-link' | 'logo-consistency' | 'navigation';
+
+/**
  * A chrome defect the suite knows about, tied to the generation (and layout)
  * that has it — not to a release or an app — so it stops applying on its own
  * the day the page moves to a frontend without it.
@@ -81,9 +87,11 @@ export interface KnownChromeDefect {
 }
 
 export interface ChromeDefectContext {
-  readonly generation: ChromeGeneration;
+  /** The generation of every page the test read (one, for a single-page case). */
+  readonly generations: readonly ChromeGeneration[];
   readonly viewportWidth: number;
   readonly signedIn: boolean;
+  readonly scenario: ChromeScenario;
 }
 
 /** The widest viewport at which the shell header shows its narrow layout. */
@@ -93,10 +101,29 @@ export const KNOWN_CHROME_DEFECTS: readonly KnownChromeDefect[] = [
   {
     id: 'BASE-005',
     cases: ['TC-00061'],
-    applies: ({ generation, viewportWidth, signedIn }) =>
-      generation === 'shell' && !signedIn && viewportWidth <= SHELL_NARROW_MAX_WIDTH,
+    applies: ({ generations, viewportWidth, signedIn, scenario }) =>
+      scenario === 'navigation' &&
+      generations.includes('shell') &&
+      !signedIn &&
+      viewportWidth <= SHELL_NARROW_MAX_WIDTH,
     reason:
       'BASE-005: the frontend-base shell header menu opens empty for a signed-out visitor at narrow widths, so its primary links (the catalog) are unreachable',
+  },
+  {
+    id: 'LEARN-002',
+    cases: ['TC-00020', 'TC-00021'],
+    applies: ({ generations, scenario }) =>
+      scenario === 'no-help-link' && generations.includes('learning'),
+    reason:
+      'LEARN-002: the learning header renders its Help link with href="null" when SUPPORT_URL is unset, instead of leaving it out',
+  },
+  {
+    id: 'BASE-004',
+    cases: ['TC-00060'],
+    applies: ({ generations, scenario }) =>
+      scenario === 'logo-consistency' && new Set(generations).size > 1,
+    reason:
+      'BASE-004: pages rendered by different frontend generations size the header and footer logos differently (the frontend-base shell and the legacy headers disagree)',
   },
 ];
 
@@ -108,6 +135,31 @@ export function knownChromeDefects(
   return KNOWN_CHROME_DEFECTS.filter(
     (defect) => defect.cases.some((id) => caseIds.includes(id)) && defect.applies(context),
   );
+}
+
+/**
+ * The account-menu items a signed-in header offers, as the URLs they point at,
+ * in the order the header renders them. The shell and the legacy headers
+ * differ: the legacy ones lead with the dashboard (the shell reaches it
+ * through its logo and "Courses" link instead).
+ */
+export function expectedUserMenu(
+  generation: ChromeGeneration,
+  chrome: ChromeConfig,
+  username: string,
+): readonly string[] {
+  const join = (base: string | undefined, path: string) =>
+    base === undefined ? undefined : `${base.replace(/\/$/, '')}${path}`;
+  const items = [
+    generation === 'shell' ? undefined : join(chrome.lmsBaseUrl, '/dashboard'),
+    join(chrome.accountProfileUrl, `/u/${username}`),
+    chrome.accountSettingsUrl,
+    chrome.orderHistoryUrl,
+    chrome.logoutUrl,
+  ];
+  return items
+    .filter((item): item is string => item !== undefined)
+    .map((item) => new URL(item).toString());
 }
 
 /**
