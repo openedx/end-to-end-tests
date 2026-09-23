@@ -278,10 +278,14 @@ export class PostEditor {
   }): Promise<void> {
     if (post.type) await this.root.locator(this.s.postType(post.type)).check();
     if (post.topicId) await this.topicSelect.selectOption(post.topicId);
-    await this.titleInput.fill(post.title);
+    // The rich-text body loads last, and the form resets its fields while it
+    // loads (measured on CI `main`: a title typed first was blanked, so Submit
+    // failed validation). Typing into the body first means the form has
+    // settled; the title goes in last.
     const body = this.root.frameLocator(this.s.bodyFrame).locator('body');
     await body.click();
     await body.pressSequentially(post.body);
+    await this.titleInput.fill(post.title);
   }
 
   /** Submits, waiting for the `POST v1/threads/`; the new thread is in its body. */

@@ -76,3 +76,4 @@ export {
   type NotificationWait,
 } from './notifications';
 export { linkIn, linkingTo, waitForMail } from './mail';
+export { waitForLearnerTopic } from './discussions';

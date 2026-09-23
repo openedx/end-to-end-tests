@@ -1,5 +1,6 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
+import { waitForLearnerTopic } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
 
 /**
@@ -32,9 +33,18 @@ test.describe(
     test(
       'opening one sidebar closes the other',
       { annotation: testId('TC-00053') },
-      async ({ forumUnit, notificationRecipient }) => {
+      async ({ config, forumUnit, notificationRecipient }) => {
         const learner = await notificationRecipient();
         const { unitPage } = learner;
+        // The discussions trigger appears once the unit's topic is offered to
+        // this learner, which lags the publish (the block-structure rebuild).
+        const offered = await waitForLearnerTopic(
+          learner.request,
+          config,
+          forumUnit.courseKey,
+          forumUnit.topicId,
+        );
+        expect(offered.satisfied, `topics offered: ${offered.last.join(', ')}`).toBe(true);
         await unitPage.goto(forumUnit.courseKey, forumUnit.sequentialId, forumUnit.unitId);
         await expect(unitPage.rightSidebarTriggers).toHaveCount(1);
 
