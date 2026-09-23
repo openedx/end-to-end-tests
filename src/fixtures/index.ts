@@ -666,6 +666,12 @@ export interface TestFixtures {
    */
   forumCourse: AuthoredCourse;
   /**
+   * The notifications tray on the test's own `page` — the worker author's in
+   * `studio-author`, for the cases whose recipient is the course's staff
+   * (TC-00468). A learner's tray is `RoundTripLearner.notificationTray`.
+   */
+  notificationTray: NotificationTray;
+  /**
    * A published one-unit section of {@link forumCourse}, and the in-context
    * discussion topic its unit gets — for the in-unit forum (TC-00029) and the
    * one-sidebar case (TC-00053). Polls until the topic is listed.
@@ -2638,6 +2644,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         await disposeRoundTripLearner(learner);
       }
     }
+  },
+
+  notificationTray: async ({ page, config }, use) => {
+    await use(new NotificationTray(page, config));
   },
 
   forumCourse: async ({ request, config, contentCourse }, use) => {
