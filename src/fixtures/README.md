@@ -114,6 +114,12 @@ Rules:
   discussions MFE loaded before that offers no topic and cannot post.
   `forumUnit` adds a published unit and waits for its in-context topic;
   `oraUnit` adds a unit with a staff-graded ORA (`@ora`).
+- **Effort estimates need a course with no video.** The platform gives up on
+  estimating a whole course when any video lacks a duration, and the suite's
+  authored videos have none, so `videoFreeCourse` is a third worker course —
+  built lazily, only by workers that run a case asking for it — that never
+  holds a video. `videoFreeSection` builds on the author's browser session and
+  `videoFreeCourseLearner` reads it.
 - **Platform-wide state one case changes and others rely on takes a named
   lock.** `named-lock.ts` is a cross-worker reader/writer lock with a
   heartbeat (`withSharedLock` / `withExclusiveLock`): the cases that need the
