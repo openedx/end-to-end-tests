@@ -56,6 +56,13 @@ export interface AppConfig {
    * sign in — a built-in name (see `account-backends.ts`) or a custom plugin's.
    */
   readonly accountBackend: string;
+  /** Mailbox provider plugin modules to load (existing file paths). */
+  readonly customMailProviderPlugins: ReadonlySet<string>;
+  /**
+   * Name of the mailbox provider the suite reads e-mail through (`src/mail/`),
+   * a loaded plugin's `name`. Set whenever the `email-inbox` capability is.
+   */
+  readonly mailProvider?: string;
   readonly allowCrossSiteOrigins: boolean;
   /** Shared scheme of all origins. */
   readonly scheme: Scheme;
@@ -66,12 +73,13 @@ export interface AppConfig {
 }
 
 /**
- * Parses `CUSTOM_ACCOUNT_BACKEND_PLUGINS` (comma-separated file paths) and checks
- * each file exists, so a typo is reported at load time rather than as an import
+ * Parses a plugin-path variable (`CUSTOM_ACCOUNT_BACKEND_PLUGINS`,
+ * `CUSTOM_MAIL_PROVIDER_PLUGINS`: comma-separated file paths) and checks each
+ * file exists, so a typo is reported at load time rather than as an import
  * failure mid-run. The modules themselves are loaded by
- * `src/accounts/plugin-loader.ts`.
+ * `src/accounts/plugin-loader.ts` and `src/mail/plugin-loader.ts`.
  */
-function parseCustomAccountBackendPlugins(raw: string | undefined, issues: string[]): Set<string> {
+function parsePluginPaths(source: string, raw: string | undefined, issues: string[]): Set<string> {
   const paths = new Set<string>();
   if (raw === undefined) {
     return paths;
@@ -85,7 +93,7 @@ function parseCustomAccountBackendPlugins(raw: string | undefined, issues: strin
       paths.add(entry);
     } else {
       issues.push(
-        `CUSTOM_ACCOUNT_BACKEND_PLUGINS refers to "${entry}", which does not exist ` +
+        `${source} refers to "${entry}", which does not exist ` +
           '(paths are resolved relative to the working directory).',
       );
     }
@@ -250,7 +258,7 @@ function validateOriginRelationship(
 /**
  * Parses and validates configuration from the given environment (defaults to
  * `process.env`). Does not log; the only filesystem access is an existence check
- * of the configured account backend plugin paths.
+ * of the configured account backend and mailbox provider plugin paths.
  *
  * @throws {ConfigError} when the environment is missing or malformed, with every
  * problem reported at once where possible.
@@ -289,7 +297,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     );
   }
 
-  const customAccountBackendPlugins = parseCustomAccountBackendPlugins(
+  const customAccountBackendPlugins = parsePluginPaths(
+    'CUSTOM_ACCOUNT_BACKEND_PLUGINS',
     raw.CUSTOM_ACCOUNT_BACKEND_PLUGINS,
     issues,
   );
@@ -306,6 +315,31 @@ export function loadConfig(env: Env = process.env): AppConfig {
           'Custom backends must be listed in CUSTOM_ACCOUNT_BACKEND_PLUGINS.',
       );
     }
+  }
+
+  const customMailProviderPlugins = parsePluginPaths(
+    'CUSTOM_MAIL_PROVIDER_PLUGINS',
+    raw.CUSTOM_MAIL_PROVIDER_PLUGINS,
+    issues,
+  );
+  const mailProvider = raw.MAIL_PROVIDER;
+  // The suite ships no built-in mailbox, so a provider name can only come from
+  // a plugin; only the mail registry knows the plugins' names.
+  if (mailProvider !== undefined && customMailProviderPlugins.size === 0) {
+    issues.push(
+      `MAIL_PROVIDER is "${mailProvider}" but CUSTOM_MAIL_PROVIDER_PLUGINS is empty. ` +
+        'Mailbox providers are plugins: list the module that provides it (e.g. ' +
+        './plugins/mailpit.plugin.ts).',
+    );
+  }
+  // E-mail coverage asserts on a mailbox, so declaring it with none configured
+  // is an operator error, not optional coverage (the `studio` rule above).
+  if (capabilities.has('email-inbox') && mailProvider === undefined) {
+    issues.push(
+      'CAPABILITIES declares "email-inbox" but MAIL_PROVIDER is not set. Set MAIL_PROVIDER ' +
+        'and CUSTOM_MAIL_PROVIDER_PLUGINS to the mailbox the target mails to, or remove ' +
+        '"email-inbox" from CAPABILITIES to skip e-mail coverage.',
+    );
   }
 
   let admin: AdminCredentials | undefined;
@@ -361,6 +395,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     capabilities,
     customAccountBackendPlugins,
     accountBackend,
+    customMailProviderPlugins,
+    mailProvider,
     allowCrossSiteOrigins,
     scheme,
     registrableDomain: registrable,

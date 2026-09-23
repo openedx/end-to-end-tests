@@ -46,9 +46,11 @@ test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
     expect(config.allowCrossSiteOrigins).toBe(false);
     // Default-on capabilities (stock surfaces) need no declaration.
     expect([...config.capabilities].sort()).toEqual([
+      'discussions',
       'frontend-base',
       'instructor-dashboard',
       'mfe-authn',
+      'notifications',
     ]);
   });
 
@@ -183,34 +185,50 @@ test.describe('loadConfig — shared parent domain', { tag: '@unit' }, () => {
 
 test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('parses a declared capability list', () => {
-    const config = loadConfig(validEnv({ CAPABILITIES: 'discussions, notes' }));
+    const config = loadConfig(validEnv({ CAPABILITIES: 'teams, notes' }));
     expect([...config.capabilities].sort()).toEqual([
       'discussions',
       'frontend-base',
       'instructor-dashboard',
       'mfe-authn',
       'notes',
+      'notifications',
+      'teams',
     ]);
   });
 
   test('turns off a default-on capability with the "-" prefix', () => {
-    const config = loadConfig(validEnv({ CAPABILITIES: 'discussions,-mfe-authn' }));
+    const config = loadConfig(validEnv({ CAPABILITIES: 'teams,-mfe-authn' }));
 
     expect([...config.capabilities].sort()).toEqual([
       'discussions',
       'frontend-base',
       'instructor-dashboard',
+      'notifications',
+      'teams',
     ]);
   });
 
   test('turns off the frontend-base shell for a release on the separate-MFE model', () => {
     const config = loadConfig(validEnv({ CAPABILITIES: '-frontend-base' }));
 
-    expect([...config.capabilities].sort()).toEqual(['instructor-dashboard', 'mfe-authn']);
+    expect([...config.capabilities].sort()).toEqual([
+      'discussions',
+      'instructor-dashboard',
+      'mfe-authn',
+      'notifications',
+    ]);
+  });
+
+  test('turns off the forum and notifications for an install without them', () => {
+    const config = loadConfig(validEnv({ CAPABILITIES: '-discussions,-notifications' }));
+
+    expect(config.capabilities.has('discussions')).toBe(false);
+    expect(config.capabilities.has('notifications')).toBe(false);
   });
 
   test('rejects opting out of a capability that is off unless declared', () => {
-    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: '-discussions' })));
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: '-teams' })));
 
     expect(issues.join('\n')).toContain('nothing to turn off');
   });
@@ -222,7 +240,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   });
 
   test('rejects an unknown capability', () => {
-    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'discussions,teleport' })));
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'teams,teleport' })));
     expect(issues.join('\n')).toContain('unknown capability: teleport');
   });
 
@@ -261,6 +279,59 @@ test.describe('loadConfig — account backend', { tag: '@unit' }, () => {
   test('rejects an unknown backend', () => {
     const issues = issuesFrom(() => loadConfig(validEnv({ ACCOUNT_BACKEND: 'telepathy' })));
     expect(issues.join('\n')).toContain('ACCOUNT_BACKEND "telepathy" is not recognized');
+  });
+});
+
+test.describe('loadConfig — mailbox provider', { tag: '@unit' }, () => {
+  const MAILPIT_PLUGIN = './plugins/mailpit.plugin.ts';
+
+  test('leaves e-mail off, with no provider, by default', () => {
+    const config = loadConfig(validEnv());
+
+    expect(config.capabilities.has('email-inbox')).toBe(false);
+    expect(config.mailProvider).toBeUndefined();
+    expect(config.customMailProviderPlugins.size).toBe(0);
+  });
+
+  test('requires MAIL_PROVIDER when email-inbox is declared', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'email-inbox' })));
+
+    expect(issues.join('\n')).toContain('declares "email-inbox" but MAIL_PROVIDER is not set');
+  });
+
+  test('requires a provider plugin when MAIL_PROVIDER is set', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ MAIL_PROVIDER: 'mailpit' })));
+
+    expect(issues.join('\n')).toContain('CUSTOM_MAIL_PROVIDER_PLUGINS is empty');
+  });
+
+  test('rejects a provider plugin path that does not exist', () => {
+    const issues = issuesFrom(() =>
+      loadConfig(
+        validEnv({
+          MAIL_PROVIDER: 'mailpit',
+          CUSTOM_MAIL_PROVIDER_PLUGINS: './plugins/no-such.plugin.ts',
+        }),
+      ),
+    );
+
+    expect(issues.join('\n')).toContain(
+      'CUSTOM_MAIL_PROVIDER_PLUGINS refers to "./plugins/no-such.plugin.ts"',
+    );
+  });
+
+  test('accepts email-inbox with a configured provider', () => {
+    const config = loadConfig(
+      validEnv({
+        CAPABILITIES: 'email-inbox',
+        MAIL_PROVIDER: 'mailpit',
+        CUSTOM_MAIL_PROVIDER_PLUGINS: MAILPIT_PLUGIN,
+      }),
+    );
+
+    expect(config.capabilities.has('email-inbox')).toBe(true);
+    expect(config.mailProvider).toBe('mailpit');
+    expect([...config.customMailProviderPlugins]).toEqual([MAILPIT_PLUGIN]);
   });
 });
 

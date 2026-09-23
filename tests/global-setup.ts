@@ -4,6 +4,7 @@ import { rm } from 'node:fs/promises';
 import { initAccountBackends } from '../src/accounts';
 import { AUTH_STATE_DIR } from '../src/auth';
 import { getConfigIfValid, getRunId } from '../src/config';
+import { initMailProviders } from '../src/mail';
 
 /**
  * Runs once in the main process before any project (including `setup`). Clears
@@ -15,7 +16,9 @@ import { getConfigIfValid, getRunId } from '../src/config';
  * It also loads the account backends — the built-ins plus any custom plugins in
  * `CUSTOM_ACCOUNT_BACKEND_PLUGINS` — so a bad plugin path or an unknown
  * `ACCOUNT_BACKEND` fails the run up front rather than inside a worker. Workers
- * load their own registry lazily (see `resolveAccountBackend`).
+ * load their own registry lazily (see `resolveAccountBackend`). The mailbox
+ * providers in `CUSTOM_MAIL_PROVIDER_PLUGINS` are loaded the same way, when a
+ * `MAIL_PROVIDER` is selected, so a provider's missing settings fail here too.
  *
  * Backend loading needs configuration, so it is skipped (with a warning) when
  * the environment cannot produce any: global setup runs for every project, and
@@ -44,4 +47,11 @@ export default async function globalSetup(): Promise<void> {
   // Fails fast if ACCOUNT_BACKEND names a backend nothing registered.
   registry.get(config);
   console.log(`[global-setup] Account backends available: ${registry.list().join(', ')}`);
+
+  if (config.mailProvider !== undefined) {
+    const mail = await initMailProviders(config);
+    // Fails fast if MAIL_PROVIDER names a provider nothing registered.
+    mail.get(config);
+    console.log(`[global-setup] Mailbox provider: ${config.mailProvider}`);
+  }
 }

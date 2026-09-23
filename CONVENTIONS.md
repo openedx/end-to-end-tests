@@ -371,8 +371,9 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   the `capabilityGate` fixture in `src/fixtures/` reads each test's own tags and
   skips it where that capability is not enabled, so the tag is the whole of the
   contract — while any other tag is only a filter. Most capabilities are off until
-  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces, currently `mfe-authn`
-  and `frontend-base`) are on unless turned off with a `-` prefix.
+  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces: `mfe-authn`,
+  `frontend-base`, `instructor-dashboard`, `discussions` and `notifications`) are
+  on unless turned off with a `-` prefix.
 
   `@frontend-base` marks coverage that only makes sense in the `frontend-base`
   shell (`main` onward): its chrome's a11y debt, markup only it renders. It is
