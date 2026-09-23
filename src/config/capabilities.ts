@@ -258,10 +258,11 @@ export const CAPABILITY_OPT_OUT_PREFIX = '-';
 export const MUTUALLY_EXCLUSIVE_CAPABILITIES: ReadonlyArray<readonly Capability[]> = [
   // Only one badging backend can be active on an installation at a time.
   ['badges', 'credly-badges'],
-  // In-course navigation is one surface with two implementations, chosen by the
-  // `courseware.enable_navigation_sidebar` waffle flag: with it enabled the
-  // outline sidebar renders (BTR TC-00048/51/55), with it disabled the older
-  // navigation does (TC-00047). An installation has one or the other, never both.
+  // In-course navigation is one surface with two implementations: the outline
+  // sidebar (verawood onward, where the platform no longer reads the
+  // `courseware.enable_navigation_sidebar` flag; BTR TC-00047, 49–52, 55–57) and
+  // the older in-course navigation of earlier releases. An installation has one
+  // or the other, never both.
   ['courseware-navigation-sidebar', 'courseware-legacy-navigation'],
 ];
 
