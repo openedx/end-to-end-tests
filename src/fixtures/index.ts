@@ -69,6 +69,7 @@ import {
   submitProblem,
   taxonomyImportFile,
   type AuthoredLibrary,
+  type ChromeDefectContext,
   type PageChrome,
   type MigrationMode,
   type MigrationModeProbe,
@@ -175,6 +176,7 @@ import {
   type LibraryCollection,
   type LibraryContainer,
   type Taxonomy,
+  type ChromeConfig,
 } from '../api';
 import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
@@ -234,6 +236,16 @@ export interface TestFixtures {
   /** The page footer, whichever frontend generation renders it. */
   siteFooter: FooterBlock;
   /**
+   * A signed-out visitor alongside the test's own (signed-in) page: a page in a
+   * fresh browser context with its header and footer, for cases that compare
+   * the public site with a learner's view (TC-00060). Closed after the test.
+   */
+  signedOutVisitor: {
+    readonly page: Page;
+    readonly header: HeaderBlock;
+    readonly footer: FooterBlock;
+  };
+  /**
    * The landing page opened for a signed-out visitor, with the generation of
    * frontend that rendered its chrome and the configuration behind it. A chrome
    * defect known for that generation and layout (`KNOWN_CHROME_DEFECTS`) marks
@@ -242,6 +254,15 @@ export interface TestFixtures {
    * moves to a frontend without the defect.
    */
   publicChrome: PageChrome;
+  /**
+   * Chrome readings for a page the test has opened itself: which generation
+   * rendered it and the configuration behind it (`read`), the known chrome
+   * defects to expect for what the test measured (`expectKnownDefects`, which
+   * marks the test an expected failure when one applies to its cases), and the
+   * skip for a Help-link case the target's configuration does not apply to
+   * (`requireSupportUrl`).
+   */
+  chromeCase: ChromeCase;
   /** Course About page object. */
   courseAboutPage: CourseAboutPage;
   /** Courseware unit page object (`frontend-app-learning`). */
@@ -1166,6 +1187,13 @@ export interface CompletionUnits {
   };
 }
 
+/** What {@link TestFixtures.chromeCase} hands a spec. */
+export interface ChromeCase {
+  read(): Promise<PageChrome>;
+  expectKnownDefects(context: Omit<ChromeDefectContext, 'viewportWidth'>): void;
+  requireSupportUrl(chrome: ChromeConfig, configured: boolean): void;
+}
+
 /** What {@link TestFixtures.enrolledCourse} hands a spec. */
 export type EnrolledCourse = CourseLearner;
 
@@ -1692,18 +1720,46 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(new FooterBlock(page));
   },
 
-  publicChrome: async ({ page, request, config, catalogHomePage, siteHeader }, use, testInfo) => {
-    await catalogHomePage.goto();
-    const pageChrome = await readPageChrome(page, siteHeader, request, config);
-    const defects = knownChromeDefects(
-      {
-        generation: pageChrome.generation,
-        viewportWidth: page.viewportSize()?.width ?? 0,
-        signedIn: false,
+  signedOutVisitor: async ({ browser }, use) => {
+    const context = await browser.newContext();
+    const visitorPage = await context.newPage();
+    await use({
+      page: visitorPage,
+      header: new HeaderBlock(visitorPage),
+      footer: new FooterBlock(visitorPage),
+    });
+    await context.close();
+  },
+
+  chromeCase: async ({ page, request, config, siteHeader }, use, testInfo) => {
+    await use({
+      read: () => readPageChrome(page, siteHeader, request, config),
+      expectKnownDefects: (context) => {
+        const defects = knownChromeDefects(
+          { ...context, viewportWidth: page.viewportSize()?.width ?? 0 },
+          testIdsFromAnnotations(testInfo.annotations),
+        );
+        for (const defect of defects) testInfo.fail(true, defect.reason);
       },
-      testIdsFromAnnotations(testInfo.annotations),
-    );
-    for (const defect of defects) testInfo.fail(true, defect.reason);
+      requireSupportUrl: (chrome, configured) => {
+        testInfo.skip(
+          (chrome.supportUrl !== undefined) !== configured,
+          configured
+            ? 'The target configures no SUPPORT_URL, so its headers offer no Help link.'
+            : 'The target configures a SUPPORT_URL, so the no-Help-link case does not apply.',
+        );
+      },
+    });
+  },
+
+  publicChrome: async ({ catalogHomePage, chromeCase }, use) => {
+    await catalogHomePage.goto();
+    const pageChrome = await chromeCase.read();
+    chromeCase.expectKnownDefects({
+      generations: [pageChrome.generation],
+      signedIn: false,
+      scenario: 'navigation',
+    });
     await use(pageChrome);
   },
 
