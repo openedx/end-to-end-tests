@@ -32,6 +32,12 @@ can reuse — e.g.:
   a row's `content_url`, not its `thread_id`, names the thread it is about now)
   and `checkNotificationAbsent` (the sentinel rule: absence is read only after
   the same notification has reached a sentinel).
+- `chrome.ts` — the site-chrome readings: `readPageChrome` (which frontend
+  generation rendered a page's header and the configuration behind it, read
+  from where that generation reads it), `anonymousHeaderExpectation`,
+  `partitionSiteLinks`, `horizontalOverflow`, and `KNOWN_CHROME_DEFECTS`, the
+  chrome defects keyed to a generation and layout that fixtures turn into
+  expected failures for the cases they break.
 - `poll.ts` — `pollUntil` and `PollOutcome`, the bounded poll the instructor and
   library waits share: re-read every second until satisfied or out of budget,
   never throwing, so a spec's failure names the last reading.

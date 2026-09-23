@@ -76,3 +76,16 @@ export {
   type NotificationWait,
 } from './notifications';
 export { linkIn, linkingTo, waitForMail } from './mail';
+export {
+  KNOWN_CHROME_DEFECTS,
+  anonymousHeaderExpectation,
+  chromeConfigSourceFor,
+  horizontalOverflow,
+  knownChromeDefects,
+  partitionSiteLinks,
+  readPageChrome,
+  type AnonymousHeaderExpectation,
+  type ChromeDefectContext,
+  type KnownChromeDefect,
+  type PageChrome,
+} from './chrome';
