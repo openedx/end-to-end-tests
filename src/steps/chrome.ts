@@ -121,9 +121,11 @@ export const KNOWN_CHROME_DEFECTS: readonly KnownChromeDefect[] = [
     id: 'BASE-004',
     cases: ['TC-00060'],
     applies: ({ generations, scenario }) =>
-      scenario === 'logo-consistency' && new Set(generations).size > 1,
+      scenario === 'logo-consistency' &&
+      generations.includes('shell') &&
+      generations.some((generation) => generation !== 'shell'),
     reason:
-      'BASE-004: pages rendered by different frontend generations size the header and footer logos differently (the frontend-base shell and the legacy headers disagree)',
+      'BASE-004: the frontend-base shell and the legacy headers size the header and footer logos differently, so a site mixing them is inconsistent',
   },
 ];
 

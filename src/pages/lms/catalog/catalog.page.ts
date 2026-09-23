@@ -120,7 +120,9 @@ export class CatalogPage {
    * platform answered — which is what the filter case asserts on.
    */
   async applyFilter(facet: CatalogFacet, value: string): Promise<CatalogSearch> {
-    const results = this.pendingResults();
+    // The search carrying the filter, not merely the next one: the MFE may
+    // still be refetching the unfiltered list when the option is checked.
+    const results = this.pendingResults((fields) => fields[facet]?.includes(value) === true);
     await this.filterOption(facet, value).check();
     const response = await results;
     const body = (await response.json()) as { total?: number };
@@ -159,11 +161,14 @@ export class CatalogPage {
    * derived from. Started *before* the action that triggers it, so the listener
    * is in place by the time the request goes out.
    */
-  private pendingResults(): Promise<Response> {
+  private pendingResults(
+    sent: (fields: Readonly<Record<string, readonly string[]>>) => boolean = () => true,
+  ): Promise<Response> {
     return this.page.waitForResponse(
       (response) =>
         response.url().startsWith(`${this.config.baseUrls.lms}${CATALOG_SEARCH_PATH}`) &&
-        response.request().method() === 'POST',
+        response.request().method() === 'POST' &&
+        sent(multipartFields(response.request().postData() ?? '')),
     );
   }
 

@@ -39,7 +39,10 @@ test.describe(
           learner.courseKey,
           certificateCourse.problem,
         );
-        expect(issued.satisfied, `status: ${issued.last?.certificateStatus}`).toBe(true);
+        expect(
+          issued.satisfied,
+          `status: ${issued.last?.certificateStatus}, passing: ${issued.last?.courseGrade.isPassing}`,
+        ).toBe(true);
         // A profile can only be shared once the account has an adult year of birth.
         await updateAccount(learner.request, config, username, {
           year_of_birth: ADULT_YEAR_OF_BIRTH,

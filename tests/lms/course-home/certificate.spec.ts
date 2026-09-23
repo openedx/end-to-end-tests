@@ -58,7 +58,10 @@ test.describe(
           learner.courseKey,
           (p) => p.certificateStatus === 'downloadable',
         );
-        expect(issued.satisfied, `status: ${issued.last?.certificateStatus}`).toBe(true);
+        expect(
+          issued.satisfied,
+          `status: ${issued.last?.certificateStatus}, passing: ${issued.last?.courseGrade.isPassing}`,
+        ).toBe(true);
       },
     );
 
@@ -137,7 +140,10 @@ test.describe(
           learner.courseKey,
           (p) => p.certificateStatus === 'downloadable',
         );
-        expect(issued.satisfied, `status: ${issued.last?.certificateStatus}`).toBe(true);
+        expect(
+          issued.satisfied,
+          `status: ${issued.last?.certificateStatus}, passing: ${issued.last?.courseGrade.isPassing}`,
+        ).toBe(true);
         await learner.progressPage.goto(learner.courseKey);
         expect(await learner.progressPage.certificateCase()).toBe('downloadable');
       },
@@ -161,7 +167,10 @@ test.describe(
           learner.courseKey,
           (p) => p.certificateStatus === 'downloadable',
         );
-        expect(issued.satisfied, `status: ${issued.last?.certificateStatus}`).toBe(true);
+        expect(
+          issued.satisfied,
+          `status: ${issued.last?.certificateStatus}, passing: ${issued.last?.courseGrade.isPassing}`,
+        ).toBe(true);
         await learner.progressPage.goto(learner.courseKey);
         expect(await learner.progressPage.certificateCase()).toBe('downloadable');
       },
@@ -182,6 +191,9 @@ async function earnedWebView(
     learner.courseKey,
     course.problem,
   );
-  expect(issued.satisfied, `status: ${issued.last?.certificateStatus}`).toBe(true);
+  expect(
+    issued.satisfied,
+    `status: ${issued.last?.certificateStatus}, passing: ${issued.last?.courseGrade.isPassing}`,
+  ).toBe(true);
   return new URL(issued.last.certificateWebViewUrl ?? '', config.baseUrls.lms).toString();
 }

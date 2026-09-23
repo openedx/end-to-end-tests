@@ -1830,9 +1830,10 @@ chrome, where wg-build-test-release#584 reports a position difference but not a
 size difference.
 
 **Coverage impact:** open. TC-00060 reads the logo heights on all four pages and
-is marked `test.fail` by `chromeCase` whenever the pages it read were rendered
-by more than one generation. The marker therefore lifts itself once the
-learning MFE moves to the shell.
+is marked `test.fail` by `chromeCase` whenever the pages it read mix the shell
+with a legacy header. Where every page is legacy (verawood, whose legacy and
+learning headers agree) the case runs unmarked and passes. The marker therefore
+lifts itself once the learning MFE moves to the shell.
 
 ### `LMS-001` — the course Bookmarks page's breadcrumb link is distinguished by colour only
 

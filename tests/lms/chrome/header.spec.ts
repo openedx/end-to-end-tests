@@ -43,11 +43,14 @@ test.describe('Site header', () => {
         await dashboardPage.goto();
         const { generation, chrome } = await chromeCase.read();
 
-        // "Courses" marks the dashboard itself; the catalog link is there iff
-        // discovery is on, pointing where the dashboard's own API says.
+        // "Courses" marks the dashboard itself and leads there — directly, or
+        // (the legacy dashboard's `href="/"`) through the site root's redirects;
+        // the catalog link is there iff discovery is on, pointing where the
+        // dashboard's own API says.
         await expect(siteHeader.activeMainLink).toHaveCount(1);
         const [active] = await siteHeader.hrefs(siteHeader.activeMainLink);
-        expect(new URL(active!).pathname.replace(/\/$/, '')).toBe(
+        const landed = await page.request.get(active!);
+        expect(new URL(landed.url()).pathname.replace(/\/$/, '')).toBe(
           new URL(page.url()).pathname.replace(/\/$/, ''),
         );
         const home = (await fetchLearnerHome(request, config)) as LearnerHome;

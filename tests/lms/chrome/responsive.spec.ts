@@ -9,8 +9,9 @@ import { SHELL_CHROME_A11Y_BASELINE } from './helpers';
  * The public site at phone, tablet and desktop widths (TC-00061), from the one
  * viewport table (`src/config/viewports.ts`). "Responsive" is structure, never a
  * pixel baseline: nothing scrolls sideways, every primary link the
- * configuration promises is reachable (visible, or behind the menu toggle), the
- * sign-in and register buttons stay, and the course cards fit the screen.
+ * configuration promises is reachable (visible, or behind the menu toggle), so
+ * are the sign-in and register buttons (the narrow legacy header keeps them in
+ * its account menu), and the course cards fit the screen.
  */
 for (const viewport of RESPONSIVE_VIEWPORTS) {
   test.describe(`Public site at ${viewport.name} width`, () => {
@@ -24,11 +25,11 @@ for (const viewport of RESPONSIVE_VIEWPORTS) {
 
         expect(await horizontalOverflow(page)).toBe(0);
         await expect(siteHeader.logoLink).toBeVisible();
-        await expect(siteHeader.anonymousLinks).toHaveCount(expected.callsToAction);
         await expect(catalogHomePage.courseCards.first()).toBeVisible();
         const card = await catalogHomePage.courseCards.first().boundingBox();
         expect(card!.x + card!.width).toBeLessThanOrEqual(viewport.viewport.width);
 
+        expect(await siteHeader.reachableAnonymousLinks()).toHaveLength(expected.callsToAction);
         expect(await siteHeader.reachableMainLinks()).toHaveLength(expected.mainLinks);
       },
     );

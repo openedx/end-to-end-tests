@@ -1,6 +1,6 @@
 import type { Locator, Page, Response } from '@playwright/test';
 
-import { DASHBOARD_SELECTORS, type AppConfig } from '../../../config';
+import { DASHBOARD_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 
 /**
  * The learner dashboard (`frontend-app-learner-dashboard`). Locators and
@@ -77,8 +77,9 @@ export class DashboardPage {
   }
 
   /**
-   * Unenrolls from a course through its card: kebab, "Unenroll", then the
-   * dialog's confirmation, returning the unenroll request's response.
+   * Unenrolls from a course through its card: kebab, "Unenroll", the dialog's
+   * confirmation and — where the platform asks why — its survey, returning the
+   * unenroll request's response.
    */
   async unenroll(courseKey: string): Promise<Response> {
     await this.openUnenrollDialog(courseKey);
@@ -87,9 +88,29 @@ export class DashboardPage {
         r.url().startsWith(`${this.config.baseUrls.lms}/change_enrollment`) &&
         r.request().method() === 'POST',
     );
-    await this.page.locator(DASHBOARD_SELECTORS.dialogConfirm).click();
+    const confirm = this.page.locator(DASHBOARD_SELECTORS.dialogConfirm);
+    await confirm.click();
+    // With the survey on, the request waits for the survey's own submit.
+    const next = await Promise.race([
+      sent.then(() => 'sent' as const),
+      this.page
+        .locator(DASHBOARD_SELECTORS.unenrollReasons)
+        .waitFor()
+        .then(
+          () => 'survey' as const,
+          () => 'sent' as const,
+        ),
+    ]);
+    if (next === 'survey') await confirm.click();
     const response = await sent;
-    await this.dialog.waitFor({ state: 'detached' });
+    // The dialog closes with the card; where it stays on its "unenrolled"
+    // pane instead, that pane's one action closes it.
+    try {
+      await this.dialog.waitFor({ state: 'detached', timeout: TIMEOUTS.optionalOverlay });
+    } catch {
+      await confirm.click();
+      await this.dialog.waitFor({ state: 'detached' });
+    }
     return response;
   }
 

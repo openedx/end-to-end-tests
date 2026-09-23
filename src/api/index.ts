@@ -68,6 +68,7 @@ export {
   availableComponentTypes,
   courseUsageKey,
   createXBlock,
+  deleteXBlock,
   duplicateXBlock,
   moveXBlock,
   fetchContainer,

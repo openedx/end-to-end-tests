@@ -346,6 +346,21 @@ export async function updateXBlock(
   );
 }
 
+/** Deletes a block and everything below it — the outline card's "Delete", as the API. */
+export async function deleteXBlock(
+  request: APIRequestContext,
+  config: AppConfig,
+  usageKey: string,
+): Promise<void> {
+  await studioWrite<unknown>(
+    request,
+    config,
+    'DELETE',
+    `${XBLOCK_PATH}${usageKey}`,
+    `Deleting ${usageKey}`,
+  );
+}
+
 /** Publishes a block and everything below it. */
 export async function publishXBlock(
   request: APIRequestContext,
