@@ -18,6 +18,7 @@ export {
   fetchCourseNavigation,
   fetchCourseOutline,
   fetchSequenceMetadata,
+  navigationSections,
   hasHtml5Source,
   primeCoursewareForLearner,
   unitsContaining,
@@ -27,6 +28,7 @@ export {
   type CourseOutline,
   type CourseUnit,
   type NavigationBlock,
+  type NavigationSection,
   type SequenceMetadata,
   type VideoStudentViewData,
 } from './course-outline';
