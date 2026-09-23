@@ -82,4 +82,13 @@ export class FooterBlock {
     const body = JSON.parse((await stored).request().postData() ?? '{}') as Record<string, string>;
     return body['pref-lang'] ?? '';
   }
+
+  /** The absolute URLs a set of footer links point at. */
+  async hrefs(links: Locator): Promise<readonly string[]> {
+    const base = this.page.url();
+    const raw = await links.evaluateAll((anchors) =>
+      anchors.map((anchor) => anchor.getAttribute('href') ?? ''),
+    );
+    return raw.map((href) => new URL(href, base).toString());
+  }
 }

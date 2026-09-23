@@ -87,6 +87,8 @@ measured, and issues are opened by hand from them.
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
 | `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
 | `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | open, `test.fail` on TC-00038's take-a-note test
+| `PROF-003`  | `openedx/frontend-app-profile` (empty country list, wg#575)   | **filed** — [wg#575](https://github.com/openedx/wg-build-test-release/issues/575), `test.fail` on TC-00068's add-a-location test
+| `PROF-004`  | `openedx/frontend-app-profile` (unnamed icon buttons at phone width) | open, no `fixme` — `button-name` baselined on the profile scans only (`PROFILE_A11Y_BASELINE`)
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -1881,4 +1883,34 @@ take a note on, and the Notes page stays empty.
 switch and the visibility round trip pass; "takes a note on a unit's text and
 lists it on the Notes page" is written to the intended behaviour and marked
 `test.fail`.
+
+### `PROF-003` — the profile offers no country to choose
+
+**Where:** `frontend-app-profile`, "Add country" on the profile page, Tutor
+`main`. Reported for `verawood` as wg-build-test-release#575 (TC-00068).
+
+**What happens (measured):** the country select opens with a single empty
+option. The profile MFE builds its country list from the registration form
+description (`GET /user_api/v1/account/registration/`), and under the
+platform's default `REGISTRATION_EXTRA_FIELDS` that form has no `country`
+field at all — it lists `year_of_birth` and `level_of_education`, but no
+country — so there is nothing to choose. A learner cannot add a location from
+the profile page.
+
+**Coverage impact:** open. TC-00068's "adds a location from the profile" test
+is marked `test.fail` with `issue(wg#575)`. Its sibling, "shares the location
+with other learners only while it is visible to them", sets the country
+through the accounts API and passes.
+
+### `PROF-004` — the profile's icon buttons have no accessible name at phone width
+
+**Where:** `frontend-app-profile`, profile page at 375 px, Tutor `main`.
+
+**What happens:** axe reports `button-name` (critical) on the photo menu's icon
+button (`pgn__dropdown-toggle-iconbutton`) and on each filled section's edit
+button (`p-1.5 btn btn-link btn-sm`), which carry only an icon. At desktop width
+the scan passes.
+
+**Coverage impact:** open, no `fixme`. `button-name` is baselined on the profile
+scans only (`PROFILE_A11Y_BASELINE`).
 

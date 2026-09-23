@@ -32,17 +32,23 @@ test.describe(
         staff: true,
         data_researcher: true,
       });
-      const tabIds = course.tabs.map((tab) => tab.tab_id);
-      for (const tabId of [
+      const covered = [
         INSTRUCTOR_TAB_IDS.courseInfo,
         INSTRUCTOR_TAB_IDS.enrollments,
         INSTRUCTOR_TAB_IDS.grading,
         INSTRUCTOR_TAB_IDS.dateExtensions,
         INSTRUCTOR_TAB_IDS.dataDownloads,
-      ]) {
+      ];
+      const tabIds = course.tabs.map((tab) => tab.tab_id);
+      for (const tabId of covered) {
         expect(tabIds).toContain(tabId);
       }
-      for (const tab of course.tabs) {
+      // The tabs this tree covers are the dashboard MFE's own routes. Others can
+      // live in another MFE — "Course e-mail", once a course has e-mail on,
+      // links to the communications MFE — so only the covered ones are checked.
+      for (const tab of course.tabs.filter((t) =>
+        (covered as readonly string[]).includes(t.tab_id),
+      )) {
         expect(tab.url).toBe(instructorTabPath(contentCourse.courseKey, tab.tab_id as never));
       }
     });

@@ -270,6 +270,7 @@ export {
   fetchLearnerProblem,
   grantCertificateException,
   grantCourseTeamRole,
+  sendCourseEmail,
   instructorApiBase,
   listCertificateGenerationHistory,
   listEnrollments,
@@ -613,3 +614,4 @@ export {
   type CoursewareCourse,
 } from './course-home';
 export { listCourseNotes, type CourseNote } from './notes';
+export { enableCourseEmail } from './bulk-email-admin';
