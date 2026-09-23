@@ -138,3 +138,33 @@ export async function enrollInCourseViaApi(
     });
   }
 }
+
+/**
+ * Unenrolls the caller's session from `courseKey` through the LMS view the
+ * learner dashboard's Unenroll dialog posts to. It is a plain Django form view
+ * (session and CSRF), answering 200 with an empty body; the enrollment API then
+ * reads the enrollment as inactive. For setup and cleanup — a spec whose case is
+ * the dialog drives the dialog.
+ *
+ * @throws {ApiError} when the platform refuses, e.g. unenrollment is disabled or
+ * the learner already holds a certificate.
+ */
+export async function unenrollViaApi(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<void> {
+  const token = await fetchCsrfToken(request, config);
+  const url = `${config.baseUrls.lms}/change_enrollment`;
+  const response = await request.post(url, {
+    form: { course_id: courseKey, enrollment_action: 'unenroll' },
+    headers: { [CSRF_HEADER]: token, Referer: config.baseUrls.lms },
+  });
+  if (!response.ok()) {
+    throw new ApiError(`Could not unenroll from "${courseKey}" (HTTP ${response.status()}).`, {
+      status: response.status(),
+      url,
+      body: await response.text(),
+    });
+  }
+}

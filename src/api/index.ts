@@ -43,6 +43,7 @@ export {
   enrollInCourseViaApi,
   fetchCourseEnrollmentDetails,
   isEnrolled,
+  unenrollViaApi,
   type CourseEnrollmentDetails,
 } from './enrollment';
 export { COURSE_MODES_PATH, ensureCertificateBearingMode, fetchCourseModes } from './course-modes';
@@ -402,11 +403,17 @@ export {
   type TaxonomyTag,
 } from './tagging';
 export {
+  FRONTEND_SITE_CONFIG_PATH,
   MFE_CONFIG_PATH,
   agreementTypesIn,
+  chromeConfigFromMfeConfig,
+  chromeConfigFromSiteConfig,
   fetchAuthoringMfeConfig,
+  fetchChromeConfig,
   type AgreementGating,
   type AuthoringMfeConfig,
+  type ChromeConfig,
+  type ChromeConfigSource,
 } from './mfe-config';
 export {
   AGREEMENTS_BASE,
@@ -559,3 +566,37 @@ export {
   submitOraResponse,
   type OraSubmission,
 } from './ora';
+
+// Learner-side APIs (Epic 14) — see `src/api/README.md`.
+export {
+  ADULT_YEAR_OF_BIRTH,
+  fetchAccount,
+  fetchPreferences,
+  updateAccount,
+  updatePreferences,
+  type Account,
+  type AccountPatch,
+  type EducationLevel,
+  type Preferences,
+  type SocialLink,
+  type SocialPlatform,
+} from './accounts';
+export {
+  BOOKMARKS_PATH,
+  addBookmark,
+  listBookmarks,
+  removeBookmark,
+  type Bookmark,
+} from './bookmarks';
+export { fetchResumePoint, recordCompletion, type ResumePoint } from './completion';
+export {
+  CHANGE_EMAIL_SETTINGS_PATH,
+  LEARNER_HOME_INIT_PATH,
+  fetchLearnerHome,
+  learnerHomeCourse,
+  setCourseEmailOptIn,
+  type LearnerHome,
+  type LearnerHomeCourse,
+  type LearnerHomeEnrollment,
+} from './learner-home';
+export { fetchUserTours, type CourseHomeTourStatus, type UserTours } from './user-tours';
