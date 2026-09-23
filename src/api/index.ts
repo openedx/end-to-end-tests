@@ -516,3 +516,38 @@ export {
   type WaffleOverrideChoice,
   type WaffleOverrideInput,
 } from './waffle';
+export { lmsGet, lmsJson, lmsWrite } from './lms-json';
+export {
+  EMAIL_CADENCES,
+  NOTIFICATION_APPS,
+  fetchNotificationCount,
+  fetchNotificationPreferences,
+  listNotifications,
+  markNotificationsRead,
+  markNotificationsSeen,
+  setEmailCadence,
+  setNotificationPreference,
+  type EmailCadence,
+  type NotificationApp,
+  type NotificationAppPreferences,
+  type NotificationCount,
+  type NotificationPage,
+  type NotificationPreferences,
+  type NotificationTypePreference,
+  type PlatformNotification,
+} from './notifications';
+export {
+  GENERAL_TOPIC_ID,
+  createComment,
+  createThread,
+  deleteThread,
+  fetchDiscussionCourse,
+  listDiscussionTopics,
+  listThreads,
+  updateComment,
+  updateThread,
+  type DiscussionComment,
+  type DiscussionCourse,
+  type DiscussionThread,
+  type DiscussionTopic,
+} from './discussions';
