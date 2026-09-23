@@ -24,7 +24,26 @@ export const CAPABILITIES = [
   // selector unions that match both headers (see
   // `src/config/selectors/account-menu.ts`).
   'frontend-base',
+  // Course discussions: the `openedx` discussion provider (the forum, served
+  // in-process by `openedx-forum`) and the discussions MFE. Default on: the
+  // forum ships with the platform. An installation without it — or one still
+  // on the legacy provider — opts out with `-discussions`. Tutor needs the
+  // `forum` plugin (and its `do init` task, which creates the forum's search
+  // indices) for this surface to answer.
   'discussions',
+  // Course notifications as verawood ships them: on by default platform-wide
+  // (`notifications.disable_notifications` turns them off), the v3 preferences
+  // API (`/api/notifications/v3/configurations/`) and the notifications tray in
+  // every MFE header. Default on; ulmo and earlier — opt-in course flags, older
+  // preference APIs, no built-in tray — opt out with `-notifications` in
+  // `.ci/openedx-releases.json`.
+  'notifications',
+  // A mailbox the suite can read is configured (`MAIL_PROVIDER`, see
+  // `src/mail/`) and the target's outbound mail reaches it, so e-mail content
+  // is assertable. Opt-in and never on by default: it needs infrastructure a
+  // default install does not have. Declaring it without `MAIL_PROVIDER` is a
+  // configuration error, not a skip.
+  'email-inbox',
   'teams',
   'notes',
   'wiki',
@@ -187,7 +206,7 @@ export type Capability = (typeof CAPABILITIES)[number];
  * default installation ships, rather than optional features it may add.
  *
  * The declare-to-enable default is right for optional coverage: forgetting to
- * declare `discussions` costs you discussions tests you never had. It is wrong
+ * declare `teams` costs you teams tests you never had. It is wrong
  * for a stock surface, where forgetting the declaration would silently drop
  * coverage every install is expected to have. So these invert: an installation
  * that has *replaced* the surface opts out with a `-` prefix
@@ -208,11 +227,20 @@ export type Capability = (typeof CAPABILITIES)[number];
  * release serve the instructor dashboard as its MFE; ulmo and earlier, which
  * still render the legacy dashboard, opt out with `-instructor-dashboard` in
  * `.ci/openedx-releases.json`.
+ *
+ * `discussions` is on by default because the forum ships with the platform; an
+ * install without it opts out with `-discussions`.
+ *
+ * `notifications` is on by default because verawood and every later release
+ * enable notifications platform-wide and render the tray; ulmo and earlier opt
+ * out with `-notifications`.
  */
 export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = [
   'mfe-authn',
   'frontend-base',
   'instructor-dashboard',
+  'discussions',
+  'notifications',
 ];
 
 /** Marks an opt-out in `CAPABILITIES`, e.g. `-mfe-authn`. */

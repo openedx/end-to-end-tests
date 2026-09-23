@@ -76,6 +76,8 @@ The essentials:
 | `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments                         |
 | `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)                |
 | `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                   |
+| `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`   |
+| `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)    |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take
@@ -85,7 +87,7 @@ environment variables directly in CI (no `.env` needed there). A `.env` value on
 applies when that variable is not already present in the environment.
 
 **Capabilities.** Optional coverage is gated on an explicit declaration: a spec
-tagged `@discussions` runs only where `CAPABILITIES` names `discussions`. Stock
+tagged `@teams` runs only where `CAPABILITIES` names `teams`. Stock
 surfaces a default installation ships invert that — they are on unless you turn
 them off with a `-` prefix, so a missing declaration never silently drops
 coverage you have. Today those are `mfe-authn` — the authn MFE owning accounts
@@ -95,6 +97,18 @@ footer (`main` onward). An install whose identity lives in an external service
 sets `CAPABILITIES=-mfe-authn`, and those specs skip with a reason instead of
 failing; a named release still on the separate-MFE model (verawood and earlier)
 sets `-frontend-base`, which skips the coverage about the shell's own chrome.
+`discussions` (the forum on the `openedx` provider, with the discussions MFE)
+and `notifications` (on by default platform-wide, the v3 preferences API and
+the tray in every MFE header, verawood onward) are default-on too: an install
+without the forum sets `-discussions`, and ulmo and earlier set
+`-notifications`. On Tutor the forum is the `forum` plugin; enable it with
+`tutor local launch` (or `tutor local do init --limit=forum`), because its init
+task creates the search indices the forum needs to accept a post. The opt-in
+`email-inbox` capability makes notification e-mail assertable: it needs a
+mailbox provider (`MAIL_PROVIDER` plus `CUSTOM_MAIL_PROVIDER_PLUGINS`; the
+`mailpit` and `openinbox` plugins ship in `plugins/`, see
+[`src/mail/README.md`](src/mail/README.md)), and declaring it without one fails
+validation.
 The authoring suite adds opt-in capabilities for features and component types that
 are not on every install: `cohorts` and `courseware-navigation-sidebar`, and the
 component gates `ora`, `drag-and-drop-v2`, `pdf-xblock`, `lti`, `scorm` and
