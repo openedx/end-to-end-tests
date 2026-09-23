@@ -31,6 +31,8 @@ export class HeaderBlock {
   readonly courseLockup: Locator;
   readonly menuToggle: Locator;
   readonly menuPanel: Locator;
+  readonly accountMenuToggle: Locator;
+  readonly accountMenuPanel: Locator;
 
   constructor(private readonly page: Page) {
     this.root = page.locator(CHROME_SELECTORS.header).first();
@@ -47,6 +49,8 @@ export class HeaderBlock {
     this.courseLockup = this.root.locator(CHROME_SELECTORS.headerCourseLockup);
     this.menuToggle = page.locator(CHROME_SELECTORS.headerMenuToggle).first();
     this.menuPanel = page.locator(CHROME_SELECTORS.headerMenuPanel);
+    this.accountMenuToggle = page.locator(CHROME_SELECTORS.headerAccountMenuToggle).first();
+    this.accountMenuPanel = page.locator(CHROME_SELECTORS.headerAccountMenuPanel);
   }
 
   /**
@@ -88,6 +92,22 @@ export class HeaderBlock {
     }
     await this.openMenu();
     return this.hrefs(this.menuPanel.locator('a[href]'));
+  }
+
+  /**
+   * The signed-out calls to action ("Sign in", "Register") a visitor can reach
+   * at the current width: the visible ones, or — where the narrow legacy layout
+   * keeps them in its account menu — the ones that menu offers once opened.
+   */
+  async reachableAnonymousLinks(): Promise<readonly string[]> {
+    await this.root.waitFor();
+    if ((await this.anonymousLinks.count()) > 0 || (await this.accountMenuToggle.count()) === 0) {
+      return this.hrefs(this.anonymousLinks);
+    }
+    await this.accountMenuToggle.click();
+    const offered = this.accountMenuPanel.locator(CHROME_SELECTORS.headerAnonymousLink);
+    await offered.first().waitFor();
+    return this.hrefs(offered);
   }
 
   /** Opens the account menu and returns the URLs its items point at, in order. */

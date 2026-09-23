@@ -438,7 +438,8 @@ frontend-base conversion moves apps between frontends.
 - **One viewport table.** Responsive cases take their sizes from
   `src/config/viewports.ts`, each on one side of a breakpoint the frontends
   switch on, and assert structure: nothing scrolls sideways, every promised
-  link is reachable (visible or behind the menu toggle), cards fit. Logo sizing
+  link is reachable (visible, or behind the menu toggle or the narrow legacy
+  header's account menu), cards fit. Logo sizing
   compares the pages of one install with each other; there is no pixel
   baseline (ADR-0002).
 - **Privacy is decided by someone else.** A profile or certificate visibility

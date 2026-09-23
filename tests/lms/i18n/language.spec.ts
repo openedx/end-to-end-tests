@@ -31,7 +31,9 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
       await accountSettingsPage.saveSiteLanguage(target!);
 
       expect((await fetchPreferences(page.request, config, username))['pref-lang']).toBe(target);
-      // The session now carries the language, and the next page is served in it.
+      // The session now carries the language, and the LMS serves the next page
+      // in it. Its `Content-Language` is the reading every release shares: the
+      // legacy MFEs switch `dir` but leave `<html lang>` as built.
       await expect
         .poll(
           async () =>
@@ -39,9 +41,8 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
               ?.value,
         )
         .toBe(target);
-      await dashboardPage.goto();
-      await expect(page.locator('html')).toHaveAttribute(
-        'lang',
+      const next = await page.request.get(dashboardPage.url, { maxRedirects: 0 });
+      expect(next.headers()['content-language']).toMatch(
         new RegExp(`^${target!.split('-')[0]}`, 'i'),
       );
     },

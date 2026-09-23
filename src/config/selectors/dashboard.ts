@@ -51,6 +51,13 @@ export const DASHBOARD_SELECTORS = {
   dialogConfirm: '[role="dialog"] button.btn-primary',
   dialogDismiss: '[role="dialog"] button.btn-tertiary',
 
+  /**
+   * The Unenroll dialog's survey ("Why are you unenrolling?"), shown after the
+   * confirmation where `SHOW_UNENROLL_SURVEY` is on; its primary action submits
+   * the preselected "I prefer not to say" and sends the unenrollment.
+   */
+  unenrollReasons: '[role="dialog"] [role="radiogroup"]',
+
   /** The e-mail settings dialog's switch — "Course emails are on / off". */
   emailSwitch: '[role="dialog"] input[type="checkbox"]',
 

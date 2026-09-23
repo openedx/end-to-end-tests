@@ -237,7 +237,8 @@ export async function passCertificateCourse(
  * Takes a certificate-course learner to an issued certificate the way a
  * learner does: passes the course, requests the certificate from the Progress
  * tab, and waits until the progress API reports it downloadable. Returns the
- * last progress reading; its `certificateWebViewUrl` is the certificate.
+ * last progress reading — its `certificateWebViewUrl` is the certificate — or,
+ * when the learner never reached a passing grade, the last grade reading.
  */
 export async function earnCertificate(
   learner: APIRequestContext,
@@ -246,7 +247,9 @@ export async function earnCertificate(
   courseKey: string,
   problem: AuthoredProblem,
 ): Promise<PollOutcome<CourseProgress>> {
-  await passCertificateCourse(learner, config, courseKey, problem);
+  const passed = await passCertificateCourse(learner, config, courseKey, problem);
+  // A learner who is not passing is offered no certificate to request.
+  if (!passed.satisfied) return passed;
   await progressPage.goto(courseKey);
   await progressPage.requestCertificate();
   return waitForLearnerProgress(

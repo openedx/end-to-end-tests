@@ -96,7 +96,10 @@ import {
   assignRole,
   authorStaffGradedOra,
   buildSection,
+  courseUsageKey,
+  deleteXBlock,
   fetchDiscussionCourse,
+  fetchXBlockOutline,
   grantCourseTeamRole,
   listDiscussionTopics,
   setEmailCadence,
@@ -239,6 +242,12 @@ export interface TestFixtures {
   capabilityGate: void;
   /** Catalog MFE page object (`frontend-app-catalog`). */
   catalogPage: CatalogPage;
+  /**
+   * The catalog opened, with the organizations its refine filter offers (the
+   * `value`s of the options, in the order offered). Skips when it offers fewer
+   * than two: an organization filter cannot then narrow the list (TC-00017).
+   */
+  catalogOrganizations: readonly string[];
   /** The catalog MFE's home — the public landing page. */
   catalogHomePage: CatalogHomePage;
   /** The page header, whichever frontend generation renders it. */
@@ -1814,6 +1823,20 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   ],
   catalogPage: pageObjectFixture(CatalogPage),
 
+  catalogOrganizations: async ({ catalogPage }, use, testInfo) => {
+    await catalogPage.goto();
+    const options = catalogPage.filterOptions('org');
+    await options.first().waitFor({ state: 'attached' });
+    const organizations = await options.evaluateAll((inputs) =>
+      inputs.map((input) => input.getAttribute('value') ?? ''),
+    );
+    testInfo.skip(
+      organizations.length < 2,
+      `The catalog lists courses of ${organizations.length} organization(s), so an organization filter cannot narrow it.`,
+    );
+    await use(organizations);
+  },
+
   catalogHomePage: pageObjectFixture(CatalogHomePage),
 
   siteHeader: async ({ page }, use) => {
@@ -2194,7 +2217,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         workerAuthor,
         identity,
         async (request, courseKey) => {
-          // Every write is idempotent, so a restarted worker re-seeds harmlessly.
+          // A restarted worker re-seeds this course, so every write is idempotent.
           await updateCourseDetails(request, config, courseKey, {
             start_date: CONTENT_COURSE_START,
             end_date: CERTIFICATE_COURSE_END,
@@ -2239,18 +2262,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           }
           await setCertificateActive(request, config, courseKey, true);
           await setCourseCertificateGeneration(request, config, courseKey, true);
-          const section = await buildSection(
-            request,
-            config,
-            courseKey,
-            `E2E certificate ${getRunId()} W${workerInfo.parallelIndex}`,
-            {
-              subsections: [
-                { gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] },
-              ],
-              publish: true,
-            },
-          );
+          // The section is the one write that is not idempotent: a re-seed would
+          // add a second graded subsection and halve every learner's grade, so
+          // it replaces the section an earlier seed of this worker built.
+          const sectionName = `E2E certificate ${getRunId()} W${workerInfo.parallelIndex}`;
+          const outline = await fetchXBlockOutline(request, config, courseUsageKey(courseKey));
+          for (const stale of outline.child_info?.children ?? []) {
+            if (stale.display_name === sectionName) {
+              await deleteXBlock(request, config, stale.id);
+            }
+          }
+          const section = await buildSection(request, config, courseKey, sectionName, {
+            subsections: [
+              { gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] },
+            ],
+            publish: true,
+          });
           seeded = { ...firstProblem(section), certificateBearingMode };
         },
       );

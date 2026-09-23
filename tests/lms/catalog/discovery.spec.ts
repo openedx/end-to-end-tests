@@ -325,8 +325,7 @@ test.describe('Course catalog discovery', () => {
   test(
     'refines the results with the organization, language and type filters',
     { tag: ['@regression', '@catalog-search', '@mfe-catalog'], annotation: testId('TC-00017') },
-    async ({ catalogPage }) => {
-      await catalogPage.goto();
+    async ({ catalogPage, catalogOrganizations }) => {
       // Three refine filters, each offering the values the platform's facets hold.
       for (const facet of ['org', 'language', 'modes'] as const) {
         await expect(catalogPage.filterOptions(facet).first()).toBeAttached();
@@ -334,8 +333,8 @@ test.describe('Course catalog discovery', () => {
 
       // The last organization offered is the one with the fewest courses, so
       // filtering by it visibly narrows the list on a catalog of any size.
+      const org = catalogOrganizations.at(-1)!;
       const option = catalogPage.filterOptions('org').last();
-      const org = (await option.getAttribute('value')) ?? '';
       const filtered = await catalogPage.applyFilter('org', org);
       expect(filtered.facets.org).toEqual([org]);
       await expect(option).toBeChecked();

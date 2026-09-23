@@ -104,6 +104,16 @@ export const CHROME_SELECTORS = {
   headerMenuPanel:
     ':is(header.border-bottom [data-focus-lock-disabled], .site-header-mobile .justify-content-start) .nav.flex-column',
 
+  /**
+   * The legacy mobile header's account menu button — the right `icon-button`,
+   * "Account Menu". It is there signed out too: the narrow legacy layout keeps
+   * "Login" and "Sign Up" inside it rather than beside it.
+   */
+  headerAccountMenuToggle: '.site-header-mobile .justify-content-end button.icon-button:visible',
+
+  /** The menu that button opens (a `nav flex-column`, like the main menu's). */
+  headerAccountMenuPanel: '.site-header-mobile .justify-content-end .nav.flex-column',
+
   /** The page footer, whichever generation rendered it. */
   footer: 'footer:visible',
 
