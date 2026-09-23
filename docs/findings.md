@@ -86,6 +86,7 @@ measured, and issues are opened by hand from them.
 | `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages render mixed header generations (`KNOWN_CHROME_DEFECTS`)
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
 | `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
+| `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | open, `test.fail` on TC-00038's take-a-note test
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -408,6 +409,12 @@ FEATURES['SKIP_EMAIL_VALIDATION']   = True     # same story
 2. **`SKIP_EMAIL_VALIDATION` not applied**, so registered accounts stayed
    inactive — which sent us looking for an account-provisioning bug that was not
    there.
+
+A third symptom, found in Epic 14: `tutor-notes` sets `ENABLE_EDXNOTES` only
+in `FEATURES`, so on `main` the Notes tool stays off with the plugin enabled
+and its service running (`settings.ENABLE_EDXNOTES` is `False`, and the
+platform's notes checks read that). CI now sets it flat in the workflow's
+settings patch, as it does for course discovery.
 
 The pattern to watch for: a toggle that reads as enabled in
 `env/apps/openedx/config/lms.env.yml` but `False` in the running settings. Check
@@ -1853,4 +1860,25 @@ marked an expected failure at phone width (`test.fail` with the reason).
 `UnitPage.collapseSidebar` falls back to invoking the button's click handler
 when a real click cannot land, with a comment naming this finding, so the
 tray's open → collapse → navigate behaviour stays covered at phone width.
+
+### `NOTES-001` — HTML components cannot be annotated: the extracted HTML block has no notes support
+
+**Where:** `openedx/edx-platform` (`xmodule/html_block.py`) with
+`xblocks-contrib` 1.0.6, on `master` and `release/verawood.1`, where
+`USE_EXTRACTED_HTML_BLOCK` defaults to `True`. Measured on the local Tutor
+`main` sandbox with the notes plugin running and `ENABLE_EDXNOTES` on.
+
+**What happens:** the platform makes components annotatable with its
+`@edxnotes` decorator, which wraps `get_html` in the `edx-notes-wrapper` the
+annotator attaches to. The decorator is applied to the built-in HTML block
+(`_BuiltInHtmlBlock`) only. With the extracted-block setting on — the default —
+HTML components are `xblocks_contrib.html.HtmlBlock`, which carries no notes
+support, so a unit renders the notes tool's show/hide control and loads its
+scripts but no component is wrapped. There is no text a learner can select to
+take a note on, and the Notes page stays empty.
+
+**Coverage impact:** open. TC-00038 is split: the Notes tab, the "Show Notes"
+switch and the visibility round trip pass; "takes a note on a unit's text and
+lists it on the Notes page" is written to the intended behaviour and marked
+`test.fail`.
 

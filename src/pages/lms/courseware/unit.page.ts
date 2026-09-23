@@ -46,6 +46,7 @@ export class UnitPage {
   readonly bookmarkButton: Locator;
   readonly calculatorToggle: Locator;
   readonly calculatorResult: Locator;
+  readonly notesToggle: Locator;
   readonly sidebarBackButton: Locator;
   readonly sidebarOutlineHeading: Locator;
   readonly sidebarSections: Locator;
@@ -69,6 +70,7 @@ export class UnitPage {
     this.bookmarkButton = page.locator(COURSEWARE_SELECTORS.bookmarkButton);
     this.calculatorToggle = page.locator(COURSEWARE_SELECTORS.calculatorToggle);
     this.calculatorResult = page.locator(COURSEWARE_SELECTORS.calculatorResult);
+    this.notesToggle = page.locator(COURSEWARE_SELECTORS.notesToggle);
     this.sidebarBackButton = page.locator(COURSEWARE_SELECTORS.sidebarBackButton);
     this.sidebarOutlineHeading = page.locator(COURSEWARE_SELECTORS.sidebarOutlineHeading);
     this.sidebarSections = page.locator(COURSEWARE_SELECTORS.sidebarSectionRow);
@@ -346,5 +348,41 @@ export class UnitPage {
     await this.page.locator(COURSEWARE_SELECTORS.calculatorSubmit).click();
     const body = (await (await answered).json()) as { result?: string };
     return body.result ?? '';
+  }
+
+  /**
+   * Flips the "Show Notes" switch and waits for the visibility it stores
+   * (`PUT …/edxnotes/visibility/`), returning that response.
+   */
+  async toggleNotes(): Promise<Response> {
+    const stored = this.page.waitForResponse(
+      (r) => r.url().includes('/edxnotes/visibility/') && r.request().method() === 'PUT',
+    );
+    await this.notesToggle.click();
+    return stored;
+  }
+
+  /**
+   * Takes a note on the first paragraph of an annotatable component in the unit:
+   * selects the paragraph's text, presses the annotator's add button, types the
+   * note and saves it. Resolves once the notes service has stored it.
+   */
+  async takeNote(text: string): Promise<Response> {
+    const paragraph = this.contentFrame.locator(`${COURSEWARE_SELECTORS.notesWrapper} p`).first();
+    await paragraph.evaluate((element) => {
+      const range = element.ownerDocument.createRange();
+      range.selectNodeContents(element);
+      const selection = element.ownerDocument.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    await this.contentFrame.locator(COURSEWARE_SELECTORS.notesAdder).click();
+    await this.contentFrame.locator(COURSEWARE_SELECTORS.notesEditorText).fill(text);
+    const stored = this.page.waitForResponse(
+      (r) => r.url().includes('/annotations') && r.request().method() === 'POST',
+    );
+    await this.contentFrame.locator(COURSEWARE_SELECTORS.notesEditorSave).click();
+    return stored;
   }
 }
