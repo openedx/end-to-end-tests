@@ -70,7 +70,8 @@ export function anonymousHeaderExpectation(chrome: ChromeConfig): AnonymousHeade
  * What a chrome case is checking, where a known defect only breaks one of a
  * case's tests (the Help link's absence, not its presence).
  */
-export type ChromeScenario = 'help-link' | 'no-help-link' | 'logo-consistency' | 'navigation';
+export type ChromeScenario =
+  'help-link' | 'no-help-link' | 'logo-consistency' | 'navigation' | 'page-language';
 
 /**
  * A chrome defect the suite knows about, tied to the generation (and layout)
@@ -126,6 +127,14 @@ export const KNOWN_CHROME_DEFECTS: readonly KnownChromeDefect[] = [
       generations.some((generation) => generation !== 'shell'),
     reason:
       'BASE-004: the frontend-base shell and the legacy headers size the header and footer logos differently, so a site mixing them is inconsistent',
+  },
+  {
+    id: 'FP-001',
+    cases: ['TC-00066'],
+    applies: ({ generations, scenario }) =>
+      scenario === 'page-language' && generations.some((generation) => generation !== 'shell'),
+    reason:
+      'FP-001: MFEs built on frontend-platform switch `dir` to the chosen language but leave `<html lang>` as built ("en-us")',
   },
 ];
 
