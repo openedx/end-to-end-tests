@@ -9,7 +9,10 @@ import { testId } from '../../../src/reporting';
  * from what the page itself offers, never from a list in the suite.
  *
  * Account Settings' Site language is on every release; the frontend-base
- * shell's own language menu is only in the shell (`@frontend-base`).
+ * shell's own language menu is only in the shell (`@frontend-base`). Every
+ * page served afterwards should declare the language in `<html lang>` (WCAG
+ * 3.1.1); pages rendered by frontend-platform MFEs do not (`FP-001`), and
+ * `chromeCase` marks that test an expected failure wherever one is read.
  *
  * Readings go through the **browser's** request context (`page.request`): the
  * LMS copies the language cookie a request carries into `pref-lang`, so a
@@ -45,6 +48,54 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
       expect(next.headers()['content-language']).toMatch(
         new RegExp(`^${target!.split('-')[0]}`, 'i'),
       );
+    },
+  );
+
+  test(
+    'every page served after the switch declares the language',
+    {
+      tag: ['@mfe-account', '@mfe-learner-dashboard', '@mfe-profile'],
+      annotation: testId('TC-00066'),
+    },
+    async ({
+      page,
+      siteHeader,
+      accountSettingsPage,
+      dashboardPage,
+      profilePage,
+      chromeCase,
+      courseLearner,
+    }) => {
+      const { username } = courseLearner.identity;
+      await accountSettingsPage.goto();
+      const { current, offered } = await accountSettingsPage.editSiteLanguage();
+      const target = offered.find((code) => code !== current);
+      expect(target, 'the site offers a second language').toBeDefined();
+      await accountSettingsPage.saveSiteLanguage(target!);
+
+      const readings = [];
+      for (const [name, open] of [
+        ['dashboard', () => dashboardPage.goto()],
+        ['account', () => accountSettingsPage.goto()],
+        ['profile', () => profilePage.goto(username)],
+      ] as const) {
+        await open();
+        readings.push({
+          page: name,
+          generation: await siteHeader.generation(),
+          lang: await page.locator('html').getAttribute('lang'),
+        });
+      }
+      chromeCase.expectKnownDefects({
+        generations: readings.map((reading) => reading.generation),
+        signedIn: true,
+        scenario: 'page-language',
+      });
+      const language = new RegExp(`^${target!.split('-')[0]}(-|$)`, 'i');
+      expect(
+        readings.filter((reading) => !language.test(reading.lang ?? '')),
+        JSON.stringify(readings),
+      ).toEqual([]);
     },
   );
 

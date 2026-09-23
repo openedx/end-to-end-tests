@@ -1835,6 +1835,32 @@ with a legacy header. Where every page is legacy (verawood, whose legacy and
 learning headers agree) the case runs unmarked and passes. The marker therefore
 lifts itself once the learning MFE moves to the shell.
 
+### `FP-001` — frontend-platform MFEs never set `<html lang>` to the learner's language
+
+**Where:** every MFE built on `@edx/frontend-platform`: on Tutor `main`,
+Account Settings and the learner profile (and the learning MFE); on
+`verawood`, every MFE. Measured on the local `main` sandbox, and on verawood CI
+through TC-00066's dashboard reading.
+
+**What happens (measured):** after a learner switches the site language to
+Arabic, the LMS serves Arabic (`Content-Language: ar`) and the
+frontend-base shell's dashboard renders `<html lang="ar">`. The Account
+Settings and profile pages render `<html dir="rtl" lang="en-us">`: the text
+and the direction follow the choice, but the declared language stays the
+`lang` the MFE's `index.html` was built with. frontend-platform's `handleRtl()`
+(`src/i18n/lib.js`) sets `dir` from the locale and nothing in the package sets
+`lang`. Screen readers therefore read Arabic text with English pronunciation
+rules, and axe cannot flag it because the attribute is present and valid (WCAG
+3.1.1 Language of Page).
+
+**Coverage impact:** open. TC-00066's "every page served after the switch
+declares the language" test reads `<html lang>` on the dashboard, Account
+Settings and the profile. `chromeCase` marks it `test.fail` whenever one of
+them is rendered by a legacy header (`KNOWN_CHROME_DEFECTS` in
+`src/steps/chrome.ts`), so the marker lifts itself once those apps move to the
+frontend-base shell. The Account Settings switch case itself asserts the served
+language through `Content-Language` and passes on every release.
+
 ### `LMS-001` — the course Bookmarks page's breadcrumb link is distinguished by colour only
 
 **Where:** the LMS-rendered course Bookmarks page (`/courses/<key>/bookmarks/`),
