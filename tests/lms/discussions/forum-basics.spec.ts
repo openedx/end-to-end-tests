@@ -12,6 +12,7 @@ import {
   type DiscussionThread,
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
+import { waitForLearnerTopic } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
 import { DISCUSSIONS_A11Y_BASELINE, DISCUSSION_TAGS } from './helpers';
 
@@ -39,6 +40,10 @@ test.describe(
         const { courseKey, topicId } = forumUnit;
         const token = randomUUID().slice(0, 8);
 
+        // The unit's topic reaches this learner's list only once the learner can
+        // see the unit; opened earlier, the sidebar's editor picks another topic.
+        const offered = await waitForLearnerTopic(learner.request, config, courseKey, topicId);
+        expect(offered.satisfied, `topics offered: ${offered.last.join(', ')}`).toBe(true);
         await learner.unitPage.goto(courseKey, forumUnit.sequentialId, forumUnit.unitId);
         await learner.unitPage.openDiscussionsSidebar();
         const sidebar = learner.sidebarDiscussions;
