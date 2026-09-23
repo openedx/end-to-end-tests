@@ -59,6 +59,16 @@ measured, and issues are opened by hand from them.
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
 | `LIB-006`   | `openedx/frontend-app-authoring` (TC-00422, wg-build-test-release#604) | **not reproduced** — case committed green on both targets
+| `AUTH-001`  | `openedx/frontend-app-authoring` (Verawood sidebar a11y)      | open, no `fixme` — baselined as `SIDEBAR_A11Y_BASELINE` on the sidebar scans only
+| `AUTH-002`  | `openedx/frontend-app-authoring` (unit card not selectable from the outline) | open, `fixme` in `tests/studio/sidebar/outline-info.spec.ts` (TC-00489)
+| `AUTH-003`  | `openedx/frontend-app-authoring` (TC-00491/00496, wg-build-test-release#587/#578) | **not reproduced** — all three cases committed green on both targets
+| `TAG-001`   | `openedx/edx-platform` (author tagging its own course)        | **resolved** — no defect; the earlier 403 was a pre-migration course
+| `TAG-002`   | `openedx/frontend-app-authoring` (outline tag counts, wg-build-test-release#592) | open, no `fixme` — the drawer cases assert the API, never the badge
+| `FILES-001` | `openedx/frontend-app-authoring` (TC-00137, frontend-app-authoring#3096) | **not reproduced** — case committed green on both targets
+| `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; copy asserted by URL resolution
+| `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
+| `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
+| `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
 
 ---
@@ -1115,7 +1125,6 @@ sheet may be recording a UI failure this suite reaches by a different route.
 
 ### `PLAT-010` — the user clipboard save deadlocks under parallel authoring load
 
-
 **Where:** `POST /api/content-staging/v1/clipboard/`
 (`openedx/core/djangoapps/content_staging/views.py:136` →
 `api.py:189 save_xblock_to_user_clipboard` → `models.py:176 UserClipboard.save`)
@@ -1137,3 +1146,184 @@ retry, so they report as flaky rather than failed. Not worked around — a retry
 inside the API client would hide a genuine platform race that an author hits too.
 Upstream ask: retry the deadlock (`transaction.atomic` plus a bounded retry) or
 narrow the transaction, as the platform does elsewhere for 1213.
+
+## Epic 11 — Authoring sidebar / tagging findings (2026-09-16)
+
+### `AUTH-001` — the Verawood authoring sidebar carries two critical axe violations
+
+**Where:** the course-outline and unit page with the Verawood sidebar open
+(`src/generic/sidebar`), `main` and `verawood`.
+
+**What happens:** an axe scan of the outline / unit page with the sidebar open
+reports two critical WCAG violations the suite does not otherwise see:
+`button-name` (icon-only rail/panel buttons with no accessible name) and
+`aria-allowed-attr` (a control carrying an unsupported ARIA attribute).
+
+**Coverage impact:** open, no `fixme` — baselined on the sidebar scans only
+(`SIDEBAR_A11Y_BASELINE` in `tests/studio/sidebar/helpers.ts`, merged through
+`checkA11y`'s `additionalBaseline`), never added to the global baseline, so a
+new regression elsewhere still fails. Upstream ask: give the icon buttons a
+discernible name and drop the unsupported ARIA attribute.
+
+### `AUTH-002` — a unit cannot be selected from the course outline by a normal click
+
+**Where:** the course-outline sidebar, `main` and `verawood`.
+
+**What happens:** a section or subsection card selects (opens its Info sidebar)
+on a click of its `*-card__content` row. A **unit** card has no such clickable
+row — `unit-card__content` is the empty children container (height 0), and the
+header is filled by the title link (which *navigates* to the unit page), the
+edit button and the kebab. The card's own `onClick` only fires when
+`e.target === e.currentTarget`, but the header covers the card entirely, so no
+click point selects the unit. Measured 2026-09-16.
+
+**Coverage impact:** TC-00483 asserts sidebar switching across the section and
+subsection levels (both select cleanly); selecting a unit *from the outline*
+is left to TC-00489 (Epic 11 step 3), which reads unit Info by navigating to
+the unit page. Upstream ask: give the unit card a select affordance distinct
+from its navigating title link.
+
+**Against the sheet:** the sheet marks TC-00489 **Passed**, with the note that
+it was "blocked on testing if the library reference icon shows up until 587 is
+fixed" (wg-build-test-release#587). This suite skips TC-00489 instead, because
+the outline-side selection the case describes has no click point here. The two
+readings are not in conflict: the sheet exercised the unit page, which this
+suite also reaches, and left the outline path untested.
+
+### `AUTH-003` — the sheet-failed Add-sidebar cases do not reproduce
+
+**Where:** the Add sidebar on the course outline and on the unit page
+(`tests/studio/sidebar/add-sidebar.spec.ts`), `main` and `verawood`.
+
+**What happens:** the sheet marks two Add-sidebar cases **Failed** —
+TC-00491 (the Add button opens the Add sidebar on the course outline,
+wg-build-test-release#587) and TC-00496 (the Add sidebar on the unit page allows
+adding new components, no issue recorded) — and carries
+wg-build-test-release#578 against TC-00494, which it nonetheless passed. All
+three pass here on both targets: the sidebar opens from either surface with its
+Add New and Add Existing tabs, both tabs are reachable, and every component type
+creates.
+
+**Coverage impact:** open only upstream. The three cases are committed green,
+not `fixme`d, and none of them is worked around. Recorded so a later red does
+not look like a new regression: the sheet has already seen these fail somewhere.
+
+### `TAG-002` — outline tag counts refresh late, and the course-level count not at all
+
+**Where:** the course-outline cards' tag-count badge and the course-level
+"Course Tags — Manage Tags" field, authoring MFE, `main` and `verawood`.
+
+**What happens:** two readings from the sheet, both recorded against cases it
+passed. On the section and subsection cards the count "changes not at once but
+after page refresh" while the drawer's own count updates immediately
+(TC-00181/00182). At the **course** level the count never updates at all: the
+sheet passes TC-00190 and TC-00193–00196 "partially", noting that the final step
+— "I also see the tag count updated in the Course Tags—Manage Tags field on the
+Course Outline Page" — does not work, and files wg-build-test-release#592.
+
+**Coverage impact:** open, no `fixme`, and deliberately not asserted. The 21
+drawer cases take `object_tags` (values and lineage) and
+`object_tag_counts?count_implicit` as their oracle, both of which are correct
+immediately, so none of them depends on the rendered badge. That is why all five
+course-level cases pass here while the sheet records them as partial: this suite
+does not read the surface the defect is on. Upstream ask: refresh the card badge
+and the course-level field from the same response the drawer already uses. If
+the badge is ever asserted, it must be polled after a reload, and the
+course-level field will fail until #592 is fixed.
+
+
+## Epic 11 — Files / taxonomy admin findings (steps 7–11, 2026-09-16)
+
+### `FILES-002` — the Files copy-URL actions cannot be verified via the clipboard on `http`
+
+**Where:** the Studio Files page 3-dot menu ("Copy Studio Url", "Copy Web Url"),
+`main` and `verawood`.
+
+**What happens:** the copy actions write to the clipboard, which the browser
+denies to a page served over `http` (the local and CI targets), so a test
+cannot read back what was copied.
+
+**Coverage impact:** open, no `fixme`. TC-00140 asserts the two copy items are
+*offered* and that the asset's own URL *resolves* (a `GET` of
+`assetStudioUrl(...)` returns `200`), rather than reading the clipboard — the
+copy source is correct even though the copy itself is unobservable here.
+
+### `FILES-001` — sort/filter under a search: not reproduced on this target
+
+**Where:** the Studio Files DataTable, `main` (Tutor, 2026-09-16).
+
+**What happens:** the BTR sheet marks TC-00137 (sort/filter with no search term)
+as a UI failure (frontend-app-authoring#3096). On this target the case **passes**
+— sorting by name and filtering by type both compose correctly with no search —
+so TC-00137 is committed green, not `fixme`d. Revisit if a PR target regresses.
+
+### Taxonomy list route can cold-load to Studio home
+
+**Where:** the authoring MFE `/authoring/taxonomies` route, `main`.
+
+**What happens:** a hard navigation straight to the taxonomy list occasionally
+settles on Studio home before the router registers the tagging routes (the
+`/taxonomy/<id>` detail route does not show this). `TaxonomyListPage.goto`
+reloads once when the Import button has not appeared, which the router has by
+then registered. Not a coverage gap — noted so the reload is not mistaken for
+dead code.
+
+### `TAG-001` — resolved: an author can tag a course it created this run
+
+Confirmed in 0b: the earlier `403` on `object_tags` was a pre-migration course,
+not a permission model. A course the worker author creates in the run carries
+`course_admin`, so the author's own `PUT object_tags` succeeds (the basis for the
+`tagging-bootstrap` author case). No open issue.
+
+### `FILES-003`, `TAG-003`, `STUDIO-010` — a11y debt the new page scans found
+
+**Where:** the authoring MFE's Files page, tag drawer and Textbooks page, on
+`main` and on `verawood`.
+
+**What happens:** none of these pages had an accessibility gate until now (Epic
+11 scanned only the sidebar). Adding one to each surfaced, on a clean course:
+
+```
+Files page      aria-allowed-attr (critical, 2 nodes)
+Tag drawer      aria-allowed-attr (critical, 3 nodes)
+                button-name       (critical, 2 nodes)
+                label             (critical, ~40 nodes)
+Textbooks page  list              (serious, 1 node)
+                button-name       (critical, 3 nodes) — verawood only
+```
+
+The drawer's ~40 unlabelled form controls are its taxonomy tree: every checkbox
+in the tree is a form element with no accessible label.
+
+The Textbooks `button-name` violation is release-specific, and the only one of
+these rules that differs between releases: on `verawood` the textbook card's
+three icon-only actions render with no accessible name, and on `main` they are
+labelled. It is the one thing the first CI run of these new gates caught that
+local measurement on `main` could not — the scan passed on `main` and failed on
+`verawood` in the same run
+([#35794526218](https://github.com/openedx/end-to-end-tests/actions/runs/35794526218)).
+
+**Coverage impact:** open, no `fixme`. Each rule is baselined **on its own scan
+only**, the way `STUDIO-007`/`STUDIO-008` are, so the pages are gated against
+everything else and the debt is reported on every run. The Textbooks
+`button-name` entry is baselined unconditionally rather than gated on a
+capability — a capability describes a *feature* a release has, not debt it
+carries, and an unconditional per-scan entry keeps the rule gating every other
+page on both releases. It comes out when the oldest supported release ships the
+labelled card actions. This is the answer to the
+review question on PR #79 about whether these gates should wait: adding them cost
+three lines per page and found four rules across three pages.
+
+### The upload-agreement bump raced its own acceptance (suite-side)
+
+**Where:** `tests/studio/files/agreements.spec.ts` TC-00505, measured 2026-09-22.
+
+**What happens:** the admin stores `UserAgreement.updated` **to the second**, and
+`is_current` treats an acceptance at the same second as "at or after". Bumping
+`updated` to *now* therefore left the acceptance current whenever the two landed
+in the same second — the flake CI reported on this case in consecutive runs.
+
+**Coverage impact:** fixed in the suite, nothing to file. The bump is now taken
+from the acceptance the platform recorded plus one second, waited for rather than
+slept through, and clamped to the present so `updated` never lands in the future
+(which would leave the type outstanding for every worker sharing it).

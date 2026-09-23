@@ -273,6 +273,31 @@ export class StudioCourseOutlinePage {
 
   // --- Menu actions --------------------------------------------------------
 
+  /**
+   * Selects a card by clicking its content row — opening the Verawood sidebar's
+   * Info panel for it — and waits for the card to gain the selected class. Uses
+   * the content row (not the whole card) so a click never lands on the kebab,
+   * expander or a child card.
+   */
+  async select(card: Locator, level: OutlineLevel): Promise<void> {
+    await card.locator(STUDIO_OUTLINE_PAGE_SELECTORS.cardContent(level)).first().click();
+    await card
+      .and(this.page.locator(`.${STUDIO_OUTLINE_PAGE_SELECTORS.selectedCardClass}`))
+      .waitFor();
+  }
+
+  /**
+   * Opens the tag drawer for a card through its "Manage tags" kebab item. This
+   * selects the card and opens the Align sidebar's embedded drawer — the reliable
+   * opener at every level, including units (which a plain card click cannot
+   * select, AUTH-002). Waits for the drawer to render.
+   */
+  async openManageTags(card: Locator, level: OutlineLevel): Promise<void> {
+    await this.openMenu(card, level);
+    await card.locator(outlineMenuItem(level, 'manageTags')).click();
+    await this.page.locator('#content-tags-drawer').waitFor();
+  }
+
   private async openMenu(card: Locator, level: OutlineLevel): Promise<void> {
     await card.locator(MENU_BUTTON[level]).click();
   }

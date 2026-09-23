@@ -374,3 +374,49 @@ export {
   type MigrationOptions,
   type MigrationTask,
 } from './legacy-libraries';
+export {
+  TAGGING_BASE,
+  deleteTaxonomy,
+  fetchObjectTagCounts,
+  fetchObjectTags,
+  fetchTaxonomy,
+  importTaxonomy,
+  listTaxonomies,
+  listTaxonomyTags,
+  setObjectTags,
+  setTaxonomyOrgs,
+  tagCountFor,
+  type AppliedTag,
+  type ImportTaxonomyOptions,
+  type ListTaxonomiesOptions,
+  type ObjectTaxonomyTags,
+  type Taxonomy,
+  type TaxonomyList,
+  type TaxonomyTag,
+} from './tagging';
+export {
+  MFE_CONFIG_PATH,
+  agreementTypesIn,
+  fetchAuthoringMfeConfig,
+  type AgreementGating,
+  type AuthoringMfeConfig,
+} from './mfe-config';
+export {
+  AGREEMENTS_BASE,
+  acceptAgreement,
+  fetchAgreementRecord,
+  listAgreements,
+  type AgreementRecord,
+  type UserAgreement,
+} from './agreements';
+export {
+  fetchAssets,
+  fetchAllAssets,
+  uploadAsset,
+  assetStudioUrl,
+  type CourseAsset,
+  type AssetQuery,
+} from './assets';
+export { fetchTextbooks, type Textbook, type TextbookChapter } from './textbooks';
+export { fetchCourseUpdates, fetchHandouts, type CourseUpdate } from './course-updates';
+export { ensureAgreement, editAgreement, bumpAgreementUpdated } from './agreements-admin';
