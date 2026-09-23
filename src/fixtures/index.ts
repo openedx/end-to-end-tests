@@ -88,8 +88,15 @@ import {
 } from '../auth';
 import {
   ApiError,
+  GENERAL_TOPIC_ID,
   assignRole,
+  authorStaffGradedOra,
   buildSection,
+  fetchDiscussionCourse,
+  grantCourseTeamRole,
+  listDiscussionTopics,
+  setNotificationPreference,
+  type NotificationApp,
   DEFAULT_SECTION_SHAPE,
   ensureCourse,
   establishStudioSession,
@@ -172,7 +179,11 @@ import { CourseOutlinePage } from '../pages/lms/course-home/course-outline.page'
 import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
+import { DiscussionsPage } from '../pages/lms/discussions/discussions.page';
+import { NotificationPreferencesPage } from '../pages/lms/notifications/preferences.page';
+import { NotificationTray } from '../pages/lms/notifications/tray.page';
 import { canCompleteUnit } from '../steps/completion';
+import { pollUntil } from '../steps/poll';
 import { stubVideoSources } from './video-sources';
 import { establishStudioBrowserSession, signInToStudioThroughUi } from '../steps/studio';
 import { ForgotPasswordPage } from '../pages/lms/auth/forgot-password.page';
@@ -638,6 +649,66 @@ export interface TestFixtures {
    * directly when it reaches the gated UI without that page object.
    */
   acceptedUploadAgreements: void;
+  /**
+   * Provisions a **fresh** learner enrolled in {@link WorkerFixtures.contentCourse}
+   * on its own contexts, optionally setting notification preferences first —
+   * the recipient of a notification case. Fresh per call because what a
+   * recipient has received is the assertion (preferences are per user, and a
+   * reused account would carry another test's rows). Call it twice for a
+   * subject and a sentinel. Every learner is disposed at test end.
+   */
+  notificationRecipient: (options?: NotificationRecipientOptions) => Promise<RoundTripLearner>;
+  /**
+   * {@link WorkerFixtures.contentCourse} once its forum is ready for the UI: the
+   * topic list is synced from the course structure by a task after the course is
+   * created, and the discussions MFE loaded before it offers no topic, so its
+   * post editor cannot submit (measured). Polls the list under `contentPublish`.
+   */
+  forumCourse: AuthoredCourse;
+  /**
+   * A published one-unit section of {@link forumCourse}, and the in-context
+   * discussion topic its unit gets — for the in-unit forum (TC-00029) and the
+   * one-sidebar case (TC-00053). Polls until the topic is listed.
+   */
+  forumUnit: ForumUnit;
+  /**
+   * A published unit in {@link WorkerFixtures.contentCourse} holding one ORA
+   * whose only step is a required staff assessment — the source of
+   * `ora_staff_notifications` (to the worker author, the course's staff) and,
+   * once graded, `ora_grade_assigned` (to the learner). Gated by `@ora`.
+   */
+  oraUnit: OraUnit;
+}
+
+/** One notification preference to set, as {@link TestFixtures.notificationRecipient} applies it. */
+export interface NotificationPreferenceSetting {
+  readonly app: NotificationApp;
+  readonly type: string;
+  readonly channel: 'web' | 'email';
+  readonly value: boolean;
+}
+
+export interface NotificationRecipientOptions {
+  readonly preferences?: readonly NotificationPreferenceSetting[];
+}
+
+/** What {@link TestFixtures.forumUnit} hands a spec. */
+export interface ForumUnit {
+  readonly courseKey: string;
+  readonly section: AuthoredSection;
+  readonly sequentialId: string;
+  readonly unitId: string;
+  /** The unit's in-context discussion topic. */
+  readonly topicId: string;
+}
+
+/** What {@link TestFixtures.oraUnit} hands a spec. */
+export interface OraUnit {
+  readonly courseKey: string;
+  readonly sequentialId: string;
+  readonly unitId: string;
+  readonly oraUsageKey: string;
+  readonly displayName: string;
 }
 
 /** What {@link TestFixtures.uploadAgreements} hands a spec: the gating map and its types. */
@@ -729,6 +800,9 @@ export const RBAC_CAST_PARTS = [
 
 export type RbacCastPart = (typeof RBAC_CAST_PARTS)[number];
 
+/** The parts {@link WorkerFixtures.forumCast} casts. */
+export type ForumCastPart = 'poster' | 'moderator';
+
 /** What one {@link TestFixtures.studioColleague} call hands a spec. */
 export interface StudioColleague {
   readonly identity: LearnerIdentity;
@@ -758,6 +832,12 @@ export interface RoundTripLearner {
   readonly unitPage: UnitPage;
   /** Course-home outline page object bound to this learner's page. */
   readonly courseOutlinePage: CourseOutlinePage;
+  /** The header's notifications tray, on whatever page this learner is on. */
+  readonly notificationTray: NotificationTray;
+  /** The account MFE's notification preference centre. */
+  readonly notificationPreferences: NotificationPreferencesPage;
+  /** The discussions MFE, full page. (In the unit sidebar, root one on `unitPage.discussionsFrame`.) */
+  readonly discussions: DiscussionsPage;
   /**
    * The course structure **as this learner sees it** (Blocks API): unreleased,
    * hidden, group-restricted and unsatisfied-gated blocks are absent. The
@@ -872,6 +952,18 @@ export interface WorkerFixtures {
    * still takes {@link TestFixtures.studioColleague}.
    */
   rbacCast: (part: RbacCastPart) => Promise<StudioColleague>;
+  /**
+   * The other actors of the notification and forum cases, one account per part
+   * per worker, each a learner enrolled in {@link contentCourse} on its own
+   * contexts — the {@link rbacCast} pattern: a part is a role, so reuse cannot
+   * hand a case a role it did not expect. `poster` is only ever a plain learner
+   * (it posts, responds, comments, follows, reports); `moderator` only ever
+   * holds the forum `Moderator` role in {@link contentCourse}, granted by the
+   * worker author on first use and read back from the moderator's own session.
+   * A recipient is never a cast member — take
+   * {@link TestFixtures.notificationRecipient}.
+   */
+  forumCast: (part: ForumCastPart) => Promise<RoundTripLearner>;
 
   authzCourse: AuthzCourse | undefined;
   /**
@@ -1198,6 +1290,9 @@ async function provisionRoundTripLearner(
     page,
     unitPage: new UnitPage(page, config),
     courseOutlinePage: new CourseOutlinePage(page, config),
+    notificationTray: new NotificationTray(page, config),
+    notificationPreferences: new NotificationPreferencesPage(page, config),
+    discussions: new DiscussionsPage(page, config),
     outline: () => fetchCourseOutline(request, config, courseKey, identity.username),
     sequence: (sequentialId) => fetchSequenceMetadata(request, config, sequentialId),
     navigation: () => fetchCourseNavigation(request, config, courseKey),
@@ -1966,6 +2061,69 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
 
+  forumCast: [
+    async ({ playwright, browser, contentCourse, workerAuthor }, use) => {
+      const config = getConfig();
+      const cast = new Map<ForumCastPart, Promise<RoundTripLearner>>();
+      const made: RoundTripLearner[] = [];
+
+      const provision = async (part: ForumCastPart): Promise<RoundTripLearner> => {
+        const member = await provisionRoundTripLearner(
+          playwright,
+          browser,
+          config,
+          contentCourse.courseKey,
+        );
+        made.push(member);
+        if (part === 'moderator') {
+          // The course's instructor grants the forum role (v2 team API, which
+          // accepts the author's JWT); the moderator's own reading confirms it,
+          // because the role list itself is closed to a course instructor (403).
+          const author = await playwright.request.newContext({
+            storageState: workerAuthor?.stateFile,
+          });
+          try {
+            await grantCourseTeamRole(
+              author,
+              config,
+              contentCourse.courseKey,
+              [member.identity.email],
+              'Moderator',
+            );
+          } finally {
+            await author.dispose();
+          }
+          const forum = await fetchDiscussionCourse(
+            member.request,
+            config,
+            contentCourse.courseKey,
+          );
+          if (!forum.has_moderation_privileges) {
+            throw new Error(
+              `The Moderator grant to ${member.identity.username} in ${contentCourse.courseKey} ` +
+                `did not take: its forum roles are ${JSON.stringify(forum.user_roles)}.`,
+            );
+          }
+        }
+        return member;
+      };
+
+      await use((part) => {
+        let member = cast.get(part);
+        if (member === undefined) {
+          member = provision(part);
+          cast.set(part, member);
+        }
+        return member;
+      });
+
+      for (const member of made) {
+        await disposeRoundTripLearner(member);
+      }
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
   authzCourse: [
     async ({ playwright, workerAuthor, authzMigrationMode }, use, workerInfo) => {
       const config = getConfig();
@@ -2457,6 +2615,100 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await Promise.all(learners.map(disposeRoundTripLearner));
     }
+  },
+
+  notificationRecipient: async ({ playwright, browser, config, contentCourse }, use) => {
+    const made: RoundTripLearner[] = [];
+    try {
+      await use(async (options = {}) => {
+        const learner = await provisionRoundTripLearner(
+          playwright,
+          browser,
+          config,
+          contentCourse.courseKey,
+        );
+        made.push(learner);
+        for (const preference of options.preferences ?? []) {
+          await setNotificationPreference(learner.request, config, preference);
+        }
+        return learner;
+      });
+    } finally {
+      for (const learner of made) {
+        await disposeRoundTripLearner(learner);
+      }
+    }
+  },
+
+  forumCourse: async ({ request, config, contentCourse }, use) => {
+    const { courseKey } = contentCourse;
+    const outcome = await pollUntil(
+      async () => (await listDiscussionTopics(request, config, courseKey)).map((topic) => topic.id),
+      (ids) => ids.includes(GENERAL_TOPIC_ID),
+      TIMEOUTS.contentPublish,
+    );
+    if (!outcome.satisfied) {
+      throw new Error(
+        `The forum of ${courseKey} lists no "${GENERAL_TOPIC_ID}" topic after ` +
+          `${outcome.elapsedMs} ms (topics: ${JSON.stringify(outcome.last)}). Is the course on ` +
+          'the openedx discussion provider?',
+      );
+    }
+    await use(contentCourse);
+  },
+
+  forumUnit: async ({ request, config, forumCourse }, use, testInfo) => {
+    const { courseKey } = forumCourse;
+    const section = await buildWithAuthorWriteSession(request, config, () =>
+      buildSection(request, config, courseKey, sectionLabel(testInfo, 90), {
+        subsections: [{ units: [{ blocks: ['html'] }] }],
+        publish: true,
+      }),
+    );
+    const unit = section.units[0]!;
+    // Publishing gives the unit an in-context topic, listed once the sync task runs.
+    const outcome = await pollUntil(
+      () => listDiscussionTopics(request, config, courseKey),
+      (topics) => topics.some((topic) => topic.usage_key === unit.usageKey),
+      TIMEOUTS.contentPublish,
+    );
+    const topic = outcome.last.find((candidate) => candidate.usage_key === unit.usageKey);
+    if (topic === undefined) {
+      throw new Error(
+        `Unit ${unit.usageKey} got no discussion topic within ${outcome.elapsedMs} ms of ` +
+          'being published.',
+      );
+    }
+    await use({
+      courseKey,
+      section,
+      sequentialId: unit.sequentialUsageKey,
+      unitId: unit.usageKey,
+      topicId: topic.id,
+    });
+  },
+
+  oraUnit: async ({ request, config, contentCourse }, use, testInfo) => {
+    const { courseKey } = contentCourse;
+    const label = sectionLabel(testInfo, 91);
+    const displayName = `${label} ORA`;
+    const { unit, oraUsageKey } = await buildWithAuthorWriteSession(request, config, async () => {
+      const section = await buildSection(request, config, courseKey, label, {
+        subsections: [{ units: [{ blocks: [] }] }],
+      });
+      const built = section.units[0]!;
+      return {
+        unit: built,
+        oraUsageKey: await authorStaffGradedOra(request, config, built.usageKey, displayName),
+      };
+    });
+    await use({
+      courseKey,
+      sequentialId: unit.sequentialUsageKey,
+      unitId: unit.usageKey,
+      oraUsageKey,
+      displayName,
+    });
   },
 
   futureCourseLearner: async ({ playwright, browser, config, futureCourse }, use) => {

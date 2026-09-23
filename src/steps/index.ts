@@ -65,3 +65,11 @@ export {
   taxonomyImportFileCsv,
   taxonomyImportFileExtended,
 } from './tagging';
+export {
+  aboutThread,
+  checkNotificationAbsent,
+  waitForNotification,
+  type AbsenceCheck,
+  type NotificationMatch,
+  type NotificationWait,
+} from './notifications';

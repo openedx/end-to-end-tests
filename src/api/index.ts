@@ -551,3 +551,12 @@ export {
   type DiscussionThread,
   type DiscussionTopic,
 } from './discussions';
+export {
+  ORA_FULL_MARKS,
+  ORA_POINTS_POSSIBLE,
+  authorStaffGradedOra,
+  listOraSubmissions,
+  staffAssessOra,
+  submitOraResponse,
+  type OraSubmission,
+} from './ora';
