@@ -297,6 +297,16 @@ Tests are organized into Playwright **projects**:
   whose session is valid on Studio as well as the LMS. Runs only when the `studio`
   capability is declared.
 
+Responsive coverage runs at the sizes in [`src/config/viewports.ts`](src/config/viewports.ts)
+(phone 375, tablet 768, small desktop 1024, desktop 1280, each on one side of a
+breakpoint the Open edX frontends switch on) inside the same projects; there is
+no separate mobile project.
+
+On a Tutor `main` target, two toggles that plugins set only in `FEATURES` must
+also be set as flat settings for their coverage to run (the `TUTOR-001`
+flattening): `ENABLE_COURSE_DISCOVERY` for `catalog-search`, and
+`ENABLE_EDXNOTES` for `notes`. The CI workflow's settings patch sets both.
+
 Run a single project or filter by tag:
 
 ```sh

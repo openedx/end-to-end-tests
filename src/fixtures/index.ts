@@ -788,6 +788,13 @@ export interface TestFixtures {
    */
   mailboxLearner: (options?: NotificationRecipientOptions) => Promise<MailboxLearner>;
   /**
+   * A fresh learner registered at an inbox of the configured mailbox provider
+   * and enrolled in nothing — for account mail (password reset) rather than
+   * course mail. Specs using it carry `@email-inbox`. The inbox and the
+   * learner's request context are disposed after the test.
+   */
+  inboxLearner: InboxLearner;
+  /**
    * {@link WorkerFixtures.contentCourse} once its forum is ready for the UI: the
    * topic list is synced from the course structure by a task after the course is
    * created, and the discussions MFE loaded before it offers no topic, so its
@@ -837,6 +844,13 @@ export interface NotificationRecipientOptions {
 
 /** What {@link TestFixtures.mailboxLearner} hands a spec: the learner and its inbox. */
 export interface MailboxLearner extends RoundTripLearner {
+  readonly inbox: Inbox;
+}
+
+/** What {@link TestFixtures.inboxLearner} hands a spec. */
+export interface InboxLearner {
+  readonly identity: LearnerIdentity;
+  readonly request: APIRequestContext;
   readonly inbox: Inbox;
 }
 
@@ -2994,6 +3008,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       for (const learner of made) {
         await disposeRoundTripLearner(learner);
       }
+    }
+  },
+
+  inboxLearner: async ({ playwright, config }, use) => {
+    const provider = await resolveMailProvider(config);
+    const request = await playwright.request.newContext();
+    try {
+      const inbox = await provider.createInbox({ config, request });
+      try {
+        const identity = await provisionLearnerSession(request, config, { email: inbox.address });
+        await use({ identity, request, inbox });
+      } finally {
+        await inbox.dispose(request);
+      }
+    } finally {
+      await request.dispose();
     }
   },
 
