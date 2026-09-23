@@ -62,3 +62,21 @@ export async function createCourseUpdate(
   });
   return studioJson<CourseUpdate>(response, `Posting an update to ${courseKey}`);
 }
+
+/**
+ * Replaces the course handouts — what the Updates page's handouts editor saves.
+ * The handouts block is written directly (it has no draft to publish), so the
+ * learner's course home serves the new HTML once the outline is re-read.
+ */
+export async function updateHandouts(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  html: string,
+): Promise<void> {
+  const response = await request.post(handoutsUrl(config, courseKey), {
+    headers: { ...(await studioWriteHeaders(request, config)), ...STUDIO_JSON_ACCEPT },
+    data: { data: html },
+  });
+  await studioJson<unknown>(response, `Saving the handouts of ${courseKey}`);
+}

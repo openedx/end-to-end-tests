@@ -27,11 +27,11 @@ test(
       unit_id: unit!.id,
     });
     const outline = await fetchCourseHomeOutline(request, config, courseKey);
-    expect(outline.resume_course.has_visited_course).toBe(true);
+    expect(outline?.resume_course.has_visited_course).toBe(true);
 
     await courseOutlinePage.goto(courseKey);
     await courseOutlinePage.dismissTourDialog();
-    await expect(courseOutlinePage.resumeLink).toHaveAttribute('href', outline.resume_course.url);
+    await expect(courseOutlinePage.resumeLink).toHaveAttribute('href', outline!.resume_course.url);
 
     await courseOutlinePage.resume();
     expect(new URL(page.url()).pathname).toContain(unit!.id);

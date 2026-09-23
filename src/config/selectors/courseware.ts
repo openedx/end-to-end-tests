@@ -15,6 +15,16 @@ export const COURSEWARE_SELECTORS = {
   bookmarkButton: '.unit button.pgn__stateful-btn',
   bookmarkedState: 'pgn__stateful-btn-state-bookmarked',
 
+  /**
+   * The unit page's calculator — the "Calculator" tool the course can switch
+   * on. Its toggle, expression field, "=" submit and result field are located
+   * by structure: every label is localized.
+   */
+  calculatorToggle: '.calculator > .text-right a.trigger',
+  calculatorInput: '.calculator form input[type="text"]:not([aria-live])',
+  calculatorSubmit: '.calculator form button[type="submit"]',
+  calculatorResult: '.calculator form input[aria-live]',
+
   /** The course outline tray beside the unit. */
   sidebar: '.outline-sidebar',
 

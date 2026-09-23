@@ -49,7 +49,30 @@ export const COURSE_HOME_SELECTORS = {
    * pointing at the block the learner resumes at.
    */
   resumeLink: '[data-testid="start-resume-card"] a',
+
+  /**
+   * The course's tabs — "Course", "Progress", "Dates", "Discussion", "Wiki" —
+   * read by the URL each tab links to.
+   */
+  courseTab: '#courseTabsNavigation a.nav-link[href]',
 } as const;
+
+/**
+ * The course-home fragment frame (handouts, welcome message) whose HTML holds
+ * `text` — the course home renders author HTML in `srcdoc` iframes, so the
+ * test's own content in that HTML is what picks the frame out.
+ */
+export function courseHomeFragmentHolding(text: string): string {
+  return `iframe[srcdoc*="${text}"]`;
+}
+
+/**
+ * The effort estimate beside one subsection in the outline ("5 min + 2
+ * activities"), anchored by the subsection's own link.
+ */
+export function subsectionEffort(sequenceId: string): string {
+  return `.row:has(a[href$="/${sequenceId}"]) .text-monospace`;
+}
 
 /**
  * A course-home tool link ("Bookmarks", "Updates") — anchored by the URL the
