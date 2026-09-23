@@ -34,6 +34,15 @@ export class UnitPage {
   readonly contentFrame: FrameLocator;
   readonly iframe: Locator;
   readonly sidebar: Locator;
+  /** The outline tray's collapse/expand control. */
+  readonly outlineToggle: Locator;
+  /** The right-hand sidebar triggers; a free enrollment shows only the discussions one. */
+  readonly rightSidebarTriggers: Locator;
+  /** A right-hand trigger whose sidebar is open. */
+  readonly activeRightSidebarTrigger: Locator;
+  /** The open discussions sidebar, and the discussions MFE framed in it. */
+  readonly discussionsSidebar: Locator;
+  readonly discussionsFrame: FrameLocator;
 
   constructor(
     private readonly page: Page,
@@ -42,6 +51,27 @@ export class UnitPage {
     this.iframe = page.locator(COURSEWARE_SELECTORS.unitIframe);
     this.contentFrame = page.frameLocator(COURSEWARE_SELECTORS.unitIframe);
     this.sidebar = page.locator(COURSEWARE_SELECTORS.sidebar);
+    this.outlineToggle = page.locator(COURSEWARE_SELECTORS.outlineToggle);
+    this.rightSidebarTriggers = page.locator(COURSEWARE_SELECTORS.rightSidebarTrigger);
+    this.activeRightSidebarTrigger = page.locator(COURSEWARE_SELECTORS.activeRightSidebarTrigger);
+    this.discussionsSidebar = page.locator(COURSEWARE_SELECTORS.discussionsSidebar);
+    this.discussionsFrame = page.frameLocator(COURSEWARE_SELECTORS.discussionsSidebar);
+  }
+
+  /**
+   * Opens the discussions sidebar from its trigger — the only right-hand trigger
+   * on a free enrollment — and waits for the framed discussions MFE to attach.
+   * The learning MFE keeps one sidebar open at a time, so this closes the
+   * outline tray (TC-00053).
+   */
+  async openDiscussionsSidebar(): Promise<void> {
+    await this.rightSidebarTriggers.first().click();
+    await this.discussionsSidebar.waitFor();
+  }
+
+  /** Collapses or expands the outline tray from its own control. */
+  async toggleOutline(): Promise<void> {
+    await this.outlineToggle.click();
   }
 
   url(courseKey: string, sequentialId: string, unitId: string): string {
