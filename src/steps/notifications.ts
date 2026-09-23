@@ -1,6 +1,13 @@
 import type { APIRequestContext } from '@playwright/test';
 
-import { listNotifications, type NotificationApp, type PlatformNotification } from '../api';
+import {
+  NOTIFICATION_APPS,
+  fetchNotificationPreferences,
+  listNotifications,
+  setNotificationPreference,
+  type NotificationApp,
+  type PlatformNotification,
+} from '../api';
 import { TIMEOUTS, type AppConfig } from '../config';
 import { pollUntil } from './poll';
 
@@ -85,4 +92,30 @@ export async function checkNotificationAbsent(
     await listNotifications(subject, config, { app: options.app, pageSize: WAIT_PAGE_SIZE })
   ).results;
   return { delivered, subjectRows: rows.filter(match) };
+}
+
+/**
+ * Turns off the web and e-mail channels of every notification type the caller
+ * is offered — the "I've turned OFF ALL notification preferences" premise of
+ * TC-00477. Read from the API, so role-gated types count once the roles are
+ * granted: call it after the grants. Returns the types turned off.
+ */
+export async function turnOffEveryNotification(
+  request: APIRequestContext,
+  config: AppConfig,
+): Promise<readonly string[]> {
+  const preferences = await fetchNotificationPreferences(request, config);
+  const turnedOff: string[] = [];
+  for (const app of NOTIFICATION_APPS) {
+    const { notification_types: types, non_editable: locked } = preferences.data[app];
+    for (const type of Object.keys(types)) {
+      for (const channel of ['web', 'email'] as const) {
+        if (!(locked[type] ?? []).includes(channel)) {
+          await setNotificationPreference(request, config, { app, type, channel, value: false });
+        }
+      }
+      turnedOff.push(type);
+    }
+  }
+  return turnedOff;
 }
