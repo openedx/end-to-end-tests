@@ -77,3 +77,16 @@ export {
 } from './notifications';
 export { linkIn, linkingTo, waitForMail } from './mail';
 export { waitForLearnerTopic } from './discussions';
+export {
+  KNOWN_CHROME_DEFECTS,
+  anonymousHeaderExpectation,
+  chromeConfigSourceFor,
+  horizontalOverflow,
+  knownChromeDefects,
+  partitionSiteLinks,
+  readPageChrome,
+  type AnonymousHeaderExpectation,
+  type ChromeDefectContext,
+  type KnownChromeDefect,
+  type PageChrome,
+} from './chrome';

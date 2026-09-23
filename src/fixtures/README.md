@@ -118,6 +118,6 @@ Rules:
   lock.** `named-lock.ts` is a cross-worker reader/writer lock with a
   heartbeat (`withSharedLock` / `withExclusiveLock`): the cases that need the
   state left alone hold it shared, the case that changes it holds it
-  exclusive. It is always taken *outside* `withAdminSession`, which stays the
+  exclusive. It is always taken _outside_ `withAdminSession`, which stays the
   inner lock around the admin write itself.
 - This is the only layer that reaches across all the others.

@@ -79,6 +79,8 @@ measured, and issues are opened by hand from them.
 | `NOTIF-004` | `openedx/edx-platform` (`send_email_digest` is a no-op)       | open, `fixme` + `knownGap` on TC-00478 / TC-00480
 | `DISC-001`  | `openedx/frontend-app-discussions` (post list ARIA)           | open, no `fixme` — two axe rules baselined on the discussions scans only
 | `DISC-002`  | `openedx/forum` (DELETE of a missing thread)                  | open, no `fixme` — suite deletes each thread once
+| `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing scans only (`SHELL_CHROME_A11Y_BASELINE`)
+| `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | open, `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -1718,3 +1720,41 @@ backend), `main`.
 **Coverage impact:** open, no `fixme`. `deleteThread` is not idempotent and says
 so; specs delete each thread exactly once, and TC-00029, whose last step deletes
 its own post through the UI, has no teardown delete.
+
+## Epic 14 — LMS learner completion findings (2026-09-23)
+
+### `BASE-003` — the shell header's narrow-layout menu toggle has no accessible name
+
+**Where:** `frontend-base` shell header, narrow layout (768 px and below),
+catalog MFE home on a Tutor `main` install.
+
+**What happens:** the toggle that opens the narrow layout's menu is
+`<button type="button" class="btn btn-outline"></button>`: no text, no
+`aria-label`, and its icon carries no title. axe reports `button-name`
+(critical, WCAG 4.1.2). A screen reader announces an unnamed button as the
+first control of the page.
+
+**Coverage impact:** open, no `fixme`. `button-name` is baselined for the
+chrome specs' landing scans only (`SHELL_CHROME_A11Y_BASELINE` in
+`tests/lms/chrome/helpers.ts`).
+
+### `BASE-005` — the shell header's narrow-layout menu is empty for a signed-out visitor
+
+**Where:** `frontend-base` shell header on the catalog MFE home, signed out, at
+768 px and below. Tutor `main`.
+
+**What happens:** below the header's `maxWidth: 768` breakpoint the wide layout
+(the "Explore courses" link, Login and Sign Up) is hidden and the narrow layout
+shows the menu toggle, the logo, Login and Sign Up. Opening the toggle renders
+its focus-locked panel with an empty `<div class="flex-column nav"></div>`: the
+primary links are not moved into it, so "Explore courses" — the only route from
+the landing page to the catalog for a visitor who has not searched — cannot be
+reached at phone or tablet width.
+
+**Coverage impact:** open. TC-00061 (public-site responsiveness) runs at phone,
+tablet and desktop widths; its phone and tablet tests are marked `test.fail` by
+the `publicChrome` fixture wherever the shell renders the header
+(`KNOWN_CHROME_DEFECTS` in `src/steps/chrome.ts`). The marker is keyed to the
+rendered generation and the width, not to a release, so it stops applying
+wherever the page moves to a header without the defect.
+
