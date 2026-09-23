@@ -75,3 +75,4 @@ export {
   type NotificationMatch,
   type NotificationWait,
 } from './notifications';
+export { linkIn, linkingTo, waitForMail } from './mail';
