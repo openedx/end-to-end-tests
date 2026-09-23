@@ -195,4 +195,16 @@ export const TIMEOUTS = {
    * busy search service; readings poll under it.
    */
   forumSearch: 30_000,
+
+  /**
+   * Budget for a notification e-mail to reach the suite's mailbox after the
+   * action that causes it: the notification fan-out, an edx-ace send over SMTP,
+   * and the provider's API seeing it. Measured 2026-09-24 on Tutor `main` with
+   * Mailpit: 3 s for an immediate-cadence mail. Only the **first** immediate
+   * mail per user is sent at once — later ones inside the platform's buffer
+   * (`NOTIFICATION_IMMEDIATE_EMAIL_BUFFER_MINUTES`, 15 on Tutor `main`) are
+   * batched — so each e-mail case uses a fresh mailbox learner. The headroom is
+   * for a shared CI worker and an external provider's polling.
+   */
+  emailDelivery: 120_000,
 } as const;

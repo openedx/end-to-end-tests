@@ -25,13 +25,19 @@ import { resolveAccountBackend } from './registry';
  * This is the single seam every consumer uses to obtain a usable account, so
  * swapping `ACCOUNT_BACKEND` changes the whole suite's account-creation behaviour
  * without touching the auth provider or the specs.
+ *
+ * `overrides` replace fields of the identity the backend creates — the e-mail
+ * address of a mailbox the suite reads (`mailboxLearner`). Only a backend that
+ * does not own the address can honour an e-mail override: `openinbox` activates
+ * through the inbox it created, so it cannot register a learner at another one.
  */
 export async function provisionLearnerAccount(
   request: APIRequestContext,
   config: AppConfig,
+  overrides: Partial<LearnerIdentity> = {},
 ): Promise<LearnerIdentity> {
   const backend = await resolveAccountBackend(config);
-  const identity = await backend.createIdentity({ config, request });
+  const identity = { ...(await backend.createIdentity({ config, request })), ...overrides };
   await (backend.register
     ? backend.register({ config, request, identity })
     : registerLearnerAccount(request, config, identity));
@@ -62,8 +68,9 @@ export async function provisionLearnerAccount(
 export async function provisionLearnerSession(
   request: APIRequestContext,
   config: AppConfig,
+  overrides: Partial<LearnerIdentity> = {},
 ): Promise<LearnerIdentity> {
-  const identity = await provisionLearnerAccount(request, config);
+  const identity = await provisionLearnerAccount(request, config, overrides);
 
   const { cookies } = await request.storageState();
   if (!hasAuthenticatedSession(cookies)) {

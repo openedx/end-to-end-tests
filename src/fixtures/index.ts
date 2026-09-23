@@ -95,7 +95,9 @@ import {
   fetchDiscussionCourse,
   grantCourseTeamRole,
   listDiscussionTopics,
+  setEmailCadence,
   setNotificationPreference,
+  type EmailCadence,
   type NotificationApp,
   DEFAULT_SECTION_SHAPE,
   ensureCourse,
@@ -183,6 +185,7 @@ import { DiscussionsPage } from '../pages/lms/discussions/discussions.page';
 import { NotificationPreferencesPage } from '../pages/lms/notifications/preferences.page';
 import { NotificationTray } from '../pages/lms/notifications/tray.page';
 import { canCompleteUnit } from '../steps/completion';
+import { resolveMailProvider, type Inbox } from '../mail';
 import { pollUntil } from '../steps/poll';
 import { stubVideoSources } from './video-sources';
 import { establishStudioBrowserSession, signInToStudioThroughUi } from '../steps/studio';
@@ -659,6 +662,16 @@ export interface TestFixtures {
    */
   notificationRecipient: (options?: NotificationRecipientOptions) => Promise<RoundTripLearner>;
   /**
+   * As {@link notificationRecipient}, but registered at the address of a fresh
+   * inbox from the configured mailbox provider (`MAIL_PROVIDER`, `src/mail/`),
+   * which it also hands the spec — for the cases whose oracle is the mail
+   * itself. Specs that take it carry `@email-inbox`. Registration goes through
+   * the configured account backend with the inbox's address, so a backend that
+   * mints its own addresses (`openinbox`) cannot be combined with it; the
+   * inboxes are disposed at test end.
+   */
+  mailboxLearner: (options?: NotificationRecipientOptions) => Promise<MailboxLearner>;
+  /**
    * {@link WorkerFixtures.contentCourse} once its forum is ready for the UI: the
    * topic list is synced from the course structure by a task after the course is
    * created, and the discussions MFE loaded before it offers no topic, so its
@@ -694,8 +707,21 @@ export interface NotificationPreferenceSetting {
   readonly value: boolean;
 }
 
+/** One e-mail cadence to set, as {@link TestFixtures.notificationRecipient} applies it. */
+export interface NotificationCadenceSetting {
+  readonly app: NotificationApp;
+  readonly type: string;
+  readonly cadence: EmailCadence;
+}
+
 export interface NotificationRecipientOptions {
   readonly preferences?: readonly NotificationPreferenceSetting[];
+  readonly cadences?: readonly NotificationCadenceSetting[];
+}
+
+/** What {@link TestFixtures.mailboxLearner} hands a spec: the learner and its inbox. */
+export interface MailboxLearner extends RoundTripLearner {
+  readonly inbox: Inbox;
 }
 
 /** What {@link TestFixtures.forumUnit} hands a spec. */
@@ -1280,11 +1306,11 @@ async function provisionRoundTripLearner(
   browser: Browser,
   config: AppConfig,
   courseKey: string,
-  options: { readonly mode?: string } = {},
+  options: { readonly mode?: string; readonly identity?: Partial<LearnerIdentity> } = {},
 ): Promise<RoundTripLearner> {
   const request = await playwright.request.newContext();
-  const identity = await provisionLearnerSession(request, config);
-  await enrollInCourseViaApi(request, config, courseKey, options);
+  const identity = await provisionLearnerSession(request, config, options.identity);
+  await enrollInCourseViaApi(request, config, courseKey, { mode: options.mode });
   const context = await browser.newContext();
   await context.addCookies((await request.storageState()).cookies);
   const page = await context.newPage();
@@ -1304,6 +1330,20 @@ async function provisionRoundTripLearner(
     navigation: () => fetchCourseNavigation(request, config, courseKey),
     prime: (sequentialId) => primeCoursewareForLearner(request, config, sequentialId),
   };
+}
+
+/** Sets a new recipient's notification preferences and cadences. */
+async function applyNotificationOptions(
+  request: APIRequestContext,
+  config: AppConfig,
+  options: NotificationRecipientOptions,
+): Promise<void> {
+  for (const preference of options.preferences ?? []) {
+    await setNotificationPreference(request, config, preference);
+  }
+  for (const cadence of options.cadences ?? []) {
+    await setEmailCadence(request, config, cadence);
+  }
 }
 
 async function disposeRoundTripLearner(learner: RoundTripLearner): Promise<void> {
@@ -2634,14 +2674,44 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           contentCourse.courseKey,
         );
         made.push(learner);
-        for (const preference of options.preferences ?? []) {
-          await setNotificationPreference(learner.request, config, preference);
-        }
+        await applyNotificationOptions(learner.request, config, options);
         return learner;
       });
     } finally {
       for (const learner of made) {
         await disposeRoundTripLearner(learner);
+      }
+    }
+  },
+
+  mailboxLearner: async ({ playwright, browser, config, contentCourse }, use) => {
+    const provider = await resolveMailProvider(config);
+    const made: MailboxLearner[] = [];
+    try {
+      await use(async (options = {}) => {
+        const setup = await playwright.request.newContext();
+        let inbox: Inbox;
+        try {
+          inbox = await provider.createInbox({ config, request: setup });
+        } finally {
+          await setup.dispose();
+        }
+        const learner = await provisionRoundTripLearner(
+          playwright,
+          browser,
+          config,
+          contentCourse.courseKey,
+          { identity: { email: inbox.address } },
+        );
+        const member = { ...learner, inbox };
+        made.push(member);
+        await applyNotificationOptions(learner.request, config, options);
+        return member;
+      });
+    } finally {
+      for (const member of made) {
+        await member.inbox.dispose(member.request);
+        await disposeRoundTripLearner(member);
       }
     }
   },

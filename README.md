@@ -437,6 +437,17 @@ Triggers:
 - **`workflow_call`** — called by `ci.yml`'s `docker-main` and
   `docker-last-release` jobs (see above); same inputs as `workflow_dispatch`.
 
+The Tutor install also runs a [Mailpit](https://mailpit.axllent.org) catcher
+(a `local-docker-compose-services` patch, with `SMTP_HOST=mailpit` and
+`RUN_SMTP=false`), so the platform's mail lands where the `mailpit` provider
+reads it and `email-inbox` is declared for `main` and `verawood`. Tutor's own
+relay delivers straight to recipients' mail servers on port 25, which
+GitHub-hosted runners block. To run the e-mail specs against a local Tutor,
+do the same there (the `tutor-contrib-mailpit` plugin targets `tutor dev`
+only, so copy its service into a `local-docker-compose-services` patch) and
+set `MAIL_PROVIDER=mailpit`, `CUSTOM_MAIL_PROVIDER_PLUGINS=./plugins/mailpit.plugin.ts`
+and `MAILPIT_BASE_URL=http://localhost:8025`.
+
 The MySQL state after migrations is cached per release/Tutor-version so most
 runs skip the ~20-minute migration step; delete the `tutor-mysql-*` cache from
 the Actions UI if it ever needs a clean rebuild.
@@ -462,22 +473,23 @@ Credentials are sourced from a **GitHub Environment** (Settings → Environments
 rather than hard-coded, so different targets (and their approval/protection
 rules) stay isolated from each other:
 
-| Input                      | Description                                                                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                                                    |
-| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                                                |
-| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                                                             |
-| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                                                           |
-| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                                                            |
-| `org`                      | Organization short code.                                                                                                                    |
-| `course_key`               | Default course for course-completion specs.                                                                                                 |
-| `capabilities`             | Comma-separated capabilities enabled on the target.                                                                                         |
-| `account_backend`          | `automatic` (default; works on the default install, see above) or `manual` (interactive — not usable in CI).                                |
-| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                                          |
-| `domains` / `features`     | Same filters as above.                                                                                                                      |
-| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                         |
-| `openedx_release`          | Release the target runs (a key of `.ci/openedx-releases.json`). Enables publishing to that release's BTR results sheet. Empty = no publish. |
-| `btr_sheet_url`            | Override sheet URL for this run; requires `openedx_release`.                                                                                |
+| Input                      | Description                                                                                                                                                                        |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `environment` (required)   | Name of the GitHub Environment to source `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets from.                                                                                           |
+| `test_ref`                 | Git ref of this repo to test. Defaults to the branch the workflow runs from.                                                                                                       |
+| `lms_base_url` (required)  | LMS origin, e.g. `https://courses.example.com`.                                                                                                                                    |
+| `apps_base_url` (required) | MFE host origin, e.g. `https://apps.example.com`.                                                                                                                                  |
+| `cms_base_url`             | Studio origin. Leave empty to skip Studio specs.                                                                                                                                   |
+| `org`                      | Organization short code.                                                                                                                                                           |
+| `course_key`               | Default course for course-completion specs.                                                                                                                                        |
+| `capabilities`             | Comma-separated capabilities enabled on the target.                                                                                                                                |
+| `account_backend`          | `automatic` (default; works on the default install, see above) or `manual` (interactive — not usable in CI).                                                                       |
+| `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                                                                                 |
+| `mail_provider`            | `none` (default) or `openinbox`: where the target's notification e-mail is read. `openinbox` needs an `OPENINBOX_API_KEY` Environment secret; add `email-inbox` to `capabilities`. |
+| `domains` / `features`     | Same filters as above.                                                                                                                                                             |
+| `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                                                |
+| `openedx_release`          | Release the target runs (a key of `.ci/openedx-releases.json`). Enables publishing to that release's BTR results sheet. Empty = no publish.                                        |
+| `btr_sheet_url`            | Override sheet URL for this run; requires `openedx_release`.                                                                                                                       |
 
 To run it against your own installation: create a GitHub Environment (e.g.
 `staging`) with `ADMIN_USERNAME`/`ADMIN_PASSWORD` secrets (and any required
