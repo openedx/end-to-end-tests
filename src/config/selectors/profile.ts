@@ -16,6 +16,23 @@ export const PROFILE_SELECTORS = {
   /** An open editing form's Cancel (outline); Save is its `type="submit"` button. */
   cancel: 'button.btn-outline-primary',
 
-  /** The certificates section's cards; each links to the certificate. */
-  certificateLink: 'a.btn.btn-primary[target="_blank"]',
+  /** The form of the field being edited: the only form with a submit button. */
+  openForm: 'form:has(button[type="submit"])',
+
+  /**
+   * The certificates section's "Who can see this" select, following the
+   * `visibility<Field>` naming of every other section. No release renders it
+   * today (`PROF-002`).
+   */
+  certificatesVisibility: 'select#visibilityCourseCertificates',
 } as const;
+
+/** A field's control, keyed by its id, once its section is being edited. */
+export function profileControl(field: string): string {
+  return `form #${field}`;
+}
+
+/** The form a field is edited in. */
+export function profileEditor(field: string): string {
+  return `form:has(#${field})`;
+}

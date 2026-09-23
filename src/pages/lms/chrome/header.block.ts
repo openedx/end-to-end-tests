@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { errors, type Locator, type Page } from '@playwright/test';
 
 import { CHROME_SELECTORS, TIMEOUTS } from '../../../config';
 
@@ -115,7 +115,8 @@ export class HeaderBlock {
     await this.userMenuTrigger.click();
     try {
       await this.userMenuItems.first().waitFor({ timeout: TIMEOUTS.optionalOverlay });
-    } catch {
+    } catch (error) {
+      if (!(error instanceof errors.TimeoutError)) throw error;
       // A click that lands while the header is still hydrating opens nothing;
       // the trigger is then live, and a second click opens the menu.
       await this.userMenuTrigger.click();

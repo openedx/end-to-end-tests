@@ -25,7 +25,17 @@ export async function enableCourseEmail(
   courseKey: string,
 ): Promise<void> {
   const lms = config.baseUrls.lms;
-  // A ConfigurationModel: a new enabled row turns it on; adding one is harmless.
+  // The authorization model has one row per course and its admin has no
+  // search, so the change list is read whole for this course's key. A course
+  // already authorized was authorized after the flag was turned on, so a
+  // repeat call writes nothing.
+  const listUrl = `${lms}${AUTHORIZATION_ADMIN}/`;
+  const list = await adminSession.get(listUrl);
+  const listHtml = await list.text();
+  assertAdminPage(listHtml, list.status(), listUrl, 'Listing course e-mail authorizations');
+  if (listHtml.includes(courseKey)) return;
+
+  // A ConfigurationModel: a new enabled row turns it on.
   const flag = await openAdminForm(adminSession, `${lms}${FLAG_ADD}`, 'Enabling course e-mail');
   await postAdminForm(
     adminSession,
@@ -35,13 +45,6 @@ export async function enableCourseEmail(
     'Enabling course e-mail',
   );
 
-  // The model has one row per course and its admin has no search, so the change
-  // list is read whole for this course's key.
-  const listUrl = `${lms}${AUTHORIZATION_ADMIN}/`;
-  const list = await adminSession.get(listUrl);
-  const listHtml = await list.text();
-  assertAdminPage(listHtml, list.status(), listUrl, 'Listing course e-mail authorizations');
-  if (listHtml.includes(courseKey)) return;
   const add = `${lms}${AUTHORIZATION_ADMIN}/add/`;
   const form = await openAdminForm(adminSession, add, `Authorizing e-mail for ${courseKey}`);
   await postAdminForm(

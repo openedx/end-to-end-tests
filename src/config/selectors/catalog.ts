@@ -85,8 +85,15 @@ export const CATALOG_SEARCH_PATH = '/search/unstable/v0/course_list_search/';
  * the heading itself and each option's `aria-label` are localized, while each
  * checkbox's `value` is the facet value the search is filtered by.
  */
-export function catalogFilterOptions(facet: 'org' | 'modes' | 'language'): string {
-  return `[role="group"][aria-labelledby^="checkbox-filter-label-header_${facet}"] input[type="checkbox"]`;
+/** The catalog's refine filters, by the facet key the search is filtered on. */
+export type CatalogFacet = 'org' | 'modes' | 'language';
+
+export function catalogFilterGroup(facet: CatalogFacet): string {
+  return `[role="group"][aria-labelledby^="checkbox-filter-label-header_${facet}"]`;
+}
+
+export function catalogFilterOptions(facet: CatalogFacet): string {
+  return `${catalogFilterGroup(facet)} input[type="checkbox"]`;
 }
 
 /** The result card for one specific course, anchored by its key. */

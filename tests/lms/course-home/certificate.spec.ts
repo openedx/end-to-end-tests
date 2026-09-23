@@ -22,8 +22,9 @@ import {
  * With the platform's auto-generation switch off (the default), a learner who
  * passes is offered "Request certificate"; with it on, the certificate is
  * generated when they pass. The switch is global, so the cases that turn it on
- * hold `certificateAutoGeneration`'s lock exclusively and every other
- * certificate case holds it shared.
+ * hold its lock exclusively (`certificateSwitch`, under
+ * `certificateAutoGeneration`) and every other certificate case holds it
+ * shared (`certificateLearner`).
  */
 test.describe(
   'Learner certificates',

@@ -14,7 +14,8 @@ export const TIMEOUTS = {
    * How long a case waits for a platform-wide switch it shares with others
    * (`src/fixtures/named-lock.ts`). The certificate switch's holders are
    * certificate cases, each inside the five-minute `contentTest` budget, so a
-   * waiter is given most of that before it fails naming who held the lock.
+   * waiter is given most of that before it fails naming who held the lock. The
+   * lock fixtures add it to the waiting case's own budget.
    */
   sharedLockWait: 240_000,
 

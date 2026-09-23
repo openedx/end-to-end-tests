@@ -1,6 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
-
-import type { FrameLocator } from '@playwright/test';
+import type { FrameLocator, Locator, Page } from '@playwright/test';
 
 import {
   COURSE_HOME_SELECTORS,

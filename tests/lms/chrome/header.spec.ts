@@ -134,8 +134,7 @@ test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] 
   test(
     'points at SUPPORT_URL on the dashboard',
     { tag: '@mfe-learner-dashboard', annotation: testId('TC-00023') },
-    async ({ siteHeader, chromeCase, dashboardPage, enrolledCourse }) => {
-      void enrolledCourse;
+    async ({ siteHeader, chromeCase, dashboardPage }) => {
       await dashboardPage.goto();
       const { chrome } = await chromeCase.read();
       chromeCase.requireSupportUrl(chrome, true);
@@ -148,8 +147,7 @@ test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] 
   test(
     'is absent without SUPPORT_URL on the dashboard',
     { tag: '@mfe-learner-dashboard', annotation: testId('TC-00023') },
-    async ({ siteHeader, chromeCase, dashboardPage, enrolledCourse }) => {
-      void enrolledCourse;
+    async ({ siteHeader, chromeCase, dashboardPage }) => {
       await dashboardPage.goto();
       const { generation, chrome } = await chromeCase.read();
       chromeCase.requireSupportUrl(chrome, false);

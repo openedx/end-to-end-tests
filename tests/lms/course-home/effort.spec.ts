@@ -8,8 +8,8 @@ import { AUTHORED_COURSE_HOME_TAGS } from './helpers';
  * Automatic effort estimates (TC-00027): the course home shows, beside each
  * subsection, the time the platform estimates it takes. The platform estimates
  * text by its word count and gives up for the whole course if any video lacks
- * a duration, so the case runs on the worker's video-free course with a text
- * unit of a known length. The outline API's `effort_time` decides; the minutes
+ * a duration (so the demo course shows none, `DEMO-003`), so the case runs on
+ * the worker's video-free course with a text unit of a known length. The outline API's `effort_time` decides; the minutes
  * the course home shows must match it.
  */
 const WORDS = 530; // two minutes' reading at the platform's 265 words a minute

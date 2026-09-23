@@ -61,7 +61,8 @@ export class ProgressPage {
 
   /**
    * The state the certificate block shows (`requestable`, `downloadable`, …),
-   * read from its element id, or `undefined` when the page shows none.
+   * read from its element id. Waits for the block, so a page without one
+   * times out rather than answering `undefined`.
    */
   async certificateCase(): Promise<string | undefined> {
     await this.certificateStatus.waitFor();

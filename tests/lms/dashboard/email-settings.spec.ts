@@ -43,7 +43,11 @@ test.describe(
       async ({ config, courseEmailEnabled, roundTripLearner }) => {
         void courseEmailEnabled;
         const learner = roundTripLearner;
-        await expect.poll(async () => (await optedOut(learner, config))?.isEmailEnabled).toBe(true);
+        await expect
+          .poll(async () => (await optedOut(learner, config))?.isEmailEnabled, {
+            timeout: TIMEOUTS.contentPublish,
+          })
+          .toBe(true);
 
         await learner.dashboardPage.goto();
         await learner.dashboardPage.openEmailSettings(learner.courseKey);
@@ -76,7 +80,11 @@ test.describe(
         void courseEmailEnabled;
         const subject = await mailboxLearner();
         const sentinel = await mailboxLearner();
-        await expect.poll(async () => (await optedOut(subject, config))?.isEmailEnabled).toBe(true);
+        await expect
+          .poll(async () => (await optedOut(subject, config))?.isEmailEnabled, {
+            timeout: TIMEOUTS.contentPublish,
+          })
+          .toBe(true);
 
         await subject.dashboardPage.goto();
         await subject.dashboardPage.openEmailSettings(subject.courseKey);

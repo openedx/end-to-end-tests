@@ -1,16 +1,14 @@
 import type { Locator, Page } from '@playwright/test';
 
-import type { AppConfig } from '../../../config';
+import { COURSE_TOOLS_SELECTORS, bookmarkRowFor, type AppConfig } from '../../../config';
 
 /**
  * The course tools the course home links to that are still LMS pages rather
  * than learning-MFE routes: Bookmarks (`/courses/<key>/bookmarks/`), Updates
- * (`/courses/<key>/course/updates`) and the Notes tab (`/courses/<key>/edxnotes/`). They are reached by the link the outline
- * API gives each tool, never by a hard-coded path. Locators and single-surface
- * actions only.
- *
- * Their markup is the LMS's own (themable) template, so the anchors are the
- * structural classes and data attributes the page's scripts key off.
+ * (`/courses/<key>/course/updates`) and the Notes tab
+ * (`/courses/<key>/edxnotes/`). They are reached by the link the outline API
+ * gives each tool, never by a hard-coded path. Locators and single-surface
+ * actions only; the anchors are `COURSE_TOOLS_SELECTORS`.
  */
 export class CourseToolsPage {
   /** A bookmarked unit's row, keyed by the unit's usage id (a data attribute). */
@@ -28,16 +26,16 @@ export class CourseToolsPage {
     private readonly page: Page,
     private readonly config: AppConfig,
   ) {
-    this.bookmarkRows = page.locator('a.bookmarks-results-list-item[data-usage-id]');
-    this.bookmarksEmpty = page.locator('.bookmarks-empty');
-    this.updates = page.locator('article');
-    this.notes = page.locator('#main article.note');
-    this.notesEmpty = page.locator('#main section.placeholder.is-empty');
+    this.bookmarkRows = page.locator(COURSE_TOOLS_SELECTORS.bookmarkRow);
+    this.bookmarksEmpty = page.locator(COURSE_TOOLS_SELECTORS.bookmarksEmpty);
+    this.updates = page.locator(COURSE_TOOLS_SELECTORS.update);
+    this.notes = page.locator(COURSE_TOOLS_SELECTORS.note);
+    this.notesEmpty = page.locator(COURSE_TOOLS_SELECTORS.notesEmpty);
   }
 
   /** The row for one bookmarked unit. */
   bookmarkRow(usageId: string): Locator {
-    return this.page.locator(`a.bookmarks-results-list-item[data-usage-id="${usageId}"]`);
+    return this.page.locator(bookmarkRowFor(usageId));
   }
 
   /**

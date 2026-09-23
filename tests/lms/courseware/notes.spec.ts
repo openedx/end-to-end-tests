@@ -63,10 +63,11 @@ test.describe(
     // NOTES-001: HTML components are the extracted `xblocks_contrib` HtmlBlock by
     // default, which the platform's notes decorator does not wrap, so there is no
     // annotatable text in a unit to take a note on.
-    test.fail(
+    test(
       'takes a note on a unit’s text and lists it on the Notes page',
       { annotation: testId('TC-00038') },
       async ({ request, config, contentCourse, ownSection, roundTripLearner }) => {
+        test.fail(true, 'NOTES-001: the extracted HTML block is not annotatable');
         const unit = ownSection.units[0]!;
         await publishXBlock(request, config, unit.usageKey);
         await updateAdvancedSettings(request, config, contentCourse.courseKey, { edxnotes: true });

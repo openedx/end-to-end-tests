@@ -131,4 +131,11 @@ export const CHROME_SELECTORS = {
 
   /** The shell's language menu — "English" and the other site languages. */
   languageMenuTrigger: '#language-menu-dropdown-trigger',
+
+  /**
+   * The languages that menu offers other than the current one, scoped to the
+   * menu the trigger labels (an open account menu is a `.dropdown-menu` too).
+   */
+  languageMenuOtherItem:
+    '.dropdown-menu[aria-labelledby="language-menu-dropdown-trigger"] a.dropdown-item:not(.active):visible',
 } as const;

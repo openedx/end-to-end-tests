@@ -20,7 +20,13 @@ Contains:
   opt-out syntax. `missingCapabilities()` is the decision the gate in
   `src/fixtures/` applies to every spec's tags.
 - The built-in account-backend names (`account-backends.ts`).
-- Centralized timeout budgets (`timeouts.ts`), each one justified.
+- Centralized timeout budgets (`timeouts.ts`), each one justified — including
+  `sharedLockWait`, which the named-lock fixtures add to a waiting case's own
+  budget.
+- The one viewport table (`viewports.ts`): phone, tablet, small desktop and
+  desktop, each on one side of a breakpoint the frontends switch on, and the
+  subsets the responsive and accessibility cases walk (`viewportUse` applies
+  one).
 - `selectors/` — one module per surface holding the structural anchors page
   objects use, each with a comment naming the localized string it stands in for
   (see `selectors/README.md`).

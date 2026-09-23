@@ -233,3 +233,33 @@ export async function updateAdvancedSettings(
   );
   return studioJson<AdvancedSettings>(response, `Updating Advanced Settings of ${courseKey}`);
 }
+
+/** One team set ("topic") in a course's `teams_configuration`. */
+export interface TeamsTopic {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly type: 'open' | 'public_managed' | 'private_managed' | 'open_managed';
+}
+
+/**
+ * Makes sure a course has teams on with `topic` among its team sets, through
+ * Advanced Settings' `teams_configuration`. Reads first and writes only when the
+ * topic is missing, so a re-seed is a no-op. Returns whether it wrote.
+ */
+export async function ensureTeamsTopic(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  topic: TeamsTopic,
+): Promise<boolean> {
+  const settings = await fetchAdvancedSettings(request, config, courseKey);
+  const current = settings.teams_configuration?.value as
+    | { readonly enabled?: boolean; readonly team_sets?: readonly { readonly id?: string }[] }
+    | undefined;
+  if (current?.enabled && current.team_sets?.some((set) => set.id === topic.id)) return false;
+  await updateAdvancedSettings(request, config, courseKey, {
+    teams_configuration: { enabled: true, team_sets: [topic] },
+  });
+  return true;
+}

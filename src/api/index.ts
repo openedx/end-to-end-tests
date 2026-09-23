@@ -45,7 +45,6 @@ export {
   enrollInCourseViaApi,
   fetchCourseEnrollmentDetails,
   isEnrolled,
-  unenrollViaApi,
   type CourseEnrollmentDetails,
 } from './enrollment';
 export { COURSE_MODES_PATH, ensureCertificateBearingMode, fetchCourseModes } from './course-modes';
@@ -165,6 +164,7 @@ export {
   COURSE_DETAILS_PATH,
   COURSE_GRADING_PATH,
   COURSE_SETTINGS_PATH,
+  ensureTeamsTopic,
   fetchAdvancedSettings,
   fetchCourseDetails,
   fetchCourseSettingsFlags,
@@ -173,6 +173,7 @@ export {
   updateCourseDetails,
   updateGradingPolicy,
   type AdvancedSetting,
+  type TeamsTopic,
   type AdvancedSettings,
   type CourseDetails,
   type CourseSettingsFlags,
