@@ -5,9 +5,23 @@ import { DISCUSSIONS_SELECTORS, type AppConfig } from '../../../config';
 /** The four learner views of the Discussion tab (TC-00311). */
 export type DiscussionsView = 'posts' | 'my-posts' | 'topics' | 'learners';
 
-/** A thread write the MFE sends, recognised by method and path. */
-function isThreadsWrite(config: AppConfig, method: string, threadId?: string) {
-  const path = `${config.baseUrls.lms}/api/discussion/v1/threads/${threadId ? `${threadId}/` : ''}`;
+/** The JSON body of a `PATCH`, or `{}` when it has none. */
+function patchBody(response: Response): Record<string, unknown> {
+  try {
+    return (response.request().postDataJSON() ?? {}) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+/** A thread or comment write the MFE sends, recognised by method and path. */
+function isDiscussionWrite(
+  config: AppConfig,
+  method: string,
+  resource: 'threads' | 'comments',
+  id?: string,
+) {
+  const path = `${config.baseUrls.lms}/api/discussion/v1/${resource}/${id ? `${id}/` : ''}`;
   return (response: Response) =>
     response.request().method() === method && response.url().split('?')[0] === path;
 }
@@ -114,13 +128,13 @@ export class DiscussionsPage {
   /** Likes (or unlikes) the open post, waiting for its `PATCH` (`voted`). */
   async likePost(threadId: string): Promise<Response> {
     const bar = await this.hovered(this.post(threadId), threadId);
-    return this.threadPatch(threadId, () => bar.locator(this.s.likeButton).click());
+    return this.threadPatch(threadId, 'voted', () => bar.locator(this.s.likeButton).click());
   }
 
   /** Follows (or unfollows) the open post, waiting for its `PATCH` (`following`). */
   async followPost(threadId: string): Promise<Response> {
     const bar = await this.hovered(this.post(threadId), threadId);
-    return this.threadPatch(threadId, () => bar.locator(this.s.followButton).click());
+    return this.threadPatch(threadId, 'following', () => bar.locator(this.s.followButton).click());
   }
 
   /** Opens the actions menu (⋯) of the post or of one response/comment. */
@@ -132,9 +146,73 @@ export class DiscussionsPage {
     await this.actionsMenu.waitFor();
   }
 
+  /** The test ids of the open actions menu's items, in order (`copy-link`, `report`, …). */
+  async actionsMenuItemIds(): Promise<string[]> {
+    return this.actionsMenuItems.evaluateAll((items) =>
+      items.map((item) => item.getAttribute('data-testid') ?? ''),
+    );
+  }
+
   /** One item of the open actions menu (`copy-link`, `edit`, `report`, `delete`, …). */
   actionsMenuItem(action: string): Locator {
     return this.root.locator(this.s.actionsMenuItem(action));
+  }
+
+  /**
+   * Responds to the open post through its hover card's "Add response", waiting
+   * for the `POST v1/comments/`; the new response is in its body.
+   */
+  async respondToPost(threadId: string, text: string): Promise<Response> {
+    const bar = await this.hovered(this.post(threadId), threadId);
+    await bar.locator(this.s.addReplyButton).click();
+    const body = this.root.frameLocator(this.s.editor.commentBodyFrame).locator('body');
+    await body.click();
+    await body.pressSequentially(text);
+    const [response] = await Promise.all([
+      this.page.waitForResponse(isDiscussionWrite(this.config, 'POST', 'comments')),
+      this.root.locator(this.s.editor.submit).first().click(),
+    ]);
+    return response;
+  }
+
+  /** Edits the open post's title through its actions menu, waiting for the `PATCH`. */
+  async editPostTitle(threadId: string, title: string): Promise<Response> {
+    await this.openActionsMenu({ threadId });
+    await this.actionsMenuItem('edit').click();
+    const editor = new PostEditor(this.page, this.config, this.root);
+    await editor.titleInput.fill(title);
+    return this.threadPatch(threadId, 'title', () => editor.submitButton.click());
+  }
+
+  /** Deletes the open post through its actions menu and the confirmation dialog. */
+  async deletePost(threadId: string): Promise<Response> {
+    await this.openActionsMenu({ threadId });
+    await this.actionsMenuItem('delete').click();
+    const [response] = await Promise.all([
+      this.page.waitForResponse(isDiscussionWrite(this.config, 'DELETE', 'threads', threadId)),
+      this.root.locator(this.s.dialogConfirm).click(),
+    ]);
+    return response;
+  }
+
+  /** Reports the open post through its actions menu and the confirmation dialog. */
+  async reportPost(threadId: string): Promise<Response> {
+    await this.openActionsMenu({ threadId });
+    await this.actionsMenuItem('report').click();
+    return this.threadPatch(threadId, 'abuse_flagged', () =>
+      this.root.locator(this.s.dialogConfirm).click(),
+    );
+  }
+
+  /**
+   * "Copy link" from the open post's actions menu. The link goes to the
+   * clipboard, so the caller's context needs the clipboard permissions; this
+   * returns what landed there.
+   */
+  async copyPostLink(threadId: string): Promise<string> {
+    await this.openActionsMenu({ threadId });
+    await this.actionsMenuItem('copy-link').click();
+    return this.page.evaluate(() => navigator.clipboard.readText());
   }
 
   /** Starts a new post from "Add a post" and returns its editor. */
@@ -145,9 +223,19 @@ export class DiscussionsPage {
     return editor;
   }
 
-  private async threadPatch(threadId: string, action: () => Promise<void>): Promise<Response> {
+  /**
+   * Runs `action` and waits for the thread `PATCH` that writes `field`. The MFE
+   * also PATCHes a thread on its own (`read` when a post is opened), so a wait
+   * on the method and path alone can catch the wrong write.
+   */
+  private async threadPatch(
+    threadId: string,
+    field: string,
+    action: () => Promise<void>,
+  ): Promise<Response> {
+    const isWrite = isDiscussionWrite(this.config, 'PATCH', 'threads', threadId);
     const [response] = await Promise.all([
-      this.page.waitForResponse(isThreadsWrite(this.config, 'PATCH', threadId)),
+      this.page.waitForResponse((candidate) => isWrite(candidate) && field in patchBody(candidate)),
       action(),
     ]);
     return response;
@@ -178,17 +266,18 @@ export class PostEditor {
   }
 
   /**
-   * Fills the form. The topic is always chosen explicitly: the editor's default
-   * is empty on some courses (measured), and Submit then does nothing.
+   * Fills the form. On the full-page MFE pass `topicId`: the editor's default
+   * is empty on some courses (measured), and Submit then does nothing. Omit it
+   * only in the in-unit sidebar, whose editor is fixed to the unit's topic.
    */
   async fill(post: {
     readonly type?: 'discussion' | 'question';
-    readonly topicId: string;
+    readonly topicId?: string;
     readonly title: string;
     readonly body: string;
   }): Promise<void> {
     if (post.type) await this.root.locator(this.s.postType(post.type)).check();
-    await this.topicSelect.selectOption(post.topicId);
+    if (post.topicId) await this.topicSelect.selectOption(post.topicId);
     await this.titleInput.fill(post.title);
     const body = this.root.frameLocator(this.s.bodyFrame).locator('body');
     await body.click();
@@ -198,7 +287,7 @@ export class PostEditor {
   /** Submits, waiting for the `POST v1/threads/`; the new thread is in its body. */
   async submit(): Promise<Response> {
     const [response] = await Promise.all([
-      this.page.waitForResponse(isThreadsWrite(this.config, 'POST')),
+      this.page.waitForResponse(isDiscussionWrite(this.config, 'POST', 'threads')),
       this.submitButton.click(),
     ]);
     return response;
