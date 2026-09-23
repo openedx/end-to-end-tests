@@ -186,6 +186,17 @@ migration run goes through the LMS Django admin under the same admin lock as the
 taxonomy personas (see [`CONVENTIONS.md`](CONVENTIONS.md) "Roles and permissions
 (RBAC)").
 
+The **notification and forum** personas (`tests/lms/notifications/`,
+`tests/lms/discussions/`) reuse the worker author as the course's instructor
+and staff (notify-all posts, course updates, ORA grades, and the recipient of
+staff-only notifications). Everyone else is a learner on their own context:
+the **recipient** is fresh for every case (`notificationRecipient`), because
+what it received is the assertion, and the learners who post and moderate are
+a worker-scoped `forumCast`. E-mail cases register their recipient at an inbox
+of the configured mailbox provider (`mailboxLearner`, `src/mail/`), and the
+suite reads the mail through that provider's API — a Mailpit catcher on the CI
+Tutor stack.
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the
