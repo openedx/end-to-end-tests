@@ -116,11 +116,13 @@ export interface ChromeConfig {
   /** `ENABLE_COURSE_DISCOVERY` and not `NON_BROWSABLE_COURSES`. */
   readonly courseDiscovery: boolean;
   readonly passwordResetSupportLink: string | undefined;
+  /** The cookie the frontends and the LMS keep the site language in. */
+  readonly languageCookieName: string | undefined;
 }
 
 type RawConfig = Readonly<Record<string, unknown>>;
 
-function asUrl(value: unknown): string | undefined {
+function asSetting(value: unknown): string | undefined {
   // An unset value reaches the MFEs as '', null or the string "null".
   return typeof value === 'string' && value !== '' && value !== 'null' ? value : undefined;
 }
@@ -129,22 +131,19 @@ function asRecord(value: unknown): RawConfig {
   return value !== null && typeof value === 'object' ? (value as RawConfig) : {};
 }
 
-function chromeConfigFromKeys(
-  keys: RawConfig,
-  overrides: Partial<ChromeConfig> = {},
-): ChromeConfig {
+function chromeConfigFromKeys(keys: RawConfig): ChromeConfig {
   return {
-    siteName: asUrl(keys.SITE_NAME),
-    lmsBaseUrl: asUrl(keys.LMS_BASE_URL),
-    logoutUrl: asUrl(keys.LOGOUT_URL),
-    accountSettingsUrl: asUrl(keys.ACCOUNT_SETTINGS_URL),
-    accountProfileUrl: asUrl(keys.ACCOUNT_PROFILE_URL),
-    supportUrl: asUrl(keys.SUPPORT_URL),
-    orderHistoryUrl: asUrl(keys.ORDER_HISTORY_URL),
+    siteName: asSetting(keys.SITE_NAME),
+    lmsBaseUrl: asSetting(keys.LMS_BASE_URL),
+    logoutUrl: asSetting(keys.LOGOUT_URL),
+    accountSettingsUrl: asSetting(keys.ACCOUNT_SETTINGS_URL),
+    accountProfileUrl: asSetting(keys.ACCOUNT_PROFILE_URL),
+    supportUrl: asSetting(keys.SUPPORT_URL),
+    orderHistoryUrl: asSetting(keys.ORDER_HISTORY_URL),
     enablePrograms: asBool(keys.ENABLE_PROGRAMS),
     courseDiscovery: asBool(keys.ENABLE_COURSE_DISCOVERY) && !asBool(keys.NON_BROWSABLE_COURSES),
-    passwordResetSupportLink: asUrl(keys.PASSWORD_RESET_SUPPORT_LINK),
-    ...overrides,
+    passwordResetSupportLink: asSetting(keys.PASSWORD_RESET_SUPPORT_LINK),
+    languageCookieName: asSetting(keys.LANGUAGE_PREFERENCE_COOKIE_NAME),
   };
 }
 
@@ -166,13 +165,14 @@ export function chromeConfigFromSiteConfig(raw: RawConfig, appId?: string): Chro
     ? (raw.externalRoutes as readonly RawConfig[])
     : [];
   const route = (role: string) =>
-    asUrl(routes.find((entry) => entry.role === `org.openedx.frontend.role.${role}`)?.url);
+    asSetting(routes.find((entry) => entry.role === `org.openedx.frontend.role.${role}`)?.url);
   const base = chromeConfigFromKeys(keys);
   return {
     ...base,
-    siteName: asUrl(raw.siteName) ?? base.siteName,
-    lmsBaseUrl: asUrl(raw.lmsBaseUrl) ?? base.lmsBaseUrl,
-    logoutUrl: route('logout') ?? asUrl(raw.logoutUrl) ?? base.logoutUrl,
+    siteName: asSetting(raw.siteName) ?? base.siteName,
+    lmsBaseUrl: asSetting(raw.lmsBaseUrl) ?? base.lmsBaseUrl,
+    logoutUrl: route('logout') ?? asSetting(raw.logoutUrl) ?? base.logoutUrl,
+    languageCookieName: asSetting(raw.languagePreferenceCookieName) ?? base.languageCookieName,
     accountSettingsUrl: route('account') ?? base.accountSettingsUrl,
     accountProfileUrl: route('profile') ?? base.accountProfileUrl,
   };

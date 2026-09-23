@@ -82,6 +82,8 @@ measured, and issues are opened by hand from them.
 | `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing scans only (`SHELL_CHROME_A11Y_BASELINE`)
 | `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | open, `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
 | `CATALOG-001` | `openedx/frontend-app-catalog` (filter facet values camel-cased) | open, no `fixme` — TC-00017 compares organizations case-insensitively
+| `LEARN-002` | `openedx/frontend-component-header` (learning header Help link `href="null"`) | open, `test.fail` on the no-Help-link tests of TC-00020 / TC-00021 where the learning header renders (`KNOWN_CHROME_DEFECTS`)
+| `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages render mixed header generations (`KNOWN_CHROME_DEFECTS`)
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -1776,4 +1778,44 @@ backend would find nothing.
 **Coverage impact:** open, no `fixme`. TC-00017 asserts that every course
 shown under an organization filter belongs to it, comparing organization codes
 case-insensitively, so the case passes on the mangled values.
+
+### `LEARN-002` — the learning header renders its Help link as `href="null"` when no support URL is configured
+
+**Where:** `frontend-component-header`'s learning header (`LearningHeaderHelpLink`),
+on the learning MFE's course home and in-course pages, Tutor `main` (the
+learning MFE is still on the legacy header there).
+
+**What happens:** the header renders `<a class="text-gray-700" href="null">`
+whenever `SUPPORT_URL` is absent from the MFE config — which is the default,
+since neither the platform nor Tutor sets it for the learning MFE. Following it
+navigates to a relative `null` path. The header should leave the link out when
+there is nowhere to send it, as the shell's Help widget does. This is the
+"Help link does not redirect" half of wg-build-test-release#579 (TC-00021).
+
+**Coverage impact:** open. The Help-link tests of TC-00020, TC-00021 and TC-00023
+are split: "points at `SUPPORT_URL`" runs where the target configures one, and
+"is absent without `SUPPORT_URL`" runs where it does not. The absent test is
+marked `test.fail` by `chromeCase` wherever the learning header renders
+(`KNOWN_CHROME_DEFECTS` in `src/steps/chrome.ts`); on the dashboard, which the
+shell renders on `main`, it passes.
+
+### `BASE-004` — logo sizes differ between pages rendered by different frontend generations
+
+**Where:** Tutor `main`, where the catalog and the learner dashboard are
+frontend-base shell apps and the learning MFE still uses the legacy header and
+footer.
+
+**What happens (measured):** the header logo is 32 px tall on the landing page
+and the dashboard (the shell's `max-height: 2rem`) and 28 px on the course home
+and in-course pages (the legacy header's `height: 1.75rem`). The footers
+differ as well: the shell's "Powered by Open edX" logo is 48 px and the legacy
+footer's 45 px, and only the shell footer carries the site logo. TC-00060 asks
+for one logo size across these four pages. On `verawood` every page is legacy
+chrome, where wg-build-test-release#584 reports a position difference but not a
+size difference.
+
+**Coverage impact:** open. TC-00060 reads the logo heights on all four pages and
+is marked `test.fail` by `chromeCase` whenever the pages it read were rendered
+by more than one generation. The marker therefore lifts itself once the
+learning MFE moves to the shell.
 

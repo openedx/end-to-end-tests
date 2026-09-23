@@ -19,6 +19,10 @@
  * shell's hidden layout never matches, and {@link CHROME_SELECTORS.generation}
  * tells the three apart from what actually rendered.
  *
+ * The `header*` anchors are resolved *inside* the header element, so none of
+ * them names the header itself (a scoped query never matches its own root as
+ * an ancestor).
+ *
  * Each anchor names the localized string it stands in for.
  */
 export const CHROME_SELECTORS = {
@@ -53,6 +57,37 @@ export const CHROME_SELECTORS = {
    * anchors; which is which is told apart by `href`, never by label.
    */
   headerAnonymousLink: 'a.btn:visible',
+
+  /**
+   * The account menu's trigger — the sheet's "account name as a dropdown". The
+   * shell's avatar button, the legacy header's `menu-trigger`, and the learning
+   * header's `user-dropdown` toggle ("User Options").
+   */
+  headerUserMenuTrigger:
+    ':is(#user-nav-dropdown, button.menu-trigger, .user-dropdown button.dropdown-toggle):visible',
+
+  /**
+   * The account menu's items — "Dashboard", "Profile", "Account", "Order
+   * History", "Sign Out" / "Logout" — read by `href`, never by label.
+   */
+  headerUserMenuItem: '.dropdown-menu a.dropdown-item:visible',
+
+  /**
+   * The Help link, rendered only where `SUPPORT_URL` is configured: the
+   * learning header's `text-gray-700` link, or a secondary-navigation link in
+   * the shell and the legacy desktop header.
+   */
+  headerHelpLink:
+    ':is(a.text-gray-700, .secondary-nav-links a, nav.secondary-menu-container a.nav-link):visible',
+
+  /**
+   * The learning header's course lockup — the course's organization, number
+   * and name beside the logo.
+   */
+  headerCourseLockup: '.course-title-lockup',
+
+  /** The primary link marking the page the visitor is on ("Courses" on the dashboard). */
+  headerActiveMainLink: 'a.nav-link.active:visible',
 
   /**
    * The narrow layout's menu toggle — the shell's `button.btn-outline` (which
