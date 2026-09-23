@@ -4,7 +4,12 @@ export { CSRF_HEADER, CSRF_TOKEN_PATH, fetchCsrfToken } from './csrf';
 export { REGISTRATION_PATH, registerLearnerAccount } from './registration';
 export { ACTIVATE_PATH, activateAccount, extractActivationKey } from './activation';
 export { LOGIN_SESSION_PATH, loginSession, type LoginCredentials } from './login';
-export { newLearnerIdentity, DEFAULT_PASSWORD, type LearnerIdentity } from './user-identity';
+export {
+  DEFAULT_PASSWORD,
+  learnerIdentityFor,
+  newLearnerIdentity,
+  type LearnerIdentity,
+} from './user-identity';
 export {
   COURSE_BLOCKS_PATH,
   COURSE_NAVIGATION_PATH,
@@ -60,6 +65,8 @@ export {
   availableComponentTypes,
   courseUsageKey,
   createXBlock,
+  duplicateXBlock,
+  moveXBlock,
   fetchContainer,
   fetchContainerChildren,
   fetchCourseIndex,
@@ -410,13 +417,102 @@ export {
   type UserAgreement,
 } from './agreements';
 export {
+  deleteAsset,
   fetchAssets,
   fetchAllAssets,
+  setAssetLock,
   uploadAsset,
   assetStudioUrl,
   type CourseAsset,
   type AssetQuery,
 } from './assets';
-export { fetchTextbooks, type Textbook, type TextbookChapter } from './textbooks';
-export { fetchCourseUpdates, fetchHandouts, type CourseUpdate } from './course-updates';
+export { createTextbook, fetchTextbooks, type Textbook, type TextbookChapter } from './textbooks';
+export {
+  createCourseUpdate,
+  fetchCourseUpdates,
+  fetchHandouts,
+  type CourseUpdate,
+} from './course-updates';
 export { ensureAgreement, editAgreement, bumpAgreementUpdated } from './agreements-admin';
+export {
+  adminCsrfToken,
+  adminFormErrors,
+  assertAdminPage,
+  countAdminResultRows,
+  adminFormValue,
+  adminSaveSucceeded,
+  decodeAdminEntities,
+  findAdminRowPk,
+  openAdminForm,
+  postAdminForm,
+  readAdminForm,
+  splitAdminDateTime,
+} from './django-admin';
+export { USER_ADMIN, deactivateAccount } from './user-admin';
+export {
+  COURSE_ACCESS_ROLE_ADMIN,
+  LEGACY_COURSE_ROLES,
+  countCourseAccessRoles,
+  grantLegacyRole,
+  listCourseAccessRoles,
+  revokeLegacyRole,
+  type CourseAccessRoleRow,
+  type LegacyCourseRole,
+} from './course-access-role-admin';
+export {
+  AUTHZ_BASE,
+  COURSE_ROLES,
+  LEGACY_ROLE_EQUIVALENTS,
+  LIBRARY_ROLES,
+  PLATFORM_ROLES,
+  assignRole,
+  authzScopeKey,
+  canI,
+  fetchWaffleFlagStates,
+  isAuthzEnabledForCourse,
+  listAssignments,
+  listAuthzOrgs,
+  listAuthzUsers,
+  listRoleUsers,
+  listRoles,
+  listScopes,
+  listUserAssignments,
+  revokeRole,
+  validateMyPermissions,
+  validateUsers,
+  type AuthzAssignment,
+  type AuthzAssignmentQuery,
+  type AuthzListQuery,
+  type AuthzRoleDefinition,
+  type AuthzScope,
+  type AuthzScopeMember,
+  type AuthzUser,
+  type AuthzWriteOptions,
+  type AuthzWriteOutcome,
+  type AuthzWriteResult,
+  type CourseRole,
+  type PermissionCheck,
+  type UserValidation,
+  type WaffleFlagStates,
+} from './authz';
+export {
+  MIGRATION_RUN_ADMIN,
+  countMigrationRuns,
+  hasCompletedMigrationRun,
+  type MigrationRunQuery,
+  type MigrationStatus,
+  type MigrationType,
+  fetchMigrationRunLedger,
+  type MigrationRunLedger,
+} from './authz-migration';
+export {
+  AUTHZ_COURSE_AUTHORING_FLAG,
+  WAFFLE_COURSE_OVERRIDE_ADMIN,
+  WAFFLE_ORG_OVERRIDE_ADMIN,
+  clearCourseFlagOverride,
+  clearOrgFlagOverride,
+  setCourseFlagOverride,
+  setOrgFlagOverride,
+  type WaffleOverrideChoice,
+  type WaffleOverrideInput,
+} from './waffle';

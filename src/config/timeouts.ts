@@ -163,4 +163,15 @@ export const TIMEOUTS = {
    * because it runs once per worker at fixture setup.
    */
   taxonomyImport: 60_000,
+
+  /**
+   * Budget for an AuthZ course-authoring migration to settle after a waffle
+   * override is saved. Where a target migrates automatically the work happens
+   * **inside** the admin request — measured 2026-09-17 on Tutor `main`: a
+   * seven-role course migrated in 131 ms within a 1.64 s save, and the run
+   * record and role assignments were readable the moment it returned. This is
+   * therefore headroom for a loaded CMS, not the normal path: the wait polls the
+   * migration run's status and returns its last reading on failure.
+   */
+  rbacMigration: 30_000,
 } as const;

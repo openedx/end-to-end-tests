@@ -25,6 +25,13 @@ export interface AuthoringMfeConfig {
   readonly taggingEnabled: boolean;
   /** `ENABLE_ASSETS_PAGE` — the Files page MFE is served. */
   readonly assetsPageEnabled: boolean;
+  /**
+   * `ADMIN_CONSOLE_URL` — where the Roles and Permissions console is served, or
+   * undefined where the installation has none. The authoring MFE reads the same
+   * value to decide whether its team links point into the console, so this is
+   * both the console's address and the "this install has one" signal.
+   */
+  readonly adminConsoleUrl: string | undefined;
 }
 
 /** Coerces the config API's stringy booleans (`'true'`/`true`) to a boolean. */
@@ -66,6 +73,10 @@ export async function fetchAuthoringMfeConfig(
     agreementGating: normalizeGating(raw.AGREEMENT_GATING),
     taggingEnabled: asBool(raw.ENABLE_TAGGING_TAXONOMY_PAGES),
     assetsPageEnabled: asBool(raw.ENABLE_ASSETS_PAGE),
+    adminConsoleUrl:
+      typeof raw.ADMIN_CONSOLE_URL === 'string' && raw.ADMIN_CONSOLE_URL !== ''
+        ? raw.ADMIN_CONSOLE_URL.replace(/\/$/, '')
+        : undefined,
   };
 }
 

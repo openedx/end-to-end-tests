@@ -37,6 +37,23 @@ export const DEFAULT_PASSWORD = 'Pl4ywright!Test';
  * same millisecond across parallel workers still differ. Callers may override any
  * field (e.g. to force a duplicate email for a negative test).
  */
+/**
+ * Rebuilds the identity of an account the suite created, from its username.
+ *
+ * A resumed session knows only who it is signed in as; every other field
+ * follows the convention {@link newLearnerIdentity} writes, so deriving them
+ * here keeps that convention in one place — and keeps a resumed identity's
+ * e-mail from being a freshly generated address that belongs to no account.
+ */
+export function learnerIdentityFor(username: string): LearnerIdentity {
+  return {
+    name: `E2E Test ${username.replace(/^e2e_/, '')}`,
+    username,
+    email: `${username}@${EMAIL_DOMAIN}`,
+    password: DEFAULT_PASSWORD,
+  };
+}
+
 export function newLearnerIdentity(overrides: Partial<LearnerIdentity> = {}): LearnerIdentity {
   const suffix = randomUUID().replace(/-/g, '').slice(0, 12);
   const username = `e2e_${suffix}`;

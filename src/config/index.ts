@@ -27,6 +27,7 @@ export { TIMEOUTS } from './timeouts';
 export { RUN_ID_ENV, getRunId } from './run-id';
 export {
   ACCOUNT_MENU_SELECTORS,
+  ADMIN_CONSOLE_SELECTORS,
   CATALOG_SEARCH_PATH,
   CATALOG_SELECTORS,
   COURSE_ABOUT_SELECTORS,

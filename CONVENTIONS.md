@@ -325,6 +325,38 @@ deployment-agnostic and stable.
   throwaway user: acceptance is per user and permanent, so asserting it of a
   worker-scoped identity passes once and fails on every retry.
 
+## Roles and permissions (RBAC)
+
+The `tests/rbac/` tree drives `openedx-authz`: the Roles and Permissions
+console, the legacy role matrix, the migration in both directions, and Studio
+under AuthZ. It is gated on the `rbac` capability and, for anything that moves a
+waffle override, an admin account.
+
+- **Accounts come from the worker's cast, not from a fresh registration per
+  case.** `rbacCast(part)` provisions one account per _part_ — `instructor`,
+  `staff`, `courseAdmin`, `libraryUser`, `outsider`, … — on first use, and every
+  spec in the worker shares them. This is a correctness rule as much as a cost
+  one: a full run of the tree used to provision ninety-odd accounts, which put
+  it past the platform's registration and sign-in limits, and the failures that
+  produced (slow Studio Home renders, dead sessions, `waitForURL` timeouts in the
+  authn MFE) looked like anything but rate limiting.
+- **A part is a role, so reuse cannot surprise a case.** An account only ever
+  plays the part it is named for, so `cast('staff')` holding `staff` in three
+  courses changes nothing about what `staff` may do in the course under test.
+  `outsider` is granted nothing, anywhere, by anyone — several cases read its
+  emptiness as the assertion.
+- **Take a throwaway account (`studioColleague`) when the case needs a history
+  of its own**: one it deactivates (TC-00649), or one whose exact role list it
+  asserts on a scope other specs also write to (the console's assign-role and
+  audit cases).
+- **Seeding roles is idempotent.** `seedScopeAssignments` treats the API's
+  `user_already_has_role` as the wanted state; anything else still raises.
+- **Scopes, not targets.** A course-level waffle override names one course and an
+  organization-level one names an organization the run created, so this tree
+  never changes what another spec sees. Migration is a one-way door for a
+  scope's roles, so the transition cases build their own course (or
+  organization) and roll it back when they end.
+
 ## Tags
 
 Domain decides the folder; everything else is a tag. Tags drive Playwright

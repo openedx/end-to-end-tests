@@ -108,7 +108,19 @@ so that coverage skips without one). The content-libraries suite adds
 `tests/studio/library/`; declared on `main` and `verawood`) and the opt-in
 `content-libraries-v1` (legacy `library-v1:` libraries and their migration into
 v2; an install that has disabled the legacy library index leaves it
-undeclared). `analytics` is reserved for the Superset/Aspects reports and has no
+undeclared). The roles-and-permissions suite (`tests/rbac/`) adds `rbac` (the
+`openedx-authz` API and the Roles and Permissions console MFE; declared on
+`main` and `verawood`, so `ulmo` and earlier skip the tree) and three narrower
+gates: `rbac-global` (AuthZ course authoring is on for the **whole**
+installation — CI declares it nowhere, because enabling it platform-wide locks
+every unmigrated course's team out of Studio), `rbac-matrix-parity` (the
+console's library permission matrix matches the API's permission list one row
+per permission — `verawood` renders three rows more, wg#609) and
+`rbac-error-view-action` (the console's not-found view offers a working way
+back — `verawood` does; on `main` the anchor does nothing, `RBAC-008`). The
+coverage that turns the waffle flag on for a course or an organization also
+needs an admin account, and skips with an operator-facing message without one.
+`analytics` is reserved for the Superset/Aspects reports and has no
 specs yet. The full vocabulary, with which ship by default, is in
 `.env.example`.
 Sign-in and sign-out coverage is not gated — it runs through the account

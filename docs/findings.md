@@ -28,6 +28,24 @@ measured, and issues are opened by hand from them.
 | `CAT-160`   | `openedx/frontend-app-catalog`                           | **filed** — [#160](https://github.com/openedx/frontend-app-catalog/issues/160) |
 | `CAT-161`   | `openedx/frontend-app-catalog`                           | **filed** — [#161](https://github.com/openedx/frontend-app-catalog/issues/161) |
 | `BASE-001`  | `openedx/frontend-base` (shell header/footer)            | open, `test.fail` in `discovery.spec.ts`, gated `@frontend-base`               |
+| `RBAC-001`  | `openedx/frontend-app-admin-console`                     | open, shapes every anchor in `selectors/admin-console.ts`                      |
+| `RBAC-002`  | `openedx/openedx-authz`                                  | open, `fixme` in `team-members.spec.ts` (TC-00568)                             |
+| `RBAC-003`  | `openedx/frontend-app-admin-console`                     | open, asserted as an empty Role cell (the sheet's own note on TC-00619)        |
+| `RBAC-004`  | `openedx/frontend-app-admin-console`                     | open, TC-00440/00441/00443 asserted against what it does render                |
+| `RBAC-005`  | `openedx/frontend-app-admin-console`                     | open, pager located by position instead                                        |
+| `RBAC-006`  | `openedx/frontend-app-admin-console`                     | open, three axe rules baselined for console scans                              |
+| `RBAC-007`  | `openedx/openedx-authz` + console                        | open, `knownGap` on TC-00567                                                   |
+| `RBAC-008`  | `openedx/frontend-app-admin-console`                     | open (regression on `main`), TC-00442 gated on `rbac-error-view-action`        |
+| `RBAC-009`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00569                                              |
+| `RBAC-010`  | `openedx/edx-platform` (content libraries)               | open, `fixme` sibling on TC-00573                                              |
+| `RBAC-011`  | `openedx/frontend-app-authoring`                         | open, asserted as a 403 on the offered action (TC-00572)                       |
+| `RBAC-012`  | sheet vs platform (`openedx-authz` roles)                | open, platform's model asserted on TC-00571                                    |
+| `RBAC-013`  | `openedx/frontend-app-authoring`                         | open, `fixme` sibling on TC-00575                                              |
+| `RBAC-014`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00620                                              |
+| `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | open, `fixme` sibling on TC-00640                                              |
+| `RBAC-016`  | `openedx/edx-platform` (course re-run)                   | open, `fixme` sibling on TC-00632                                              |
+| `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-matrix-parity` |
+| `AUTH-004`  | `openedx/frontend-app-authoring`                         | open, not asserted — Help topics are, their doc links are not                  |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
 | `PLAT-004`  | `openedx/edx-platform` (`login_session`)                 | open, no `fixme` — the suite no longer makes the call                          |
 | `TUTOR-001` | `overhangio/tutor` (+ any plugin setting the old key)    | open, no `fixme` — handled by the `catalog-search` capability                  |
@@ -1327,3 +1345,283 @@ in the same second — the flake CI reported on this case in consecutive runs.
 from the acceptance the platform recorded plus one second, waited for rather than
 slept through, and clamped to the present so `updated` never lands in the future
 (which would leave the type outstanding for every worker sharing it).
+
+## Epic 12 — Roles and Permissions (RBAC) findings (steps 1–8, 2026-09-19 … 2026-09-21)
+
+Measured on Tutor `main` with openedx-authz 1.23.0 and the admin-console MFE it
+ships; `verawood` runs 1.21.0. Where a finding decides how a case is written,
+the case names the ID.
+
+### `RBAC-001` — the admin console ships almost no test ids, and every label is localized
+
+**Where:** `frontend-app-admin-console` (the Roles and Permissions console),
+`main` and `verawood`.
+
+**What happens:** the app's own DOM carries exactly **one** test id of its own,
+`toggle-scope-<external key>` in the Assign Role wizard's scope step. Everything
+else — tabs, filters, the table, the pager, the audit view's controls, the error
+views — is Paragon markup whose only distinguishing features are localized
+labels and accessible names ("Assign Role", "Permission granted in Course Admin
+role", "Back to Studio").
+
+**Coverage impact:** open, no `fixme`. ADR-0002 forbids matching localized text,
+so `src/config/selectors/admin-console.ts` anchors on Paragon's own test ids,
+ARIA roles with no name, and structural classes, each documented with the label
+it stands in for and the release it was read on. Upstream ask: test ids on the
+tabs, the filter toggles, the row actions and the error views.
+
+### `RBAC-002` — openedx-authz exposes no assignment rows for superusers or global staff
+
+**Where:** `GET /api/authz/v1/users/<username>/assignments/` and
+`assignments/`, openedx-authz 1.23.0.
+
+**What happens:** a superuser's own assignments read back as `count: 0`, and no
+platform-level row appears in `assignments/` either. The console can only render
+what the API returns, so its "platform-managed" treatment of Super Admin and
+Global Staff rows has no subject on this target.
+
+**Coverage impact:** open. TC-00568 is held as `fixme` + `knownGap`; re-check on
+a release that returns those rows.
+
+### `RBAC-003` — three migrated course roles render an empty Role cell
+
+**Where:** the console's Team Members table and user audit view, `main`.
+
+**What happens:** the console knows ten role names (the four library roles,
+`course_admin`, `course_staff`, `course_editor`, `course_auditor`,
+`django.superuser`, `django.globalstaff`). The three roles automatic migration
+also creates — `course_limited_staff`, `course_data_researcher` and
+`course_beta_tester` — have no display name, so their rows render with the Role
+cell empty. This is the sheet's own note on TC-00619.
+
+**Coverage impact:** open, no `fixme`. The Role cell is asserted by the presence
+of its `data-role` attribute, never by its text, and TC-00619 asserts the empty
+cell as the measured behaviour.
+
+### `RBAC-004` — a failed list produces a toast with a retry, not a Server Error view
+
+**Where:** the console's Team Members tab, `main`.
+
+**What happens:** with `assignments/` answering `500`, the console renders its
+empty table plus **two** alerts carrying Close and Retry, and its pager reads
+"Page 1, Current Page, of -1". The sheet's TC-00440/00441/00443 describe a
+full-page Server Error view offering *Reload Page* and *Back to Libraries*; this
+build has neither. Its only full-page error view is the 404.
+
+**Coverage impact:** open, no `fixme`. The three cases are asserted against what
+the console actually renders — the alert with a retry, an empty table, exactly
+one retry request, and no alert after navigating away — under ADR-0003.
+
+### `RBAC-005` — both pager buttons carry the `previous` class
+
+**Where:** the console's table footer, `main`.
+
+**What happens:** the Previous and Next controls render with the same
+`previous` class, so the class cannot tell them apart.
+
+**Coverage impact:** open, no `fixme`. The pager is located by position
+(previous first, next second), which the selector module records.
+
+### `RBAC-006` — accessibility debt in the console
+
+**Where:** `frontend-app-admin-console`, `main`.
+
+**What happens:** three axe rules fail on a clean console: the Team Members
+table nests `role="cell"` inside a cell (`aria-required-parent`), the header's
+icon-only control has no accessible name (`button-name`), and the audit view's
+breadcrumb puts a non-`<li>` child in its `<ol>` (`list`).
+
+**Coverage impact:** open, no `fixme`. The three rules are baselined for console
+scans only (`ADMIN_CONSOLE_A11Y_BASELINE`), so they are reported on every run
+without failing it, exactly as the library MFE's debt is handled.
+
+### `RBAC-007` — self-protection is a UI courtesy; the API allows self-revoke
+
+**Where:** the console's user audit view, and `PUT /api/authz/v1/roles/users/`.
+
+**What happens:** the console omits the delete control on your own admin row
+(rather than disabling it with an explanatory tooltip, as the sheet describes),
+and in a course-scope audit view the Actions cell is empty for your own row. The
+platform does not enforce the rule at all: a library admin revoking its own
+`library_admin` is answered `207 role_removed`.
+
+**Coverage impact:** open. TC-00567 asserts the console's behaviour and carries
+a `knownGap` recording that the API does not enforce it. Upstream ask: refuse
+the self-revoke server-side.
+
+### `RBAC-008` — the 404 view's only action does nothing (a regression on `main`)
+
+**Where:** the console's not-found view (`/authz/<unknown route>`), `main` only.
+
+**What happens:** the view's single action ("Back to Studio") is an anchor with
+no `href` whose click handler leaves the route unchanged. **`verawood` renders
+the same view with a working link**, so this is a regression in the newer
+console rather than a feature that was never built.
+
+**Coverage impact:** open. TC-00442 drives the action and waits for the route to
+change, gated on the `rbac-error-view-action` capability — declared for
+`verawood`, where it passes, and undeclared on `main`, where the case has
+nothing to drive. The regression is therefore visible as a capability `main`
+does not have, rather than as a permanently failing case.
+
+### `RBAC-009` — the permission matrix loses its row labels sideways and offers no scroll to top
+
+**Where:** the console's Roles and Permissions tab, `main`.
+
+**What happens:** the column headers are correctly sticky (`position: sticky;
+top: 0`), but the row-label column is `position: static`, so scrolling the
+matrix horizontally takes the permission names off screen; and the tab renders
+no scroll-to-top control (its only buttons are the two Courses / Libraries
+switches). TC-00569 asks for both.
+
+**Coverage impact:** open. The clauses this build does implement are asserted
+green; the two missing ones are a `fixme` + `knownGap` sibling carrying the same
+test id, written as the case asks.
+
+### `RBAC-010` — a `library_user` sees draft content
+
+**Where:** content libraries v2 (`GET blocks/?library_id=`) and the library MFE,
+`main`.
+
+**What happens:** a `library_user` — the read-only library role — is listed
+every draft an author sees: a never-published block appears in their card list
+and in the API listing, and a published block with unpublished changes shows its
+**draft** display name. TC-00573 asks for draft items to be invisible to this
+role.
+
+**Coverage impact:** open. TC-00573 asserts the read-only half that does hold
+(no create, edit, publish or commit, and no authoring control in the MFE) and a
+`fixme` + `knownGap` sibling carries the draft clause.
+
+### `RBAC-011` — a `library_contributor` is offered an item publish the platform refuses
+
+**Where:** the library MFE's item sidebar, `main`.
+
+**What happens:** a `library_contributor` opening a draft item is shown the
+"Publish Changes (Draft)" control and its two-step confirmation; confirming
+sends `POST blocks/<key>/publish/`, which answers **403**, and the item stays a
+draft. The library-level "Publish All" is correctly hidden from this role, so
+only the per-item control is wrong.
+
+**Coverage impact:** open, no `fixme`. TC-00572 drives the click and asserts the
+403 and the unchanged draft — the platform decides, and a control that cannot
+work is the case's real risk.
+
+### `RBAC-012` — a `library_author` may publish the library, contrary to the sheet
+
+**Where:** openedx-authz library roles, `main` (1.23.0).
+
+**What happens:** `library_author` holds `content_libraries.publish_library_content`,
+the info panel offers it "Publish All", and `POST <lib>/commit/` answers 200.
+TC-00571 states that a Library Author cannot publish the library.
+
+**Coverage impact:** open, no `fixme`. TC-00571 asserts the platform's model
+(the role may publish) and records the discrepancy, rather than encoding the
+sheet's wording. Whether the role definition or the sheet is wrong is a product
+decision, so this is recorded for the release team rather than filed as a bug.
+
+### `RBAC-013` — the public-reuse switch saves silently
+
+**Where:** the library info sidebar's "Allow public read" switch, `main`.
+
+**What happens:** flipping the switch sends `PATCH <lib>/` and it answers 200,
+but the MFE shows nothing in either direction — no toast, no alert, no saving
+state (`#toast-root` stays empty). TC-00575 and openedx-authz#239's acceptance
+criteria both ask for a success message (and an error message with a retry on
+failure).
+
+**Coverage impact:** open. TC-00575 reads the outcome from the API and the
+outsider's picker; the message clause is a `fixme` + `knownGap` sibling.
+
+### `RBAC-014` — the console cannot remove a **course**-scope assignment
+
+**Where:** the console's user audit view, `main`.
+
+**What happens:** for an assignment whose scope is a course, the audit view's
+"Delete role action" control renders **disabled** (and in some renderings is
+absent altogether) — including for a viewer that holds
+`courses.manage_course_team` on that course and can remove the same assignment
+through Studio's own Course Team endpoint or `DELETE roles/users/`. Library-scope
+assignments are removable from the same view.
+
+**Coverage impact:** open. TC-00620 drives the removal through Studio's endpoint
+and asserts both systems clear; a `fixme` + `knownGap` sibling carries the
+console path. This is the mirror image of wg#603 — there the console offers an
+action the platform refuses, here it refuses one the platform allows.
+
+### `RBAC-015` — an organization-level override blocks course creation for legacy creators
+
+**Where:** Studio's course-creation endpoint for an organization under
+`authz.enable_course_authoring`, `main`.
+
+**What happens:** once an organization has an AuthZ override, Studio asks AuthZ
+for `create_course` in that organization and answers **403** to an account whose
+course-creator rights are legacy — including an organization-wide `instructor`
+that the migration itself has just created, and the course author that created
+the organization's other courses. A superuser is unaffected.
+
+**Coverage impact:** open. TC-00640 asserts the refusal as measured (and that the
+organization-wide role does reach the organization's existing courses); the
+sheet's expectation — that the organization-level permission enables creation —
+is a `fixme` + `knownGap` sibling. TC-00632 takes its re-run as the superuser for
+the same reason.
+
+### `RBAC-016` — a re-run does not copy a course's AuthZ team
+
+**Where:** Studio's course re-run of a course under AuthZ, `main`.
+
+**What happens:** re-running a migrated course produces the new run, but the
+source's AuthZ assignments do not come with it: the copy's team lists neither the
+source's `course_staff` in `roles/users/?scope=` nor a legacy row for them.
+
+**Coverage impact:** open. TC-00632 asserts what the copy actually inherits and a
+`fixme` + `knownGap` sibling carries the case's expectation; the sheet marks this
+row failed as well.
+
+### `RBAC-017` — the library permission matrix is inaccurate on `verawood`
+
+**Where:** the console's Roles and Permissions tab, Libraries half, `verawood`
+(openedx-authz 1.21). Fixed on `main` (1.23).
+
+**What happens:** the matrix renders **14 rows** where `roles/?scope=<library>`
+advertises **11** permissions, so it is not a rendering of the API's own
+vocabulary. `main` renders exactly eleven, and each role column's ticks equal
+that role's permission count (11 / 9 / 8 / 3). This is the release the sheet
+measured when it filed wg#609 ("Library permissions tab info are not accurate"),
+which is closed against `main`.
+
+**Coverage impact:** open on `verawood` only. TC-00569's structural clauses run
+everywhere; the comparison against the API is a second test gated on the
+`rbac-matrix-parity` capability, declared for `main`. The gap is therefore
+visible as a capability `verawood` does not have, rather than as a red case on a
+release nobody is going to fix.
+
+### The console's Studio session answers reads it will refuse writes
+
+**Where:** Studio, measured while shortening `resyncStudioAuthor` (2026-09-22).
+
+**What happens:** a Studio **read** (`fetchStudioHome`) answered on a session
+whose very next **write** (`POST /course/`) was redirected to sign-in. So "the
+API answered" is not evidence that the session is live for authoring.
+
+**Coverage impact:** not a coverage gap — a rejected optimisation. `resyncStudioAuthor`
+deliberately keeps its browser navigation instead of a cheap API pre-check, and
+says so in a comment, so the shortcut is not re-introduced.
+
+### `AUTH-004` — the outline sidebar's Help topics carry documentation links on some builds and not others
+
+**Where:** the authoring MFE's course-outline sidebar, Help panel, `main`.
+
+**What happens:** the panel renders a heading per topic for the selected level
+("Creating your course organization", "Reorganizing your course", "Setting
+release dates and grading policies"). On some builds each topic is a link to the
+documentation; on others the same three render as headings alone, with no anchor
+in the panel at all. Both were seen on CI `main` within a week, with no change on
+this branch between them.
+
+**Coverage impact:** open, no `fixme`. TC-00492 asserted "the panel renders at
+least one link" and went red the day a build rendered none, three attempts
+running. It now asserts the **topics**, which every build renders; whether a
+topic links out depends on the installation's docs URLs, and a deployment-agnostic
+suite cannot require them. The Settings tab's links are a different thing — MFE
+routes, not docs — and are still asserted.

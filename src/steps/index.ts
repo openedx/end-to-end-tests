@@ -37,6 +37,25 @@ export {
   type LibraryBlockSpec,
   type LibraryShape,
 } from './library';
+export {
+  COURSE_CAPABILITIES,
+  FULL_COURSE_ACCESS,
+  NO_COURSE_ACCESS,
+  disableAuthzForCourse,
+  enableAuthzForCourse,
+  instructorTabsFor,
+  readCoursePermissions,
+  probeMigrationMode,
+  seedScopeAssignments,
+  waitForCourseFlagState,
+  waitForMigrationRun,
+  type AuthzEnableOutcome,
+  type CourseCapability,
+  type PermissionProbeTargets,
+  type PermissionReadings,
+  type MigrationMode,
+  type MigrationModeProbe,
+} from './rbac';
 export { pollUntil, type PollOutcome } from './poll';
 export {
   TAG,
