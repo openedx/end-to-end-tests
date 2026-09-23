@@ -1,9 +1,10 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 
 import {
   CATALOG_SEARCH_PATH,
   CATALOG_SELECTORS,
   catalogCourseCard,
+  catalogFilterOptions,
   type AppConfig,
 } from '../../../config';
 
@@ -108,12 +109,57 @@ export class CatalogPage {
     await this.page.waitForURL((url) => url.searchParams.get('search_query') === term);
   }
 
+  /** The options of one refine filter, whose `value`s are the facet values. */
+  filterOptions(facet: CatalogFacet): Locator {
+    return this.page.locator(catalogFilterOptions(facet));
+  }
+
+  /**
+   * Checks one filter option and waits for the result set it causes. Returns
+   * the search the MFE made — the facet values it sent and the total the
+   * platform answered — which is what the filter case asserts on.
+   */
+  async applyFilter(facet: CatalogFacet, value: string): Promise<CatalogSearch> {
+    const results = this.pendingResults();
+    await this.filterOption(facet, value).check();
+    const response = await results;
+    const body = (await response.json()) as { total?: number };
+    return {
+      facets: multipartFields(response.request().postData() ?? ''),
+      total: body.total ?? 0,
+    };
+  }
+
+  /**
+   * Unchecks a filter option and waits for the wider result set to render. The
+   * MFE answers a return to an earlier result set from its own cache, without a
+   * new search request, so the signal is the card list growing past what the
+   * filtered set showed — which it does whenever the filter had narrowed it.
+   */
+  async removeFilter(facet: CatalogFacet, value: string): Promise<void> {
+    const shownBefore = await this.courseCards.count();
+    await this.filterOption(facet, value).uncheck();
+    await this.courseCards.nth(shownBefore).waitFor({ state: 'attached' });
+  }
+
+  private filterOption(facet: CatalogFacet, value: string): Locator {
+    return this.filterOptions(facet).and(this.page.locator(`[value="${value}"]`));
+  }
+
+  /** The course keys of the cards currently rendered, in order. */
+  async shownCourseKeys(): Promise<readonly string[]> {
+    const hrefs = await this.courseCards.evaluateAll((cards) =>
+      cards.map((card) => card.getAttribute('href') ?? ''),
+    );
+    return hrefs.map((href) => decodeURIComponent(href.split('/courses/')[1]?.split('/')[0] ?? ''));
+  }
+
   /**
    * A promise for the next result-set response — the state the card list is
    * derived from. Started *before* the action that triggers it, so the listener
    * is in place by the time the request goes out.
    */
-  private pendingResults(): Promise<unknown> {
+  private pendingResults(): Promise<Response> {
     return this.page.waitForResponse(
       (response) =>
         response.url().startsWith(`${this.config.baseUrls.lms}${CATALOG_SEARCH_PATH}`) &&
@@ -229,4 +275,24 @@ export class CatalogPage {
     await this.courseCard(courseKey).click();
     await this.page.waitForURL((url) => url.pathname.endsWith('/about'));
   }
+}
+
+/** A refine-filter facet of the catalog search. */
+export type CatalogFacet = 'org' | 'modes' | 'language';
+
+/** One catalog search as the MFE sent it and the platform answered it. */
+export interface CatalogSearch {
+  /** The multipart fields sent, by name (`org`, `modes`, `language`, `search_string`, …). */
+  readonly facets: Readonly<Record<string, readonly string[]>>;
+  readonly total: number;
+}
+
+/** Reads the fields of a `multipart/form-data` body, repeated names collected in order. */
+function multipartFields(body: string): Readonly<Record<string, readonly string[]>> {
+  const fields: Record<string, string[]> = {};
+  for (const match of body.matchAll(/name="([^"]+)"\r?\n\r?\n([^\r\n]*)/g)) {
+    const [, name, value] = match;
+    fields[name!] = [...(fields[name!] ?? []), value ?? ''];
+  }
+  return fields;
 }

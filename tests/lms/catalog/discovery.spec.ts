@@ -321,4 +321,44 @@ test.describe('Course catalog discovery', () => {
       });
     },
   );
+
+  test(
+    'refines the results with the organization, language and type filters',
+    { tag: ['@regression', '@catalog-search', '@mfe-catalog'], annotation: testId('TC-00017') },
+    async ({ catalogPage }) => {
+      await catalogPage.goto();
+      // Three refine filters, each offering the values the platform's facets hold.
+      for (const facet of ['org', 'language', 'modes'] as const) {
+        await expect(catalogPage.filterOptions(facet).first()).toBeAttached();
+      }
+
+      // The last organization offered is the one with the fewest courses, so
+      // filtering by it visibly narrows the list on a catalog of any size.
+      const option = catalogPage.filterOptions('org').last();
+      const org = (await option.getAttribute('value')) ?? '';
+      const filtered = await catalogPage.applyFilter('org', org);
+      expect(filtered.facets.org).toEqual([org]);
+      await expect(option).toBeChecked();
+
+      // Every card shown belongs to that organization (course keys compare
+      // case-insensitively: the MFE lower-cases the start of facet values).
+      const shown = await catalogPage.shownCourseKeys();
+      expect(shown).toHaveLength(Math.min(filtered.total, Number(filtered.facets.page_size?.[0])));
+      for (const key of shown) {
+        expect(key.split(':')[1]?.split('+')[0]?.toLowerCase()).toBe(org.toLowerCase());
+      }
+
+      // Removing the filter restores the unfiltered catalog: courses of other
+      // organizations are listed again.
+      await catalogPage.removeFilter('org', org);
+      await expect(option).not.toBeChecked();
+      const restored = await catalogPage.shownCourseKeys();
+      expect(restored.length).toBeGreaterThan(shown.length);
+      expect(
+        restored.some(
+          (key) => key.split(':')[1]?.split('+')[0]?.toLowerCase() !== org.toLowerCase(),
+        ),
+      ).toBe(true);
+    },
+  );
 });

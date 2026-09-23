@@ -78,6 +78,17 @@ export const CATALOG_SELECTORS = {
  */
 export const CATALOG_SEARCH_PATH = '/search/unstable/v0/course_list_search/';
 
+/**
+ * The checkboxes of one "Refine your search" filter — the sheet's "Modes",
+ * "Org" and "Language" headings. Paragon's `CheckboxFilter` labels each group
+ * by an element whose id carries the facet key (`checkbox-filter-label-header_org-9`);
+ * the heading itself and each option's `aria-label` are localized, while each
+ * checkbox's `value` is the facet value the search is filtered by.
+ */
+export function catalogFilterOptions(facet: 'org' | 'modes' | 'language'): string {
+  return `[role="group"][aria-labelledby^="checkbox-filter-label-header_${facet}"] input[type="checkbox"]`;
+}
+
 /** The result card for one specific course, anchored by its key. */
 export function catalogCourseCard(courseKey: string): string {
   return `${CATALOG_SELECTORS.courseCard}[href*="${courseKey}"]`;

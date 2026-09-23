@@ -264,6 +264,12 @@ export interface TestFixtures {
   /** The course's own identifiers (number, org, title) from the platform. */
   courseDetail: CourseDetail;
   /**
+   * The YouTube id of the configured course's About-page intro video. Skips
+   * when the course has none — the sheet's "if the course about page has a
+   * video" — or when its video is not a YouTube URL the catalog can embed.
+   */
+  courseIntroVideoId: string;
+  /**
    * A learner of this test's own, freshly provisioned and signed in, with the
    * browser context carrying their session — **not** enrolled in anything.
    *
@@ -1723,6 +1729,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   courseDetail: async ({ request, config, courseKey }, use) => {
     await use(await fetchCourseDetail(request, config, courseKey));
+  },
+
+  courseIntroVideoId: async ({ courseDetail }, use) => {
+    const uri = courseDetail.courseVideoUri ?? '';
+    const id = /(?:youtu\.be\/|[?&]v=|\/embed\/)([\w-]{6,})/.exec(uri)?.[1];
+    base.skip(id === undefined, `The configured course has no YouTube intro video ("${uri}").`);
+    await use(id as string);
   },
 
   courseLearner: async ({ page, request, config, courseKey }, use) => {

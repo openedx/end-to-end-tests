@@ -42,6 +42,7 @@ export {
   CATALOG_SELECTORS,
   COURSE_ABOUT_SELECTORS,
   catalogCourseCard,
+  catalogFilterOptions,
   courseAboutCoursewareLink,
   CAPA_SELECTORS,
   COURSEWARE_SELECTORS,
