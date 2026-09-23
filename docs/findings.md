@@ -75,7 +75,7 @@ measured, and issues are opened by hand from them.
 | `INSTR-005` | `openedx/frontend-app-instructor` (prohibited ARIA attribute) | open, no `fixme` — baselined on the instructor scans only
 | `NOTIF-001` | `openedx/edx-platform` (`v3/configurations/` PUT, e-mail cadence) | open, no `fixme` — the client always sends `notification_channel`
 | `NOTIF-002` | `edx-ora2` (staff grader `initialize` as a learner)           | open, no `fixme` — not asserted; the suite only calls it as staff
-| `NOTIF-003` | `openedx/frontend-app-account` (preference switches have no names) | open, no `fixme` — a11y `label` baselined on the preference-centre scan only; TC-00472 passes
+| `NOTIF-003` | `openedx/frontend-app-account` (preference switches have no names) | **filed** - [#1464](https://github.com/openedx/frontend-app-account/issues/1464) (tracked here as [#49](https://github.com/openedx/end-to-end-tests/issues/49)), a11y `label` baselined on the preference-centre scan only; TC-00472 passes
 | `NOTIF-004` | `openedx/edx-platform` (`send_email_digest` is a no-op)       | open, `fixme` + `knownGap` on TC-00478 / TC-00480
 | `DISC-001`  | `openedx/frontend-app-discussions` (post list ARIA)           | open, no `fixme` — two axe rules baselined on the discussions scans only
 | `DISC-002`  | `openedx/forum` (DELETE of a missing thread)                  | open, no `fixme` — suite deletes each thread once
@@ -1669,8 +1669,11 @@ Settings, `main`.
 reports `label` (critical) on all fourteen of a plain learner's switches. A
 screen reader announces each only as "switch".
 
-**Coverage impact:** open, no `fixme`. `label` is baselined for the preference
-centre's scan only (`NOTIFICATION_PREFERENCES_A11Y_BASELINE`); TC-00472 passes.
+**Coverage impact:** filed as
+[frontend-app-account#1464](https://github.com/openedx/frontend-app-account/issues/1464)
+(tracked here as [#49](https://github.com/openedx/end-to-end-tests/issues/49)),
+no `fixme`. `label` is baselined for the preference centre's scan only
+(`NOTIFICATION_PREFERENCES_A11Y_BASELINE`); TC-00472 passes.
 
 ### `NOTIF-004` — `send_email_digest` no longer sends digests
 
