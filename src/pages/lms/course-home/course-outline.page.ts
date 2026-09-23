@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { COURSE_HOME_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
+import { COURSE_HOME_SELECTORS, TIMEOUTS, courseToolLink, type AppConfig } from '../../../config';
 
 /**
  * Course home: the outline tab a learner lands on. Locators and single-surface
@@ -13,6 +13,9 @@ export class CourseOutlinePage {
   readonly startResumeCard: Locator;
   readonly tourDialog: Locator;
   readonly modalBackdrop: Locator;
+  readonly resumeLink: Locator;
+  readonly tourCheckpoint: Locator;
+  readonly tourLaunch: Locator;
 
   constructor(
     private readonly page: Page,
@@ -24,6 +27,9 @@ export class CourseOutlinePage {
     this.startResumeCard = page.locator(COURSE_HOME_SELECTORS.startResumeCard);
     this.tourDialog = page.locator(COURSE_HOME_SELECTORS.tourDialog);
     this.modalBackdrop = page.locator(COURSE_HOME_SELECTORS.modalBackdrop);
+    this.resumeLink = page.locator(COURSE_HOME_SELECTORS.resumeLink);
+    this.tourCheckpoint = page.locator(COURSE_HOME_SELECTORS.tourCheckpoint);
+    this.tourLaunch = page.locator(COURSE_HOME_SELECTORS.tourLaunch);
   }
 
   url(courseKey: string): string {
@@ -70,5 +76,55 @@ export class CourseOutlinePage {
   async toggleAllSections(): Promise<void> {
     await this.modalBackdrop.waitFor({ state: 'detached' });
     await this.expandAllToggle.click();
+  }
+
+  /** A course tool's link, by the URL the outline API gives the tool. */
+  toolLink(url: string): Locator {
+    return this.page.locator(courseToolLink(url));
+  }
+
+  /** Waits for the first-visit tour dialog and begins the tour from it. */
+  async beginTour(): Promise<void> {
+    await this.page.locator(COURSE_HOME_SELECTORS.tourBegin).click();
+    await this.tourCheckpoint.waitFor();
+  }
+
+  /**
+   * Advances through every step of the running tour and returns how many steps
+   * there were. Ending the tour stores its state (`PATCH user_tours`), which is
+   * waited for; the step count is read, never assumed.
+   */
+  async finishTour(): Promise<number> {
+    const stored = this.page.waitForResponse(
+      (r) => r.url().includes('/api/user_tours/v1/') && r.request().method() === 'PATCH' && r.ok(),
+    );
+    let steps = 0;
+    while ((await this.tourCheckpoint.count()) > 0) {
+      const step = await this.tourCheckpoint.innerHTML();
+      await this.page.locator(COURSE_HOME_SELECTORS.tourAdvance).click();
+      steps += 1;
+      // The next checkpoint replaces this one in place; wait for the change.
+      await this.page.waitForFunction(
+        ([selector, previous]) => {
+          const current = document.querySelector(selector as string);
+          return current === null || current.innerHTML !== previous;
+        },
+        [COURSE_HOME_SELECTORS.tourCheckpoint, step],
+      );
+    }
+    await stored;
+    return steps;
+  }
+
+  /** Relaunches the tour from the sidebar's "Launch tour". */
+  async launchTour(): Promise<void> {
+    await this.tourLaunch.click();
+    await this.tourCheckpoint.waitFor();
+  }
+
+  /** Follows the Begin/Resume link and waits for the courseware it leads to. */
+  async resume(): Promise<void> {
+    await this.resumeLink.click();
+    await this.page.waitForURL((url) => url.pathname.includes('/block-v1:'));
   }
 }

@@ -1,4 +1,4 @@
-import type { FrameLocator, Locator, Page } from '@playwright/test';
+import type { FrameLocator, Locator, Page, Response } from '@playwright/test';
 
 import {
   COURSEWARE_SELECTORS,
@@ -43,6 +43,7 @@ export class UnitPage {
   /** The open discussions sidebar, and the discussions MFE framed in it. */
   readonly discussionsSidebar: Locator;
   readonly discussionsFrame: FrameLocator;
+  readonly bookmarkButton: Locator;
 
   constructor(
     private readonly page: Page,
@@ -56,6 +57,7 @@ export class UnitPage {
     this.activeRightSidebarTrigger = page.locator(COURSEWARE_SELECTORS.activeRightSidebarTrigger);
     this.discussionsSidebar = page.locator(COURSEWARE_SELECTORS.discussionsSidebar);
     this.discussionsFrame = page.frameLocator(COURSEWARE_SELECTORS.discussionsSidebar);
+    this.bookmarkButton = page.locator(COURSEWARE_SELECTORS.bookmarkButton);
   }
 
   /**
@@ -212,5 +214,26 @@ export class UnitPage {
         response.ok(),
       { timeout: TIMEOUTS.blockCompletion },
     );
+  }
+
+  /** Whether the unit is shown as bookmarked (the button's state, not its label). */
+  async isBookmarked(): Promise<boolean> {
+    const classes = (await this.bookmarkButton.getAttribute('class')) ?? '';
+    return classes.split(/\s+/).includes(COURSEWARE_SELECTORS.bookmarkedState);
+  }
+
+  /**
+   * Presses the bookmark button and waits for the bookmarks API call it makes —
+   * a `POST` to bookmark the unit, a `DELETE` to remove it — returning that
+   * response for the spec to check.
+   */
+  async toggleBookmark(): Promise<Response> {
+    const call = this.page.waitForResponse(
+      (r) =>
+        r.url().startsWith(`${this.config.baseUrls.lms}/api/bookmarks/v1/bookmarks/`) &&
+        ['POST', 'DELETE'].includes(r.request().method()),
+    );
+    await this.bookmarkButton.click();
+    return call;
   }
 }

@@ -84,6 +84,7 @@ measured, and issues are opened by hand from them.
 | `CATALOG-001` | `openedx/frontend-app-catalog` (filter facet values camel-cased) | open, no `fixme` — TC-00017 compares organizations case-insensitively
 | `LEARN-002` | `openedx/frontend-component-header` (learning header Help link `href="null"`) | open, `test.fail` on the no-Help-link tests of TC-00020 / TC-00021 where the learning header renders (`KNOWN_CHROME_DEFECTS`)
 | `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages render mixed header generations (`KNOWN_CHROME_DEFECTS`)
+| `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -1818,4 +1819,18 @@ size difference.
 is marked `test.fail` by `chromeCase` whenever the pages it read were rendered
 by more than one generation. The marker therefore lifts itself once the
 learning MFE moves to the shell.
+
+### `LMS-001` — the course Bookmarks page's breadcrumb link is distinguished by colour only
+
+**Where:** the LMS-rendered course Bookmarks page (`/courses/<key>/bookmarks/`),
+which the learning MFE's course-home Bookmarks tool links to. Measured on the
+local Tutor `main` sandbox, whose legacy LMS pages still serve the `indigo`
+theme's assets; a default-theme reading on CI is owed.
+
+**What happens:** axe reports `link-in-text-block` (serious, WCAG 1.4.1) on the
+page's `<a href=".../learning/course/<key>/home">Course</a>` breadcrumb: it
+sits in running text and differs from it only by colour.
+
+**Coverage impact:** open, no `fixme`. The rule is baselined on the
+`course-bookmarks` scan only; TC-00036 passes.
 
