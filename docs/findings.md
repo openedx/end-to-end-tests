@@ -81,6 +81,7 @@ measured, and issues are opened by hand from them.
 | `DISC-002`  | `openedx/forum` (DELETE of a missing thread)                  | open, no `fixme` — suite deletes each thread once
 | `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing scans only (`SHELL_CHROME_A11Y_BASELINE`)
 | `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | open, `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
+| `CATALOG-001` | `openedx/frontend-app-catalog` (filter facet values camel-cased) | open, no `fixme` — TC-00017 compares organizations case-insensitively
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -1757,4 +1758,22 @@ the `publicChrome` fixture wherever the shell renders the header
 (`KNOWN_CHROME_DEFECTS` in `src/steps/chrome.ts`). The marker is keyed to the
 rendered generation and the width, not to a release, so it stops applying
 wherever the page moves to a header without the defect.
+
+### `CATALOG-001` — the catalog's refine filters camel-case facet values
+
+**Where:** `frontend-app-catalog`, the catalog page's "Refine your search"
+filters, Tutor `main`.
+
+**What happens:** the facet values the search API answers under `aggs`
+(`org: {"E2E": …, "E2EAUTHZMUCNHJIJO0": …}`) reach the page camel-cased, the
+way the MFE's API layer converts object keys: the organization `E2E` is offered
+as a checkbox with `value="e2E"` and the label "E2e", and `E2EAUTHZMUCNHJIJO0`
+as `e2Eauthzmucnhjijo0`. The filter still works on the local Meilisearch
+backend, which matched the mangled value, but the labels misname every
+organization whose code is not already camel case, and a case-sensitive search
+backend would find nothing.
+
+**Coverage impact:** open, no `fixme`. TC-00017 asserts that every course
+shown under an organization filter belongs to it, comparing organization codes
+case-insensitively, so the case passes on the mangled values.
 
