@@ -258,6 +258,9 @@ registration created, always is.
 - `learner-home.ts` — `fetchLearnerHome` (the dashboard's cards, e-mail
   settings state; `{ user }` is global staff's "View as", a 403 otherwise) and
   `setCourseEmailOptIn`.
+- `course-home.ts` — `fetchCourseHomeOutline`: the course home's own
+  reading — the Resume target, handouts and course tools (`courseTool` picks
+  one by its `analytics_id`).
 - `user-tours.ts` — `fetchUserTours`: whether the course-home tour is still
   offered.
 - `enrollment.ts` `unenrollViaApi` — the dashboard's unenroll view (session +

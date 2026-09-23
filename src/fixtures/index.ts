@@ -187,6 +187,7 @@ import { HeaderBlock } from '../pages/lms/chrome/header.block';
 import { testIdsFromAnnotations } from '../reporting/test-id';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
 import { CourseOutlinePage } from '../pages/lms/course-home/course-outline.page';
+import { CourseToolsPage } from '../pages/lms/course-home/course-tools.page';
 import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
@@ -271,6 +272,8 @@ export interface TestFixtures {
   courseOutlinePage: CourseOutlinePage;
   /** Course Progress tab page object. */
   progressPage: ProgressPage;
+  /** The LMS-hosted course tool pages the course home links to (Bookmarks). */
+  courseToolsPage: CourseToolsPage;
   /** Learner dashboard page object (`frontend-app-learner-dashboard`). */
   dashboardPage: DashboardPage;
   /**
@@ -1770,6 +1773,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   courseOutlinePage: pageObjectFixture(CourseOutlinePage),
 
   progressPage: pageObjectFixture(ProgressPage),
+
+  courseToolsPage: pageObjectFixture(CourseToolsPage),
 
   dashboardPage: pageObjectFixture(DashboardPage),
 

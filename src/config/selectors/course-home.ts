@@ -28,4 +28,33 @@ export const COURSE_HOME_SELECTORS = {
    */
   tourDialog: '.new-user-tour-dialog',
   modalBackdrop: '[data-testid="modal-backdrop"]',
+
+  /** The tour dialog's "Begin tour" (brand) button; "Skip for now" is tertiary. */
+  tourBegin: '.new-user-tour-dialog button.btn-brand',
+
+  /**
+   * One step of the product tour — a Paragon checkpoint, "1 of 3" and so on.
+   * Its title and body are localized.
+   */
+  tourCheckpoint: '#pgn__checkpoint[role="dialog"]',
+
+  /** The checkpoint's advance button — "Next", and "Okay" on the last step. */
+  tourAdvance: '#pgn__checkpoint .pgn__checkpoint-button_advance',
+
+  /** "Launch tour" in the course-home sidebar. */
+  tourLaunch: '#courseHome-launchTourLink button',
+
+  /**
+   * The link inside the Begin/Resume card — "Start Course" / "Resume Course" —
+   * pointing at the block the learner resumes at.
+   */
+  resumeLink: '[data-testid="start-resume-card"] a',
 } as const;
+
+/**
+ * A course-home tool link ("Bookmarks", "Updates") — anchored by the URL the
+ * outline API gives the tool, never by its title.
+ */
+export function courseToolLink(url: string): string {
+  return `a[href="${url}"]`;
+}
