@@ -69,6 +69,7 @@ export {
   aboutOra,
   aboutThread,
   checkNotificationAbsent,
+  turnOffEveryNotification,
   waitForNotification,
   type AbsenceCheck,
   type NotificationMatch,
