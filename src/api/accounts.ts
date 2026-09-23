@@ -128,3 +128,31 @@ export async function updatePreferences(
 
 /** The adult year of birth the suite sets so a profile can be shared at all. */
 export const ADULT_YEAR_OF_BIRTH = 1990;
+
+/** One of a learner's certificates, as their profile lists them. */
+export interface LearnerCertificate {
+  readonly course_id: string;
+  readonly status: string;
+  readonly download_url: string | null;
+}
+
+/**
+ * A learner's certificates (`/api/certificates/v0/certificates/<username>/`).
+ * The owner and staff always read them; anyone else only while the owner's
+ * `visibility.course_certificates` is `all_users` — a 403 otherwise, which
+ * resolves to `{ forbidden: true }`.
+ */
+export async function listLearnerCertificates(
+  request: APIRequestContext,
+  config: AppConfig,
+  username: string,
+): Promise<readonly LearnerCertificate[] | { readonly forbidden: true }> {
+  const url = `${config.baseUrls.lms}/api/certificates/v0/certificates/${username}/`;
+  const response = await request.get(url);
+  if (response.status() === 403) return { forbidden: true };
+  return lmsGet<readonly LearnerCertificate[]>(
+    request,
+    url,
+    `Listing the certificates of "${username}"`,
+  );
+}

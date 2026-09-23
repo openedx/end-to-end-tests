@@ -87,6 +87,8 @@ measured, and issues are opened by hand from them.
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
 | `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
 | `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | open, `test.fail` on TC-00038's take-a-note test
+| `CERT-002`  | `openedx/edx-platform` (certificate web view 500 without a marketing About URL) | open, `test.fail` on TC-00033's render test
+| `PROF-002`  | `openedx/frontend-app-profile` (no certificate-visibility control, wg#582) | **filed** — [wg#582](https://github.com/openedx/wg-build-test-release/issues/582), declarative `fixme` + `knownGap` on TC-00067's UI test
 | `PROF-003`  | `openedx/frontend-app-profile` (empty country list, wg#575)   | **filed** — [wg#575](https://github.com/openedx/wg-build-test-release/issues/575), `test.fail` on TC-00068's add-a-location test
 | `PROF-004`  | `openedx/frontend-app-profile` (unnamed icon buttons at phone width) | open, no `fixme` — `button-name` baselined on the profile scans only (`PROFILE_A11Y_BASELINE`)
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
@@ -1913,4 +1915,41 @@ the scan passes.
 
 **Coverage impact:** open, no `fixme`. `button-name` is baselined on the profile
 scans only (`PROFILE_A11Y_BASELINE`).
+
+### `CERT-002` — the certificate web view answers 500 on an install with no marketing "About" URL
+
+**Where:** `openedx/edx-platform`, `/certificates/<uuid>` (`render_cert_by_uuid`
+→ `certificates/valid.html`), `master`. Measured on the local Tutor `main`
+sandbox, whose `MKTG_URLS` is empty (the default).
+
+**What happens:** `valid.html` includes `certificates/_about-edx.html`, which
+renders `${company_about_url}` unconditionally. The view's context only defines
+it from `get_certificate_footer_context()`, and that adds `company_about_url` only
+when the marketing About link is not empty (`branding_api.get_about_url()`),
+while the `CertificateHtmlViewConfiguration` that could supply it ships
+disabled. So on a default install the template raises `NameError: Undefined`
+and the learner's "View my certificate" link answers **500**. The certificate
+itself is issued, listed and linked correctly.
+
+**Coverage impact:** open. TC-00033 is split: "links View my certificate to the
+issued certificate" passes; "renders the certificate for the learner and the
+course" is marked `test.fail`.
+
+### `PROF-002` — the profile has no certificate-visibility control
+
+**Where:** `frontend-app-profile` (`master` and `release/verawood`, identical
+source). Reported as wg-build-test-release#582 (TC-00067).
+
+**What happens:** the profile's Certificates section says the learner's
+certificates are "only visible to you" and renders the learner's certificates,
+but offers no "Everyone on {site}" / "Just me" control. The preference that
+decides it, `visibility.course_certificates`, is written only by the page's
+load-time bulk visibility update. The platform does honour it: another learner
+reads the certificates while it is `all_users` and is refused (403) while it is
+`private`.
+
+**Coverage impact:** open. TC-00067's "shows the certificate to other learners
+only while it is visible to everyone" sets the preference through the API and
+passes; "sets certificate visibility from the profile page" is a declarative
+`fixme` with `knownGap` and `issue(wg#582)`.
 

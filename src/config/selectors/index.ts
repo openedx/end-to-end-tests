@@ -18,6 +18,7 @@ export {
 export { CAPA_SELECTORS } from './capa';
 export { PROGRESS_SELECTORS, progressTabLink } from './progress';
 export { PROFILE_SELECTORS } from './profile';
+export { TEAMS_SELECTORS, teamThread, teamsTopicLink } from './teams';
 export { DASHBOARD_SELECTORS } from './dashboard';
 export { DISCUSSIONS_SELECTORS } from './discussions';
 export { NOTIFICATION_PREFERENCES_SELECTORS, NOTIFICATION_TRAY_SELECTORS } from './notifications';

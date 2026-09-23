@@ -23,12 +23,19 @@ export type ProfileField =
  */
 export class ProfilePage {
   readonly certificateLinks: Locator;
+  /**
+   * The certificates section's "Who can see this" select, following the
+   * `visibility<Field>` naming of every other section. No release renders it
+   * today (`PROF-002`).
+   */
+  readonly certificatesVisibility: Locator;
 
   constructor(
     private readonly page: Page,
     private readonly config: AppConfig,
   ) {
     this.certificateLinks = page.locator(PROFILE_SELECTORS.certificateLink);
+    this.certificatesVisibility = page.locator('select#visibilityCourseCertificates');
   }
 
   url(username: string): string {

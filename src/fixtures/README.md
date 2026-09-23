@@ -130,6 +130,16 @@ Rules:
   authorizes the content course alone (Django admin, under the admin lock), so
   no other course gains e-mail. The row is left in place: configuration rows
   are history, and the content course is the suite's own.
+- **The certificate auto-generation switch is locked.** Every
+  `certificateLearner` holds the `certificate-auto-generation` lock shared;
+  `certificateSwitch` holds it exclusively, starts from the switch off, turns it
+  on only when the test asks, and turns it off afterwards.
+  `certificateAutoGeneration` adds a learner of its own, and
+  `certificateAvailableDateField` turns the switch on for Studio's certificate
+  date fields.
+- **Teams live in the content course.** `teamsCourse` writes one open topic
+  (`e2e-teams`) into its `teams_configuration` when missing; learners create
+  teams in it, and teams accumulate, since a learner cannot delete one.
 - **Platform-wide state one case changes and others rely on takes a named
   lock.** `named-lock.ts` is a cross-worker reader/writer lock with a
   heartbeat (`withSharedLock` / `withExclusiveLock`): the cases that need the

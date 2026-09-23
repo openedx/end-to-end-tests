@@ -42,11 +42,19 @@ export const STUDIO_SCHEDULE_DETAILS_SELECTORS = {
   enrollmentEndDate: '#enrollmentEnd-date',
   enrollmentEndTime: '#enrollmentEnd-time',
   /**
-   * "Certificates available date" / time — rendered only when the target lets
-   * the field show (`can_show_certificate_available_date_field`, off by default).
+   * "Certificate available date" — a date-only field (no time), rendered only
+   * when the target lets the certificates row show
+   * (`can_show_certificate_available_date_field`, off by default) and the
+   * display behaviour is "A date after the course end date" (`end_with_date`).
+   * Unlike the schedule rows, its input is named without a `-date` suffix.
    */
-  certificateAvailableDate: '#certificateAvailableDate-date',
-  certificateAvailableTime: '#certificateAvailableDate-time',
+  certificateAvailableDate: 'input[name="certificateAvailableDate"]',
+  /**
+   * "Certificates display behavior" — the dropdown the certificates row shows
+   * under the same condition; the date fields follow only for "End date of
+   * course run" with an available date (`end_with_date`).
+   */
+  certificateBehaviorDropdown: '#certificate-behavior-dropdown',
 
   /** "Course language" dropdown toggle. */
   languageDropdown: '#languageDropdown',
