@@ -6,3 +6,16 @@
  * author needs.
  */
 export const DISCUSSION_TAGS: string[] = ['@studio', '@author', '@discussions'];
+
+/**
+ * Accessibility debt the discussions MFE carries on `main`, reported on every
+ * run but not failed until the MFE fixes it:
+ *
+ * - `aria-required-children` and `aria-required-parent` (critical, `DISC-001`):
+ *   the post list is a `role="list"` whose rows are `role="option"` links, so
+ *   the list has no list items and each option has no listbox.
+ */
+export const DISCUSSIONS_A11Y_BASELINE = [
+  'aria-required-children',
+  'aria-required-parent',
+] as const;

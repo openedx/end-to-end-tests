@@ -2650,10 +2650,17 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(new NotificationTray(page, config));
   },
 
-  forumCourse: async ({ request, config, contentCourse }, use) => {
+  // The forum fixtures act as the worker author on `page.request`, after
+  // `studioAuthorSession`: specs drive the author's browser too, and the same
+  // user on a second (`request`) context is evicted by the browser's session
+  // work (CONVENTIONS "Authoring-to-learner round trips") — measured here as a
+  // 302 on the section build.
+  forumCourse: async ({ page, config, contentCourse, studioAuthorSession }, use) => {
+    void studioAuthorSession;
     const { courseKey } = contentCourse;
     const outcome = await pollUntil(
-      async () => (await listDiscussionTopics(request, config, courseKey)).map((topic) => topic.id),
+      async () =>
+        (await listDiscussionTopics(page.request, config, courseKey)).map((topic) => topic.id),
       (ids) => ids.includes(GENERAL_TOPIC_ID),
       TIMEOUTS.contentPublish,
     );
@@ -2667,7 +2674,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(contentCourse);
   },
 
-  forumUnit: async ({ request, config, forumCourse }, use, testInfo) => {
+  forumUnit: async ({ page, config, forumCourse }, use, testInfo) => {
+    const request = page.request;
     const { courseKey } = forumCourse;
     const section = await buildWithAuthorWriteSession(request, config, () =>
       buildSection(request, config, courseKey, sectionLabel(testInfo, 90), {
@@ -2698,7 +2706,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 
-  oraUnit: async ({ request, config, contentCourse }, use, testInfo) => {
+  oraUnit: async ({ page, config, contentCourse, studioAuthorSession }, use, testInfo) => {
+    void studioAuthorSession;
+    const request = page.request;
     const { courseKey } = contentCourse;
     const label = sectionLabel(testInfo, 91);
     const displayName = `${label} ORA`;

@@ -17,11 +17,15 @@ export const DISCUSSIONS_SELECTORS = {
   /** The search field — "Search all posts". */
   searchInput: 'input[name="searchfield-input"]',
 
-  /** "Add a post" — the only brand-coloured button in the posts pane. */
-  addPostButton: 'button.btn-brand',
+  /**
+   * "Add a post": a brand button on the full-page MFE, a plain one in the
+   * learning MFE's in-unit sidebar — the only buttons carrying both
+   * `font-style` and `line-height-24` there.
+   */
+  addPostButton: 'button.font-style.line-height-24:is(.btn-brand, .btn-plain)',
 
-  /** A post's row in the list, keyed by the thread id it links to. */
-  postListItem: (threadId: string) => `a.discussion-post[href$="/posts/${threadId}"]`,
+  /** A post's row in the list, keyed by the thread id it links to (`…/posts/<id>` or `…/my-posts/<id>`). */
+  postListItem: (threadId: string) => `a.discussion-post[href$="posts/${threadId}"]`,
 
   /** Every post row in the list. */
   anyPostListItem: 'a.discussion-post',
@@ -59,14 +63,25 @@ export const DISCUSSIONS_SELECTORS = {
   /** Every item the actions menu offers. */
   anyActionsMenuItem: '[data-testid="actions-dropdown-modal-popup"] button[data-testid]',
 
+  /**
+   * The primary button of an open confirmation dialog — "Delete" on a delete,
+   * "Confirm" on a report.
+   */
+  dialogConfirm: '[role="dialog"] button.pgn__stateful-btn',
+
   /** The post editor. */
   editor: {
     /** "Discussion" / "Question" radios. */
     postType: (type: 'discussion' | 'question') => `input#post-type-${type}`,
     topicSelect: '[data-testid="topic-select"]',
     titleInput: '[data-testid="post-title-input"]',
-    /** The TinyMCE body frame of the new-post editor. */
-    bodyFrame: 'iframe#post-editor-new_ifr',
+    /**
+     * The TinyMCE body frame of the post editor — `post-editor-new_ifr` for a
+     * new post, `post-editor-<id>_ifr` when editing one.
+     */
+    bodyFrame: 'iframe[id^="post-editor-"]',
+    /** The TinyMCE frame of the response/comment editor (`comment-editor-<id>_ifr`). */
+    commentBodyFrame: 'iframe[id^="comment-editor-"]',
     /** "Notify all learners" — offered to staff, instructors and moderators. */
     notifyAllLearners: '#notify-learners',
     /** "Submit" — Paragon's stateful primary button. */
