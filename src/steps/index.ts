@@ -66,6 +66,7 @@ export {
   taxonomyImportFileExtended,
 } from './tagging';
 export {
+  aboutOra,
   aboutThread,
   checkNotificationAbsent,
   waitForNotification,

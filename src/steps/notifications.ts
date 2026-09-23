@@ -17,6 +17,15 @@ export function aboutThread(type: string, threadId: string): NotificationMatch {
   return (row) => row.notification_type === type && row.content_url.endsWith(`/posts/${threadId}`);
 }
 
+/**
+ * A grading notification of `type` about one ORA, keyed on its link: the staff
+ * grader's route for `ora_staff_notifications`, the LMS `jump_to` for
+ * `ora_grade_assigned` — both end with the ORA's usage key.
+ */
+export function aboutOra(type: string, oraUsageKey: string): NotificationMatch {
+  return (row) => row.notification_type === type && row.content_url.endsWith(`/${oraUsageKey}`);
+}
+
 /** What a notification wait saw: the matching row, if any, and every row read. */
 export interface NotificationWait {
   readonly found: PlatformNotification | undefined;
