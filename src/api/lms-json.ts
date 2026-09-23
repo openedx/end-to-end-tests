@@ -12,7 +12,7 @@ import { ApiError } from './errors';
  */
 
 /** Reads a JSON body, or throws an {@link ApiError} saying what failed. */
-export async function lmsJson<T>(response: APIResponse, what: string): Promise<T> {
+async function lmsJson<T>(response: APIResponse, what: string): Promise<T> {
   const url = response.url();
   const body = await response.text();
   if (!response.ok()) {

@@ -9,10 +9,11 @@ import {
   listOraSubmissions,
   staffAssessOra,
   submitOraResponse,
+  uniquePostTitle,
 } from '../../../src/api';
 import { aboutOra, aboutThread, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl, uniqueTitle } from './helpers';
+import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
 
 /**
  * Click-through routing (TC-00470, from the tray): each kind of notification
@@ -50,12 +51,12 @@ test.describe(
           courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('routing'),
+          title: uniquePostTitle('routing'),
           body: 'A post that will get a response.',
         });
         try {
           await createComment(poster.request, config, { threadId: thread.id, body: 'A response.' });
-          const token = uniqueTitle('update');
+          const token = uniquePostTitle('update');
           await createCourseUpdate(page.request, config, courseKey, {
             date: 'January 1, 2026',
             content: `<p>${token}</p>`,

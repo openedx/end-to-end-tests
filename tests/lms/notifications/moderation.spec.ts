@@ -9,10 +9,11 @@ import {
   grantCourseTeamRole,
   updateComment,
   updateThread,
+  uniquePostTitle,
 } from '../../../src/api';
 import { aboutThread, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl, uniqueTitle } from './helpers';
+import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
 
 /**
  * Notifications that involve the forum's moderators (TC-00460, TC-00466):
@@ -58,7 +59,7 @@ test.describe(
           courseKey: forumCourse.courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('reported'),
+          title: uniquePostTitle('reported'),
           body: 'A post someone will report.',
         });
         try {
@@ -99,7 +100,7 @@ test.describe(
             courseKey,
             topicId: GENERAL_TOPIC_ID,
             type: 'discussion',
-            title: uniqueTitle('endorse-mine'),
+            title: uniquePostTitle('endorse-mine'),
             body: 'A post I will respond to.',
           });
           threads.push({ id: theirs.id, by: poster });
@@ -114,7 +115,7 @@ test.describe(
             courseKey,
             topicId: GENERAL_TOPIC_ID,
             type: 'discussion',
-            title: uniqueTitle('endorse-thread'),
+            title: uniquePostTitle('endorse-thread'),
             body: 'My post.',
           });
           threads.push({ id: mine.id, by: recipient });

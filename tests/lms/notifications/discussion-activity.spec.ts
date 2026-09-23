@@ -7,10 +7,11 @@ import {
   deleteThread,
   updateThread,
   type DiscussionThread,
+  uniquePostTitle,
 } from '../../../src/api';
 import { aboutThread, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl, uniqueTitle } from './helpers';
+import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
 
 /**
  * Activity notifications (TC-00461–TC-00465): responses and comments on the
@@ -130,7 +131,7 @@ test.describe(
             courseKey: forumCourse.courseKey,
             topicId: GENERAL_TOPIC_ID,
             type: 'discussion',
-            title: uniqueTitle('activity'),
+            title: uniquePostTitle('activity'),
             body: 'A post with activity.',
           });
           try {

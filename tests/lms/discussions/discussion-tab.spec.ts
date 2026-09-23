@@ -7,11 +7,11 @@ import {
   fetchCourseMetadata,
   listThreads,
   type DiscussionThread,
+  uniquePostTitle,
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
 import { knownGap, testId } from '../../../src/reporting';
 import { DISCUSSIONS_A11Y_BASELINE, DISCUSSION_TAGS } from './helpers';
-import { uniqueTitle } from '../notifications/helpers';
 
 /**
  * A learner's tour of the Discussion tab (TC-00311): the tab is on the course,
@@ -47,14 +47,14 @@ test.describe(
           courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('mine'),
+          title: uniquePostTitle('mine'),
           body: 'My post.',
         });
         const theirs = await createThread(poster.request, config, {
           courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('theirs'),
+          title: uniquePostTitle('theirs'),
           body: 'Their post.',
           following: false,
         });
@@ -144,7 +144,7 @@ test.describe(
           courseKey: forumCourse.courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('copy-link'),
+          title: uniquePostTitle('copy-link'),
           body: 'A post to link to.',
         });
         try {

@@ -1,9 +1,15 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { GENERAL_TOPIC_ID, createComment, createThread, type EmailCadence } from '../../../src/api';
+import {
+  GENERAL_TOPIC_ID,
+  createComment,
+  createThread,
+  type EmailCadence,
+  uniquePostTitle,
+} from '../../../src/api';
 import { knownGap, testId } from '../../../src/reporting';
 import { waitForMail } from '../../../src/steps';
-import { NOTIFICATION_TAGS, uniqueTitle } from './helpers';
+import { NOTIFICATION_TAGS } from './helpers';
 
 /**
  * Daily and weekly digests (TC-00478, TC-00480), written to the intended
@@ -43,7 +49,7 @@ test.describe(
               courseKey: forumCourse.courseKey,
               topicId: GENERAL_TOPIC_ID,
               type: 'discussion',
-              title: uniqueTitle(`digest-${kind}`),
+              title: uniquePostTitle(`digest-${kind}`),
               body: 'A post for the digest.',
             });
             titles.push(thread.title);

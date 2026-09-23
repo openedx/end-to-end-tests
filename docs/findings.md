@@ -78,6 +78,7 @@ measured, and issues are opened by hand from them.
 | `NOTIF-003` | `openedx/frontend-app-account` (preference switches have no names) | open, no `fixme` — a11y `label` baselined on the preference-centre scan only; TC-00472 passes
 | `NOTIF-004` | `openedx/edx-platform` (`send_email_digest` is a no-op)       | open, `fixme` + `knownGap` on TC-00478 / TC-00480
 | `DISC-001`  | `openedx/frontend-app-discussions` (post list ARIA)           | open, no `fixme` — two axe rules baselined on the discussions scans only
+| `DISC-002`  | `openedx/forum` (DELETE of a missing thread)                  | open, no `fixme` — suite deletes each thread once
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -1700,3 +1701,17 @@ items) and `aria-required-parent` (options outside a listbox), both critical.
 **Coverage impact:** open, no `fixme`. Both rules are baselined for the
 discussions scans only (`DISCUSSIONS_A11Y_BASELINE`); TC-00030 and TC-00311
 pass.
+
+### `DISC-002` — deleting a thread that no longer exists answers 500
+
+**Where:** `DELETE /api/discussion/v1/threads/<id>/` with `openedx-forum` (MySQL
+backend), `main`.
+
+**What happens:** once a thread is deleted, a second `DELETE` of it raises
+`forum.utils.ForumV2RequestError: Thread does not exist with Id: <id>` (from
+`get_thread` → `validate_object`), which the LMS answers as a bare **500**. A
+404 is the expected answer for a resource that is not there.
+
+**Coverage impact:** open, no `fixme`. `deleteThread` is not idempotent and says
+so; specs delete each thread exactly once, and TC-00029, whose last step deletes
+its own post through the UI, has no teardown delete.

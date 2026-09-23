@@ -114,8 +114,8 @@ export async function markNotificationsRead(
   });
 }
 
-export const EMAIL_CADENCES = ['Daily', 'Weekly', 'Immediately', 'Never'] as const;
-export type EmailCadence = (typeof EMAIL_CADENCES)[number];
+/** How often a type's e-mail is sent. */
+export type EmailCadence = 'Daily' | 'Weekly' | 'Immediately' | 'Never';
 
 /** One type's settings. `push` is non-editable for every stock type. */
 export interface NotificationTypePreference {

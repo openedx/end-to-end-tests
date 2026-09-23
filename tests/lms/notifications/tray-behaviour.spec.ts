@@ -10,10 +10,11 @@ import {
   listOraSubmissions,
   submitOraResponse,
   type DiscussionThread,
+  uniquePostTitle,
 } from '../../../src/api';
 import { aboutOra, aboutThread, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl, uniqueTitle } from './helpers';
+import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
 
 /**
  * How the tray behaves (TC-00474, TC-00475, TC-00476): grouping, unseen
@@ -55,7 +56,7 @@ test.describe('Notifications tray', { tag: ['@regression', ...NOTIFICATION_TAGS]
             courseKey: forumCourse.courseKey,
             topicId: GENERAL_TOPIC_ID,
             type: 'discussion',
-            title: uniqueTitle('grouped'),
+            title: uniquePostTitle('grouped'),
             body: 'One of two posts.',
           });
           threads.push({ thread, by });
@@ -133,7 +134,7 @@ test.describe('Notifications tray', { tag: ['@regression', ...NOTIFICATION_TAGS]
             courseKey: forumCourse.courseKey,
             topicId: GENERAL_TOPIC_ID,
             type: 'discussion',
-            title: uniqueTitle(`paged-${i}`),
+            title: uniquePostTitle(`paged-${i}`),
             body: 'A post that will get a response.',
           });
           threads.push(thread);
