@@ -39,7 +39,8 @@ Contains:
   the Blocks API folded into sections → subsections → units with per-block
   completion, which is what the completion steps and fixtures drive from; plus
   `fetchCourseNavigation` (the course-home navigation model, a gated subsection
-  present as a `lock`) and `fetchSequenceMetadata` (the learning MFE's
+  present as a `lock`; `navigationSections` lists its sections in order) and
+  `fetchSequenceMetadata` (the learning MFE's
   per-subsection reading, `undefined` when it is not served to the learner) — the
   learner-side outcome the visibility round trips assert on.
 - `course-preflight.ts` — `assertCourseAccessible` / `courseKeySkipReason`:
@@ -98,7 +99,8 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   grading (`v1/course_grading`), Advanced Settings (`/settings/advanced`, the
   legacy JSON view that answers on every release), and `fetchCourseSettingsFlags`
   (`v1/course_settings`: whether the certificates-available-date and prerequisite
-  controls render on this target).
+  controls render on this target). `ensureTeamsTopic` turns teams on with a
+  team set through `teams_configuration`, writing only when it is missing.
 - `course-team.ts`, `group-configurations.ts`, `certificates.ts`,
   `course-apps.ts` (Pages & Resources toggles), `custom-pages.ts` (static-tab
   create/rename/delete + reorder read, `v0/tabs`), `course-transfer.ts` (export
@@ -107,7 +109,8 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   `course-modes.ts` (LMS enrollment modes; `ensureCertificateBearingMode` adds the
   `honor` mode a course needs before the Certificates form renders — staff only).
 - `xblock.ts` — the legacy `xblock_handler` client: `createXBlock`,
-  `updateXBlock`, `publishXBlock`, and the reads (`fetchXBlockOutline`,
+  `updateXBlock`, `publishXBlock`, `deleteXBlock` (for seeds that replace what
+  an earlier seed built), and the reads (`fetchXBlockOutline`,
   `fetchXBlock`, `fetchCourseIndex`, `fetchContainer` / `fetchContainerChildren`,
   `availableComponentTypes` / `advancedComponentTypes`). The one endpoint the whole
   outline and every unit go through. Duplicate / delete / reorder / move and the
@@ -147,7 +150,8 @@ outcome").
   here and returns no task id, see `INSTR-002`), the enrollment list and
   learner / per-problem readings, the two grading writes the seeds and steps
   need (`resetAttempts`, `overrideScore`), extensions (`listUnitExtensions`),
-  the certificate reads and the writes the certificate step composes, and
+  the certificate reads and the writes the certificate step composes,
+  `sendCourseEmail` (the legacy bulk-email view, a form post), and
   `grantCourseTeamRole` (report generation needs `data_researcher`). Only what
   a page object, step, fixture or spec calls is here; the rest of the surface
   is driven through the dashboard and asserted on the response it returns. DRF views that accept the JWT, so the author's
@@ -200,8 +204,9 @@ outcome").
   `/textbooks/<key>` handler, because the v1 API is read-only and answers a
   `POST` with 405 (measured on `main`). The learner effect is read via
   `fetchCourseMetadata` tabs.
-- `course-updates.ts` — `fetchCourseUpdates` / `fetchHandouts` / `createCourseUpdate`:
-  the Course Updates page's `course_info_update` and handouts-xblock oracles.
+- `course-updates.ts` — `fetchCourseUpdates` / `fetchHandouts` / `createCourseUpdate`
+  / `updateHandouts`: the Course Updates page's `course_info_update` and
+  handouts-xblock oracles.
 
 ### Roles and permissions clients
 
@@ -232,7 +237,13 @@ outcome").
 - `user-admin.ts` — `deactivateAccount`: turns an account's `is_active` off
   through the LMS user admin, the only way to reach the platform's "registered
   but not activated" behaviour on a target that activates on registration.
-- `django-admin.ts` — the admin-form mechanics the four clients above share:
+- `waffle-switch.ts` — platform-wide waffle **switches**
+  (`setWaffleSwitch` / `fetchWaffleSwitch`, e.g.
+  `AUTO_CERTIFICATE_GENERATION_SWITCH`). A switch is global, so a caller holds
+  the named lock that serialises it (`certificateSwitch`).
+- `bulk-email-admin.ts` — `enableCourseEmail`: the `BulkEmailFlag` and one
+  course's `CourseAuthorization`, which the dashboard's "Email settings" needs.
+- `django-admin.ts` — the admin-form mechanics the clients above share:
   `openAdminForm` / `postAdminForm` / `readAdminForm` (a whole change form,
   inline formsets included, read back for re-posting), `findAdminRowPk`,
   `countAdminResultRows`, and `assertAdminPage` — which is what stops an
@@ -248,9 +259,10 @@ registration created, always is.
 
 - `accounts.ts` — `fetchAccount` / `updateAccount` (merge-patch) and
   `fetchPreferences` / `updatePreferences`: the profile's and Account
-  Settings' oracle. A privacy setting is proven by a **second** user's
-  `fetchAccount`; a profile stays private until it has an adult year of birth
-  (`ADULT_YEAR_OF_BIRTH`). `bio: null` is a 500 — clear it with `""`.
+  Settings' oracle, and `listLearnerCertificates` (a learner's certificates as
+  another user reads them; `{ forbidden: true }` on a 403). A privacy setting
+  is proven by a **second** user's `fetchAccount`; a profile stays private
+  until it has an adult year of birth (`ADULT_YEAR_OF_BIRTH`). `bio: null` is a 500 — clear it with `""`.
 - `bookmarks.ts` — `listBookmarks` / `addBookmark` / `removeBookmark`: session
   or Bearer only (a JWT alone is a 401).
 - `completion.ts` — `recordCompletion` (the learner's own `completion-batch`,
@@ -260,13 +272,14 @@ registration created, always is.
   `setCourseEmailOptIn`.
 - `course-home.ts` — `fetchCourseHomeOutline`: the course home's own
   reading — the Resume target, handouts and course tools (`courseTool` picks
-  one by its `analytics_id`).
+  one by its `analytics_id`) — and `fetchCoursewareCourse`, the courseware
+  metadata (`show_calculator`, the notes state).
+- `teams.ts` — `createTeam` / `joinTeam` / `fetchTeam` / `listTeamsOf` and
+  `listTeamThreadIds`: session or Bearer only, on the learner's own context.
 - `notes.ts` — `listCourseNotes`: the learner's notes in a course as the LMS
   lists them from the notes service.
 - `user-tours.ts` — `fetchUserTours`: whether the course-home tour is still
   offered.
-- `enrollment.ts` `unenrollViaApi` — the dashboard's unenroll view (session +
-  CSRF), for setup and cleanup.
 - `mfe-config.ts` `fetchChromeConfig` — the values a page's header and footer
   are built from, narrowed to one `ChromeConfig` whether the page is a legacy
   MFE (`mfe_config`) or the frontend-base shell (`frontend_site_config`).

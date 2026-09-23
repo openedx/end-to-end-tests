@@ -340,7 +340,7 @@ test.describe('Course catalog discovery', () => {
       await expect(option).toBeChecked();
 
       // Every card shown belongs to that organization (course keys compare
-      // case-insensitively: the MFE lower-cases the start of facet values).
+      // case-insensitively: the MFE camel-cases facet values, `CATALOG-001`).
       const shown = await catalogPage.shownCourseKeys();
       expect(shown).toHaveLength(Math.min(filtered.total, Number(filtered.facets.page_size?.[0])));
       for (const key of shown) {

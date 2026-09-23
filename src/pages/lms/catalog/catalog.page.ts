@@ -4,8 +4,10 @@ import {
   CATALOG_SEARCH_PATH,
   CATALOG_SELECTORS,
   catalogCourseCard,
+  catalogFilterGroup,
   catalogFilterOptions,
   type AppConfig,
+  type CatalogFacet,
 } from '../../../config';
 
 /**
@@ -109,6 +111,17 @@ export class CatalogPage {
     await this.page.waitForURL((url) => url.searchParams.get('search_query') === term);
   }
 
+  /**
+   * The facet values one refine filter offers, in the order offered — once the
+   * filter has rendered, so an empty filter reads as `[]`.
+   */
+  async filterValues(facet: CatalogFacet): Promise<readonly string[]> {
+    await this.page.locator(catalogFilterGroup(facet)).waitFor({ state: 'attached' });
+    return this.filterOptions(facet).evaluateAll((inputs) =>
+      inputs.map((input) => input.getAttribute('value') ?? ''),
+    );
+  }
+
   /** The options of one refine filter, whose `value`s are the facet values. */
   filterOptions(facet: CatalogFacet): Locator {
     return this.page.locator(catalogFilterOptions(facet));
@@ -135,13 +148,24 @@ export class CatalogPage {
   /**
    * Unchecks a filter option and waits for the wider result set to render. The
    * MFE answers a return to an earlier result set from its own cache, without a
-   * new search request, so the signal is the card list growing past what the
-   * filtered set showed — which it does whenever the filter had narrowed it.
+   * new search request, so the signal is the rendered cards changing from what
+   * the filtered set showed — which they do whenever the filter had narrowed it.
    */
   async removeFilter(facet: CatalogFacet, value: string): Promise<void> {
-    const shownBefore = await this.courseCards.count();
+    const before = await this.cardHrefs();
     await this.filterOption(facet, value).uncheck();
-    await this.courseCards.nth(shownBefore).waitFor({ state: 'attached' });
+    await this.page.waitForFunction(
+      ({ selector, previous }) =>
+        [...document.querySelectorAll(selector)].map((card) => card.getAttribute('href')).join() !==
+        previous,
+      { selector: CATALOG_SELECTORS.courseCard, previous: before.join() },
+    );
+  }
+
+  private async cardHrefs(): Promise<readonly string[]> {
+    return this.courseCards.evaluateAll((cards) =>
+      cards.map((card) => card.getAttribute('href') ?? ''),
+    );
   }
 
   private filterOption(facet: CatalogFacet, value: string): Locator {
@@ -150,9 +174,7 @@ export class CatalogPage {
 
   /** The course keys of the cards currently rendered, in order. */
   async shownCourseKeys(): Promise<readonly string[]> {
-    const hrefs = await this.courseCards.evaluateAll((cards) =>
-      cards.map((card) => card.getAttribute('href') ?? ''),
-    );
+    const hrefs = await this.cardHrefs();
     return hrefs.map((href) => decodeURIComponent(href.split('/courses/')[1]?.split('/')[0] ?? ''));
   }
 
@@ -281,9 +303,6 @@ export class CatalogPage {
     await this.page.waitForURL((url) => url.pathname.endsWith('/about'));
   }
 }
-
-/** A refine-filter facet of the catalog search. */
-export type CatalogFacet = 'org' | 'modes' | 'language';
 
 /** One catalog search as the MFE sent it and the platform answered it. */
 export interface CatalogSearch {

@@ -1,7 +1,7 @@
 /**
  * The one viewport table the responsive coverage runs from: the landing page,
- * the in-course sidebar, logo consistency and the accessibility gates all take
- * their sizes from here, so "phone" means the same thing in every spec.
+ * the in-course sidebar and the accessibility gates all take their sizes from
+ * here, so "phone" means the same thing in every spec.
  *
  * Each size sits on one side of a breakpoint the platform's own frontends
  * switch on, so a size exercises a layout rather than an arbitrary width:
@@ -53,8 +53,6 @@ export const VIEWPORTS = {
     hasTouch: false,
   },
 } as const satisfies Record<string, ViewportSpec>;
-
-export type ViewportName = keyof typeof VIEWPORTS;
 
 /** The three sizes the public-site responsiveness case (TC-00061) walks. */
 export const RESPONSIVE_VIEWPORTS: readonly ViewportSpec[] = [

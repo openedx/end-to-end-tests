@@ -6,7 +6,9 @@ export {
   CATALOG_SEARCH_PATH,
   CATALOG_SELECTORS,
   catalogCourseCard,
+  catalogFilterGroup,
   catalogFilterOptions,
+  type CatalogFacet,
 } from './catalog';
 export { COURSE_ABOUT_SELECTORS, courseAboutCoursewareLink } from './course-about';
 export {
@@ -17,13 +19,15 @@ export {
 } from './courseware';
 export { CAPA_SELECTORS } from './capa';
 export { PROGRESS_SELECTORS, progressTabLink } from './progress';
-export { PROFILE_SELECTORS } from './profile';
+export { PROFILE_SELECTORS, profileControl, profileEditor } from './profile';
 export { TEAMS_SELECTORS, teamThread, teamsTopicLink } from './teams';
 export { DASHBOARD_SELECTORS } from './dashboard';
 export { DISCUSSIONS_SELECTORS } from './discussions';
 export { NOTIFICATION_PREFERENCES_SELECTORS, NOTIFICATION_TRAY_SELECTORS } from './notifications';
 export {
   COURSE_HOME_SELECTORS,
+  COURSE_TOOLS_SELECTORS,
+  bookmarkRowFor,
   courseHomeFragmentHolding,
   courseToolLink,
   subsectionEffort,

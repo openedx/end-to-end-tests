@@ -81,3 +81,29 @@ export function subsectionEffort(sequenceId: string): string {
 export function courseToolLink(url: string): string {
   return `a[href="${url}"]`;
 }
+
+/**
+ * The course tools that are still LMS-rendered pages: Bookmarks, Updates and
+ * the Notes tab. Their markup is the LMS's own (themable) template, so these are
+ * the structural classes and data attributes the pages' scripts key off.
+ */
+export const COURSE_TOOLS_SELECTORS = {
+  /** A bookmarked unit's row, keyed by the unit's usage id. */
+  bookmarkRow: 'a.bookmarks-results-list-item[data-usage-id]',
+  /** "You have not bookmarked any courseware pages yet". */
+  bookmarksEmpty: '.bookmarks-empty',
+  /**
+   * One course update (date and content). The legacy Updates page has no `main`
+   * landmark to scope it to; it is the only page element that uses `article`.
+   */
+  update: 'article',
+  /** One note on the Notes page. */
+  note: '#main article.note',
+  /** The Notes page's empty state ("You have not made any notes in this course yet"). */
+  notesEmpty: '#main section.placeholder.is-empty',
+} as const;
+
+/** The Bookmarks row for one unit. */
+export function bookmarkRowFor(usageId: string): string {
+  return `a.bookmarks-results-list-item[data-usage-id="${usageId}"]`;
+}

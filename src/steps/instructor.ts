@@ -5,6 +5,7 @@ import { submitProblem } from './gating';
 import { pollUntil, type PollOutcome } from './poll';
 import { TIMEOUTS, type AppConfig } from '../config';
 import {
+  ApiError,
   fetchCourseProgress,
   fetchInstructorCourse,
   fetchInstructorTask,
@@ -251,7 +252,14 @@ export async function earnCertificate(
   // A learner who is not passing is offered no certificate to request.
   if (!passed.satisfied) return passed;
   await progressPage.goto(courseKey);
-  await progressPage.requestCertificate();
+  const requested = await progressPage.requestCertificate();
+  if (!requested.ok()) {
+    throw new ApiError(`Requesting the certificate failed (HTTP ${requested.status()}).`, {
+      status: requested.status(),
+      url: requested.url(),
+      body: await requested.text(),
+    });
+  }
   return waitForLearnerProgress(
     learner,
     config,

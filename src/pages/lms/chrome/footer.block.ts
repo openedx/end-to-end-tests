@@ -29,11 +29,7 @@ export class FooterBlock {
   /** The absolute URLs of every footer link, in document order. */
   async linkUrls(): Promise<readonly string[]> {
     await this.root.waitFor();
-    const base = this.page.url();
-    const raw = await this.links.evaluateAll((anchors) =>
-      anchors.map((anchor) => anchor.getAttribute('href') ?? ''),
-    );
-    return raw.map((href) => new URL(href, base).toString());
+    return this.hrefs(this.links);
   }
 
   /** Whether an image link's picture actually loaded (a broken logo reads `false`). */
@@ -78,7 +74,7 @@ export class FooterBlock {
         r.url().startsWith(`${lmsBaseUrl}/api/user/v1/preferences/`) &&
         r.request().method() === 'PATCH',
     );
-    await this.page.locator('.dropdown-menu a.dropdown-item:not(.active):visible').first().click();
+    await this.page.locator(CHROME_SELECTORS.languageMenuOtherItem).first().click();
     const body = JSON.parse((await stored).request().postData() ?? '{}') as Record<string, string>;
     return body['pref-lang'] ?? '';
   }

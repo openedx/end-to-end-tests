@@ -122,7 +122,6 @@ test.describe('Learner profile', { tag: ['@regression', '@authenticated', '@mfe-
     'links the dashboard from the header and the site from the footer logo',
     { annotation: testId('TC-00071') },
     async ({
-      page,
       request,
       config,
       profilePage,
@@ -147,7 +146,6 @@ test.describe('Learner profile', { tag: ['@regression', '@authenticated', '@mfe-
       await expect(siteHeader.mainLinks.first()).toBeVisible();
       await siteHeader.follow(siteHeader.mainLinks.first());
       await expect(dashboardPage.content).toBeVisible();
-      void page;
     },
   );
 

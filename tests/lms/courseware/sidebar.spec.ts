@@ -149,7 +149,7 @@ test.describe('Courseware outline sidebar', () => {
       for (const [index, subsection] of section.subsections.entries()) {
         await expect(unitPage.sidebarSubsections.nth(index)).toContainText(subsection.name);
       }
-      expect(await unitPage.isSubsectionExpanded(active)).toBe(true);
+      await expect(unitPage.subsectionToggle(active)).toHaveAttribute('aria-expanded', 'true');
       await expect(unitPage.subsectionUnits(active)).toHaveCount(
         section.subsections[active]!.unitIds.length,
       );
@@ -191,14 +191,14 @@ test.describe('Courseware outline sidebar', () => {
       await expect(unitPage.sidebarBackButton).toContainText(sections[other]!.name);
       await expect(unitPage.sidebarSubsections).toHaveCount(sections[other]!.subsections.length);
       for (const index of sections[other]!.subsections.keys()) {
-        expect(await unitPage.isSubsectionExpanded(index)).toBe(false);
+        await expect(unitPage.subsectionToggle(index)).toHaveAttribute('aria-expanded', 'false');
       }
 
       // Back in the current section, the active subsection is expanded again.
       await unitPage.backToOutline();
       await unitPage.openSection(current);
       const active = sections[current]!.subsections.findIndex((ss) => ss.unitIds.includes(unit.id));
-      expect(await unitPage.isSubsectionExpanded(active)).toBe(true);
+      await expect(unitPage.subsectionToggle(active)).toHaveAttribute('aria-expanded', 'true');
       expect(page.url()).toBe(url);
       expect(await unitPage.contentSource()).toBe(content);
     },
@@ -226,7 +226,7 @@ test.describe('Courseware outline sidebar', () => {
 
       await unitPage.goto(courseKey, unit.sequentialId, unit.id);
       const url = page.url();
-      expect(await unitPage.isSubsectionExpanded(target)).toBe(false);
+      await expect(unitPage.subsectionToggle(target)).toHaveAttribute('aria-expanded', 'false');
       await expect(unitPage.subsectionUnits(target)).toHaveCount(0);
 
       await unitPage.toggleSubsection(target);

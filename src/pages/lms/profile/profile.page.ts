@@ -1,6 +1,6 @@
 import type { Locator, Page, Response } from '@playwright/test';
 
-import { PROFILE_SELECTORS, type AppConfig } from '../../../config';
+import { PROFILE_SELECTORS, profileControl, profileEditor, type AppConfig } from '../../../config';
 
 /**
  * The profile's editable fields, by the id the MFE gives each one's control:
@@ -22,20 +22,14 @@ export type ProfileField =
  * the spec reads back through the accounts API.
  */
 export class ProfilePage {
-  readonly certificateLinks: Locator;
-  /**
-   * The certificates section's "Who can see this" select, following the
-   * `visibility<Field>` naming of every other section. No release renders it
-   * today (`PROF-002`).
-   */
+  /** The certificates section's visibility select (`PROF-002`: never rendered today). */
   readonly certificatesVisibility: Locator;
 
   constructor(
     private readonly page: Page,
     private readonly config: AppConfig,
   ) {
-    this.certificateLinks = page.locator(PROFILE_SELECTORS.certificateLink);
-    this.certificatesVisibility = page.locator('select#visibilityCourseCertificates');
+    this.certificatesVisibility = page.locator(PROFILE_SELECTORS.certificatesVisibility);
   }
 
   url(username: string): string {
@@ -55,12 +49,12 @@ export class ProfilePage {
 
   /** A field's control, once its section is being edited. */
   control(field: ProfileField): Locator {
-    return this.page.locator(`form #${field}`);
+    return this.page.locator(profileControl(field));
   }
 
   /** The form a field is edited in. */
   private editor(field: ProfileField): Locator {
-    return this.page.locator(`form:has(#${field})`);
+    return this.page.locator(profileEditor(field));
   }
 
   /**
@@ -72,7 +66,7 @@ export class ProfilePage {
     const buttons = this.page.locator(PROFILE_SELECTORS.emptyStateButton);
     await buttons.first().waitFor();
     const count = await buttons.count();
-    const openForm = this.page.locator('form:has(button[type="submit"])');
+    const openForm = this.page.locator(PROFILE_SELECTORS.openForm);
     for (let index = 0; index < count; index += 1) {
       await buttons.nth(index).click();
       await openForm.first().waitFor();

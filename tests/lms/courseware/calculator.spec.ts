@@ -29,6 +29,7 @@ test(
       .poll(
         async () =>
           (await fetchCoursewareCourse(learner.request, config, learner.courseKey)).show_calculator,
+        { timeout: TIMEOUTS.contentPublish },
       )
       .toBe(true);
 

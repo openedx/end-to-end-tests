@@ -1,4 +1,4 @@
-import type { Locator, Page, Response } from '@playwright/test';
+import { errors, type Locator, type Page, type Response } from '@playwright/test';
 
 import { DASHBOARD_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 
@@ -90,24 +90,26 @@ export class DashboardPage {
     );
     const confirm = this.page.locator(DASHBOARD_SELECTORS.dialogConfirm);
     await confirm.click();
-    // With the survey on, the request waits for the survey's own submit.
-    const next = await Promise.race([
-      sent.then(() => 'sent' as const),
-      this.page
-        .locator(DASHBOARD_SELECTORS.unenrollReasons)
-        .waitFor()
-        .then(
-          () => 'survey' as const,
-          () => 'sent' as const,
-        ),
-    ]);
-    if (next === 'survey') await confirm.click();
+    // With the survey on (`SHOW_UNENROLL_SURVEY`), the confirmation opens the
+    // survey and the request waits for the survey's own submit. The survey wait
+    // is bounded, so it settles on its own when the request comes first.
+    const survey = this.page
+      .locator(DASHBOARD_SELECTORS.unenrollReasons)
+      .waitFor({ timeout: TIMEOUTS.optionalOverlay })
+      .then(
+        () => 'survey' as const,
+        () => 'none' as const,
+      );
+    if ((await Promise.race([sent.then(() => 'sent' as const), survey])) === 'survey') {
+      await confirm.click();
+    }
     const response = await sent;
     // The dialog closes with the card; where it stays on its "unenrolled"
     // pane instead, that pane's one action closes it.
     try {
       await this.dialog.waitFor({ state: 'detached', timeout: TIMEOUTS.optionalOverlay });
-    } catch {
+    } catch (error) {
+      if (!(error instanceof errors.TimeoutError)) throw error;
       await confirm.click();
       await this.dialog.waitFor({ state: 'detached' });
     }
@@ -117,8 +119,7 @@ export class DashboardPage {
   /** Opens the Unenroll dialog and dismisses it without unenrolling. */
   async cancelUnenroll(courseKey: string): Promise<void> {
     await this.openUnenrollDialog(courseKey);
-    await this.page.locator(DASHBOARD_SELECTORS.dialogDismiss).click();
-    await this.dialog.waitFor({ state: 'detached' });
+    await this.dismissDialog();
   }
 
   private async openUnenrollDialog(courseKey: string): Promise<void> {

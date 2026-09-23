@@ -79,11 +79,12 @@ measured, and issues are opened by hand from them.
 | `NOTIF-004` | `openedx/edx-platform` (`send_email_digest` is a no-op)       | open, `fixme` + `knownGap` on TC-00478 / TC-00480
 | `DISC-001`  | `openedx/frontend-app-discussions` (post list ARIA)           | open, no `fixme` — two axe rules baselined on the discussions scans only
 | `DISC-002`  | `openedx/forum` (DELETE of a missing thread)                  | open, no `fixme` — suite deletes each thread once
-| `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing scans only (`SHELL_CHROME_A11Y_BASELINE`)
+| `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing and course About scans only (`SHELL_CHROME_A11Y_BASELINE`)
 | `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | open, `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
 | `CATALOG-001` | `openedx/frontend-app-catalog` (filter facet values camel-cased) | open, no `fixme` — TC-00017 compares organizations case-insensitively
 | `LEARN-002` | `openedx/frontend-component-header` (learning header Help link `href="null"`) | open, `test.fail` on the no-Help-link tests of TC-00020 / TC-00021 where the learning header renders (`KNOWN_CHROME_DEFECTS`)
-| `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages render mixed header generations (`KNOWN_CHROME_DEFECTS`)
+| `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages mix the shell with a legacy header (`KNOWN_CHROME_DEFECTS`)
+| `FP-001`    | `openedx/frontend-platform` (`<html lang>` never follows the chosen language) | open, `test.fail` on TC-00066's page-language test wherever a legacy header renders one of its pages (`KNOWN_CHROME_DEFECTS`)
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
 | `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
 | `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | open, `test.fail` on TC-00038's take-a-note test
@@ -1753,7 +1754,7 @@ catalog MFE home on a Tutor `main` install.
 first control of the page.
 
 **Coverage impact:** open, no `fixme`. `button-name` is baselined for the
-chrome specs' landing scans only (`SHELL_CHROME_A11Y_BASELINE` in
+landing and course About scans only (`SHELL_CHROME_A11Y_BASELINE` in
 `tests/lms/chrome/helpers.ts`).
 
 ### `BASE-005` — the shell header's narrow-layout menu is empty for a signed-out visitor
@@ -1913,7 +1914,9 @@ take a note on, and the Notes page stays empty.
 **Coverage impact:** open. TC-00038 is split: the Notes tab, the "Show Notes"
 switch and the visibility round trip pass; "takes a note on a unit's text and
 lists it on the Notes page" is written to the intended behaviour and marked
-`test.fail`.
+`test.fail`. The marker is unconditional: an install with
+`USE_EXTRACTED_HTML_BLOCK` off annotates the built-in HTML block, and the test
+then reports an unexpected pass there.
 
 ### `PROF-003` — the profile offers no country to choose
 
@@ -1931,7 +1934,9 @@ the profile page.
 **Coverage impact:** open. TC-00068's "adds a location from the profile" test
 is marked `test.fail` with `issue(wg#575)`. Its sibling, "shares the location
 with other learners only while it is visible to them", sets the country
-through the accounts API and passes.
+through the accounts API and passes. The marker is unconditional: an install
+whose `REGISTRATION_EXTRA_FIELDS` includes `country` offers a list, and the test
+then reports an unexpected pass there.
 
 ### `PROF-004` — the profile's icon buttons have no accessible name at phone width
 
@@ -1962,7 +1967,9 @@ itself is issued, listed and linked correctly.
 
 **Coverage impact:** open. TC-00033 is split: "links View my certificate to the
 issued certificate" passes; "renders the certificate for the learner and the
-course" is marked `test.fail`.
+course" is marked `test.fail`. The marker is unconditional: an install that
+configures a marketing About URL renders the certificate, and the test then
+reports an unexpected pass there.
 
 ### `PROF-002` — the profile has no certificate-visibility control
 

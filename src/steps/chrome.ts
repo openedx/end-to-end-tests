@@ -67,11 +67,10 @@ export function anonymousHeaderExpectation(chrome: ChromeConfig): AnonymousHeade
 }
 
 /**
- * What a chrome case is checking, where a known defect only breaks one of a
- * case's tests (the Help link's absence, not its presence).
+ * What a chrome case is checking, so a known defect marks only the tests it
+ * breaks (the Help link's absence, say, and not its presence).
  */
-export type ChromeScenario =
-  'help-link' | 'no-help-link' | 'logo-consistency' | 'navigation' | 'page-language';
+export type ChromeScenario = 'no-help-link' | 'logo-consistency' | 'navigation' | 'page-language';
 
 /**
  * A chrome defect the suite knows about, tied to the generation (and layout)

@@ -22,6 +22,7 @@ test(
     await courseOutlinePage.beginTour();
     await checkA11y(page, {
       label: 'course-home-tour',
+      // The course home's section headers (`LEARN-001`), under the tour.
       additionalBaseline: ['nested-interactive'],
     });
     expect(await courseOutlinePage.finishTour()).toBeGreaterThan(0);

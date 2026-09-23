@@ -111,7 +111,7 @@ import {
   establishStudioSession,
   fetchCourseNavigation,
   fetchSequenceMetadata,
-  fetchAdvancedSettings,
+  ensureTeamsTopic,
   updateAdvancedSettings,
   updateCourseDetails,
   type AuthoredSection,
@@ -553,10 +553,12 @@ export interface TestFixtures {
    */
   newLearner: () => Promise<StudioLearner>;
   /**
-   * Gate for the "Certificates available date" fields: skips unless the target
-   * lets Schedule & Details show them (`can_show_certificate_available_date_field`,
-   * which needs the `certificates.auto_certificate_generation` switch — off on a
-   * default install). What TC-00297 needs before it can drive the fields.
+   * The "Certificates available date" fields, which Schedule & Details shows
+   * only while the `certificates.auto_certificate_generation` switch is on
+   * (`can_show_certificate_available_date_field`; off on a default install).
+   * Holds {@link certificateSwitch}, turns it on and waits for the course's
+   * settings to offer the fields — failing, not skipping, if they never do.
+   * What TC-00297 needs before it can drive the fields.
    */
   certificateAvailableDateField: void;
   /**
@@ -1825,11 +1827,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   catalogOrganizations: async ({ catalogPage }, use, testInfo) => {
     await catalogPage.goto();
-    const options = catalogPage.filterOptions('org');
-    await options.first().waitFor({ state: 'attached' });
-    const organizations = await options.evaluateAll((inputs) =>
-      inputs.map((input) => input.getAttribute('value') ?? ''),
-    );
+    const organizations = await catalogPage.filterValues('org');
     testInfo.skip(
       organizations.length < 2,
       `The catalog lists courses of ${organizations.length} organization(s), so an organization filter cannot narrow it.`,
@@ -1911,37 +1909,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   teamsCourse: async ({ request, config, contentCourse }, use) => {
     const topicId = 'e2e-teams';
-    const settings = (await fetchAdvancedSettings(
-      request,
-      config,
-      contentCourse.courseKey,
-    )) as Record<
-      string,
-      {
-        readonly value?: {
-          readonly enabled?: boolean;
-          readonly team_sets?: readonly { id?: string }[];
-        };
-      }
-    >;
-    const current = settings.teams_configuration?.value;
-    if (!current?.enabled || !current.team_sets?.some((set) => set.id === topicId)) {
-      await buildWithAuthorWriteSession(request, config, () =>
-        updateAdvancedSettings(request, config, contentCourse.courseKey, {
-          teams_configuration: {
-            enabled: true,
-            team_sets: [
-              {
-                id: topicId,
-                name: 'E2E teams',
-                description: 'Teams the end-to-end suite creates',
-                type: 'open',
-              },
-            ],
-          },
-        }),
-      );
-    }
+    await buildWithAuthorWriteSession(request, config, () =>
+      ensureTeamsTopic(request, config, contentCourse.courseKey, {
+        id: topicId,
+        name: 'E2E teams',
+        description: 'Teams the end-to-end suite creates',
+        type: 'open',
+      }),
+    );
     await use({ ...contentCourse, topicId });
   },
 
@@ -3266,10 +3241,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   certificateLearner: async (
     { playwright, browser, config, certificateCourse, certificateGenerationEnabled },
     use,
+    testInfo,
   ) => {
     // Depends on the skip above: without an admin there is no honor mode to
     // enroll into, and the spec must skip rather than fail here.
     void certificateGenerationEnabled;
+    // As in `certificateSwitch`: a wait for the writer comes on top of the budget.
+    testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
     // Held shared for the whole test: the auto-generation switch is global, and
     // a case that turns it on (`certificateAutoGeneration`) must not do so while
     // this learner's certificate is expected to wait for a request.
@@ -3289,11 +3267,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 
-  certificateSwitch: async ({ config, adminLms }, use) => {
+  certificateSwitch: async ({ config, adminLms }, use, testInfo) => {
     const setSwitch = (active: boolean) =>
       adminLms((session) =>
         setWaffleSwitch(session, config, AUTO_CERTIFICATE_GENERATION_SWITCH, active),
       );
+    // The wait for the readers to drain is on top of the case's own budget, so
+    // a long wait ends in the lock's error naming its holders, not a timeout.
+    testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
     await withExclusiveLock(
       CERTIFICATE_SWITCH_LOCK,
       { waitMs: TIMEOUTS.sharedLockWait },
