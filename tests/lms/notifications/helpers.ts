@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import type { AppConfig } from '../../../src/config';
 
 /**
@@ -21,11 +19,6 @@ export const NOTIFICATION_TAGS: string[] = ['@studio', '@author', '@notification
  *   none of the fourteen has an accessible name.
  */
 export const NOTIFICATION_PREFERENCES_A11Y_BASELINE = ['label'] as const;
-
-/** A post title unique to this test — the test's own data, safe to match. */
-export function uniqueTitle(kind: string): string {
-  return `E2E ${kind} ${randomUUID().slice(0, 8)}`;
-}
 
 /**
  * Where the notification specs open the tray: the learner dashboard, whose

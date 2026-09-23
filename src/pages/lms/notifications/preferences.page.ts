@@ -39,9 +39,9 @@ export class NotificationPreferencesPage {
    * the next click. So a same-path navigation reloads.
    */
   async goto(): Promise<void> {
+    const current = new URL(this.page.url());
     const onAccountPage =
-      this.page.url().startsWith(`${this.config.baseUrls.apps}/account/`) &&
-      new URL(this.page.url()).pathname === '/account/';
+      current.origin === this.config.baseUrls.apps && current.pathname === '/account/';
     await this.page.goto(this.url());
     if (onAccountPage) {
       await this.page.reload();

@@ -19,7 +19,7 @@ import { createXBlock, publishXBlock, updateXBlock } from './xblock';
  * "Content" (Poor / Fair / Good / Excellent), ten points in all. These option
  * names are the block's own OLX, not platform copy.
  */
-export const ORA_FULL_MARKS: Readonly<Record<string, string>> = {
+const ORA_FULL_MARKS: Readonly<Record<string, string>> = {
   Ideas: 'Good',
   Content: 'Excellent',
 };

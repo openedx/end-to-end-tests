@@ -516,9 +516,8 @@ export {
   type WaffleOverrideChoice,
   type WaffleOverrideInput,
 } from './waffle';
-export { lmsGet, lmsJson, lmsWrite } from './lms-json';
+export { lmsGet, lmsWrite } from './lms-json';
 export {
-  EMAIL_CADENCES,
   NOTIFICATION_APPS,
   fetchNotificationCount,
   fetchNotificationPreferences,
@@ -544,6 +543,7 @@ export {
   fetchDiscussionCourse,
   listDiscussionTopics,
   listThreads,
+  uniquePostTitle,
   updateComment,
   updateThread,
   type DiscussionComment,
@@ -552,7 +552,6 @@ export {
   type DiscussionTopic,
 } from './discussions';
 export {
-  ORA_FULL_MARKS,
   ORA_POINTS_POSSIBLE,
   authorStaffGradedOra,
   listOraSubmissions,

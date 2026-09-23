@@ -21,9 +21,6 @@ export const NOTIFICATION_TRAY_SELECTORS = {
    */
   bell: '#notificationIcon:visible',
 
-  /** The bell button itself — "Notification bell icon". */
-  bellButton: '[data-testid="notification-bell-icon"]',
-
   /** The unseen-count badge on the bell ("3", "99+"). Absent at zero. */
   bellBadge: '[data-testid="notification-count"]',
 
@@ -85,18 +82,12 @@ export const NOTIFICATION_PREFERENCES_SELECTORS = {
   /** One app's group of preference rows — "Discussions", "Updates", "Grading". */
   app: (app: string) => `[data-testid="${app}-app"]`,
 
-  /** One type's row. */
-  preferenceRow: '[data-testid="notification-preference"]',
-
   /** The switch for one type and channel. */
   toggle: (type: string, channel: 'web' | 'email') =>
     `input[data-testid="toggle-${camelCase(type)}-${channel}"]`,
 
   /** Every web switch — one per preference the user is offered. */
   anyWebToggle: 'input[data-testid^="toggle-"][data-testid$="-web"]',
-
-  /** The e-mail cadence dropdown of the activity group ("Daily ▾"). */
-  cadenceButton: '[data-testid="email-cadence-button"]',
 } as const;
 
 /** `new_discussion_post` → `newDiscussionPost`, as the preference centre keys its switches. */

@@ -868,8 +868,10 @@ export interface RoundTripLearner {
   readonly notificationTray: NotificationTray;
   /** The account MFE's notification preference centre. */
   readonly notificationPreferences: NotificationPreferencesPage;
-  /** The discussions MFE, full page. (In the unit sidebar, root one on `unitPage.discussionsFrame`.) */
+  /** The discussions MFE, full page. */
   readonly discussions: DiscussionsPage;
+  /** The same MFE inside the learning MFE's in-unit discussions sidebar (open it first). */
+  readonly sidebarDiscussions: DiscussionsPage;
   /**
    * The course structure **as this learner sees it** (Blocks API): unreleased,
    * hidden, group-restricted and unsatisfied-gated blocks are absent. The
@@ -1314,17 +1316,19 @@ async function provisionRoundTripLearner(
   const context = await browser.newContext();
   await context.addCookies((await request.storageState()).cookies);
   const page = await context.newPage();
+  const unitPage = new UnitPage(page, config);
   return {
     identity,
     courseKey,
     request,
     context,
     page,
-    unitPage: new UnitPage(page, config),
+    unitPage,
     courseOutlinePage: new CourseOutlinePage(page, config),
     notificationTray: new NotificationTray(page, config),
     notificationPreferences: new NotificationPreferencesPage(page, config),
     discussions: new DiscussionsPage(page, config),
+    sidebarDiscussions: new DiscussionsPage(page, config, unitPage.discussionsFrame),
     outline: () => fetchCourseOutline(request, config, courseKey, identity.username),
     sequence: (sequentialId) => fetchSequenceMetadata(request, config, sequentialId),
     navigation: () => fetchCourseNavigation(request, config, courseKey),

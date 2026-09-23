@@ -12,7 +12,6 @@ import {
   type DiscussionThread,
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
-import { DiscussionsPage } from '../../../src/pages/lms/discussions/discussions.page';
 import { testId } from '../../../src/reporting';
 import { DISCUSSIONS_A11Y_BASELINE, DISCUSSION_TAGS } from './helpers';
 
@@ -42,11 +41,7 @@ test.describe(
 
         await learner.unitPage.goto(courseKey, forumUnit.sequentialId, forumUnit.unitId);
         await learner.unitPage.openDiscussionsSidebar();
-        const sidebar = new DiscussionsPage(
-          learner.page,
-          config,
-          learner.unitPage.discussionsFrame,
-        );
+        const sidebar = learner.sidebarDiscussions;
 
         const editor = await sidebar.startPost();
         // The sidebar's editor is fixed to the unit's topic.
@@ -54,36 +49,28 @@ test.describe(
           title: `E2E sidebar post ${token}`,
           body: 'Posted in a unit.',
         });
+        // The case ends by deleting the post it made, so it needs no teardown.
         const thread = (await (await editor.submit()).json()) as DiscussionThread;
-        try {
-          expect(thread.topic_id).toBe(topicId);
-          expect(
-            (await listThreads(learner.request, config, courseKey, { topicId })).map(
-              (row) => row.id,
-            ),
-          ).toContain(thread.id);
-          await expect(sidebar.post(thread.id)).toBeVisible();
+        expect(thread.topic_id).toBe(topicId);
+        expect(
+          (await listThreads(learner.request, config, courseKey, { topicId })).map((row) => row.id),
+        ).toContain(thread.id);
+        await expect(sidebar.post(thread.id)).toBeVisible();
 
-          const response = (await (
-            await sidebar.respondToPost(thread.id, `A response ${token}`)
-          ).json()) as DiscussionComment;
-          expect(response.thread_id).toBe(thread.id);
+        const response = (await (
+          await sidebar.respondToPost(thread.id, `A response ${token}`)
+        ).json()) as DiscussionComment;
+        expect(response.thread_id).toBe(thread.id);
 
-          const edited = (await (
-            await sidebar.editPostTitle(thread.id, `E2E sidebar post ${token} edited`)
-          ).json()) as DiscussionThread;
-          expect(edited.title).toBe(`E2E sidebar post ${token} edited`);
+        const edited = (await (
+          await sidebar.editPostTitle(thread.id, `E2E sidebar post ${token} edited`)
+        ).json()) as DiscussionThread;
+        expect(edited.title).toBe(`E2E sidebar post ${token} edited`);
 
-          expect((await sidebar.deletePost(thread.id)).status()).toBe(204);
-          expect(
-            (await listThreads(learner.request, config, courseKey, { topicId })).map(
-              (row) => row.id,
-            ),
-          ).not.toContain(thread.id);
-        } finally {
-          // Already gone when the case passed; best-effort otherwise.
-          await deleteThread(learner.request, config, thread.id).catch(() => undefined);
-        }
+        expect((await sidebar.deletePost(thread.id)).status()).toBe(204);
+        expect(
+          (await listThreads(learner.request, config, courseKey, { topicId })).map((row) => row.id),
+        ).not.toContain(thread.id);
       },
     );
 

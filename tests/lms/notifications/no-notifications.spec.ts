@@ -6,10 +6,11 @@ import {
   createThread,
   deleteThread,
   grantCourseTeamRole,
+  uniquePostTitle,
 } from '../../../src/api';
 import { aboutThread, checkNotificationAbsent, turnOffEveryNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl, uniqueTitle } from './helpers';
+import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
 
 /**
  * No notifications when every preference is off (TC-00477, in the tray): a
@@ -56,12 +57,12 @@ test.describe(
           courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('silent'),
+          title: uniquePostTitle('silent'),
           body: 'An announcement.',
           notifyAllLearners: true,
         });
         try {
-          const token = uniqueTitle('silent-update');
+          const token = uniquePostTitle('silent-update');
           await createCourseUpdate(page.request, config, courseKey, {
             date: 'January 1, 2026',
             content: `<p>${token}</p>`,

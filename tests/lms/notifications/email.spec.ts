@@ -8,10 +8,11 @@ import {
   deleteThread,
   fetchNotificationPreferences,
   grantCourseTeamRole,
+  uniquePostTitle,
 } from '../../../src/api';
 import { linkIn, linkingTo, turnOffEveryNotification, waitForMail } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, uniqueTitle } from './helpers';
+import { NOTIFICATION_TAGS } from './helpers';
 
 /**
  * Notification e-mail (TC-00471, TC-00481, and the e-mail halves of TC-00470,
@@ -49,7 +50,7 @@ test.describe(
           courseKey: forumCourse.courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('mailed'),
+          title: uniquePostTitle('mailed'),
           body: 'A post that will get a response.',
         });
         try {
@@ -83,7 +84,7 @@ test.describe(
           courseKey: forumCourse.courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('unsubscribe'),
+          title: uniquePostTitle('unsubscribe'),
           body: 'A post that will get a response.',
         });
         try {
@@ -155,7 +156,7 @@ test.describe(
           courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('silent-mail'),
+          title: uniquePostTitle('silent-mail'),
           body: 'An announcement.',
           notifyAllLearners: true,
         });

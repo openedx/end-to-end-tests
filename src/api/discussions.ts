@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
@@ -64,6 +66,14 @@ export async function listDiscussionTopics(
 
 /** The course-wide topic every course has. */
 export const GENERAL_TOPIC_ID = 'course';
+
+/**
+ * A post title (or other forum text) unique to one test — the test's own data,
+ * so specs may match it in a notification or a mail.
+ */
+export function uniquePostTitle(kind: string): string {
+  return `E2E ${kind} ${randomUUID().slice(0, 8)}`;
+}
 
 export interface DiscussionThread {
   readonly id: string;
@@ -139,6 +149,10 @@ export async function updateThread(
   );
 }
 
+/**
+ * Deletes a thread. Not idempotent: deleting one that is already gone answers
+ * 500, not 404 (`DISC-002`), so callers delete each thread once.
+ */
 export async function deleteThread(
   request: APIRequestContext,
   config: AppConfig,

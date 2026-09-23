@@ -1,10 +1,10 @@
 import { expect, test } from '../../../src/fixtures';
 import { NOTIFICATION_TRAY_SELECTORS, TIMEOUTS } from '../../../src/config';
-import { GENERAL_TOPIC_ID, createThread, deleteThread } from '../../../src/api';
+import { GENERAL_TOPIC_ID, createThread, deleteThread, uniquePostTitle } from '../../../src/api';
 import { aboutThread, waitForNotification } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl, uniqueTitle } from './helpers';
+import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
 
 /**
  * New-post notifications (TC-00457, TC-00458, TC-00459): another actor posts in
@@ -39,7 +39,7 @@ test.describe(
             courseKey: forumCourse.courseKey,
             topicId: GENERAL_TOPIC_ID,
             type,
-            title: uniqueTitle(type),
+            title: uniquePostTitle(type),
             body: 'A post for the course.',
           });
           try {
@@ -83,7 +83,7 @@ test.describe(
           courseKey: forumCourse.courseKey,
           topicId: GENERAL_TOPIC_ID,
           type: 'discussion',
-          title: uniqueTitle('instructor'),
+          title: uniquePostTitle('instructor'),
           body: 'An announcement for every learner.',
           notifyAllLearners: true,
         });
