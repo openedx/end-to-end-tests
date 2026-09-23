@@ -35,4 +35,30 @@ export const DASHBOARD_SELECTORS = {
    * Still no test ID on it, so an upstream request remains warranted.
    */
   courseCardCta: 'a.btn-primary:is([role="button"], [href*="/course/"])',
+
+  /** A card's kebab — "Course actions dropdown" — whose id carries the card's index. */
+  cardActions: 'button[id^="course-actions-dropdown-"]',
+
+  /** The kebab's "Unenroll" and "Email settings" items. */
+  unenrollItem: '[data-testid="unenrollModalToggle"]',
+  emailSettingsItem: '[data-testid="emailSettingsModalToggle"]',
+
+  /**
+   * The dialog either item opens, its primary action ("Unenroll", "Save
+   * settings") and its dismissal ("Cancel", "Never mind"), by variant.
+   */
+  dialog: '[role="dialog"]',
+  dialogConfirm: '[role="dialog"] button.btn-primary',
+  dialogDismiss: '[role="dialog"] button.btn-tertiary',
+
+  /** The e-mail settings dialog's switch — "Course emails are on / off". */
+  emailSwitch: '[role="dialog"] input[type="checkbox"]',
+
+  /**
+   * Global staff's "View as" bar: the username field, its submit, and the chip
+   * showing whose dashboard is being viewed.
+   */
+  masqueradeInput: 'form.masquerade-bar input',
+  masqueradeSubmit: 'form.masquerade-bar button[type="submit"]',
+  masqueradeChip: '.masquerade-chip',
 } as const;

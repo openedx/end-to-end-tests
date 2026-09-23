@@ -50,6 +50,7 @@ export {
   sidebarSubsectionRowFor,
   sidebarUnitLink,
   PROGRESS_SELECTORS,
+  PROFILE_SELECTORS,
   progressTabLink,
   DASHBOARD_SELECTORS,
   DISCUSSIONS_SELECTORS,

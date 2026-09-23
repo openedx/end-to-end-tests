@@ -120,6 +120,16 @@ Rules:
   built lazily, only by workers that run a case asking for it — that never
   holds a video. `videoFreeSection` builds on the author's browser session and
   `videoFreeCourseLearner` reads it.
+- **A profile needs an adult learner, and privacy needs a second one.**
+  `profileLearner` is `courseLearner` with an adult year of birth (without one
+  the platform keeps a profile private), and `profileViewer` is another fresh
+  learner on its own request context, whose reading of the account decides a
+  visibility case.
+- **Course e-mail is switched on for one course.** `courseEmailEnabled` turns on
+  the platform's `BulkEmailFlag` with course authorization still required and
+  authorizes the content course alone (Django admin, under the admin lock), so
+  no other course gains e-mail. The row is left in place: configuration rows
+  are history, and the content course is the suite's own.
 - **Platform-wide state one case changes and others rely on takes a named
   lock.** `named-lock.ts` is a cross-worker reader/writer lock with a
   heartbeat (`withSharedLock` / `withExclusiveLock`): the cases that need the

@@ -705,3 +705,35 @@ export async function grantCourseTeamRole(
   }
   return result;
 }
+
+/**
+ * Sends a course e-mail to the course's learners, as the instructor
+ * dashboard's e-mail tab does (`POST /courses/<key>/instructor/api/send_email`).
+ * The view reads a form body and authenticates by the LMS **session**, so
+ * `session` must hold one for a course instructor — a fresh `loginSession`
+ * context, as for the cohort views. The platform queues the send and answers
+ * at once; delivery is read from the recipients' inboxes.
+ */
+export async function sendCourseEmail(
+  session: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  email: { readonly subject: string; readonly message: string },
+): Promise<void> {
+  const url = `${config.baseUrls.lms}/courses/${courseKey}/instructor/api/send_email`;
+  const token = await fetchCsrfToken(session, config);
+  const response = await session.post(url, {
+    form: { send_to: JSON.stringify(['learners']), subject: email.subject, message: email.message },
+    headers: { [CSRF_HEADER]: token, Referer: config.baseUrls.lms },
+  });
+  if (!response.ok()) {
+    throw new ApiError(
+      `Sending a course e-mail to ${courseKey} failed (HTTP ${response.status()}).`,
+      {
+        status: response.status(),
+        url,
+        body: (await response.text()).slice(0, 500),
+      },
+    );
+  }
+}

@@ -177,6 +177,9 @@ import {
   type LibraryContainer,
   type Taxonomy,
   type ChromeConfig,
+  ADULT_YEAR_OF_BIRTH,
+  enableCourseEmail,
+  updateAccount,
 } from '../api';
 import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
@@ -188,6 +191,7 @@ import { testIdsFromAnnotations } from '../reporting/test-id';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
 import { CourseOutlinePage } from '../pages/lms/course-home/course-outline.page';
 import { CourseToolsPage } from '../pages/lms/course-home/course-tools.page';
+import { ProfilePage } from '../pages/lms/profile/profile.page';
 import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
@@ -272,6 +276,28 @@ export interface TestFixtures {
   courseOutlinePage: CourseOutlinePage;
   /** Course Progress tab page object. */
   progressPage: ProgressPage;
+  /** Learner profile page object (`frontend-app-profile`). */
+  profilePage: ProfilePage;
+  /**
+   * A fresh learner whose profile can be shared: `courseLearner` with an adult
+   * year of birth, since the platform keeps the profile of an account without
+   * one private whatever its settings say. Not enrolled in anything.
+   */
+  profileLearner: CourseLearner;
+  /**
+   * A second fresh learner, signed in on a request context of its own — the
+   * "someone else" whose reading of the profile learner's account decides a
+   * privacy case. Disposed after the test.
+   */
+  profileViewer: { readonly request: APIRequestContext; readonly username: string };
+  /** The learner dashboard in the admin's browser (`adminPage`), for global staff's "View as". */
+  adminDashboardPage: DashboardPage;
+  /**
+   * Turns course e-mail on for the content course only (`enableCourseEmail`,
+   * through the Django admin under the admin lock), so its learners' dashboard
+   * cards offer "Email settings". Skips without an admin account.
+   */
+  courseEmailEnabled: void;
   /** The LMS-hosted course tool pages the course home links to (Bookmarks). */
   courseToolsPage: CourseToolsPage;
   /** Learner dashboard page object (`frontend-app-learner-dashboard`). */
@@ -926,6 +952,8 @@ export interface RoundTripLearner {
   readonly courseOutlinePage: CourseOutlinePage;
   /** The LMS-hosted course tool pages (Bookmarks, Updates) on this learner's page. */
   readonly courseToolsPage: CourseToolsPage;
+  /** The learner dashboard on this learner's page. */
+  readonly dashboardPage: DashboardPage;
   /** The header's notifications tray, on whatever page this learner is on. */
   readonly notificationTray: NotificationTray;
   /** The account MFE's notification preference centre. */
@@ -1403,6 +1431,7 @@ async function provisionRoundTripLearner(
     unitPage,
     courseOutlinePage: new CourseOutlinePage(page, config),
     courseToolsPage: new CourseToolsPage(page, config),
+    dashboardPage: new DashboardPage(page, config),
     notificationTray: new NotificationTray(page, config),
     notificationPreferences: new NotificationPreferencesPage(page, config),
     discussions: new DiscussionsPage(page, config),
@@ -1794,6 +1823,34 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   progressPage: pageObjectFixture(ProgressPage),
 
   courseToolsPage: pageObjectFixture(CourseToolsPage),
+
+  profilePage: pageObjectFixture(ProfilePage),
+
+  profileLearner: async ({ request, config, courseLearner }, use) => {
+    await updateAccount(request, config, courseLearner.identity.username, {
+      year_of_birth: ADULT_YEAR_OF_BIRTH,
+    });
+    await use(courseLearner);
+  },
+
+  adminDashboardPage: async ({ adminPage, config }, use) => {
+    await use(new DashboardPage(adminPage, config));
+  },
+
+  courseEmailEnabled: async ({ config, adminLms, contentCourse }, use) => {
+    await adminLms((session) => enableCourseEmail(session, config, contentCourse.courseKey));
+    await use();
+  },
+
+  profileViewer: async ({ playwright, config }, use) => {
+    const viewer = await playwright.request.newContext();
+    try {
+      const identity = await provisionLearnerSession(viewer, config);
+      await use({ request: viewer, username: identity.username });
+    } finally {
+      await viewer.dispose();
+    }
+  },
 
   dashboardPage: pageObjectFixture(DashboardPage),
 
