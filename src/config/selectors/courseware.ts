@@ -19,6 +19,36 @@ export const COURSEWARE_SELECTORS = {
   sidebar: '.outline-sidebar',
 
   /**
+   * The tray's back button in its section view — the current section's name
+   * with a left chevron; it switches the tray to the course outline view.
+   */
+  sidebarBackButton: '.outline-sidebar button.outline-sidebar-heading',
+
+  /** The course outline view's heading — "Course outline". */
+  sidebarOutlineHeading: '.outline-sidebar span.outline-sidebar-heading',
+
+  /** A section in the course outline view (a button that opens its section view). */
+  sidebarSectionRow: '#outline-sidebar-outline > li.course-sidebar-section > button',
+
+  /** A subsection in the section view: a collapsible whose trigger carries `aria-expanded`. */
+  sidebarSubsectionItem: '#outline-sidebar-outline > li:not(.course-sidebar-section)',
+
+  /** The tray's collapse control, inside the open tray. */
+  sidebarCollapse: '.outline-sidebar .outline-sidebar-toggle-btn',
+
+  /**
+   * The control that re-opens a collapsed tray: beside the unit on a desktop,
+   * in the breadcrumb row on a phone. Both carry "Toggle course outline tray".
+   */
+  sidebarExpand: '.outline-sidebar-heading-wrapper.collapsed .outline-sidebar-toggle-btn',
+
+  /** The tray in its full-screen form, below the `xl` breakpoint. */
+  sidebarFullScreen: '.outline-sidebar-wrapper.fixed-top',
+
+  /** The unit navigation's "Next" control (a button above the unit, a link below). */
+  nextUnit: '.next-button',
+
+  /**
    * The outline tray's own collapse/expand control — "Toggle course outline
    * tray".
    */

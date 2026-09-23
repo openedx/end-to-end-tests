@@ -85,6 +85,7 @@ measured, and issues are opened by hand from them.
 | `LEARN-002` | `openedx/frontend-component-header` (learning header Help link `href="null"`) | open, `test.fail` on the no-Help-link tests of TC-00020 / TC-00021 where the learning header renders (`KNOWN_CHROME_DEFECTS`)
 | `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages render mixed header generations (`KNOWN_CHROME_DEFECTS`)
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
+| `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -1833,4 +1834,23 @@ sits in running text and differs from it only by colour.
 
 **Coverage impact:** open, no `fixme`. The rule is baselined on the
 `course-bookmarks` scan only; TC-00036 passes.
+
+### `LEARN-003` — the course tabs make the courseware page wider than a phone screen
+
+**Where:** `frontend-app-learning`, the course tabs strip
+(`nav.nav-underline-tabs` in `#courseTabsNavigation`) on the course home and
+the unit pages, 375 px wide. Tutor `main`.
+
+**What happens:** at phone width the tabs strip keeps several tabs inline
+instead of folding them into its overflow menu, and measures 477 px. The page
+then scrolls sideways (`scrollWidth` 489 against a 375 px viewport). With
+mobile emulation the browser lays the page out 489 px wide to fit it, and the
+opened outline tray's heading is then hit-tested over its own collapse
+button, so a tap on the button does not reach it under Playwright.
+
+**Coverage impact:** open. TC-00056's "fits the unit to the screen" test is
+marked an expected failure at phone width (`test.fail` with the reason).
+`UnitPage.collapseSidebar` falls back to invoking the button's click handler
+when a real click cannot land, with a comment naming this finding, so the
+tray's open → collapse → navigate behaviour stays covered at phone width.
 

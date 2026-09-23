@@ -44,6 +44,13 @@ export class UnitPage {
   readonly discussionsSidebar: Locator;
   readonly discussionsFrame: FrameLocator;
   readonly bookmarkButton: Locator;
+  readonly sidebarBackButton: Locator;
+  readonly sidebarOutlineHeading: Locator;
+  readonly sidebarSections: Locator;
+  readonly sidebarSubsections: Locator;
+  readonly sidebarCollapse: Locator;
+  readonly sidebarExpand: Locator;
+  readonly sidebarFullScreen: Locator;
 
   constructor(
     private readonly page: Page,
@@ -58,6 +65,13 @@ export class UnitPage {
     this.discussionsSidebar = page.locator(COURSEWARE_SELECTORS.discussionsSidebar);
     this.discussionsFrame = page.frameLocator(COURSEWARE_SELECTORS.discussionsSidebar);
     this.bookmarkButton = page.locator(COURSEWARE_SELECTORS.bookmarkButton);
+    this.sidebarBackButton = page.locator(COURSEWARE_SELECTORS.sidebarBackButton);
+    this.sidebarOutlineHeading = page.locator(COURSEWARE_SELECTORS.sidebarOutlineHeading);
+    this.sidebarSections = page.locator(COURSEWARE_SELECTORS.sidebarSectionRow);
+    this.sidebarSubsections = page.locator(COURSEWARE_SELECTORS.sidebarSubsectionItem);
+    this.sidebarCollapse = page.locator(COURSEWARE_SELECTORS.sidebarCollapse);
+    this.sidebarExpand = page.locator(`${COURSEWARE_SELECTORS.sidebarExpand}:visible`).first();
+    this.sidebarFullScreen = page.locator(COURSEWARE_SELECTORS.sidebarFullScreen);
   }
 
   /**
@@ -235,5 +249,80 @@ export class UnitPage {
     );
     await this.bookmarkButton.click();
     return call;
+  }
+
+  /** A subsection's expand/collapse trigger in the tray's section view. */
+  subsectionToggle(index: number): Locator {
+    return this.sidebarSubsections.nth(index).locator('.collapsible-trigger');
+  }
+
+  /** The unit links a subsection lists while it is expanded. */
+  subsectionUnits(index: number): Locator {
+    return this.sidebarSubsections.nth(index).locator('.collapsible-body a[href]');
+  }
+
+  /** Whether a subsection is expanded, as its trigger reports it. */
+  async isSubsectionExpanded(index: number): Promise<boolean> {
+    return (await this.subsectionToggle(index).getAttribute('aria-expanded')) === 'true';
+  }
+
+  /** Switches the tray from its section view to the course outline view. */
+  async backToOutline(): Promise<void> {
+    await this.sidebarBackButton.click();
+    await this.sidebarOutlineHeading.waitFor();
+  }
+
+  /** Opens a section's view from the course outline view. */
+  async openSection(index: number): Promise<void> {
+    await this.sidebarSections.nth(index).click();
+    await this.sidebarBackButton.waitFor();
+  }
+
+  /** Expands or collapses a subsection in the section view. */
+  async toggleSubsection(index: number): Promise<void> {
+    const before = await this.isSubsectionExpanded(index);
+    await this.subsectionToggle(index).click();
+    await this.subsectionToggle(index)
+      .and(this.page.locator(`[aria-expanded="${String(!before)}"]`))
+      .waitFor();
+  }
+
+  /**
+   * Collapses the open tray.
+   *
+   * Workaround for `LEARN-003`: on a phone the course tabs make the page wider
+   * than the screen, the emulated mobile browser lays the page out wider to
+   * fit it, and Playwright's hit test then finds the tray's heading over its
+   * collapse button. When a real click cannot land, the button's own click
+   * handler is invoked instead, so the rest of the tray's behaviour stays
+   * covered; `sidebar-responsive.spec.ts` keeps a `test.fail` on the overflow
+   * itself.
+   */
+  async collapseSidebar(): Promise<void> {
+    try {
+      await this.sidebarCollapse.click({ timeout: TIMEOUTS.optionalOverlay });
+    } catch {
+      await this.sidebarCollapse.dispatchEvent('click');
+    }
+    await this.sidebar.waitFor({ state: 'detached' });
+  }
+
+  /** Re-opens a collapsed tray. */
+  async expandSidebar(): Promise<void> {
+    await this.sidebarExpand.click();
+    await this.sidebar.waitFor();
+  }
+
+  /** Moves to the next unit with the unit navigation and waits for it to load. */
+  async nextUnit(): Promise<void> {
+    const from = this.page.url();
+    await this.page.locator(`${COURSEWARE_SELECTORS.nextUnit}:visible`).first().click();
+    await this.page.waitForURL((url) => url.toString() !== from);
+    await this.waitForContent();
+  }
+
+  /** The unit iframe's source — what the content area is showing. */
+  async contentSource(): Promise<string | null> {
+    return this.iframe.getAttribute('src');
   }
 }
