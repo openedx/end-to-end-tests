@@ -612,3 +612,4 @@ export {
   type CourseTool,
   type CoursewareCourse,
 } from './course-home';
+export { listCourseNotes, type CourseNote } from './notes';

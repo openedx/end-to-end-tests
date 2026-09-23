@@ -261,6 +261,8 @@ registration created, always is.
 - `course-home.ts` — `fetchCourseHomeOutline`: the course home's own
   reading — the Resume target, handouts and course tools (`courseTool` picks
   one by its `analytics_id`).
+- `notes.ts` — `listCourseNotes`: the learner's notes in a course as the LMS
+  lists them from the notes service.
 - `user-tours.ts` — `fetchUserTours`: whether the course-home tour is still
   offered.
 - `enrollment.ts` `unenrollViaApi` — the dashboard's unenroll view (session +

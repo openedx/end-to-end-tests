@@ -25,6 +25,22 @@ export const COURSEWARE_SELECTORS = {
   calculatorSubmit: '.calculator form button[type="submit"]',
   calculatorResult: '.calculator form input[aria-live]',
 
+  /**
+   * The unit page's "Show Notes" / "Hide Notes" switch (learning MFE), whose
+   * state is its `aria-checked`.
+   */
+  notesToggle: '.content-tools button.trigger[role="switch"]',
+
+  /**
+   * Inside the unit iframe: a component the notes tool has made annotatable,
+   * the annotator's "add a note" button that appears over selected text, and
+   * its editor's text field and Save.
+   */
+  notesWrapper: '.edx-notes-wrapper',
+  notesAdder: '.annotator-adder button',
+  notesEditorText: '.annotator-editor textarea',
+  notesEditorSave: '.annotator-editor .annotator-save',
+
   /** The course outline tray beside the unit. */
   sidebar: '.outline-sidebar',
 
