@@ -44,6 +44,8 @@ export class UnitPage {
   readonly discussionsSidebar: Locator;
   readonly discussionsFrame: FrameLocator;
   readonly bookmarkButton: Locator;
+  readonly calculatorToggle: Locator;
+  readonly calculatorResult: Locator;
   readonly sidebarBackButton: Locator;
   readonly sidebarOutlineHeading: Locator;
   readonly sidebarSections: Locator;
@@ -65,6 +67,8 @@ export class UnitPage {
     this.discussionsSidebar = page.locator(COURSEWARE_SELECTORS.discussionsSidebar);
     this.discussionsFrame = page.frameLocator(COURSEWARE_SELECTORS.discussionsSidebar);
     this.bookmarkButton = page.locator(COURSEWARE_SELECTORS.bookmarkButton);
+    this.calculatorToggle = page.locator(COURSEWARE_SELECTORS.calculatorToggle);
+    this.calculatorResult = page.locator(COURSEWARE_SELECTORS.calculatorResult);
     this.sidebarBackButton = page.locator(COURSEWARE_SELECTORS.sidebarBackButton);
     this.sidebarOutlineHeading = page.locator(COURSEWARE_SELECTORS.sidebarOutlineHeading);
     this.sidebarSections = page.locator(COURSEWARE_SELECTORS.sidebarSectionRow);
@@ -324,5 +328,23 @@ export class UnitPage {
   /** The unit iframe's source — what the content area is showing. */
   async contentSource(): Promise<string | null> {
     return this.iframe.getAttribute('src');
+  }
+
+  /**
+   * Opens the calculator, evaluates `expression`, and returns what the LMS
+   * answered (`GET /calculate`) — the `result` the field then shows.
+   */
+  async calculate(expression: string): Promise<string> {
+    if ((await this.page.locator(COURSEWARE_SELECTORS.calculatorInput).count()) === 0) {
+      await this.calculatorToggle.click();
+    }
+    const input = this.page.locator(COURSEWARE_SELECTORS.calculatorInput);
+    await input.fill(expression);
+    const answered = this.page.waitForResponse((r) =>
+      r.url().startsWith(`${this.config.baseUrls.lms}/calculate?`),
+    );
+    await this.page.locator(COURSEWARE_SELECTORS.calculatorSubmit).click();
+    const body = (await (await answered).json()) as { result?: string };
+    return body.result ?? '';
   }
 }

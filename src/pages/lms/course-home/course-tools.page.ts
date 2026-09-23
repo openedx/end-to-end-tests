@@ -4,7 +4,8 @@ import type { AppConfig } from '../../../config';
 
 /**
  * The course tools the course home links to that are still LMS pages rather
- * than learning-MFE routes: Bookmarks (`/courses/<key>/bookmarks/`) and, later, Updates. They are reached by the link the outline
+ * than learning-MFE routes: Bookmarks (`/courses/<key>/bookmarks/`) and Updates
+ * (`/courses/<key>/course/updates`). They are reached by the link the outline
  * API gives each tool, never by a hard-coded path. Locators and single-surface
  * actions only.
  *
@@ -16,6 +17,8 @@ export class CourseToolsPage {
   readonly bookmarkRows: Locator;
   /** "You have not bookmarked any courseware pages yet". */
   readonly bookmarksEmpty: Locator;
+  /** The course updates, one `article` each (date and content). */
+  readonly updates: Locator;
 
   constructor(
     private readonly page: Page,
@@ -23,6 +26,7 @@ export class CourseToolsPage {
   ) {
     this.bookmarkRows = page.locator('a.bookmarks-results-list-item[data-usage-id]');
     this.bookmarksEmpty = page.locator('.bookmarks-empty');
+    this.updates = page.locator('article');
   }
 
   /** The row for one bookmarked unit. */
@@ -43,6 +47,12 @@ export class CourseToolsPage {
     await this.page.goto(url);
     await listed;
     await this.bookmarkRows.first().or(this.bookmarksEmpty).waitFor();
+  }
+
+  /** Opens the course Updates page at the URL the course tool gives it. */
+  async gotoUpdates(url: string): Promise<void> {
+    await this.page.goto(url);
+    await this.updates.first().waitFor();
   }
 
   /** Opens a bookmarked unit from its row and waits for the courseware to load it. */

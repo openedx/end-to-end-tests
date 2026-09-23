@@ -593,6 +593,14 @@ export interface TestFixtures {
   /** A {@link roundTripLearner} enrolled in the not-yet-started {@link WorkerFixtures.futureCourse}. */
   futureCourseLearner: RoundTripLearner;
   /**
+   * Builds a section of this test's own in the worker's video-free course
+   * (`videoFreeCourse`), for the cases that need a course the platform can
+   * estimate effort for.
+   */
+  videoFreeSection: (shape: SectionShape) => Promise<AuthoredSection>;
+  /** A fresh learner enrolled in `videoFreeCourse`, on their own contexts. */
+  videoFreeCourseLearner: RoundTripLearner;
+  /**
    * A **fresh, empty** course of this test's own (seeded with a past start date),
    * for specs that build the outline through the UI. Unlike the shared
    * {@link WorkerFixtures.contentCourse}, its outline holds only what the test
@@ -916,6 +924,8 @@ export interface RoundTripLearner {
   readonly unitPage: UnitPage;
   /** Course-home outline page object bound to this learner's page. */
   readonly courseOutlinePage: CourseOutlinePage;
+  /** The LMS-hosted course tool pages (Bookmarks, Updates) on this learner's page. */
+  readonly courseToolsPage: CourseToolsPage;
   /** The header's notifications tray, on whatever page this learner is on. */
   readonly notificationTray: NotificationTray;
   /** The account MFE's notification preference centre. */
@@ -1083,6 +1093,14 @@ export interface WorkerFixtures {
    * paste. One per worker.
    */
   futureCourse: AuthoredCourse;
+  /**
+   * A worker course that never holds a video, started in the past: the course
+   * home's effort estimates (TC-00027) are computed for a whole course only when
+   * every video in it has a duration, and the suite's authored videos have none,
+   * so estimates need a course with no video at all. Built lazily, only by
+   * workers that run a spec asking for it.
+   */
+  videoFreeCourse: AuthoredCourse;
   /**
    * One course per worker set up so certificates can be issued: start in the
    * past, end in the future, certificates shown as soon as earned
@@ -1384,6 +1402,7 @@ async function provisionRoundTripLearner(
     page,
     unitPage,
     courseOutlinePage: new CourseOutlinePage(page, config),
+    courseToolsPage: new CourseToolsPage(page, config),
     notificationTray: new NotificationTray(page, config),
     notificationPreferences: new NotificationPreferencesPage(page, config),
     discussions: new DiscussionsPage(page, config),
@@ -2096,6 +2115,31 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     },
     // Around ten Studio/LMS writes on top of the create.
     { scope: 'worker', timeout: TIMEOUTS.studioSetup * 3 },
+  ],
+
+  videoFreeCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}E`,
+        'video-free',
+      );
+      await use(
+        await provisionWorkerCourse(
+          playwright,
+          workerAuthor,
+          identity,
+          async (request, courseKey) => {
+            await updateCourseDetails(request, config, courseKey, {
+              start_date: CONTENT_COURSE_START,
+            });
+          },
+        ),
+      );
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
   ],
 
   futureCourse: [
@@ -2924,6 +2968,44 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       oraUsageKey,
       displayName,
     });
+  },
+
+  videoFreeSection: async (
+    { page, config, videoFreeCourse, studioAuthorSession },
+    use,
+    testInfo,
+  ) => {
+    void studioAuthorSession;
+    // Built on the author's browser session: creating the worker course can
+    // leave a separate request context without a live Studio session, and the
+    // browser session is the one `studioAuthorSession` keeps alive.
+    let ordinal = 0;
+    await use(async (shape) => {
+      ordinal += 1;
+      return buildWithAuthorWriteSession(page.request, config, () =>
+        buildSection(
+          page.request,
+          config,
+          videoFreeCourse.courseKey,
+          sectionLabel(testInfo, ordinal),
+          shape,
+        ),
+      );
+    });
+  },
+
+  videoFreeCourseLearner: async ({ playwright, browser, config, videoFreeCourse }, use) => {
+    const learner = await provisionRoundTripLearner(
+      playwright,
+      browser,
+      config,
+      videoFreeCourse.courseKey,
+    );
+    try {
+      await use(learner);
+    } finally {
+      await disposeRoundTripLearner(learner);
+    }
   },
 
   futureCourseLearner: async ({ playwright, browser, config, futureCourse }, use) => {

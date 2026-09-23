@@ -1,6 +1,15 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { COURSE_HOME_SELECTORS, TIMEOUTS, courseToolLink, type AppConfig } from '../../../config';
+import type { FrameLocator } from '@playwright/test';
+
+import {
+  COURSE_HOME_SELECTORS,
+  TIMEOUTS,
+  courseHomeFragmentHolding,
+  courseToolLink,
+  subsectionEffort,
+  type AppConfig,
+} from '../../../config';
 
 /**
  * Course home: the outline tab a learner lands on. Locators and single-surface
@@ -16,6 +25,7 @@ export class CourseOutlinePage {
   readonly resumeLink: Locator;
   readonly tourCheckpoint: Locator;
   readonly tourLaunch: Locator;
+  readonly courseTabs: Locator;
 
   constructor(
     private readonly page: Page,
@@ -30,6 +40,7 @@ export class CourseOutlinePage {
     this.resumeLink = page.locator(COURSE_HOME_SELECTORS.resumeLink);
     this.tourCheckpoint = page.locator(COURSE_HOME_SELECTORS.tourCheckpoint);
     this.tourLaunch = page.locator(COURSE_HOME_SELECTORS.tourLaunch);
+    this.courseTabs = page.locator(COURSE_HOME_SELECTORS.courseTab);
   }
 
   url(courseKey: string): string {
@@ -39,6 +50,16 @@ export class CourseOutlinePage {
   async goto(courseKey: string): Promise<void> {
     await this.page.goto(this.url(courseKey));
     await this.sectionTriggers.first().waitFor();
+  }
+
+  /**
+   * Opens the course home and waits for its tabs, for a course whose outline
+   * may hold no section the learner can see yet (a fresh worker course): the
+   * tabs render either way, the section list does not.
+   */
+  async gotoHome(courseKey: string): Promise<void> {
+    await this.page.goto(this.url(courseKey));
+    await this.courseTabs.first().waitFor({ timeout: TIMEOUTS.navigation });
   }
 
   /**
@@ -126,5 +147,36 @@ export class CourseOutlinePage {
   async resume(): Promise<void> {
     await this.resumeLink.click();
     await this.page.waitForURL((url) => url.pathname.includes('/block-v1:'));
+  }
+
+  /** The absolute URLs the course's tabs link to, in order. */
+  async tabUrls(): Promise<readonly string[]> {
+    await this.courseTabs.first().waitFor();
+    const base = this.page.url();
+    return (
+      await this.courseTabs.evaluateAll((tabs) => tabs.map((tab) => tab.getAttribute('href') ?? ''))
+    ).map((href) => new URL(href, base).toString());
+  }
+
+  /** The course-home fragment (handouts, welcome message) whose HTML holds `text`. */
+  fragmentHolding(text: string): { readonly frame: Locator; readonly content: FrameLocator } {
+    const selector = courseHomeFragmentHolding(text);
+    return { frame: this.page.locator(selector), content: this.page.frameLocator(selector) };
+  }
+
+  /**
+   * The minutes of the effort estimate shown beside a subsection, read as the
+   * number it displays ("5 min"), or `undefined` when none is shown. Expands
+   * every section first, so the subsection is listed.
+   */
+  async effortMinutes(sequenceId: string): Promise<number | undefined> {
+    const effort = this.page.locator(subsectionEffort(sequenceId));
+    if ((await this.expandedSectionTriggers.count()) < (await this.sectionTriggers.count())) {
+      await this.toggleAllSections();
+    }
+    await this.page.locator(`a[href$="/${sequenceId}"]`).waitFor();
+    if ((await effort.count()) === 0) return undefined;
+    const digits = /\d+/.exec(await effort.first().innerText());
+    return digits === null ? undefined : Number(digits[0]);
   }
 }

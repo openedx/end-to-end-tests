@@ -438,6 +438,7 @@ export {
 export { createTextbook, fetchTextbooks, type Textbook, type TextbookChapter } from './textbooks';
 export {
   createCourseUpdate,
+  updateHandouts,
   fetchCourseUpdates,
   fetchHandouts,
   type CourseUpdate,
@@ -605,6 +606,9 @@ export { fetchUserTours, type CourseHomeTourStatus, type UserTours } from './use
 export {
   courseTool,
   fetchCourseHomeOutline,
+  fetchCoursewareCourse,
+  type CourseHomeBlock,
   type CourseHomeOutline,
   type CourseTool,
+  type CoursewareCourse,
 } from './course-home';
