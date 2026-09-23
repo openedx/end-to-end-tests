@@ -576,11 +576,13 @@ export {
   ADULT_YEAR_OF_BIRTH,
   fetchAccount,
   fetchPreferences,
+  listLearnerCertificates,
   updateAccount,
   updatePreferences,
   type Account,
   type AccountPatch,
   type EducationLevel,
+  type LearnerCertificate,
   type Preferences,
   type SocialLink,
   type SocialPlatform,
@@ -615,3 +617,16 @@ export {
 } from './course-home';
 export { listCourseNotes, type CourseNote } from './notes';
 export { enableCourseEmail } from './bulk-email-admin';
+export {
+  AUTO_CERTIFICATE_GENERATION_SWITCH,
+  fetchWaffleSwitch,
+  setWaffleSwitch,
+} from './waffle-switch';
+export {
+  createTeam,
+  fetchTeam,
+  joinTeam,
+  listTeamThreadIds,
+  listTeamsOf,
+  type Team,
+} from './teams';

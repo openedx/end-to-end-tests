@@ -21,7 +21,9 @@ export {
 export { satisfyPrerequisiteByScore, submitProblem } from './gating';
 export {
   ensureDataResearcher,
+  earnCertificate,
   mintCertificateByException,
+  passCertificateCourse,
   waitForInstructorTask,
   waitForLearnerProgress,
   waitForReport,
