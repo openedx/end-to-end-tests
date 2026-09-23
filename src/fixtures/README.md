@@ -114,4 +114,10 @@ Rules:
   discussions MFE loaded before that offers no topic and cannot post.
   `forumUnit` adds a published unit and waits for its in-context topic;
   `oraUnit` adds a unit with a staff-graded ORA (`@ora`).
+- **Platform-wide state one case changes and others rely on takes a named
+  lock.** `named-lock.ts` is a cross-worker reader/writer lock with a
+  heartbeat (`withSharedLock` / `withExclusiveLock`): the cases that need the
+  state left alone hold it shared, the case that changes it holds it
+  exclusive. It is always taken *outside* `withAdminSession`, which stays the
+  inner lock around the admin write itself.
 - This is the only layer that reaches across all the others.

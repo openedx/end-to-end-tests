@@ -238,3 +238,30 @@ outcome").
   `countAdminResultRows`, and `assertAdminPage` — which is what stops an
   **evicted** Django session from reading as an empty list, since `/admin/…`
   answers a logged-out caller with a 302 the request context follows to a 200.
+
+### Learner clients
+
+The learner's side of the platform, each call on the learner's **own**
+context (Epic 14). Several of these views are session-only, so a JWT-only
+context is not enough — the learner's signed-in context, whose session
+registration created, always is.
+
+- `accounts.ts` — `fetchAccount` / `updateAccount` (merge-patch) and
+  `fetchPreferences` / `updatePreferences`: the profile's and Account
+  Settings' oracle. A privacy setting is proven by a **second** user's
+  `fetchAccount`; a profile stays private until it has an adult year of birth
+  (`ADULT_YEAR_OF_BIRTH`). `bio: null` is a 500 — clear it with `""`.
+- `bookmarks.ts` — `listBookmarks` / `addBookmark` / `removeBookmark`: session
+  or Bearer only (a JWT alone is a 401).
+- `completion.ts` — `recordCompletion` (the learner's own `completion-batch`,
+  which fixes a resume point) and `fetchResumePoint`.
+- `learner-home.ts` — `fetchLearnerHome` (the dashboard's cards, e-mail
+  settings state; `{ user }` is global staff's "View as", a 403 otherwise) and
+  `setCourseEmailOptIn`.
+- `user-tours.ts` — `fetchUserTours`: whether the course-home tour is still
+  offered.
+- `enrollment.ts` `unenrollViaApi` — the dashboard's unenroll view (session +
+  CSRF), for setup and cleanup.
+- `mfe-config.ts` `fetchChromeConfig` — the values a page's header and footer
+  are built from, narrowed to one `ChromeConfig` whether the page is a legacy
+  MFE (`mfe_config`) or the frontend-base shell (`frontend_site_config`).

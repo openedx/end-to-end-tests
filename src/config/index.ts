@@ -25,6 +25,14 @@ export { registrableDomain } from './domain';
 export { importPluginModule, instantiatePluginExport } from './plugin-module';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
+export {
+  A11Y_VIEWPORTS,
+  RESPONSIVE_VIEWPORTS,
+  VIEWPORTS,
+  viewportUse,
+  type ViewportName,
+  type ViewportSpec,
+} from './viewports';
 export { RUN_ID_ENV, getRunId } from './run-id';
 export {
   ACCOUNT_MENU_SELECTORS,
