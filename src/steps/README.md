@@ -26,6 +26,12 @@ can reuse — e.g.:
   `waitForLearnerBlock` (a learner's outline lists a block), each returning its
   last reading rather than throwing. The course-side import itself is the
   single API call `importLibraryContent` (`src/api/library-sync.ts`).
+- `notifications.ts` — `waitForNotification(recipient, config, match)` (the
+  recipient's own list, polled under `notificationDelivery`, returning the match
+  and every row read), `aboutThread(type, threadId)` (the grouping-safe match:
+  a row's `content_url`, not its `thread_id`, names the thread it is about now)
+  and `checkNotificationAbsent` (the sentinel rule: absence is read only after
+  the same notification has reached a sentinel).
 - `poll.ts` — `pollUntil` and `PollOutcome`, the bounded poll the instructor and
   library waits share: re-read every second until satisfied or out of budget,
   never throwing, so a spec's failure names the last reading.

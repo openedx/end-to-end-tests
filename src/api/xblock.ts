@@ -259,6 +259,12 @@ export interface UpdateXBlockOptions {
    * already published (what the unit page's visibility toggle sends).
    */
   readonly publish?: 'make_public' | 'republish' | 'discard_changes';
+  /**
+   * Arbitrary XBlock fields, set by name (`_save_xblock` does a `setattr` per
+   * key) — for blocks whose settings are fields rather than metadata or OLX,
+   * such as an ORA's `rubric_assessments`.
+   */
+  readonly fields?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -335,6 +341,7 @@ export async function updateXBlock(
       ...(options.metadata === undefined ? {} : { metadata: options.metadata }),
       ...(options.data === undefined ? {} : { data: options.data }),
       ...(options.publish === undefined ? {} : { publish: options.publish }),
+      ...(options.fields === undefined ? {} : { fields: options.fields }),
     },
   );
 }
