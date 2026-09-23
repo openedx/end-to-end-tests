@@ -64,9 +64,12 @@ import {
   ensureDataResearcher,
   probeMigrationMode,
   seedTaxonomy,
+  knownChromeDefects,
+  readPageChrome,
   submitProblem,
   taxonomyImportFile,
   type AuthoredLibrary,
+  type PageChrome,
   type MigrationMode,
   type MigrationModeProbe,
 } from '../steps';
@@ -176,6 +179,10 @@ import {
 import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
+import { CatalogHomePage } from '../pages/lms/catalog/catalog-home.page';
+import { FooterBlock } from '../pages/lms/chrome/footer.block';
+import { HeaderBlock } from '../pages/lms/chrome/header.block';
+import { testIdsFromAnnotations } from '../reporting/test-id';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
 import { CourseOutlinePage } from '../pages/lms/course-home/course-outline.page';
 import { ProgressPage } from '../pages/lms/course-home/progress.page';
@@ -220,6 +227,21 @@ export interface TestFixtures {
   capabilityGate: void;
   /** Catalog MFE page object (`frontend-app-catalog`). */
   catalogPage: CatalogPage;
+  /** The catalog MFE's home — the public landing page. */
+  catalogHomePage: CatalogHomePage;
+  /** The page header, whichever frontend generation renders it. */
+  siteHeader: HeaderBlock;
+  /** The page footer, whichever frontend generation renders it. */
+  siteFooter: FooterBlock;
+  /**
+   * The landing page opened for a signed-out visitor, with the generation of
+   * frontend that rendered its chrome and the configuration behind it. A chrome
+   * defect known for that generation and layout (`KNOWN_CHROME_DEFECTS`) marks
+   * the test as an expected failure here, for the cases it breaks — so specs
+   * stay free of generation checks, and a marker lifts itself when the page
+   * moves to a frontend without the defect.
+   */
+  publicChrome: PageChrome;
   /** Course About page object. */
   courseAboutPage: CourseAboutPage;
   /** Courseware unit page object (`frontend-app-learning`). */
@@ -1653,6 +1675,31 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { auto: true },
   ],
   catalogPage: pageObjectFixture(CatalogPage),
+
+  catalogHomePage: pageObjectFixture(CatalogHomePage),
+
+  siteHeader: async ({ page }, use) => {
+    await use(new HeaderBlock(page));
+  },
+
+  siteFooter: async ({ page }, use) => {
+    await use(new FooterBlock(page));
+  },
+
+  publicChrome: async ({ page, request, config, catalogHomePage, siteHeader }, use, testInfo) => {
+    await catalogHomePage.goto();
+    const pageChrome = await readPageChrome(page, siteHeader, request, config);
+    const defects = knownChromeDefects(
+      {
+        generation: pageChrome.generation,
+        viewportWidth: page.viewportSize()?.width ?? 0,
+        signedIn: false,
+      },
+      testIdsFromAnnotations(testInfo.annotations),
+    );
+    for (const defect of defects) testInfo.fail(true, defect.reason);
+    await use(pageChrome);
+  },
 
   courseAboutPage: pageObjectFixture(CourseAboutPage),
 

@@ -12,6 +12,12 @@ const PAGINATION_ARROWS = '[data-testid="table-footer"] nav.pagination-minimal u
  * `src/config/selectors/README.md`.
  */
 export const CATALOG_SELECTORS = {
+  /**
+   * The catalog home's banner — the landing page's "Welcome to {site}" hero,
+   * which holds the home search field. What a landing-page load waits on.
+   */
+  homeBanner: '[data-testid="home-banner"]',
+
   /** A single course result. Its `href` carries the course key and `/about`. */
   courseCard: '[data-testid="course-card"]',
 
