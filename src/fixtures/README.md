@@ -96,4 +96,22 @@ Rules:
   their learner from the deferred `roundTripLearnerLater` /
   `authoringCourseLearnerLater`; `ownSection` / `authorSection` build first and
   handshake only on a 302 (`buildWithAuthorWriteSession`).
+- **Notification recipients are fresh; the other actors are a cast.**
+  `notificationRecipient(options)` provisions a new learner in `contentCourse`
+  per call (preferences set first when given), because what a recipient has
+  received is the assertion and preferences are per user; call it twice for a
+  subject and a sentinel. `forumCast('poster' | 'moderator')` is one account per
+  part per worker (the `rbacCast` rule: a part is a role); the moderator is
+  granted `Moderator` by the worker author and confirmed from its own session.
+  Every learner carries `notificationTray`, `notificationPreferences`,
+  `discussions` and `sidebarDiscussions` (the same MFE in the in-unit sidebar)
+  page objects bound to its page; `notificationTray` alone is the author's, on
+  the test's `page`, for staff recipients. `mailboxLearner(options)` is a
+  `notificationRecipient` registered at a fresh inbox of the configured mailbox
+  provider, which it also hands over (`@email-inbox` specs only).
+- **The forum UI needs the topic sync.** `forumCourse` is `contentCourse` once
+  its topic list names `course` (polled under `contentPublish`); the
+  discussions MFE loaded before that offers no topic and cannot post.
+  `forumUnit` adds a published unit and waits for its in-context topic;
+  `oraUnit` adds a unit with a staff-graded ORA (`@ora`).
 - This is the only layer that reaches across all the others.

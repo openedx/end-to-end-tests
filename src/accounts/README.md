@@ -185,6 +185,12 @@ are deleted as leftovers of an interrupted run before retrying.
 `tests/accounts/openinbox.spec.ts` tests it with a stubbed request context,
 so no key and no network are needed to run the suite's own tests.
 
+The same module also exports a **mailbox provider** (`mailProvider`), so one
+openinbox key serves both activation and the `email-inbox` coverage; see
+[`src/mail/README.md`](../mail/README.md). The backend keeps its own polling
+(it reads the listing's preview before fetching a message), so its behaviour is
+unchanged by that addition.
+
 The paths are checked for existence at config load; the modules themselves are
 loaded by `plugin-loader.ts` and registered by `AccountPluginRegistry` — in global
 setup (so a broken plugin or an unknown `ACCOUNT_BACKEND` fails the run up front)

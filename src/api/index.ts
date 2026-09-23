@@ -516,3 +516,46 @@ export {
   type WaffleOverrideChoice,
   type WaffleOverrideInput,
 } from './waffle';
+export { lmsGet, lmsWrite } from './lms-json';
+export {
+  NOTIFICATION_APPS,
+  fetchNotificationCount,
+  fetchNotificationPreferences,
+  listNotifications,
+  markNotificationsRead,
+  markNotificationsSeen,
+  setEmailCadence,
+  setNotificationPreference,
+  type EmailCadence,
+  type NotificationApp,
+  type NotificationAppPreferences,
+  type NotificationCount,
+  type NotificationPage,
+  type NotificationPreferences,
+  type NotificationTypePreference,
+  type PlatformNotification,
+} from './notifications';
+export {
+  GENERAL_TOPIC_ID,
+  createComment,
+  createThread,
+  deleteThread,
+  fetchDiscussionCourse,
+  listDiscussionTopics,
+  listThreads,
+  uniquePostTitle,
+  updateComment,
+  updateThread,
+  type DiscussionComment,
+  type DiscussionCourse,
+  type DiscussionThread,
+  type DiscussionTopic,
+} from './discussions';
+export {
+  ORA_POINTS_POSSIBLE,
+  authorStaffGradedOra,
+  listOraSubmissions,
+  staffAssessOra,
+  submitOraResponse,
+  type OraSubmission,
+} from './ora';

@@ -73,6 +73,12 @@ measured, and issues are opened by hand from them.
 | `INSTR-003` | `openedx/edx-platform` (`grading-config` is an HTML dump)     | open, no `fixme` — the suite reads the grading policy API instead
 | `INSTR-004` | `openedx/edx-platform` (course-home dates API omits a graded subsection) | open, no `fixme` — date extensions are asserted through `progress`
 | `INSTR-005` | `openedx/frontend-app-instructor` (prohibited ARIA attribute) | open, no `fixme` — baselined on the instructor scans only
+| `NOTIF-001` | `openedx/edx-platform` (`v3/configurations/` PUT, e-mail cadence) | open, no `fixme` — the client always sends `notification_channel`
+| `NOTIF-002` | `edx-ora2` (staff grader `initialize` as a learner)           | open, no `fixme` — not asserted; the suite only calls it as staff
+| `NOTIF-003` | `openedx/frontend-app-account` (preference switches have no names) | **filed** - [#1464](https://github.com/openedx/frontend-app-account/issues/1464) (tracked here as [#49](https://github.com/openedx/end-to-end-tests/issues/49)), a11y `label` baselined on the preference-centre scan only; TC-00472 passes
+| `NOTIF-004` | `openedx/edx-platform` (`send_email_digest` is a no-op)       | open, `fixme` + `knownGap` on TC-00478 / TC-00480
+| `DISC-001`  | `openedx/frontend-app-discussions` (post list ARIA)           | open, no `fixme` — two axe rules baselined on the discussions scans only
+| `DISC-002`  | `openedx/forum` (DELETE of a missing thread)                  | open, no `fixme` — suite deletes each thread once
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -1625,3 +1631,90 @@ running. It now asserts the **topics**, which every build renders; whether a
 topic links out depends on the installation's docs URLs, and a deployment-agnostic
 suite cannot require them. The Settings tab's links are a different thing — MFE
 routes, not docs — and are still asserted.
+
+### `NOTIF-001` — a cadence change without a channel answers 500
+
+**Where:** `PUT /api/notifications/v3/configurations/`, `main`.
+
+**What happens:** the serializer accepts a body with `email_cadence` and no
+`notification_channel`, and the view then reads
+`validated_data['notification_channel']`: a `KeyError` in
+`_prepare_update_data`, answered as a bare 500. The account MFE always sends
+`notification_channel: "email_cadence"`, so it is only reachable through the
+API; a 400 naming the missing field is the expected answer.
+
+**Coverage impact:** open, no `fixme`. `setEmailCadence` always sends the
+channel, and its doc comment names this finding.
+
+### `NOTIF-002` — the ORA staff grader answers a learner with 500, not 403
+
+**Where:** `GET /api/ora_staff_grader/initialize?oraLocation=…` (edx-ora2
+7.1.1), `main`.
+
+**What happens:** called by a learner, the view answers **500** with
+`{"error": "ERR_INTERNAL", "handler": "list_staff_workflows", "details": "…You
+do not have permission to access ORA staff grading…"}`. The permission check
+works; it is reported as a server error instead of a refusal.
+
+**Coverage impact:** open, no `fixme`. The suite only calls it as course staff
+(to find a submission's uuid for `staffAssessOra`).
+
+### `NOTIF-003` — the preference centre's switches have no accessible names
+
+**Where:** `frontend-app-account`, the `#notifications` section of Account
+Settings, `main`.
+
+**What happens:** every preference switch (`input[role="switch"]`,
+`toggle-<type>-<channel>`) is paired with an **empty** `<label for=…>`, so axe
+reports `label` (critical) on all fourteen of a plain learner's switches. A
+screen reader announces each only as "switch".
+
+**Coverage impact:** filed as
+[frontend-app-account#1464](https://github.com/openedx/frontend-app-account/issues/1464)
+(tracked here as [#49](https://github.com/openedx/end-to-end-tests/issues/49)),
+no `fixme`. `label` is baselined for the preference centre's scan only
+(`NOTIFICATION_PREFERENCES_A11Y_BASELINE`); TC-00472 passes.
+
+### `NOTIF-004` — `send_email_digest` no longer sends digests
+
+**Where:** `openedx/core/djangoapps/notifications/management/commands/send_email_digest.py`,
+`release/verawood` and `main`.
+
+**What happens:** `handle()` emits a `DeprecationWarning` and returns. Digests
+are now Celery tasks scheduled with `eta` at a clock time
+(`NOTIFICATION_DAILY_DIGEST_DELIVERY_HOUR/MINUTE`, 17:00 UTC by default;
+weekly on `NOTIFICATION_WEEKLY_DIGEST_DELIVERY_DAY`). That is a behaviour change,
+not a bug, but the BTR sheet's digest cases (TC-00478, TC-00480, both "In
+progress / Awaiting result", wg-btr#611) assume a digest can be produced on
+demand, and nothing in a run can do that now.
+
+**Coverage impact:** both cases are written to the intended behaviour and held
+with a declarative `fixme` and `knownGap` in `email-digest.spec.ts`, so the
+results sheet shows the reason. A target that set its delivery time a few
+minutes into a run could run them; the suite does not.
+
+### `DISC-001` — the discussions post list is not a valid ARIA list
+
+**Where:** `frontend-app-discussions`, the post list, `main`.
+
+**What happens:** the list is `<div role="list">` whose rows are `<a
+role="option">`, so axe reports `aria-required-children` (a list with no list
+items) and `aria-required-parent` (options outside a listbox), both critical.
+
+**Coverage impact:** open, no `fixme`. Both rules are baselined for the
+discussions scans only (`DISCUSSIONS_A11Y_BASELINE`); TC-00030 and TC-00311
+pass.
+
+### `DISC-002` — deleting a thread that no longer exists answers 500
+
+**Where:** `DELETE /api/discussion/v1/threads/<id>/` with `openedx-forum` (MySQL
+backend), `main`.
+
+**What happens:** once a thread is deleted, a second `DELETE` of it raises
+`forum.utils.ForumV2RequestError: Thread does not exist with Id: <id>` (from
+`get_thread` → `validate_object`), which the LMS answers as a bare **500**. A
+404 is the expected answer for a resource that is not there.
+
+**Coverage impact:** open, no `fixme`. `deleteThread` is not idempotent and says
+so; specs delete each thread exactly once, and TC-00029, whose last step deletes
+its own post through the UI, has no teardown delete.

@@ -406,6 +406,34 @@ jobs:
           """
               )
           )
+
+          # Mailpit (Epic 13, the email-inbox capability): the platform's mail
+          # goes to a catcher on the runner instead of Tutor's exim relay, which
+          # delivers straight to recipients' MX on port 25 -- blocked outbound
+          # on GitHub-hosted runners. The suite reads it through
+          # plugins/mailpit.plugin.ts at http://localhost:8025. The same service
+          # and SMTP overrides as tutor-contrib-mailpit, whose own patch only
+          # targets `tutor dev`.
+          hooks.Filters.ENV_PATCHES.add_item(
+              (
+                  "local-docker-compose-services",
+                  """
+          mailpit:
+            image: docker.io/axllent/mailpit:v1.30.7
+            restart: unless-stopped
+            ports:
+              - 8025:8025
+              - 1025:1025
+            environment:
+              MP_MAX_MESSAGES: 5000
+              MP_SMTP_AUTH_ACCEPT_ANY: 1
+              MP_SMTP_AUTH_ALLOW_INSECURE: 1
+          """
+              )
+          )
+          hooks.Filters.CONFIG_OVERRIDES.add_items(
+              [("RUN_SMTP", False), ("SMTP_HOST", "mailpit"), ("SMTP_PORT", 1025)]
+          )
           EOF
           tutor plugins enable e2e_test
           tutor config save
@@ -486,6 +514,9 @@ jobs:
           capabilities: ${{ inputs.capabilities != '' && inputs.capabilities || steps.release.outputs.capabilities }}
           admin_username: ${{ env.ADMIN_USERNAME }}
           admin_password: ${{ env.ADMIN_PASSWORD }}
+          mail_provider: mailpit
+          mail_provider_plugins: ./plugins/mailpit.plugin.ts
+          mailpit_base_url: http://localhost:8025
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}
           # Always exclude the `@unit` project: those are pure-logic tests that

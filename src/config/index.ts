@@ -22,6 +22,7 @@ export {
   isAccountBackendName,
 } from './account-backends';
 export { registrableDomain } from './domain';
+export { importPluginModule, instantiatePluginExport } from './plugin-module';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
 export { RUN_ID_ENV, getRunId } from './run-id';
@@ -41,6 +42,9 @@ export {
   PROGRESS_SELECTORS,
   progressTabLink,
   DASHBOARD_SELECTORS,
+  DISCUSSIONS_SELECTORS,
+  NOTIFICATION_PREFERENCES_SELECTORS,
+  NOTIFICATION_TRAY_SELECTORS,
   COURSE_HOME_SELECTORS,
   STUDIO_HOME_SELECTORS,
   STUDIO_OUTLINE_SELECTORS,

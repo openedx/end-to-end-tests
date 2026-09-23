@@ -49,6 +49,24 @@ Contains:
   passing threshold, completion counts — the numeric answers the course-home
   specs assert on.
 - `errors.ts` — `ApiError`, carrying status/url/body for actionable failures.
+- `lms-json.ts` — `lmsJson` / `lmsGet` / `lmsWrite`: the LMS JSON-API plumbing
+  (an `ApiError` naming the action on a non-2xx or non-JSON answer; the CSRF
+  header on writes; `mergePatch` for the discussion API's `PATCH`), the LMS
+  counterpart of `studioJson` / `studioWrite`.
+- `notifications.ts` — the recipient's notifications (verawood onward): the
+  list (`listNotifications`, filterable by app), the unseen `count/`, **seen**
+  (`markNotificationsSeen`, what opening a tray tab sends and all `count/`
+  counts) versus **read** (`markNotificationsRead`, which clears a row's dot
+  only), and the v3 preferences — per user, not per course
+  (`fetchNotificationPreferences`, `setNotificationPreference`,
+  `setEmailCadence`).
+- `discussions.ts` — the course forum (`openedx` provider): the course's
+  discussion settings and the caller's forum roles (`fetchDiscussionCourse`,
+  the reading a moderator grant is verified by), topics, threads (created
+  **following** by default, because the platform notifies an author only of
+  threads it follows), search (`listThreads` with `textSearch`, indexed
+  asynchronously), responses and comments, and the `PATCH`es that follow, vote,
+  report, endorse and edit.
 
 ### Studio clients
 

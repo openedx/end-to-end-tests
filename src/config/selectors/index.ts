@@ -12,6 +12,8 @@ export {
 export { CAPA_SELECTORS } from './capa';
 export { PROGRESS_SELECTORS, progressTabLink } from './progress';
 export { DASHBOARD_SELECTORS } from './dashboard';
+export { DISCUSSIONS_SELECTORS } from './discussions';
+export { NOTIFICATION_PREFERENCES_SELECTORS, NOTIFICATION_TRAY_SELECTORS } from './notifications';
 export { COURSE_HOME_SELECTORS } from './course-home';
 export { STUDIO_HOME_SELECTORS } from './studio-home';
 export { STUDIO_OUTLINE_SELECTORS, STUDIO_SHELL_SELECTORS } from './studio-shell';

@@ -357,6 +357,49 @@ waffle override, an admin account.
   scope's roles, so the transition cases build their own course (or
   organization) and roll it back when they end.
 
+## Notifications and discussions
+
+The `tests/lms/notifications/` and `tests/lms/discussions/` trees cover the
+notifications tray, the preference centre, notification e-mail and the course
+forum. They run in `studio-author`: the worker author is the course's
+instructor and staff, the actor behind notify-all posts, course updates and ORA
+grades. A few rules keep them honest.
+
+- **The recipient is fresh; the other actors are a cast.** What a recipient has
+  received is the assertion, and preferences are per user, so every case takes
+  a new learner from `notificationRecipient()` (or `mailboxLearner()`). The
+  learners who post, respond or moderate are `forumCast('poster' |
+'moderator')`, one account per part per worker (the `rbacCast` rule).
+- **The recipient's own list decides; the tray is the second reading.**
+  `waitForNotification` polls the recipient's `/api/notifications/` under
+  `notificationDelivery` and returns the row it matched and every row it read.
+  The spec then shows that row in the tray (`notificationTray.row(id)`).
+- **Match on the test's own content, never on "the newest row".**
+  Notifications for posts, notify-all posts and course updates fan out to every
+  enrolled learner, and the list has no course filter. Match a forum type with
+  `aboutThread(type, threadId)`: it uses the row's link, because a merged row
+  keeps the older post's `thread_id`. Match ORA types with `aboutOra`, and a
+  course update by its unique text.
+- **Absence needs a sentinel.** "Nothing arrives" cannot be shown by waiting a
+  fixed time. `checkNotificationAbsent` waits until a second recipient has
+  received the same notification, and only then reads the subject's list. The
+  mail version waits for the sentinel's mail, then reads the subject's inbox
+  once.
+- **Seen and read are different states.** Opening a tray tab sends `mark-seen`,
+  which is all the unseen count counts. Clicking a row or "Mark all as read"
+  sends `read`, which clears unread dots and leaves the count alone.
+- **Preconditions are preferences.** New posts and questions are off in the tray
+  by default; the sheet's "Given I've turned ON …" is a preference the case sets
+  first. Threads are created **following** (`createThread`'s default), because
+  the platform notifies an author only of threads they follow.
+- **The forum UI needs the topic sync.** A fresh course's topic list is filled
+  by a task after creation, and the discussions MFE loaded before it cannot
+  post. Take `forumCourse`, or `forumUnit` for an in-context topic.
+- **Mail is an opt-in oracle.** Cases whose assertion is the mail itself carry
+  `@email-inbox` and take `mailboxLearner`. A mail is recognised by what it
+  links to (`linkingTo`), never by its copy. Only a learner's first immediate
+  mail is sent at once, so each case waits for exactly one mail per learner.
+
 ## Tags
 
 Domain decides the folder; everything else is a tag. Tags drive Playwright
@@ -371,8 +414,9 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   the `capabilityGate` fixture in `src/fixtures/` reads each test's own tags and
   skips it where that capability is not enabled, so the tag is the whole of the
   contract — while any other tag is only a filter. Most capabilities are off until
-  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces, currently `mfe-authn`
-  and `frontend-base`) are on unless turned off with a `-` prefix.
+  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces: `mfe-authn`,
+  `frontend-base`, `instructor-dashboard`, `discussions` and `notifications`) are
+  on unless turned off with a `-` prefix.
 
   `@frontend-base` marks coverage that only makes sense in the `frontend-base`
   shell (`main` onward): its chrome's a11y debt, markup only it renders. It is

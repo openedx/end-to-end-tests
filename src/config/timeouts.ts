@@ -174,4 +174,37 @@ export const TIMEOUTS = {
    * migration run's status and returns its last reading on failure.
    */
   rbacMigration: 30_000,
+
+  /**
+   * Budget for a notification to reach its recipient's list after the action
+   * that causes it — a forum post or response, a notify-all post, a course
+   * update, an ORA submission or staff grade. The platform fans out on a Celery
+   * task (the LMS worker for forum and ORA events, the CMS worker for course
+   * updates): measured 2026-09-23 on an idle Tutor `main`, every type arrived in
+   * 0.26–0.5 s. CI shares both workers with publishing, whose fan-out already
+   * runs 25–35 s there, so this is headroom for the task to be picked up late.
+   * Readings poll under it and report the rows they last saw.
+   */
+  notificationDelivery: 60_000,
+
+  /**
+   * Budget for a forum post (or its deletion) to be reflected in the discussion
+   * API's `text_search`. The forum indexes into Meilisearch on write and
+   * Meilisearch applies it asynchronously: measured 2026-09-23 on an idle Tutor
+   * `main`, a new post was found on the first query. This is headroom for a
+   * busy search service; readings poll under it.
+   */
+  forumSearch: 30_000,
+
+  /**
+   * Budget for a notification e-mail to reach the suite's mailbox after the
+   * action that causes it: the notification fan-out, an edx-ace send over SMTP,
+   * and the provider's API seeing it. Measured 2026-09-24 on Tutor `main` with
+   * Mailpit: 3 s for an immediate-cadence mail. Only the **first** immediate
+   * mail per user is sent at once — later ones inside the platform's buffer
+   * (`NOTIFICATION_IMMEDIATE_EMAIL_BUFFER_MINUTES`, 15 on Tutor `main`) are
+   * batched — so each e-mail case uses a fresh mailbox learner. The headroom is
+   * for a shared CI worker and an external provider's polling.
+   */
+  emailDelivery: 120_000,
 } as const;
