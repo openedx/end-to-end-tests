@@ -6,7 +6,7 @@ import {
   staffAssessOra,
   submitOraResponse,
 } from '../../../src/api';
-import { waitForNotification } from '../../../src/steps';
+import { aboutOra, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
 import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
 
@@ -48,9 +48,7 @@ test.describe(
         const { found, rows } = await waitForNotification(
           page.request,
           config,
-          (row) =>
-            row.notification_type === 'ora_staff_notifications' &&
-            row.content_url.endsWith(`/${oraUnit.oraUsageKey}`),
+          aboutOra('ora_staff_notifications', oraUnit.oraUsageKey),
           { app: 'grading' },
         );
         expect(
@@ -94,9 +92,7 @@ test.describe(
         const { found, rows } = await waitForNotification(
           learner.request,
           config,
-          (row) =>
-            row.notification_type === 'ora_grade_assigned' &&
-            row.content_url.endsWith(`/jump_to/${oraUnit.oraUsageKey}`),
+          aboutOra('ora_grade_assigned', oraUnit.oraUsageKey),
           { app: 'grading' },
         );
         expect(
