@@ -8,6 +8,13 @@ export const COURSEWARE_SELECTORS = {
   /** The one iframe a unit renders its blocks into. */
   unitIframe: 'iframe#unit-iframe',
 
+  /**
+   * "Bookmark this page" / "Bookmarked" under the unit title — a Paragon
+   * stateful button whose state class, not its label, says which it is.
+   */
+  bookmarkButton: '.unit button.pgn__stateful-btn',
+  bookmarkedState: 'pgn__stateful-btn-state-bookmarked',
+
   /** The course outline tray beside the unit. */
   sidebar: '.outline-sidebar',
 

@@ -600,3 +600,9 @@ export {
   type LearnerHomeEnrollment,
 } from './learner-home';
 export { fetchUserTours, type CourseHomeTourStatus, type UserTours } from './user-tours';
+export {
+  courseTool,
+  fetchCourseHomeOutline,
+  type CourseHomeOutline,
+  type CourseTool,
+} from './course-home';
