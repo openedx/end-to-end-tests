@@ -490,6 +490,15 @@ export interface TestFixtures {
    */
   certificateGenerationEnabled: void;
   /**
+   * The platform-wide certificate switch behind {@link certificateGenerationEnabled},
+   * for a test whose course is not `certificateCourse`. `ensureEnabled(courseKey)`
+   * reads the switch through that course's instructor API as the page's user, and
+   * signs the admin in only when it is off. Nothing turns the switch off again, but
+   * a test must not count on an earlier test having turned it on: under sharding,
+   * each shard is a fresh installation. Skips without an admin account.
+   */
+  platformCertificates: PlatformCertificates;
+  /**
    * Runs one piece of work on a fresh **LMS Django session** for the admin —
    * what the Django admin needs for a write, since it refuses the captured
    * staff API state. Skips with a reason where no admin account is configured.
@@ -1359,6 +1368,12 @@ export interface CertificateCourse extends AuthoredCourse {
   readonly problem: AuthoredProblem;
   /** Whether a certificate-bearing (`honor`) mode could be added — needs the staff session. */
   readonly certificateBearingMode: boolean;
+}
+
+/** What {@link TestFixtures.platformCertificates} hands a spec. */
+export interface PlatformCertificates {
+  /** Turns platform certificate generation on, if it is off; `courseKey` is any course the user staffs. */
+  readonly ensureEnabled: (courseKey: string) => Promise<void>;
 }
 
 /** What {@link TestFixtures.courseLearner} hands a spec. */
@@ -3408,36 +3423,46 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   instructorDataDownloads: pageObjectFixture(InstructorDataDownloadsPage),
   instructorCertificates: pageObjectFixture(InstructorCertificatesPage),
 
-  certificateGenerationEnabled: async ({ page, playwright, config, certificateCourse }, use) => {
+  platformCertificates: async ({ page, playwright, config }, use) => {
     const admin = config.credentials.admin;
     base.skip(
-      admin === undefined || !certificateCourse.certificateBearingMode,
+      admin === undefined,
       'Certificates need the administrator: the platform-wide certificate switch lives in ' +
-        'the Django admin and the honor course mode needs a staff session. Set ' +
+        'the Django admin. Set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
+    );
+    const credentials = {
+      emailOrUsername: (admin as NonNullable<typeof admin>).username,
+      password: (admin as NonNullable<typeof admin>).password,
+    };
+    await use({
+      ensureEnabled: async (courseKey) => {
+        // The switch is platform-wide and usually already on after the first test of
+        // a run: read it as the page's user first (a JWT read), and only when it is
+        // off pay for an admin sign-in — every credential login counts against the
+        // per-account rate limit and evicts the admin's other LMS session.
+        if (await fetchCertificateGenerationEnabled(page.request, config, courseKey)) return;
+        // A Django-admin write needs the admin's *session* cookie: sign in afresh on
+        // a throwaway context, under the admin lock (PREVENT_CONCURRENT_LOGINS).
+        await withAdminSession(async () => {
+          const session = await playwright.request.newContext();
+          try {
+            await loginSession(session, config, credentials);
+            await ensureCertificateGenerationEnabled(session, config, courseKey);
+          } finally {
+            await session.dispose();
+          }
+        });
+      },
+    });
+  },
+
+  certificateGenerationEnabled: async ({ certificateCourse, platformCertificates }, use) => {
+    base.skip(
+      !certificateCourse.certificateBearingMode,
+      'Certificates need the administrator: the honor course mode needs a staff session. Set ' +
         'ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
     );
-    // The switch is platform-wide and usually already on after the first test of a
-    // run: read it as the author first (a JWT read), and only when it is off pay
-    // for an admin sign-in — every credential login counts against the per-account
-    // rate limit and evicts the admin's other LMS session.
-    if (
-      !(await fetchCertificateGenerationEnabled(page.request, config, certificateCourse.courseKey))
-    ) {
-      // A Django-admin write needs the admin's *session* cookie: sign in afresh on a
-      // throwaway context, under the admin lock (PREVENT_CONCURRENT_LOGINS).
-      await withAdminSession(async () => {
-        const session = await playwright.request.newContext();
-        try {
-          await loginSession(session, config, {
-            emailOrUsername: (admin as NonNullable<typeof admin>).username,
-            password: (admin as NonNullable<typeof admin>).password,
-          });
-          await ensureCertificateGenerationEnabled(session, config, certificateCourse.courseKey);
-        } finally {
-          await session.dispose();
-        }
-      });
-    }
+    await platformCertificates.ensureEnabled(certificateCourse.courseKey);
     await use();
   },
 
