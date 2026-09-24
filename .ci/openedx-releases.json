@@ -1,11 +1,11 @@
 {
   "main": {
     "tutorConstraint": "",
-    "capabilities": "notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,authoring-sidebar,upload-agreements,content-libraries,content-libraries-v1,rbac,rbac-matrix-parity,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates,email-inbox"
+    "capabilities": "notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,authoring-sidebar,upload-agreements,content-libraries,content-libraries-v1,rbac,rbac-matrix-parity,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates,special-exams,email-inbox,recommender-studio-settings"
   },
   "verawood": {
     "tutorConstraint": ">=22.0.0,<23.0.0",
-    "capabilities": "-frontend-base,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,authoring-sidebar,upload-agreements,content-libraries,content-libraries-v1,rbac,rbac-error-view-action,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view,email-inbox"
+    "capabilities": "-frontend-base,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,authoring-sidebar,upload-agreements,content-libraries,content-libraries-v1,rbac,rbac-error-view-action,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates,special-exams,certificate-web-view,email-inbox"
   },
   "ulmo": {
     "tutorConstraint": ">=21.0.0,<22.0.0",

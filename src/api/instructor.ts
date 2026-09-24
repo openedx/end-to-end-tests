@@ -706,6 +706,93 @@ export async function grantCourseTeamRole(
   return result;
 }
 
+/** One course-team member as the Course Team tab lists them. */
+export interface InstructorTeamMember {
+  readonly username: string;
+  readonly email: string;
+  readonly roles: readonly { readonly role: string; readonly display_name: string }[];
+}
+
+/**
+ * The course team (`GET courses/<key>/team`), optionally only the members
+ * holding `role` — forum roles included. The oracle of a Course Team change.
+ */
+export async function listCourseTeam(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  role?: CourseTeamRoleV2,
+): Promise<readonly InstructorTeamMember[]> {
+  const query = new URLSearchParams({ page_size: '100' });
+  if (role !== undefined) query.set('role', role);
+  const page = await get<{ readonly results: readonly InstructorTeamMember[] }>(
+    request,
+    `${instructorApiBase(config, courseKey)}/team?${query.toString()}`,
+    `Listing the course team of ${courseKey}`,
+  );
+  return page.results;
+}
+
+// ---------------------------------------------------------------------------
+// Special exams
+// ---------------------------------------------------------------------------
+
+/** A special exam edx-proctoring registered for a timed or proctored subsection. */
+export interface SpecialExam {
+  readonly id: number;
+  readonly exam_name: string;
+  readonly exam_type: string;
+  /** The subsection's usage key. */
+  readonly content_id: string;
+  readonly time_limit_mins: number;
+}
+
+/**
+ * The course's special exams of one type (`GET special_exams?exam_type=`). A
+ * subsection appears here once the CMS worker has registered it after publish.
+ */
+export async function listSpecialExams(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  examType: 'timed' | 'proctored',
+): Promise<readonly SpecialExam[]> {
+  return get(
+    request,
+    `${instructorApiBase(config, courseKey)}/special_exams?exam_type=${examType}`,
+    `Listing the ${examType} exams of ${courseKey}`,
+  );
+}
+
+/** One learner's allowance on one exam. */
+export interface ExamAllowance {
+  readonly id: number;
+  readonly user: { readonly id: number; readonly username: string; readonly email: string };
+  /** `additional_time_granted`, `time_multiplier` or `review_policy_exception`. */
+  readonly key: string;
+  readonly value: string;
+  readonly proctored_exam: { readonly id: number; readonly content_id?: string };
+}
+
+/**
+ * The course's allowances matching `search` (a username or e-mail) —
+ * `GET special_exams/allowances`, the oracle of every allowance change, since
+ * the writes answer 200 whether or not each row took.
+ */
+export async function listAllowances(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  search: string,
+): Promise<readonly ExamAllowance[]> {
+  const page = await get<{ readonly results: readonly ExamAllowance[] }>(
+    request,
+    `${instructorApiBase(config, courseKey)}/special_exams/allowances?search=${encodeURIComponent(search)}&page_size=100`,
+    `Listing the allowances of ${courseKey}`,
+  );
+  return page.results;
+}
+
 /**
  * Sends a course e-mail to the course's learners, as the instructor
  * dashboard's e-mail tab does (`POST /courses/<key>/instructor/api/send_email`).

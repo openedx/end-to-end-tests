@@ -175,6 +175,27 @@ export class StudioScheduleDetailsPage {
   }
 
   /**
+   * Replaces the course overview's HTML, as the editor's "Source code" dialog
+   * does: through TinyMCE's `setContent`, whose change the MFE's editor binding
+   * turns into an unsaved edit (the page's own Save still has to follow).
+   * A `/static/<file>` path is saved as written; the platform resolves it to the
+   * course asset when it renders the overview.
+   */
+  async setOverviewSource(html: string): Promise<void> {
+    await this.page.locator(STUDIO_SCHEDULE_DETAILS_SELECTORS.overviewEditor).first().waitFor();
+    const applied = await this.page.evaluate((content) => {
+      type Editor = { setContent(html: string): void; fire(event: string): void };
+      const tinymce = (window as unknown as { tinymce?: { get(): Editor[] } }).tinymce;
+      const editor = tinymce?.get()[0];
+      if (editor === undefined) return false;
+      editor.setContent(content);
+      editor.fire('change');
+      return true;
+    }, html);
+    if (!applied) throw new Error('The Schedule & Details page exposes no TinyMCE editor.');
+  }
+
+  /**
    * Picks the certificates display behaviour. The dropdown's items carry no
    * value and their labels are localized, but the authoring MFE always lists
    * them in the same order (`CertificateDisplayRow`'s options), so an item is

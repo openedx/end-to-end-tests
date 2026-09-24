@@ -126,16 +126,18 @@ export const CAPABILITIES = [
   // Optional component (XBlock) types an author can add to a unit. Each is a
   // tile in the unit page's "Add component" bar and an entry in the CMS
   // `container_handler` API's `component_templates`; a declared type that the
-  // target lacks must fail its spec, never skip it. All of these ship with
-  // edx-platform (and so with a stock Tutor image) and are declared for every
-  // release in `.ci/openedx-releases.json`; a provider that has removed one opts
-  // out by leaving it undeclared.
+  // target lacks must fail its spec, never skip it. All of these ship with a
+  // stock Tutor image (all but `scorm` as edx-platform requirements) and are
+  // declared for every release in `.ci/openedx-releases.json` they exist on; a
+  // provider that has removed one opts out by leaving it undeclared. Advanced
+  // modules the platform itself bundles and no provider opts out of (poll,
+  // word cloud, annotatable, …) have no capability: a missing one fails.
   'ora', // Open Response Assessment (`openassessment`, edx-ora2)
   'drag-and-drop-v2', // `drag-and-drop-v2` (xblock-drag-and-drop-v2)
-  'pdf-xblock', // `pdf` under the "Advanced" tile
+  'pdf-xblock', // `pdf` (xblocks-contrib) under the "Advanced" tile
   'lti', // `lti_consumer` under the "Advanced" tile (no tool launch is asserted)
   'scorm', // `scorm` under the "Advanced" tile
-  'edx-sga', // Staff Graded Assignment (`staffgradedxblock`) under the "Problem" tile
+  'edx-sga', // Staff Graded Assignment (`edx_sga`) under the "Advanced" tile, once listed
   // The LMS instructor dashboard as the instructor-dashboard MFE
   // (`frontend-app-instructor-dashboard`, served at
   // `${APPS_BASE_URL}/instructor-dashboard/<course>`), driven by the
@@ -157,6 +159,12 @@ export const CAPABILITIES = [
   // skips this coverage with a reason where no admin account is configured.
   // Gates the instructor dashboard's Certificates tab (BTR TC-00536–00538).
   'certificates',
+  // Special exams are on (`ENABLE_SPECIAL_EXAMS`, LMS and CMS; off on a
+  // default install): timed subsections register as exams and the instructor
+  // dashboard offers its Special Exams tab. Gates TC-00541's allowances, and
+  // adds that tab to TC-00514's expected set. CI turns the setting on for the
+  // releases that declare it.
+  'special-exams',
   // Reserved for the Superset / Aspects analytics reports on the instructor
   // dashboard (BTR TC-00542–00559). Aspects is a separate deployment, not part
   // of a default install; no spec uses this capability yet, so declaring it has
@@ -205,6 +213,13 @@ export const CAPABILITIES = [
   // `rbac-error-view-action`, so the regression is an undeclared capability
   // rather than a permanently red case.
   'certificate-web-view',
+  // The **recommender's Studio editor shows the settings it saved**. Before
+  // recommender-xblock 5.1.0 (`verawood` pins 5.0.0) the editor rendered its
+  // defaults whatever the block held, so an author's change looked lost
+  // (`XBLOCK-002`, the sheet's "can't change settings" on TC-00132); 5.1.0
+  // renders the saved configuration. Declared where it does, so the gap is an
+  // undeclared capability rather than a permanently red case.
+  'recommender-studio-settings',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];

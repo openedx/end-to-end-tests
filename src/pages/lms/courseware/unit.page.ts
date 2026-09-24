@@ -8,6 +8,11 @@ import {
   sidebarUnitLink,
   type AppConfig,
 } from '../../../config';
+import { AdvancedBlock } from './advanced.block';
+import { AnnotatableBlock } from './annotatable.block';
+import { DoneBlock } from './done.block';
+import { PollBlock } from './poll.block';
+import { WordCloudBlock } from './word-cloud.block';
 
 /**
  * Headroom added when the viewport is grown to fit a tall content block: enough
@@ -126,6 +131,31 @@ export class UnitPage {
   /** One block inside the unit, anchored by its usage ID from the Blocks API. */
   block(blockId: string): Locator {
     return this.contentFrame.locator(coursewareBlock(blockId));
+  }
+
+  /** An advanced component in the unit, by its usage ID and block type. */
+  advancedBlock(blockId: string, category: string): AdvancedBlock {
+    return new AdvancedBlock(this.contentFrame, blockId, category);
+  }
+
+  /** An `annotatable` block in the unit. */
+  annotatableBlock(blockId: string): AnnotatableBlock {
+    return new AnnotatableBlock(this.contentFrame, blockId);
+  }
+
+  /** A `word_cloud` block in the unit. */
+  wordCloudBlock(blockId: string): WordCloudBlock {
+    return new WordCloudBlock(this.page, this.contentFrame, blockId);
+  }
+
+  /** An xblock-poll `poll` or `survey` in the unit. */
+  pollBlock(blockId: string, category: 'poll' | 'survey'): PollBlock {
+    return new PollBlock(this.page, this.contentFrame, blockId, category);
+  }
+
+  /** A `done` ("Completion") block in the unit. */
+  doneBlock(blockId: string): DoneBlock {
+    return new DoneBlock(this.page, this.contentFrame, blockId);
   }
 
   /** The sidebar's link to a unit, anchored by the unit's block ID. */

@@ -25,6 +25,7 @@ import { StudioOutlineConfigureDialog } from '../pages/studio/outline-configure.
 import { StudioUnitPage } from '../pages/studio/unit.page';
 import { StudioVideoEditor } from '../pages/studio/editors/video-editor';
 import { StudioTextEditor } from '../pages/studio/editors/text-editor';
+import { StudioPdfEditor } from '../pages/studio/editors/pdf-editor';
 import { StudioAdvancedSettingsPage } from '../pages/studio/settings/advanced-settings.page';
 import { StudioCertificatesPage } from '../pages/studio/settings/certificates.page';
 import { StudioCourseTeamPage } from '../pages/studio/settings/course-team.page';
@@ -55,6 +56,11 @@ import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.pa
 import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
 import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
 import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
+import { InstructorCohortsPage } from '../pages/lms/instructor/cohorts.page';
+import { InstructorCourseTeamPage } from '../pages/lms/instructor/course-team.page';
+import { InstructorSpecialExamsPage } from '../pages/lms/instructor/special-exams.page';
+import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
+import { BulkEmailPage } from '../pages/lms/communications/bulk-email.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
 import {
@@ -96,6 +102,8 @@ import {
   assignRole,
   authorStaffGradedOra,
   buildSection,
+  listSpecialExams,
+  publishXBlock,
   courseUsageKey,
   deleteXBlock,
   fetchDiscussionCourse,
@@ -183,6 +191,7 @@ import {
   type ChromeConfig,
   ADULT_YEAR_OF_BIRTH,
   AUTO_CERTIFICATE_GENERATION_SWITCH,
+  ORA_TEAM_SUBMISSIONS_SWITCH,
   enableCourseEmail,
   setWaffleSwitch,
   updateAccount,
@@ -257,12 +266,14 @@ export interface TestFixtures {
   /**
    * A signed-out visitor alongside the test's own (signed-in) page: a page in a
    * fresh browser context with its header and footer, for cases that compare
-   * the public site with a learner's view (TC-00060). Closed after the test.
+   * the public site with a learner's view (TC-00060), or read what an author published (TC-00301). Closed after the test.
    */
   signedOutVisitor: {
     readonly page: Page;
     readonly header: HeaderBlock;
     readonly footer: FooterBlock;
+    /** The catalog's course About page, as the visitor sees it. */
+    readonly aboutPage: CourseAboutPage;
   };
   /**
    * The landing page opened for a signed-out visitor, with the generation of
@@ -318,6 +329,13 @@ export interface TestFixtures {
    * cards offer "Email settings". Skips without an admin account.
    */
   courseEmailEnabled: void;
+  /**
+   * Turns course e-mail on for one course of the test's own (a per-test
+   * `authoringCourse`), the same scoped way as {@link courseEmailEnabled}: the
+   * flag with course authorization required, plus that course's authorization.
+   * Skips without an admin account.
+   */
+  courseEmailFor: (courseKey: string) => Promise<void>;
   /** The LMS-hosted course tool pages the course home links to (Bookmarks). */
   courseToolsPage: CourseToolsPage;
   /** Learner dashboard page object (`frontend-app-learner-dashboard`). */
@@ -433,6 +451,8 @@ export interface TestFixtures {
   studioVideoEditor: StudioVideoEditor;
   /** The text (TinyMCE) component editor page object. */
   studioTextEditor: StudioTextEditor;
+  /** The PDF component's editor (TC-00508, TC-00509). */
+  studioPdfEditor: StudioPdfEditor;
   /** Schedule & Details settings page object (authoring MFE). */
   scheduleDetailsPage: StudioScheduleDetailsPage;
   /** Grading settings page object (authoring MFE). */
@@ -450,6 +470,14 @@ export interface TestFixtures {
   instructorEnrollments: InstructorEnrollmentsPage;
   instructorGrading: InstructorGradingPage;
   instructorDateExtensions: InstructorDateExtensionsPage;
+  /** The instructor dashboard's shell (its tab nav), on the author's page. */
+  instructorDashboard: InstructorDashboardPage;
+  /** The instructor dashboard's Cohorts tab (TC-00539). */
+  instructorCohorts: InstructorCohortsPage;
+  /** The instructor dashboard's Course Team tab (TC-00520). */
+  instructorCourseTeam: InstructorCourseTeamPage;
+  /** The instructor dashboard's Special Exams tab (TC-00541). */
+  instructorSpecialExams: InstructorSpecialExamsPage;
   instructorDataDownloads: InstructorDataDownloadsPage;
   instructorCertificates: InstructorCertificatesPage;
   /**
@@ -527,6 +555,13 @@ export interface TestFixtures {
    * an admin account.
    */
   certificateSwitch: { readonly turnOn: () => Promise<void> };
+  /**
+   * The platform-wide `openresponseassessment.team_submissions` switch, held
+   * exclusively the same way: off until the test calls `turnOn()`, off again
+   * afterwards. Nothing else reads it: a team assignment also needs an ORA's
+   * own `teams_enabled`. Skips without an admin account.
+   */
+  oraTeamSwitch: { readonly turnOn: () => Promise<void> };
   /**
    * The arrangement the gradebook cases start from: a published graded section
    * with a single-choice problem in the content course, a due date on its
@@ -668,6 +703,12 @@ export interface TestFixtures {
   /** A fresh learner enrolled in `videoFreeCourse`, on their own contexts. */
   videoFreeCourseLearner: RoundTripLearner;
   /**
+   * A deferred {@link roundTripLearnerLater} enrolled in the worker's
+   * {@link WorkerFixtures.advancedModulesCourse}, provisioned when first awaited
+   * so the case's Studio writes come first.
+   */
+  advancedModulesLearnerLater: () => Promise<RoundTripLearner>;
+  /**
    * A **fresh, empty** course of this test's own (seeded with a past start date),
    * for specs that build the outline through the UI. Unlike the shared
    * {@link WorkerFixtures.contentCourse}, its outline holds only what the test
@@ -678,6 +719,17 @@ export interface TestFixtures {
   authoringCourse: AuthoredCourse;
   /** A {@link roundTripLearner} enrolled in this test's {@link authoringCourse}. */
   authoringCourseLearner: RoundTripLearner;
+  /**
+   * A timed exam in this test's {@link authoringCourse}: timed exams on in its
+   * Advanced Settings, one published subsection made time-limited (30 minutes),
+   * and edx-proctoring's registration of it awaited. Needs `ENABLE_SPECIAL_EXAMS`
+   * (the `special-exams` capability).
+   */
+  timedExam: {
+    readonly courseKey: string;
+    readonly examId: number;
+    readonly sequentialKey: string;
+  };
   /**
    * A deferred {@link roundTripLearnerLater} enrolled in this test's
    * {@link authoringCourse} — provisioned only when first awaited, so a library
@@ -976,6 +1028,23 @@ export type RbacCastPart = (typeof RBAC_CAST_PARTS)[number];
 /** The parts {@link WorkerFixtures.forumCast} casts. */
 export type ForumCastPart = 'poster' | 'moderator';
 
+/**
+ * The instructor-dashboard cast's parts: plain accounts a test grants one
+ * course-team role on its own course — `staff`, `limitedStaff`, a staff
+ * `discussionAdmin`, or a `teamMember` whose roles the Course Team tab changes.
+ */
+export type InstructorCastPart = 'staff' | 'limitedStaff' | 'discussionAdmin' | 'teamMember';
+
+/** A cast member: its identity, its API and browser sessions, and the pages it reads. */
+export interface InstructorCastMember {
+  readonly identity: LearnerIdentity;
+  readonly request: APIRequestContext;
+  readonly context: BrowserContext;
+  readonly page: Page;
+  readonly courseOutlinePage: CourseOutlinePage;
+  readonly instructorDashboardPage: InstructorDashboardPage;
+}
+
 /** What one {@link TestFixtures.studioColleague} call hands a spec. */
 export interface StudioColleague {
   readonly identity: LearnerIdentity;
@@ -1013,6 +1082,8 @@ export interface RoundTripLearner {
   readonly progressPage: ProgressPage;
   /** The course Teams page on this learner's page. */
   readonly teamsPage: TeamsPage;
+  /** The communications MFE's bulk e-mail form, for a learner granted course staff. */
+  readonly bulkEmailPage: BulkEmailPage;
   /** The header's notifications tray, on whatever page this learner is on. */
   readonly notificationTray: NotificationTray;
   /** The account MFE's notification preference centre. */
@@ -1147,6 +1218,15 @@ export interface WorkerFixtures {
    * {@link TestFixtures.notificationRecipient}.
    */
   forumCast: (part: ForumCastPart) => Promise<RoundTripLearner>;
+  /**
+   * The instructor-dashboard cast (the `rbacCast` / `forumCast` rule): one plain
+   * account per part per worker, provisioned on first use and enrolled nowhere
+   * (a course-team grant enrolls it). A part holds no role until a test grants
+   * it one, on the course the test reads, and it only ever holds the role it is
+   * named for — so the role readings of TC-00513/514/520 need no registration
+   * each.
+   */
+  instructorCast: (part: InstructorCastPart) => Promise<InstructorCastMember>;
 
   authzCourse: AuthzCourse | undefined;
   /**
@@ -1188,6 +1268,15 @@ export interface WorkerFixtures {
    * workers that run a spec asking for it.
    */
   videoFreeCourse: AuthoredCourse;
+  /**
+   * A worker course whose Advanced Settings `advanced_modules` belongs to the
+   * advanced-component matrix alone, started in the past. Each case only
+   * **adds** its own module, so "not offered before, offered after" holds on it
+   * and no other spec's picker changes; `authoredCourse` and `contentCourse`
+   * are unsuitable because other specs write or read their module list. Built
+   * lazily, only by workers that run the matrix — one course per such worker.
+   */
+  advancedModulesCourse: AuthoredCourse;
   /**
    * One course per worker set up so certificates can be issued: start in the
    * past, end in the future, certificates shown as soon as earned
@@ -1297,6 +1386,34 @@ export interface CompletionUnits {
 
 /** The named lock serialising the certificate auto-generation switch (`named-lock.ts`). */
 const CERTIFICATE_SWITCH_LOCK = 'certificate-auto-generation';
+const ORA_TEAM_SWITCH_LOCK = 'ora-team-submissions';
+
+/**
+ * Holds a platform-wide waffle switch for one test: takes its named lock
+ * exclusively (the wait added to the test's budget, so a long one ends in the
+ * lock's error naming its holders), starts it off whatever an interrupted run
+ * left, hands the test `turnOn`, and turns it off again afterwards.
+ */
+async function holdSwitch(
+  config: AppConfig,
+  adminLms: AdminLmsRunner,
+  testInfo: TestInfo,
+  switchName: string,
+  lock: string,
+  use: (held: { readonly turnOn: () => Promise<void> }) => Promise<void>,
+): Promise<void> {
+  const setSwitch = (active: boolean) =>
+    adminLms((session) => setWaffleSwitch(session, config, switchName, active));
+  testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
+  await withExclusiveLock(lock, { waitMs: TIMEOUTS.sharedLockWait }, async () => {
+    await setSwitch(false);
+    try {
+      await use({ turnOn: () => setSwitch(true) });
+    } finally {
+      await setSwitch(false);
+    }
+  });
+}
 
 /** What {@link TestFixtures.chromeCase} hands a spec. */
 export interface ChromeCase {
@@ -1496,6 +1613,7 @@ async function provisionRoundTripLearner(
     dashboardPage: new DashboardPage(page, config),
     progressPage: new ProgressPage(page, config),
     teamsPage: new TeamsPage(page, config),
+    bulkEmailPage: new BulkEmailPage(page, config),
     notificationTray: new NotificationTray(page, config),
     notificationPreferences: new NotificationPreferencesPage(page, config),
     discussions: new DiscussionsPage(page, config),
@@ -1845,13 +1963,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(new FooterBlock(page));
   },
 
-  signedOutVisitor: async ({ browser }, use) => {
+  signedOutVisitor: async ({ browser, config }, use) => {
     const context = await browser.newContext();
     const visitorPage = await context.newPage();
     await use({
       page: visitorPage,
       header: new HeaderBlock(visitorPage),
       footer: new FooterBlock(visitorPage),
+      aboutPage: new CourseAboutPage(visitorPage, config),
     });
     await context.close();
   },
@@ -1927,6 +2046,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   courseEmailEnabled: async ({ config, adminLms, contentCourse }, use) => {
     await adminLms((session) => enableCourseEmail(session, config, contentCourse.courseKey));
     await use();
+  },
+
+  courseEmailFor: async ({ config, adminLms }, use) => {
+    await use((courseKey) => adminLms((session) => enableCourseEmail(session, config, courseKey)));
   },
 
   profileViewer: async ({ playwright, config }, use) => {
@@ -2290,6 +2413,31 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
   ],
 
+  advancedModulesCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}M`,
+        'advanced-modules',
+      );
+      await use(
+        await provisionWorkerCourse(
+          playwright,
+          workerAuthor,
+          identity,
+          async (request, courseKey) => {
+            await updateCourseDetails(request, config, courseKey, {
+              start_date: CONTENT_COURSE_START,
+            });
+          },
+        ),
+      );
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
+  ],
+
   futureCourse: [
     async ({ playwright, workerAuthor }, use, workerInfo) => {
       const identity = newCourseIdentity(
@@ -2487,6 +2635,44 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
 
+  instructorCast: [
+    async ({ playwright, browser }, use) => {
+      const config = getConfig();
+      const cast = new Map<InstructorCastPart, Promise<InstructorCastMember>>();
+      const made: InstructorCastMember[] = [];
+      const provision = async (): Promise<InstructorCastMember> => {
+        const request = await playwright.request.newContext();
+        const identity = await provisionLearnerSession(request, config);
+        const context = await browser.newContext();
+        await context.addCookies((await request.storageState()).cookies);
+        const page = await context.newPage();
+        const member = {
+          identity,
+          request,
+          context,
+          page,
+          courseOutlinePage: new CourseOutlinePage(page, config),
+          instructorDashboardPage: new InstructorDashboardPage(page, config),
+        };
+        made.push(member);
+        return member;
+      };
+      await use((part) => {
+        let member = cast.get(part);
+        if (member === undefined) {
+          member = provision();
+          cast.set(part, member);
+        }
+        return member;
+      });
+      for (const member of made) {
+        await member.context.close();
+        await member.request.dispose();
+      }
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
   authzCourse: [
     async ({ playwright, workerAuthor, authzMigrationMode }, use, workerInfo) => {
       const config = getConfig();
@@ -2634,6 +2820,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   studioVideoEditor: pageObjectFixture(StudioVideoEditor),
 
   studioTextEditor: pageObjectFixture(StudioTextEditor),
+
+  studioPdfEditor: pageObjectFixture(StudioPdfEditor),
 
   scheduleDetailsPage: pageObjectFixture(StudioScheduleDetailsPage),
 
@@ -3184,6 +3372,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
+  advancedModulesLearnerLater: async (
+    { playwright, browser, config, advancedModulesCourse },
+    use,
+  ) => {
+    await deferredLearner(playwright, browser, config, advancedModulesCourse.courseKey, use);
+  },
+
   futureCourseLearner: async ({ playwright, browser, config, futureCourse }, use) => {
     const learner = await provisionRoundTripLearner(
       playwright,
@@ -3202,6 +3397,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   instructorEnrollments: pageObjectFixture(InstructorEnrollmentsPage),
   instructorGrading: pageObjectFixture(InstructorGradingPage),
   instructorDateExtensions: pageObjectFixture(InstructorDateExtensionsPage),
+
+  instructorDashboard: pageObjectFixture(InstructorDashboardPage),
+
+  instructorCohorts: pageObjectFixture(InstructorCohortsPage),
+
+  instructorCourseTeam: pageObjectFixture(InstructorCourseTeamPage),
+
+  instructorSpecialExams: pageObjectFixture(InstructorSpecialExamsPage),
   instructorDataDownloads: pageObjectFixture(InstructorDataDownloadsPage),
   instructorCertificates: pageObjectFixture(InstructorCertificatesPage),
 
@@ -3268,25 +3471,24 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   certificateSwitch: async ({ config, adminLms }, use, testInfo) => {
-    const setSwitch = (active: boolean) =>
-      adminLms((session) =>
-        setWaffleSwitch(session, config, AUTO_CERTIFICATE_GENERATION_SWITCH, active),
-      );
-    // The wait for the readers to drain is on top of the case's own budget, so
-    // a long wait ends in the lock's error naming its holders, not a timeout.
-    testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
-    await withExclusiveLock(
+    await holdSwitch(
+      config,
+      adminLms,
+      testInfo,
+      AUTO_CERTIFICATE_GENERATION_SWITCH,
       CERTIFICATE_SWITCH_LOCK,
-      { waitMs: TIMEOUTS.sharedLockWait },
-      async () => {
-        // Start from the platform default whatever an earlier, interrupted run left.
-        await setSwitch(false);
-        try {
-          await use({ turnOn: () => setSwitch(true) });
-        } finally {
-          await setSwitch(false);
-        }
-      },
+      use,
+    );
+  },
+
+  oraTeamSwitch: async ({ config, adminLms }, use, testInfo) => {
+    await holdSwitch(
+      config,
+      adminLms,
+      testInfo,
+      ORA_TEAM_SUBMISSIONS_SWITCH,
+      ORA_TEAM_SWITCH_LOCK,
+      use,
     );
   },
 
@@ -3387,6 +3589,38 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await disposeRoundTripLearner(learner);
     }
+  },
+
+  timedExam: async ({ page, config, authoringCourse, studioAuthorSession }, use) => {
+    void studioAuthorSession;
+    const request = page.request;
+    const { courseKey } = authoringCourse;
+    await updateAdvancedSettings(request, config, courseKey, { enable_timed_exams: true });
+    const section = await buildSection(request, config, courseKey, 'E2E timed exam', {
+      subsections: [{ units: [{ blocks: ['html'] }] }],
+    });
+    const sequentialKey = section.subsections[0]!.usageKey;
+    await updateXBlock(request, config, sequentialKey, {
+      metadata: {
+        is_time_limited: true,
+        default_time_limit_minutes: 30,
+        is_proctored_enabled: false,
+      },
+    });
+    await publishXBlock(request, config, section.usageKey);
+    // The CMS worker registers the exam after the publish.
+    let examId: number | undefined;
+    await expect
+      .poll(
+        async () => {
+          const exams = await listSpecialExams(request, config, courseKey, 'timed');
+          examId = exams.find((exam) => exam.content_id === sequentialKey)?.id;
+          return examId;
+        },
+        { timeout: TIMEOUTS.contentPublish },
+      )
+      .toBeDefined();
+    await use({ courseKey, examId: examId!, sequentialKey });
   },
 
   authoringCourseLearnerLater: async ({ playwright, browser, config, authoringCourse }, use) => {

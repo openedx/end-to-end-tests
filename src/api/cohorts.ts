@@ -126,3 +126,67 @@ export async function addToCohort(
     });
   }
 }
+
+// ---------------------------------------------------------------------------
+// The v1 cohorts API the instructor dashboard MFE uses. Unlike the legacy views
+// above it accepts the JWT, so it rides the author's `page.request`.
+// ---------------------------------------------------------------------------
+
+function cohortsV1Base(config: AppConfig, courseKey: string): string {
+  return `${config.baseUrls.lms}/api/cohorts/v1/courses/${courseKey}/cohorts`;
+}
+
+/** Every cohort of a course (`GET …/cohorts/`). */
+export async function listCohortsV1(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<readonly Cohort[]> {
+  const url = `${cohortsV1Base(config, courseKey)}/?page_size=100`;
+  const response = await request.get(url);
+  if (!response.ok()) {
+    throw new ApiError(`Listing the cohorts of ${courseKey} failed (HTTP ${response.status()}).`, {
+      status: response.status(),
+      url,
+      body: await response.text(),
+    });
+  }
+  // An unpaginated array (measured on `main`).
+  return (await response.json()) as readonly Cohort[];
+}
+
+/**
+ * Creates a cohort (`POST …/cohorts/`) — the automatic cohort the dashboard
+ * requires before it lets a manual one be linked to a content group.
+ */
+export async function createCohortV1(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  cohort: { readonly name: string; readonly assignmentType: 'random' | 'manual' },
+): Promise<Cohort> {
+  return cohortWrite<Cohort>(
+    request,
+    config,
+    'POST',
+    `${cohortsV1Base(config, courseKey)}/`,
+    `Creating cohort "${cohort.name}" in ${courseKey}`,
+    { data: { name: cohort.name, assignment_type: cohort.assignmentType } },
+  );
+}
+
+/** Turns cohorts on for a course (`PUT /api/cohorts/v1/settings/<key>`), as the Cohorts tab does. */
+export async function enableCohortsV1(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<void> {
+  await cohortWrite(
+    request,
+    config,
+    'PUT',
+    `${config.baseUrls.lms}/api/cohorts/v1/settings/${courseKey}`,
+    `Enabling cohorts in ${courseKey}`,
+    { data: { is_cohorted: true } },
+  );
+}

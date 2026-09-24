@@ -109,6 +109,10 @@ measured, and issues are opened by hand from them.
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
+| `INSTR-009` | `openedx/frontend-app-instructor-dashboard` (allowance Delete sends a numeric user id) | open, `test.fail` on TC-00541's delete test
+| `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
+| `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
+| `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 
 ---
 
@@ -2029,4 +2033,74 @@ Suite-authored HTML5 videos have none either.
 **Coverage impact:** open, no `fixme`. TC-00027 runs on `videoFreeCourse`, a
 worker course that never holds a video, where a 530-word text unit is estimated
 at two minutes.
+
+## Epic 15 — Studio content long tail findings (2026-09-24)
+
+### `XBLOCK-001` — the recommender loads its scripts from public CDNs
+
+**Where:** `recommender-xblock` 5.1.0 (an edx-platform requirement on `master`;
+5.0.0 on `verawood`), `RecommenderXBlock.student_view`
+(`src/recommender/recommender.py:995-997`).
+
+**What happens:** the learner view adds jQuery UI from `ajax.googleapis.com`
+and intro.js from `cdnjs.cloudflare.com` rather than from the platform's own
+static files, and opens an intro tour on first view. An install that is
+air-gapped, or whose Content Security Policy allows only its own origins,
+cannot run the block for learners, and every install sends its learners to
+two third parties.
+
+**Coverage impact:** open, no `fixme`. TC-00131 lists the module, adds it from
+the Advanced tile and asserts its server-rendered markup in the Studio preview,
+never in the learner's courseware, so the suite never depends on the CDNs.
+
+### `COMMS-001` — the bulk e-mail editor's TinyMCE markup fails two ARIA rules
+
+**Where:** `frontend-app-communications` (`master`), the bulk e-mail form's
+message editor, which is TinyMCE.
+
+**What happens:** axe reports two violations on the form, both inside the
+editor:
+- critical `aria-allowed-attr`: the status bar's element-path item is a
+  `div[role="button"]` carrying `aria-level`;
+- serious `aria-prohibited-attr`: the editable `body#tinymce` carries an
+  `aria-label` ("Rich Text Area…") that its role does not permit.
+
+**Coverage impact:** open, no `fixme`. TC-00540's scan of the form baselines
+both rules there only (`COMMUNICATIONS_A11Y_BASELINE`); the send itself is
+asserted through the mail.
+
+### `INSTR-009` — deleting a special-exam allowance does nothing
+
+**Where:** `frontend-app-instructor-dashboard` (`DeleteAllowanceModal.tsx`; the
+same in v1.2.0, v2.0.0-alpha.5 and `master`) against the platform's v2
+`DELETE …/special_exams/<exam>/allowance`.
+
+**What happens:** the Delete confirmation sends the learner's numeric user id
+(`user_ids: [10219]`). The server resolves each identifier as a username or
+e-mail, finds none, and answers **200** with
+`results: [{identifier: 10219, success: false, error: "User not found"}]`. The
+MFE treats the 200 as done, and the allowance stays, both in the API's list and
+in the table after a reload. Measured on local `main` (2026-09-24).
+
+**Coverage impact:** open. TC-00541's add and edit test passes; its delete test
+is a `test.fail` that lifts itself when the fix lands.
+
+### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
+
+**Where:** `recommender-xblock` 5.0.0, pinned by `release/verawood.1`. Fixed in
+5.1.0 (RecommenderXBlock#137, "render current config in studio template and
+prevent auto-save crash"), which `master` pins.
+
+**What happens:** the recommender's Studio editor is a static template that
+always selects its defaults (five entries per page, and so on). An author's
+"Set configurations" is posted (`set_client_configuration`, 200), but reopening
+the editor shows the defaults again, so the change looks lost. This is the
+sheet's note on TC-00132, "can't change settings". 5.1.0 renders the saved
+configuration. Measured in CI (2026-09-24): `main` passes, `verawood` reopens on
+`5`.
+
+**Coverage impact:** fixed on `main`. TC-00132 is gated on the
+`recommender-studio-settings` capability, declared for `main` only, so the
+`verawood` gap is an undeclared capability. A `verawood.2` that picks up 5.1.0
+can declare it.
 

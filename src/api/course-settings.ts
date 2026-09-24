@@ -263,3 +263,26 @@ export async function ensureTeamsTopic(
   });
   return true;
 }
+
+/**
+ * Adds XBlock types to a course's Advanced Settings `advanced_modules` — what an
+ * author types into the "Advanced Module List" — keeping the ones already
+ * listed. Returns the list the platform stored.
+ */
+export async function addAdvancedModules(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  modules: readonly string[],
+): Promise<readonly string[]> {
+  const listed = moduleList(await fetchAdvancedSettings(request, config, courseKey));
+  const stored = await updateAdvancedSettings(request, config, courseKey, {
+    advanced_modules: [...new Set([...listed, ...modules])],
+  });
+  return moduleList(stored);
+}
+
+function moduleList(settings: AdvancedSettings): readonly string[] {
+  const value = settings.advanced_modules?.value;
+  return Array.isArray(value) ? value.filter((m): m is string => typeof m === 'string') : [];
+}

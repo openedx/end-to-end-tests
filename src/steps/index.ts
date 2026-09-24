@@ -22,12 +22,16 @@ export { satisfyPrerequisiteByScore, submitProblem } from './gating';
 export {
   ensureDataResearcher,
   earnCertificate,
+  expectedInstructorTabs,
   mintCertificateByException,
   passCertificateCourse,
   waitForInstructorTask,
   waitForLearnerProgress,
   waitForReport,
   type CertificateMintOutcome,
+  type ExpectedInstructorTabs,
+  type InstructorTabConditions,
+  type InstructorViewer,
   type TaskWaitOutcome,
 } from './instructor';
 export {

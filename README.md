@@ -112,7 +112,8 @@ validation.
 The authoring suite adds opt-in capabilities for features and component types that
 are not on every install: `cohorts` and `courseware-navigation-sidebar`, and the
 component gates `ora`, `drag-and-drop-v2`, `pdf-xblock`, `lti`, `scorm` and
-`edx-sga` (the last two ship with the platform; the others may be plugins). The
+`edx-sga` (all but `scorm` are edx-platform requirements; `scorm` is the
+`openedx-scorm-xblock` Tutor installs). The
 instructor-dashboard suite adds the default-on `instructor-dashboard` (the LMS
 instructor dashboard as its MFE, `verawood` onward — ulmo and earlier opt out
 with `-instructor-dashboard`) and the opt-in `certificates` (course certificates
@@ -132,7 +133,12 @@ console's library permission matrix matches the API's permission list one row
 per permission — `verawood` renders three rows more, wg#609) and
 `rbac-error-view-action` (the console's not-found view offers a working way
 back — `verawood` does; on `main` the anchor does nothing, `RBAC-008`).
-`certificate-web-view` gates the certificate page's own rendering the same way:
+`special-exams` (opt-in) means `ENABLE_SPECIAL_EXAMS` is on for the LMS and CMS,
+which a default install leaves off: the instructor dashboard's Special Exams tab
+and its allowances; CI's Tutor patch turns it on where it is declared.
+`recommender-studio-settings` is declared where the recommender's Studio editor
+shows its saved settings (recommender-xblock 5.1.0 on `main`; not `verawood`,
+`XBLOCK-002`). `certificate-web-view` gates the certificate page's own rendering the same way:
 declared for every release but `main`, where it answers 500 (`CERT-002`). The
 coverage that turns the waffle flag on for a course or an organization also
 needs an admin account, and skips with an operator-facing message without one.

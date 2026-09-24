@@ -61,6 +61,15 @@ export const STUDIO_SCHEDULE_DETAILS_SELECTORS = {
   /** "Course short description" textarea. */
   shortDescription: 'textarea[name="shortDescription"]',
 
+  /**
+   * "Course overview": a TinyMCE editor, the page's only one. Its toolbar's
+   * "Source code" button has no anchor common to both releases (`main`'s
+   * TinyMCE names its buttons in `data-mce-name`; `verawood`'s folds it into a
+   * "More..." drawer with only localized labels), so HTML is given to the
+   * editor through TinyMCE's own API, which the MFE's editor binding follows.
+   */
+  overviewEditor: '.tox-tinymce',
+
   /** Course card image: the drop zone's file input ("Upload course card image"). */
   courseImageFileInput: '.pgn__dropzone input[type="file"]',
   /** Course card image path field ("Your course image URL" placeholder). */

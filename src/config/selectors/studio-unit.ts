@@ -66,4 +66,17 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
    * add-component tiles.
    */
   pasteComponentButton: 'button.btn-block',
+
+  /**
+   * The "Advanced" tile's picker, a dialog of one radio per advanced block type
+   * (each labelled with its localized display name) and a "Select" button — the
+   * dialog's primary button. The radios' `value` is the block's category.
+   */
+  advancedPickerDialog: '[role="dialog"]:has(input[type="radio"][name="Advanced"])',
+  advancedPickerSelect: 'button.btn-primary',
 } as const;
+
+/** The Advanced picker's radio for one block category (its `value`, not its label). */
+export function advancedComponentOption(category: string): string {
+  return `input[type="radio"][name="Advanced"][value="${category}"]`;
+}

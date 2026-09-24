@@ -120,6 +120,12 @@ Rules:
   built lazily, only by workers that run a case asking for it — that never
   holds a video. `videoFreeSection` builds on the author's browser session and
   `videoFreeCourseLearner` reads it.
+- **The advanced-component matrix has a course of its own.**
+  `advancedModulesCourse` is another lazy worker course whose
+  `advanced_modules` only the matrix writes, and each case only adds its module
+  to it, so "not offered before, offered after" holds and no other spec's
+  picker changes. `advancedModulesLearnerLater` is provisioned after the case's
+  Studio writes.
 - **A profile needs an adult learner, and privacy needs a second one.**
   `profileLearner` is `courseLearner` with an adult year of birth (without one
   the platform keeps a profile private), and `profileViewer` is another fresh
@@ -129,14 +135,26 @@ Rules:
   the platform's `BulkEmailFlag` with course authorization still required and
   authorizes the content course alone (Django admin, under the admin lock), so
   no other course gains e-mail. The row is left in place: configuration rows
-  are history, and the content course is the suite's own.
+  are history, and the content course is the suite's own. `courseEmailFor`
+  does the same for one course of the test's own (an `authoringCourse`).
 - **The certificate auto-generation switch is locked.** Every
   `certificateLearner` holds the `certificate-auto-generation` lock shared;
   `certificateSwitch` holds it exclusively, starts from the switch off, turns it
   on only when the test asks, and turns it off afterwards.
   `certificateAutoGeneration` adds a learner of its own, and
   `certificateAvailableDateField` turns the switch on for Studio's certificate
-  date fields.
+  date fields. `oraTeamSwitch` holds the ORA team-submissions switch the same
+  way, under its own lock; both are built on `holdSwitch`.
+- **Instructor-dashboard roles come from a cast.** `instructorCast(part)` is one
+  plain account per part per worker (`staff`, `limitedStaff`,
+  `discussionAdmin`, `teamMember`), enrolled nowhere and granted its role by
+  the test that reads it. It depends on no worker course on purpose: building
+  `contentCourse` mid-worker for it broke the author's next Studio write.
+- **Special exams need a timed exam.** `timedExam` turns timed exams on in an
+  `authoringCourse`, publishes one time-limited subsection and waits for the
+  CMS worker to register it (`special-exams` capability).
+- **A visitor's About page.** `signedOutVisitor.aboutPage` reads the catalog's
+  About page on a signed-out context, for what an author published.
 - **Teams live in the content course.** `teamsCourse` writes one open topic
   (`e2e-teams`) into its `teams_configuration` when missing; learners create
   teams in it, and teams accumulate, since a learner cannot delete one.
