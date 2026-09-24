@@ -118,7 +118,7 @@ def fetch(args: argparse.Namespace) -> None:
     }
     print(f'{meta["title"]}\n{meta["url"]}  attempt {meta["attempt"]}  conclusion={meta["conclusion"]}')
     for j in meta['jobs']:
-        print(f'  job {j["id"]}  {j["conclusion"]:<8} {j["name"]}')
+        print(f'  job {j["id"]}  {j["conclusion"] or "running":<8} {j["name"]}')
 
     # Newest copy per artifact name unless --all-attempts.
     chosen: list[dict] = []
@@ -209,7 +209,7 @@ def summary(args: argparse.Namespace) -> None:
         meta = json.loads(meta_path.read_text())
         print(f'{meta["title"]}\n{meta["url"]}  (attempt {meta["attempt"]}, {meta["conclusion"]})')
         for j in meta['jobs']:
-            print(f'  {j["conclusion"]:<8} {j["name"]}')
+            print(f'  {j["conclusion"] or "running":<8} {j["name"]}')
 
     for art in playwright_artifacts(root):
         report_dir = extract_report(art)

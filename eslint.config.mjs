@@ -48,9 +48,13 @@ export default tseslint.config(
     ...playwright.configs['flat/recommended'],
     rules: {
       ...playwright.configs['flat/recommended'].rules,
-      // `checkA11y` is the accessibility gate's assertion; teach the linter that a
-      // test calling it does own an assertion.
-      'playwright/expect-expect': ['warn', { assertFunctionNames: ['checkA11y'] }],
+      // `checkA11y` is the accessibility gate's assertion, and `expectReportDownloaded`
+      // (data-downloads.spec.ts) asserts a report's round trip; teach the linter
+      // that a test calling either does own an assertion.
+      'playwright/expect-expect': [
+        'warn',
+        { assertFunctionNames: ['checkA11y', 'expectReportDownloaded'] },
+      ],
     },
   },
   {
