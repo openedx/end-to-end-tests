@@ -11,6 +11,7 @@ import {
 import { AdvancedBlock } from './advanced.block';
 import { AnnotatableBlock } from './annotatable.block';
 import { DoneBlock } from './done.block';
+import { PollBlock } from './poll.block';
 import { WordCloudBlock } from './word-cloud.block';
 
 /**
@@ -145,6 +146,11 @@ export class UnitPage {
   /** A `word_cloud` block in the unit. */
   wordCloudBlock(blockId: string): WordCloudBlock {
     return new WordCloudBlock(this.page, this.contentFrame, blockId);
+  }
+
+  /** An xblock-poll `poll` or `survey` in the unit. */
+  pollBlock(blockId: string, category: 'poll' | 'survey'): PollBlock {
+    return new PollBlock(this.page, this.contentFrame, blockId, category);
   }
 
   /** A `done` ("Completion") block in the unit. */

@@ -73,4 +73,19 @@ export const LEGACY_EDITOR_SELECTORS = {
   /** xblock-google-drive `google-calendar`: the calendar id and "Save". */
   calendarId: '#edit_calendar_id',
   calendarSave: '#calendar-submit-options',
+  /** xblock-google-drive `google-document`: the raw embed code and "Save". */
+  embedCode: '#edit_embed_code',
+  documentSave: '#document-submit-options',
+  /** xblock-poll `poll`: the question, one label per answer key, and "Save". */
+  pollQuestion: '#poll-question-editor',
+  pollAnswerLabel: (key: string) => `#answer-label-${key}`,
+  pollSave: '#poll-submit-options',
+  /**
+   * recommender-xblock: the "entries per page" setting and "Set configurations"
+   * (`set_client_configuration`). This editor stays open after its save; its
+   * dialog's close control is the frame's `action-cancel`.
+   */
+  recommenderEntriesPerPage: 'select.entriesPerPage',
+  recommenderSave: 'input.recommender_configSubmit',
+  close: 'a.action-cancel',
 } as const;

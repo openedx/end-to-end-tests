@@ -10,6 +10,13 @@
 export const ADVANCED_BLOCK_SELECTORS = {
   /** xblocks-contrib `annotatable`: one highlighted span per `<annotation>`. */
   annotatableSpan: 'span.annotatable-span',
+  /** xblock-poll `poll`: one radio per answer, its `value` the answer key. */
+  pollAnswer: (key: string) => `input[type="radio"][name="choice"][value="${key}"]`,
+  /** xblock-poll `survey`: one radio per question (its `name`) and answer key. */
+  surveyAnswer: (question: string, answer: string) =>
+    `input[type="radio"][name="${question}"][value="${answer}"]`,
+  /** xblock-poll: the poll's and the survey's "Submit" (disabled until answered). */
+  pollSubmit: 'button.submit',
   /** xblocks-contrib `word_cloud`: the word inputs and "Save". */
   wordCloudInput: 'input.input-cloud',
   wordCloudSave: 'button.save',
