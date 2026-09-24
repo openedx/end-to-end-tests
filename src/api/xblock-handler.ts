@@ -14,7 +14,7 @@ import { studioOrigin } from './studio-origin';
  * reader narrows the handler's JSON to what a spec asserts: the platform's
  * record, never the rendered copy.
  */
-export function xblockHandlerUrl(
+function xblockHandlerUrl(
   config: AppConfig,
   courseKey: string,
   usageKey: string,

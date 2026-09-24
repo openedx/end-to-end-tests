@@ -551,7 +551,6 @@ export {
   narrowPollResults,
   narrowSurveyResults,
   narrowWordCloudState,
-  xblockHandlerUrl,
   type ConditionalContent,
   type PdfFields,
   type PollResults,

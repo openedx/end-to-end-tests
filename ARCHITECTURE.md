@@ -205,7 +205,16 @@ decides every privacy case; and **global staff**, the admin in a browser
 (`adminPage`), for the dashboard's "View as". Platform-wide switches that one
 case changes and others rely on are serialised by a named cross-worker
 reader/writer lock (`src/fixtures/named-lock.ts`) beside the admin lock — the
-certificate auto-generation switch is the first.
+certificate auto-generation switch is the first, the ORA team-submissions
+switch the second.
+
+The **instructor-dashboard role** personas (Epic 15) are the worker author as
+the course's instructor, plus a worker-scoped `instructorCast`: one plain
+account per role it is granted — `staff`, `limitedStaff`, a staff
+`discussionAdmin`, a `teamMember` — enrolled nowhere until a test grants it a
+role on its own course. Course e-mail is sent by a mailbox learner granted
+course staff, on its own context, because the communications MFE needs an LMS
+session the author's browser does not hold.
 
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
