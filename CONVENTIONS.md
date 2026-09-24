@@ -172,6 +172,18 @@ these rules.
   worker), so a learner read taken right after a publish can precede it. Poll under
   `TIMEOUTS.contentPublish`, and give a round-trip spec the `TIMEOUTS.contentTest`
   describe-level budget so the wait cannot trip the per-test timeout.
+- **Advanced components (legacy XBlocks).** Eight modules are offered by the
+  Advanced tile with no Advanced Settings entry (`DEFAULT_ADVANCED_MODULES`), so
+  "listing it made it appear" can only be shown for the opt-in ones; a default
+  module's row shows listing it is accepted and the tile still offers it. The
+  tile's radios carry the category as their `value`
+  (`StudioUnitPage.addAdvancedComponent`). A block's learner result is read from
+  its own LMS handler (`src/api/xblock-handler.ts`: poll and survey
+  `get_results`, the word cloud's state, a conditional's content), never its
+  copy. Blocks that point at third parties (Google calendar and documents, LTI,
+  the recommender's CDN scripts) are configured and checked by attribute, never
+  waited on. `advanced_modules` is course-level, so the matrix has a worker
+  course of its own (`advancedModulesCourse`) and each case only adds to it.
 - **Copy/paste is a server-side clipboard.** The content-staging API
   (`src/api/clipboard.ts`) holds the clipboard per user with no browser grant, so
   a copy can be an API call and the paste the UI action under test.
@@ -226,7 +238,30 @@ tabId)` is the "this tab is offered" assertion.
   holds the `certificate-auto-generation` lock shared, and `certificateSwitch`
   holds it exclusively, starts from off, turns it on only when the test asks
   and turns it off afterwards (`src/fixtures/named-lock.ts`). Never flip the
-  switch outside that fixture.
+  switch outside that fixture. The ORA team-submissions switch is held the
+  same way (`oraTeamSwitch`, its own lock); both share one `holdSwitch`.
+- **The tab set is the platform's rule table, not the sheet's list.** Which
+  tabs a role is offered follows `serializers_v2.py` (course staff do not get
+  Course Team unless they are Discussion Admins; Certificates, Special Exams and
+  Reports are deployment options). `expectedInstructorTabs` restates those
+  rules for one viewer and the preconditions the test itself set up (an ORA,
+  course e-mail, a Data Researcher grant, declared capabilities); a tab no API
+  predicts is listed as tolerated with its reason, never matched by a
+  wildcard. The dashboard's `tabs[]` and the nav's links are read together.
+- **Role readings come from a cast.** `instructorCast(part)` is one plain
+  account per role per worker, enrolled nowhere (a course-team grant enrolls
+  it), granted its one role on the course the test reads. Keep casts free of
+  worker-course dependencies: a cast that built `contentCourse` mid-worker made
+  the author's next Studio write redirect to sign-in.
+- **A 200 does not mean every row took.** The team, allowance and cohort writes
+  report a per-identifier `success` / `error` inside a 200, so a spec reads the
+  list back (`listCourseTeam`, `listAllowances`, `listCohortsV1`) rather than
+  trusting the status or a toast.
+- **Course e-mail is sent by course staff with their own LMS session.** The
+  communications MFE reads session-authed views the worker author's JWT-only
+  browser cannot, so the sender is a mailbox learner granted `staff`, which also
+  makes it the "staff" recipient. Target separation uses the sentinel rule: the
+  learner's copy proves the send ran before the staff inbox is read, once.
 
 ## Library round trips
 

@@ -54,7 +54,7 @@ export class InstructorCohortsPage extends InstructorDashboardPage {
     );
   }
 
-  /** Whether the manual assignment method may be chosen in the add-cohort form. */
+  /** Whether the add-cohort form (opened if it is not) lets "Manual" be chosen. */
   async manualAssignmentEnabled(): Promise<boolean> {
     const form = this.main.locator(this.s.cohortForm);
     if (!(await form.isVisible())) {
