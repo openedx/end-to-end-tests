@@ -226,6 +226,18 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   grantExceptionsIndividualTab: '#grant-exceptions-tabs-tab-single',
   invalidateModal: '[role="dialog"].invalidate-certificate-modal',
 
+  // ---- Course Team -------------------------------------------------------
+  /** "Add Team Member": the tab's one primary button. */
+  courseTeamAddButton: 'button.btn-primary',
+  /**
+   * The add-member modal: identifiers (usernames or e-mails, comma-separated)
+   * and the role select, whose option values are the v2 API's role keys.
+   */
+  teamMemberIdentifiers: 'textarea',
+  teamMemberRole: 'select',
+  /** The modal's "Save" — its primary button (a plain button, not a submit). */
+  teamMemberSave: 'button.btn-primary',
+
   // ---- Cohorts -----------------------------------------------------------
   /**
    * While cohorts are off, the tab's only primary button is "Enable Cohorts";

@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
+import { CSRF_HEADER, fetchCsrfToken } from './csrf';
+import { ApiError } from './errors';
 import { lmsGet, lmsWrite } from './lms-json';
 
 /**
@@ -240,4 +242,48 @@ export async function updateComment(
     `Updating comment ${commentId}`,
     { data: patch, mergePatch: true },
   );
+}
+
+/**
+ * Divides a course's discussions by cohort (`division_scheme: cohort`, inline
+ * topics included) through the LMS's legacy discussion-settings view
+ * (`PATCH /courses/<key>/discussions/settings`) — the Group Moderator role's
+ * precondition. The view is session-authed and course-staff only, and its REST
+ * twin is global-staff only, so `session` is an LMS Django session (the admin
+ * through `adminLms`). Returns the division scheme the view reports after.
+ */
+export async function divideDiscussionsByCohort(
+  session: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<string> {
+  const url = `${config.baseUrls.lms}/courses/${courseKey}/discussions/settings`;
+  const token = await fetchCsrfToken(session, config);
+  // Not followed: a stale session is redirected to the login page, and a
+  // followed PATCH lands there as a 405 rather than saying so.
+  const response = await session.fetch(url, {
+    method: 'PATCH',
+    maxRedirects: 0,
+    headers: { [CSRF_HEADER]: token, Referer: config.baseUrls.lms },
+    data: { division_scheme: 'cohort', always_divide_inline_discussions: true },
+  });
+  if (response.status() >= 300 && response.status() < 400) {
+    throw new ApiError(`Dividing the discussions of ${courseKey} was redirected to sign-in.`, {
+      status: response.status(),
+      url,
+      body: '',
+    });
+  }
+  if (!response.ok()) {
+    throw new ApiError(
+      `Dividing the discussions of ${courseKey} failed (HTTP ${response.status()}).`,
+      {
+        status: response.status(),
+        url,
+        body: (await response.text()).slice(0, 500),
+      },
+    );
+  }
+  const settings = (await response.json()) as { readonly division_scheme?: string };
+  return settings.division_scheme ?? '';
 }

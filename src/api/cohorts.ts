@@ -174,3 +174,19 @@ export async function createCohortV1(
     { data: { name: cohort.name, assignment_type: cohort.assignmentType } },
   );
 }
+
+/** Turns cohorts on for a course (`PUT /api/cohorts/v1/settings/<key>`), as the Cohorts tab does. */
+export async function enableCohortsV1(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<void> {
+  await cohortWrite(
+    request,
+    config,
+    'PUT',
+    `${config.baseUrls.lms}/api/cohorts/v1/settings/${courseKey}`,
+    `Enabling cohorts in ${courseKey}`,
+    { data: { is_cohorted: true } },
+  );
+}

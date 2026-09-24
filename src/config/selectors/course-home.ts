@@ -55,6 +55,12 @@ export const COURSE_HOME_SELECTORS = {
    * read by the URL each tab links to.
    */
   courseTab: '#courseTabsNavigation a.nav-link[href]',
+  /**
+   * The "Instructor" tab, shown to course staff and global staff: it links to
+   * the instructor dashboard for this course.
+   */
+  instructorTab: (courseKey: string) =>
+    `#courseTabsNavigation a.nav-link[href$="/instructor-dashboard/${courseKey}"]`,
 } as const;
 
 /**

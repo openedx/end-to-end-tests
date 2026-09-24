@@ -147,6 +147,11 @@ export class CourseOutlinePage {
     await this.page.waitForURL((url) => url.pathname.includes('/block-v1:'));
   }
 
+  /** The course-home "Instructor" tab, present only for course and global staff. */
+  instructorTab(courseKey: string): Locator {
+    return this.page.locator(COURSE_HOME_SELECTORS.instructorTab(courseKey));
+  }
+
   /** The absolute URLs the course's tabs link to, in order. */
   async tabUrls(): Promise<readonly string[]> {
     await this.courseTabs.first().waitFor();

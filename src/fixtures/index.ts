@@ -57,6 +57,8 @@ import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.p
 import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
 import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
 import { InstructorCohortsPage } from '../pages/lms/instructor/cohorts.page';
+import { InstructorCourseTeamPage } from '../pages/lms/instructor/course-team.page';
+import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
 import {
@@ -323,6 +325,13 @@ export interface TestFixtures {
    * cards offer "Email settings". Skips without an admin account.
    */
   courseEmailEnabled: void;
+  /**
+   * Turns course e-mail on for one course of the test's own (a per-test
+   * `authoringCourse`), the same scoped way as {@link courseEmailEnabled}: the
+   * flag with course authorization required, plus that course's authorization.
+   * Skips without an admin account.
+   */
+  courseEmailFor: (courseKey: string) => Promise<void>;
   /** The LMS-hosted course tool pages the course home links to (Bookmarks). */
   courseToolsPage: CourseToolsPage;
   /** Learner dashboard page object (`frontend-app-learner-dashboard`). */
@@ -457,8 +466,12 @@ export interface TestFixtures {
   instructorEnrollments: InstructorEnrollmentsPage;
   instructorGrading: InstructorGradingPage;
   instructorDateExtensions: InstructorDateExtensionsPage;
+  /** The instructor dashboard's shell (its tab nav), on the author's page. */
+  instructorDashboard: InstructorDashboardPage;
   /** The instructor dashboard's Cohorts tab (TC-00539). */
   instructorCohorts: InstructorCohortsPage;
+  /** The instructor dashboard's Course Team tab (TC-00520). */
+  instructorCourseTeam: InstructorCourseTeamPage;
   instructorDataDownloads: InstructorDataDownloadsPage;
   instructorCertificates: InstructorCertificatesPage;
   /**
@@ -998,6 +1011,23 @@ export type RbacCastPart = (typeof RBAC_CAST_PARTS)[number];
 /** The parts {@link WorkerFixtures.forumCast} casts. */
 export type ForumCastPart = 'poster' | 'moderator';
 
+/**
+ * The instructor-dashboard cast's parts: plain accounts a test grants one
+ * course-team role on its own course — `staff`, `limitedStaff`, a staff
+ * `discussionAdmin`, or a `teamMember` whose roles the Course Team tab changes.
+ */
+export type InstructorCastPart = 'staff' | 'limitedStaff' | 'discussionAdmin' | 'teamMember';
+
+/** A cast member: its identity, its API and browser sessions, and the pages it reads. */
+export interface InstructorCastMember {
+  readonly identity: LearnerIdentity;
+  readonly request: APIRequestContext;
+  readonly context: BrowserContext;
+  readonly page: Page;
+  readonly courseOutlinePage: CourseOutlinePage;
+  readonly instructorDashboardPage: InstructorDashboardPage;
+}
+
 /** What one {@link TestFixtures.studioColleague} call hands a spec. */
 export interface StudioColleague {
   readonly identity: LearnerIdentity;
@@ -1169,6 +1199,15 @@ export interface WorkerFixtures {
    * {@link TestFixtures.notificationRecipient}.
    */
   forumCast: (part: ForumCastPart) => Promise<RoundTripLearner>;
+  /**
+   * The instructor-dashboard cast (the `rbacCast` / `forumCast` rule): one plain
+   * account per part per worker, provisioned on first use and enrolled nowhere
+   * (a course-team grant enrolls it). A part holds no role until a test grants
+   * it one, on the course the test reads, and it only ever holds the role it is
+   * named for — so the role readings of TC-00513/514/520 need no registration
+   * each.
+   */
+  instructorCast: (part: InstructorCastPart) => Promise<InstructorCastMember>;
 
   authzCourse: AuthzCourse | undefined;
   /**
@@ -1989,6 +2028,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use();
   },
 
+  courseEmailFor: async ({ config, adminLms }, use) => {
+    await use((courseKey) => adminLms((session) => enableCourseEmail(session, config, courseKey)));
+  },
+
   profileViewer: async ({ playwright, config }, use) => {
     const viewer = await playwright.request.newContext();
     try {
@@ -2567,6 +2610,44 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
       for (const member of made) {
         await disposeRoundTripLearner(member);
+      }
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
+  instructorCast: [
+    async ({ playwright, browser }, use) => {
+      const config = getConfig();
+      const cast = new Map<InstructorCastPart, Promise<InstructorCastMember>>();
+      const made: InstructorCastMember[] = [];
+      const provision = async (): Promise<InstructorCastMember> => {
+        const request = await playwright.request.newContext();
+        const identity = await provisionLearnerSession(request, config);
+        const context = await browser.newContext();
+        await context.addCookies((await request.storageState()).cookies);
+        const page = await context.newPage();
+        const member = {
+          identity,
+          request,
+          context,
+          page,
+          courseOutlinePage: new CourseOutlinePage(page, config),
+          instructorDashboardPage: new InstructorDashboardPage(page, config),
+        };
+        made.push(member);
+        return member;
+      };
+      await use((part) => {
+        let member = cast.get(part);
+        if (member === undefined) {
+          member = provision();
+          cast.set(part, member);
+        }
+        return member;
+      });
+      for (const member of made) {
+        await member.context.close();
+        await member.request.dispose();
       }
     },
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
@@ -3297,7 +3378,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   instructorGrading: pageObjectFixture(InstructorGradingPage),
   instructorDateExtensions: pageObjectFixture(InstructorDateExtensionsPage),
 
+  instructorDashboard: pageObjectFixture(InstructorDashboardPage),
+
   instructorCohorts: pageObjectFixture(InstructorCohortsPage),
+
+  instructorCourseTeam: pageObjectFixture(InstructorCourseTeamPage),
   instructorDataDownloads: pageObjectFixture(InstructorDataDownloadsPage),
   instructorCertificates: pageObjectFixture(InstructorCertificatesPage),
 
