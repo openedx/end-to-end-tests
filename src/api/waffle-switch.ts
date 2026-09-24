@@ -62,3 +62,9 @@ export async function setWaffleSwitch(
 
 /** The switch that makes a passing learner's certificate generate by itself. */
 export const AUTO_CERTIFICATE_GENERATION_SWITCH = 'certificates.auto_certificate_generation';
+
+/**
+ * The switch that offers team submissions in ORA's Studio editor (edx-ora2 also
+ * honours a course flag, a flag and `FEATURES['ENABLE_ORA_TEAM_SUBMISSIONS']`).
+ */
+export const ORA_TEAM_SUBMISSIONS_SWITCH = 'openresponseassessment.team_submissions';

@@ -104,5 +104,18 @@ export const LEGACY_EDITOR_SELECTORS = {
    */
   recommenderEntriesPerPage: 'select.entriesPerPage',
   recommenderSave: 'input.recommender_configSubmit',
+  /**
+   * edx-ora2's editor: the "Settings" tab — click it at its left edge, because
+   * the MFE dialog's expand button overlaps its right side — a control every
+   * Settings tab renders ("Show rubric during response"), the "Teams enabled"
+   * select (present only while team submissions are on; `0` / `1`), the
+   * "Select Team-Set" select (values are team-set ids), and "Save"
+   * (`update_editor_context`).
+   */
+  oraSettingsTab: '#oa_edit_settings_tab a',
+  oraSettingsLoaded: '#openassessment_show_rubric_during_response_selector',
+  oraTeamsEnabled: '#openassessment_team_enabled_selector',
+  oraTeamSet: '#openassessment_teamset_selector',
+  oraSave: 'a.openassessment_save_button',
   close: 'a.action-cancel',
 } as const;

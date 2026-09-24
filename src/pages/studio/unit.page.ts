@@ -1,4 +1,4 @@
-import type { Frame, Locator, Page, Response } from '@playwright/test';
+import type { Dialog, Frame, Locator, Page, Response } from '@playwright/test';
 
 import {
   COURSE_LIBRARY_SYNC_SELECTORS,
@@ -376,6 +376,37 @@ export class StudioUnitPage {
     );
     if (closes) await this.legacyEditorClosed();
     return response;
+  }
+
+  /**
+   * Opens an ORA's editor on its Settings tab, returning the editor's frame once
+   * the tab has rendered its settings.
+   */
+  async openOraSettings(usageKey: string): Promise<Frame> {
+    const editor = await this.openLegacyEditor(usageKey);
+    // The MFE dialog's expand button sits over the tab's right side.
+    await editor
+      .locator(LEGACY_EDITOR_SELECTORS.oraSettingsTab)
+      .click({ position: { x: 8, y: 8 } });
+    await editor.locator(LEGACY_EDITOR_SELECTORS.oraSettingsLoaded).waitFor();
+    return editor;
+  }
+
+  /**
+   * Saves an ORA's editor (`update_editor_context`). A released ORA asks the
+   * author to confirm first (a native dialog: changes affect only new
+   * submissions); the author confirms, as they must for the save to happen.
+   */
+  async saveOraEditor(frame: Frame): Promise<Response> {
+    const confirm = (dialog: Dialog) => void dialog.accept();
+    this.page.on('dialog', confirm);
+    try {
+      return await this.saveLegacyEditor(frame, LEGACY_EDITOR_SELECTORS.oraSave, {
+        handler: 'update_editor_context',
+      });
+    } finally {
+      this.page.off('dialog', confirm);
+    }
   }
 
   /** Closes a legacy editor without saving, through its own cancel control. */
