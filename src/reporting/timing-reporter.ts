@@ -3,14 +3,13 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
 import type {
   FullConfig,
-  FullProject,
   Reporter,
-  Suite,
   TestCase,
   TestResult,
   TestStep,
 } from '@playwright/test/reporter';
 
+import { projectOf, shardOf } from './project';
 import { testIdsFromAnnotations } from './test-id';
 import {
   flattenSteps,
@@ -41,30 +40,6 @@ export interface TimingReporterOptions {
 const DEFAULT_TESTS_FILE = 'test-results/timings-tests.csv';
 const DEFAULT_STEPS_FILE = 'test-results/timings-steps.csv';
 const DEFAULT_SLOWEST = 5;
-
-/** Finds the enclosing project for a test, walking up the suite tree. */
-function projectOf(test: TestCase): FullProject | undefined {
-  let suite: Suite | undefined = test.parent;
-  while (suite) {
-    const project = suite.project?.();
-    if (project) {
-      return project;
-    }
-    suite = suite.parent;
-  }
-  return undefined;
-}
-
-/**
- * The shard label `playwright.config.ts` puts in the config `metadata`, which
- * every project inherits. A merged report keeps each shard's projects apart
- * with their own metadata, so the label survives `merge-reports`, where
- * `config.shard` does not.
- */
-function shardOf(project: FullProject | undefined): string {
-  const shard: unknown = project?.metadata?.shard;
-  return typeof shard === 'string' ? shard : '';
-}
 
 function toStepNode(step: TestStep): StepNode {
   return {

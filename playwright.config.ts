@@ -60,10 +60,14 @@ export default defineConfig({
   ],
 
   // Labels every result with the CI shard that ran it (its run-id suffix, e.g.
-  // `d2`). Projects inherit config metadata, and a merged report keeps each
-  // shard's projects, with their metadata, apart, so the timing reporter can
-  // attribute rows of a merged report to their shard. Empty outside CI shards.
-  metadata: { shard: parseRunIdSuffix(process.env[RUN_ID_SUFFIX_ENV]) },
+  // `d2`) and the CI profile (`.ci/profiles.json`). Projects inherit config
+  // metadata, and a merged report keeps each blob's projects, with their
+  // metadata, apart, so the reporters can attribute results of a merged report
+  // (`src/reporting/project.ts`). Both are empty outside CI.
+  metadata: {
+    shard: parseRunIdSuffix(process.env[RUN_ID_SUFFIX_ENV]),
+    profile: process.env.CI_PROFILE ?? '',
+  },
 
   use: {
     baseURL: resolveBaseURL(),
