@@ -76,11 +76,16 @@ Contains:
 ## Policy
 
 All reporters write **local files only**. Uploading them is a CI-only
-concern: the shared `run-suite` composite action (used by both
-`run_tests_tutor.yml` and `run_tests_external.yml`) publishes
-`btr-coverage.json`, `btr-run.json`, `a11y-violations.json` and
-`timings-*.csv` as a `suite-reports-*` build artifact alongside the full
-report bundle.
+concern. In CI each job running the suite (the shared `run-suite` composite
+action, one job per shard) also writes a Playwright **blob report**, and the
+`report-suite` action combines the blobs with `playwright merge-reports
+--config merge.config.ts`. That replays every shard's results through the same
+reporters (`reporters.ts`, shared by `playwright.config.ts` and
+`merge.config.ts`), so the merged `btr-coverage.json`, `btr-run.json`,
+`a11y-violations.json` and `timings-*.csv` have the shape a one-job run writes.
+`report-suite` uploads them as a `suite-reports-*` build artifact alongside the
+HTML report. A merged `timings-tests.csv` has one `setup` row per shard, since
+each shard signs in its own roles.
 
 Publishing `btr-run.json` to the **BTR results sheets** (below) is a separate,
 opt-in CI step. It runs only from `schedule` and `workflow_dispatch` runs, never

@@ -10,7 +10,7 @@ Zero dependencies beyond Python 3.9+ and an authenticated `gh` CLI.
 
 `fetch` writes `<DIR>/run.json` plus one directory per artifact
 (`playwright-report-<release>/`, `suite-reports-<release>/`,
-`tutor-logs-<release>/`) and the full runner log of every failed job
+`tutor-logs-<release>-<profile>-<shard>/`) and the full runner log of every failed job
 (`job-<id>.log`, ANSI stripped). Re-run attempts re-upload artifacts under the same name;
 by default only the newest copy of each name is kept.
 
@@ -116,9 +116,13 @@ def fetch(args: argparse.Namespace) -> None:
                 by_name[a['name']] = a
         chosen = list(by_name.values())
     kinds = set(args.only.split(',')) if args.only else None
-    kind_of = lambda name: name.split('-')[0] if name.split('-')[0] in ('tutor', 'suite', 'playwright') else name
+    kind_of = lambda name: name.split('-')[0] if name.split('-')[0] in ('tutor', 'suite', 'playwright', 'blob') else name
 
     for a in sorted(chosen, key=lambda a: a['name']):
+        # Per-shard blob reports are what the merged playwright-report/suite-reports
+        # were built from; fetched only on request (--only blob).
+        if kind_of(a['name']) == 'blob' and not (kinds and 'blob' in kinds):
+            continue
         if kinds and kind_of(a['name']) not in kinds:
             continue
         if a['expired']:
@@ -369,7 +373,7 @@ def main() -> None:
     f.add_argument('ref', help='run URL, run id, PR URL or PR number')
     f.add_argument('--dest', help='directory to write into (default $TMPDIR/ci-run-<id>)')
     f.add_argument('--repo', default=DEFAULT_REPO)
-    f.add_argument('--only', help='comma list of kinds: playwright,suite,tutor')
+    f.add_argument('--only', help='comma list of kinds: playwright,suite,tutor,blob (blob only when named)')
     f.add_argument('--all-attempts', action='store_true', help='keep every attempt\'s copy of each artifact')
     f.set_defaults(fn=fetch)
 

@@ -107,7 +107,7 @@ jobs:
     timeout-minutes: 60
     environment: ${{ inputs.environment }}
     env:
-      # Read by scripts/publish-btr-sheet.mts inside the run-suite action, which
+      # Read by scripts/publish-btr-sheet.mts inside the report-suite action, which
       # takes no credential input. Unset (no such repository/Environment secret)
       # = the publisher warns and skips, leaving the run's result unchanged.
       BTR_SHEET_CREDENTIALS: ${{ secrets.BTR_SHEET_CREDENTIALS }}
@@ -154,7 +154,7 @@ jobs:
           fi
 
           # environment also becomes artifact_suffix (part of the uploaded
-          # artifact name in run-suite). Environment names allow characters,
+          # artifact names in run-suite and report-suite). Environment names allow characters,
           # like "/", that actions/upload-artifact rejects, so check for
           # those explicitly rather than let the upload step fail late.
           if echo "$ENVIRONMENT" | grep -qE '["/\\:<>|*?[:cntrl:]]'; then
@@ -256,6 +256,17 @@ jobs:
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}
           exclude_features: ${{ inputs.exclude_features }}
+          artifact_suffix: ${{ inputs.environment }}
+
+      # One unsharded run: its single blob report goes through the same merge
+      # as a sharded Tutor run, so both produce their reports the same way.
+      - name: Report E2E suite
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/report-suite
+        with:
+          blob_dir: blob-report
+          lms_base_url: ${{ inputs.lms_base_url }}
+          domains: ${{ inputs.domains }}
           artifact_suffix: ${{ inputs.environment }}
           btr_release: ${{ inputs.openedx_release }}
           btr_test_ref: ${{ inputs.test_ref }}
