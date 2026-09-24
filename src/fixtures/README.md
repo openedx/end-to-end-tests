@@ -120,6 +120,12 @@ Rules:
   built lazily, only by workers that run a case asking for it — that never
   holds a video. `videoFreeSection` builds on the author's browser session and
   `videoFreeCourseLearner` reads it.
+- **The advanced-component matrix has a course of its own.**
+  `advancedModulesCourse` is another lazy worker course whose
+  `advanced_modules` only the matrix writes, and each case only adds its module
+  to it, so "not offered before, offered after" holds and no other spec's
+  picker changes. `advancedModulesLearnerLater` is provisioned after the case's
+  Studio writes.
 - **A profile needs an adult learner, and privacy needs a second one.**
   `profileLearner` is `courseLearner` with an adult year of birth (without one
   the platform keeps a profile private), and `profileViewer` is another fresh

@@ -164,6 +164,7 @@ export {
   COURSE_DETAILS_PATH,
   COURSE_GRADING_PATH,
   COURSE_SETTINGS_PATH,
+  addAdvancedModules,
   ensureTeamsTopic,
   fetchAdvancedSettings,
   fetchCourseDetails,
@@ -530,6 +531,22 @@ export {
   type WaffleOverrideInput,
 } from './waffle';
 export { lmsGet, lmsWrite } from './lms-json';
+export {
+  fetchConditionalContent,
+  fetchPollResults,
+  fetchSurveyResults,
+  fetchWordCloudState,
+  narrowConditionalContent,
+  narrowPollResults,
+  narrowSurveyResults,
+  narrowWordCloudState,
+  xblockHandlerUrl,
+  type ConditionalContent,
+  type PollResults,
+  type PollTally,
+  type SurveyQuestionTally,
+  type WordCloudState,
+} from './xblock-handler';
 export {
   NOTIFICATION_APPS,
   fetchNotificationCount,
