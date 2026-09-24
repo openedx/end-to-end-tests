@@ -197,6 +197,16 @@ of the configured mailbox provider (`mailboxLearner`, `src/mail/`), and the
 suite reads the mail through that provider's API — a Mailpit catcher on the CI
 Tutor stack.
 
+The **learner-page** personas (Epic 14) are mostly one fresh learner per test
+(`courseLearner`, `roundTripLearner`), because what a learner bookmarked,
+completed or chose is the assertion. Two more complete them: a **profile
+viewer**, a second fresh learner on a request context of its own, whose reading
+decides every privacy case; and **global staff**, the admin in a browser
+(`adminPage`), for the dashboard's "View as". Platform-wide switches that one
+case changes and others rely on are serialised by a named cross-worker
+reader/writer lock (`src/fixtures/named-lock.ts`) beside the admin lock — the
+certificate auto-generation switch is the first.
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the

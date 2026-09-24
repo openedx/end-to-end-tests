@@ -18,6 +18,28 @@ export const COURSE_ABOUT_SELECTORS = {
    */
   enrollButton: 'main button.pgn__stateful-btn',
 
+  /**
+   * The share links — the sheet's Facebook, Twitter and e-mail "share" icons.
+   * Paragon hyperlinks with only an icon and screen-reader text, so each is
+   * anchored by the share service its `href` targets; the links are never
+   * followed off-site.
+   */
+  shareTwitter: 'main a[href^="https://twitter.com/intent/tweet"]',
+  shareFacebook: 'main a[href^="https://www.facebook.com/sharer/sharer.php"]',
+  shareEmail: 'main a[href^="mailto:"]',
+
+  /** The course image — the sheet's "course photo". */
+  mediaImage: 'main img.course-media-image',
+
+  /**
+   * The intro-video play button ("Play course introduction video"), which wraps
+   * the course image when the course has an intro video.
+   */
+  introVideoButton: 'main button:has(> img.course-media-image)',
+
+  /** The intro video's player, rendered in a modal once the button is pressed. */
+  introVideoFrame: '[role="dialog"] iframe[src*="youtube.com/embed/"]',
+
   /** Label/value pairs in the details sidebar. Positional only — see plan §4.4. */
   detailsItemLabel: '[data-testid="sidebar-details-item-label"]',
   detailsItemValue: '[data-testid="sidebar-details-item-value"]',

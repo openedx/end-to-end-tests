@@ -21,7 +21,9 @@ export {
 export { satisfyPrerequisiteByScore, submitProblem } from './gating';
 export {
   ensureDataResearcher,
+  earnCertificate,
   mintCertificateByException,
+  passCertificateCourse,
   waitForInstructorTask,
   waitForLearnerProgress,
   waitForReport,
@@ -77,3 +79,18 @@ export {
 } from './notifications';
 export { linkIn, linkingTo, waitForMail } from './mail';
 export { waitForLearnerTopic } from './discussions';
+export {
+  KNOWN_CHROME_DEFECTS,
+  anonymousHeaderExpectation,
+  chromeConfigSourceFor,
+  expectedUserMenu,
+  horizontalOverflow,
+  knownChromeDefects,
+  partitionSiteLinks,
+  readPageChrome,
+  type AnonymousHeaderExpectation,
+  type ChromeDefectContext,
+  type ChromeScenario,
+  type KnownChromeDefect,
+  type PageChrome,
+} from './chrome';

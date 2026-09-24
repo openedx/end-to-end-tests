@@ -1,7 +1,15 @@
 // Barrel for structural anchors, one module per surface. See ./README.md.
 export { ACCOUNT_MENU_SELECTORS } from './account-menu';
 export { ADMIN_CONSOLE_SELECTORS } from './admin-console';
-export { CATALOG_SEARCH_PATH, CATALOG_SELECTORS, catalogCourseCard } from './catalog';
+export { CHROME_SELECTORS, languageMenuOtherItems } from './chrome';
+export {
+  CATALOG_SEARCH_PATH,
+  CATALOG_SELECTORS,
+  catalogCourseCard,
+  catalogFilterGroup,
+  catalogFilterOptions,
+  type CatalogFacet,
+} from './catalog';
 export { COURSE_ABOUT_SELECTORS, courseAboutCoursewareLink } from './course-about';
 export {
   COURSEWARE_SELECTORS,
@@ -11,10 +19,19 @@ export {
 } from './courseware';
 export { CAPA_SELECTORS } from './capa';
 export { PROGRESS_SELECTORS, progressTabLink } from './progress';
+export { PROFILE_SELECTORS, profileControl, profileEditor } from './profile';
+export { TEAMS_SELECTORS, teamThread, teamsTopicLink } from './teams';
 export { DASHBOARD_SELECTORS } from './dashboard';
 export { DISCUSSIONS_SELECTORS } from './discussions';
 export { NOTIFICATION_PREFERENCES_SELECTORS, NOTIFICATION_TRAY_SELECTORS } from './notifications';
-export { COURSE_HOME_SELECTORS } from './course-home';
+export {
+  COURSE_HOME_SELECTORS,
+  COURSE_TOOLS_SELECTORS,
+  bookmarkRowFor,
+  courseHomeFragmentHolding,
+  courseToolLink,
+  subsectionEffort,
+} from './course-home';
 export { STUDIO_HOME_SELECTORS } from './studio-home';
 export { STUDIO_OUTLINE_SELECTORS, STUDIO_SHELL_SELECTORS } from './studio-shell';
 export {

@@ -131,7 +131,9 @@ every unmigrated course's team out of Studio), `rbac-matrix-parity` (the
 console's library permission matrix matches the API's permission list one row
 per permission — `verawood` renders three rows more, wg#609) and
 `rbac-error-view-action` (the console's not-found view offers a working way
-back — `verawood` does; on `main` the anchor does nothing, `RBAC-008`). The
+back — `verawood` does; on `main` the anchor does nothing, `RBAC-008`).
+`certificate-web-view` gates the certificate page's own rendering the same way:
+declared for every release but `main`, where it answers 500 (`CERT-002`). The
 coverage that turns the waffle flag on for a course or an organization also
 needs an admin account, and skips with an operator-facing message without one.
 `analytics` is reserved for the Superset/Aspects reports and has no
@@ -296,6 +298,16 @@ Tests are organized into Playwright **projects**:
   `setup`. Each worker provisions an **author of its own** (see "Studio coverage")
   whose session is valid on Studio as well as the LMS. Runs only when the `studio`
   capability is declared.
+
+Responsive coverage runs at the sizes in [`src/config/viewports.ts`](src/config/viewports.ts)
+(phone 375, tablet 768, small desktop 1024, desktop 1280, each on one side of a
+breakpoint the Open edX frontends switch on) inside the same projects; there is
+no separate mobile project.
+
+On a Tutor `main` target, two toggles that plugins set only in `FEATURES` must
+also be set as flat settings for their coverage to run (the `TUTOR-001`
+flattening): `ENABLE_COURSE_DISCOVERY` for `catalog-search`, and
+`ENABLE_EDXNOTES` for `notes`. The CI workflow's settings patch sets both.
 
 Run a single project or filter by tag:
 

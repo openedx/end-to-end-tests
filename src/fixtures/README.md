@@ -114,4 +114,36 @@ Rules:
   discussions MFE loaded before that offers no topic and cannot post.
   `forumUnit` adds a published unit and waits for its in-context topic;
   `oraUnit` adds a unit with a staff-graded ORA (`@ora`).
+- **Effort estimates need a course with no video.** The platform gives up on
+  estimating a whole course when any video lacks a duration, and the suite's
+  authored videos have none, so `videoFreeCourse` is a third worker course —
+  built lazily, only by workers that run a case asking for it — that never
+  holds a video. `videoFreeSection` builds on the author's browser session and
+  `videoFreeCourseLearner` reads it.
+- **A profile needs an adult learner, and privacy needs a second one.**
+  `profileLearner` is `courseLearner` with an adult year of birth (without one
+  the platform keeps a profile private), and `profileViewer` is another fresh
+  learner on its own request context, whose reading of the account decides a
+  visibility case.
+- **Course e-mail is switched on for one course.** `courseEmailEnabled` turns on
+  the platform's `BulkEmailFlag` with course authorization still required and
+  authorizes the content course alone (Django admin, under the admin lock), so
+  no other course gains e-mail. The row is left in place: configuration rows
+  are history, and the content course is the suite's own.
+- **The certificate auto-generation switch is locked.** Every
+  `certificateLearner` holds the `certificate-auto-generation` lock shared;
+  `certificateSwitch` holds it exclusively, starts from the switch off, turns it
+  on only when the test asks, and turns it off afterwards.
+  `certificateAutoGeneration` adds a learner of its own, and
+  `certificateAvailableDateField` turns the switch on for Studio's certificate
+  date fields.
+- **Teams live in the content course.** `teamsCourse` writes one open topic
+  (`e2e-teams`) into its `teams_configuration` when missing; learners create
+  teams in it, and teams accumulate, since a learner cannot delete one.
+- **Platform-wide state one case changes and others rely on takes a named
+  lock.** `named-lock.ts` is a cross-worker reader/writer lock with a
+  heartbeat (`withSharedLock` / `withExclusiveLock`): the cases that need the
+  state left alone hold it shared, the case that changes it holds it
+  exclusive. It is always taken _outside_ `withAdminSession`, which stays the
+  inner lock around the admin write itself.
 - This is the only layer that reaches across all the others.

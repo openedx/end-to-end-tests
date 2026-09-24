@@ -36,6 +36,12 @@ can reuse — e.g.:
   learner's topic list only once the learner can see the unit (after the
   block-structure rebuild), later than the author sees it; open the in-unit
   sidebar before then and its editor posts to another topic.
+- `chrome.ts` — the site-chrome readings: `readPageChrome` (which frontend
+  generation rendered a page's header and the configuration behind it, read
+  from where that generation reads it), `anonymousHeaderExpectation`,
+  `partitionSiteLinks`, `horizontalOverflow`, and `KNOWN_CHROME_DEFECTS`, the
+  chrome defects keyed to a generation and layout that fixtures turn into
+  expected failures for the cases they break.
 - `poll.ts` — `pollUntil` and `PollOutcome`, the bounded poll the instructor and
   library waits share: re-read every second until satisfied or out of budget,
   never throwing, so a spec's failure names the last reading.

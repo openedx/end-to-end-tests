@@ -337,6 +337,8 @@ jobs:
       #   default, but on main the top-level setting reads False while only the
       #   dead FEATURES flag is True (the TUTOR-001 flattening); force it so the
       #   Studio Reindex button and catalog search see authored content.
+      # - ENABLE_EDXNOTES: the notes plugin sets it only in FEATURES, so on main
+      #   the Notes tool stays off (TUTOR-001 again); the notes specs need it.
       # - Rate limits: the platform defaults are per-day and CI retries and
       #   back-to-back runs exhaust them (HTTP 403 forbidden-request), so use
       #   short, self-resetting per-minute windows.
@@ -365,6 +367,7 @@ jobs:
 
           ENABLE_COURSE_DISCOVERY = True
           ENABLE_COURSEWARE_INDEX = True
+          ENABLE_EDXNOTES = True
           SKIP_EMAIL_VALIDATION = True
 
           # AuthZ course-authoring migration (Epic 12, 587-614). Off on a stock
@@ -382,6 +385,7 @@ jobs:
           if "FEATURES" in globals():
               FEATURES["ENABLE_COURSE_DISCOVERY"] = True
               FEATURES["ENABLE_COURSEWARE_INDEX"] = True
+              FEATURES["ENABLE_EDXNOTES"] = True
               FEATURES["SKIP_EMAIL_VALIDATION"] = True
           """
               )

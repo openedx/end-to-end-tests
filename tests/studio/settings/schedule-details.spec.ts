@@ -311,10 +311,13 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
         end_date: iso(FUTURE),
         certificate_available_date: null,
       });
-      const available = new Date('2039-07-01T12:00:00Z');
+      const available = new Date('2039-07-01T00:00:00Z');
 
       await scheduleDetailsPage.goto(courseKey);
-      await scheduleDetailsPage.setCertificateAvailableDate(toDateTimeFields(available));
+      // The date is asked for only when certificates show "at the end of the
+      // course run, on a date".
+      await scheduleDetailsPage.chooseCertificateDisplayBehavior('end_with_date');
+      await scheduleDetailsPage.setCertificateAvailableDate(toDateTimeFields(available).date);
       expect((await scheduleDetailsPage.save()).status).toBe(200);
 
       await expect

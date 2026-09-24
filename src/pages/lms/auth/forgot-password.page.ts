@@ -19,6 +19,10 @@ export class ForgotPasswordPage {
   readonly confirmation: Locator;
   /** Validation/error alert (Paragon danger variant), matched by class not text. */
   readonly error: Locator;
+  /** The confirmation's "contact technical support" link. */
+  readonly supportLink: Locator;
+  /** The reset form a reset link opens: its new-password fields. */
+  readonly newPasswordFields: Locator;
 
   constructor(
     private readonly page: Page,
@@ -30,6 +34,8 @@ export class ForgotPasswordPage {
     // the outcome, so we never assert on its localized message text.
     this.confirmation = page.locator('#validation-errors.alert-success');
     this.error = page.locator('#validation-errors.alert-danger');
+    this.supportLink = this.confirmation.locator('a[href]');
+    this.newPasswordFields = page.locator('form input[type="password"]');
   }
 
   /** Navigates to the reset screen (the authn MFE `/reset` route). */
@@ -42,5 +48,14 @@ export class ForgotPasswordPage {
   async requestReset(email: string): Promise<void> {
     await this.email.fill(email);
     await this.submitButton.click();
+  }
+
+  /**
+   * Opens the reset link a reset mail carries and waits for the authn MFE's
+   * new-password form it leads to.
+   */
+  async openResetLink(url: string): Promise<void> {
+    await this.page.goto(url);
+    await this.newPasswordFields.first().waitFor();
   }
 }

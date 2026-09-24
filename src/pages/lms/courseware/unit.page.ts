@@ -1,4 +1,4 @@
-import type { FrameLocator, Locator, Page } from '@playwright/test';
+import type { FrameLocator, Locator, Page, Response } from '@playwright/test';
 
 import {
   COURSEWARE_SELECTORS,
@@ -43,6 +43,17 @@ export class UnitPage {
   /** The open discussions sidebar, and the discussions MFE framed in it. */
   readonly discussionsSidebar: Locator;
   readonly discussionsFrame: FrameLocator;
+  readonly bookmarkButton: Locator;
+  readonly calculatorToggle: Locator;
+  readonly calculatorResult: Locator;
+  readonly notesToggle: Locator;
+  readonly sidebarBackButton: Locator;
+  readonly sidebarOutlineHeading: Locator;
+  readonly sidebarSections: Locator;
+  readonly sidebarSubsections: Locator;
+  readonly sidebarCollapse: Locator;
+  readonly sidebarExpand: Locator;
+  readonly sidebarFullScreen: Locator;
 
   constructor(
     private readonly page: Page,
@@ -56,6 +67,17 @@ export class UnitPage {
     this.activeRightSidebarTrigger = page.locator(COURSEWARE_SELECTORS.activeRightSidebarTrigger);
     this.discussionsSidebar = page.locator(COURSEWARE_SELECTORS.discussionsSidebar);
     this.discussionsFrame = page.frameLocator(COURSEWARE_SELECTORS.discussionsSidebar);
+    this.bookmarkButton = page.locator(COURSEWARE_SELECTORS.bookmarkButton);
+    this.calculatorToggle = page.locator(COURSEWARE_SELECTORS.calculatorToggle);
+    this.calculatorResult = page.locator(COURSEWARE_SELECTORS.calculatorResult);
+    this.notesToggle = page.locator(COURSEWARE_SELECTORS.notesToggle);
+    this.sidebarBackButton = page.locator(COURSEWARE_SELECTORS.sidebarBackButton);
+    this.sidebarOutlineHeading = page.locator(COURSEWARE_SELECTORS.sidebarOutlineHeading);
+    this.sidebarSections = page.locator(COURSEWARE_SELECTORS.sidebarSectionRow);
+    this.sidebarSubsections = page.locator(COURSEWARE_SELECTORS.sidebarSubsectionItem);
+    this.sidebarCollapse = page.locator(COURSEWARE_SELECTORS.sidebarCollapse);
+    this.sidebarExpand = page.locator(`${COURSEWARE_SELECTORS.sidebarExpand}:visible`).first();
+    this.sidebarFullScreen = page.locator(COURSEWARE_SELECTORS.sidebarFullScreen);
   }
 
   /**
@@ -212,5 +234,155 @@ export class UnitPage {
         response.ok(),
       { timeout: TIMEOUTS.blockCompletion },
     );
+  }
+
+  /** Whether the unit is shown as bookmarked (the button's state, not its label). */
+  async isBookmarked(): Promise<boolean> {
+    const classes = (await this.bookmarkButton.getAttribute('class')) ?? '';
+    return classes.split(/\s+/).includes(COURSEWARE_SELECTORS.bookmarkedState);
+  }
+
+  /**
+   * Presses the bookmark button and waits for the bookmarks API call it makes —
+   * a `POST` to bookmark the unit, a `DELETE` to remove it — returning that
+   * response for the spec to check.
+   */
+  async toggleBookmark(): Promise<Response> {
+    const call = this.page.waitForResponse(
+      (r) =>
+        r.url().startsWith(`${this.config.baseUrls.lms}/api/bookmarks/v1/bookmarks/`) &&
+        ['POST', 'DELETE'].includes(r.request().method()),
+    );
+    await this.bookmarkButton.click();
+    return call;
+  }
+
+  /** A subsection's expand/collapse trigger in the tray's section view. */
+  subsectionToggle(index: number): Locator {
+    return this.sidebarSubsections.nth(index).locator('.collapsible-trigger');
+  }
+
+  /** The unit links a subsection lists while it is expanded. */
+  subsectionUnits(index: number): Locator {
+    return this.sidebarSubsections.nth(index).locator('.collapsible-body a[href]');
+  }
+
+  /** Whether a subsection is expanded, as its trigger reports it. */
+  async isSubsectionExpanded(index: number): Promise<boolean> {
+    return (await this.subsectionToggle(index).getAttribute('aria-expanded')) === 'true';
+  }
+
+  /** Switches the tray from its section view to the course outline view. */
+  async backToOutline(): Promise<void> {
+    await this.sidebarBackButton.click();
+    await this.sidebarOutlineHeading.waitFor();
+  }
+
+  /** Opens a section's view from the course outline view. */
+  async openSection(index: number): Promise<void> {
+    await this.sidebarSections.nth(index).click();
+    await this.sidebarBackButton.waitFor();
+  }
+
+  /** Expands or collapses a subsection in the section view. */
+  async toggleSubsection(index: number): Promise<void> {
+    const before = await this.isSubsectionExpanded(index);
+    await this.subsectionToggle(index).click();
+    await this.subsectionToggle(index)
+      .and(this.page.locator(`[aria-expanded="${String(!before)}"]`))
+      .waitFor();
+  }
+
+  /**
+   * Collapses the open tray.
+   *
+   * Workaround for `LEARN-003`: on a phone the course tabs make the page wider
+   * than the screen, the emulated mobile browser lays the page out wider to
+   * fit it, and Playwright's hit test then finds the tray's heading over its
+   * collapse button. When a real click cannot land, the button's own click
+   * handler is invoked instead, so the rest of the tray's behaviour stays
+   * covered; `sidebar-responsive.spec.ts` keeps a `test.fail` on the overflow
+   * itself.
+   */
+  async collapseSidebar(): Promise<void> {
+    try {
+      await this.sidebarCollapse.click({ timeout: TIMEOUTS.optionalOverlay });
+    } catch {
+      await this.sidebarCollapse.dispatchEvent('click');
+    }
+    await this.sidebar.waitFor({ state: 'detached' });
+  }
+
+  /** Re-opens a collapsed tray. */
+  async expandSidebar(): Promise<void> {
+    await this.sidebarExpand.click();
+    await this.sidebar.waitFor();
+  }
+
+  /** Moves to the next unit with the unit navigation and waits for it to load. */
+  async nextUnit(): Promise<void> {
+    const from = this.page.url();
+    await this.page.locator(`${COURSEWARE_SELECTORS.nextUnit}:visible`).first().click();
+    await this.page.waitForURL((url) => url.toString() !== from);
+    await this.waitForContent();
+  }
+
+  /** The unit iframe's source — what the content area is showing. */
+  async contentSource(): Promise<string | null> {
+    return this.iframe.getAttribute('src');
+  }
+
+  /**
+   * Opens the calculator, evaluates `expression`, and returns what the LMS
+   * answered (`GET /calculate`) — the `result` the field then shows.
+   */
+  async calculate(expression: string): Promise<string> {
+    if ((await this.page.locator(COURSEWARE_SELECTORS.calculatorInput).count()) === 0) {
+      await this.calculatorToggle.click();
+    }
+    const input = this.page.locator(COURSEWARE_SELECTORS.calculatorInput);
+    await input.fill(expression);
+    const answered = this.page.waitForResponse((r) =>
+      r.url().startsWith(`${this.config.baseUrls.lms}/calculate?`),
+    );
+    await this.page.locator(COURSEWARE_SELECTORS.calculatorSubmit).click();
+    const body = (await (await answered).json()) as { result?: string };
+    return body.result ?? '';
+  }
+
+  /**
+   * Flips the "Show Notes" switch and waits for the visibility it stores
+   * (`PUT …/edxnotes/visibility/`), returning that response.
+   */
+  async toggleNotes(): Promise<Response> {
+    const stored = this.page.waitForResponse(
+      (r) => r.url().includes('/edxnotes/visibility/') && r.request().method() === 'PUT',
+    );
+    await this.notesToggle.click();
+    return stored;
+  }
+
+  /**
+   * Takes a note on the first paragraph of an annotatable component in the unit:
+   * selects the paragraph's text, presses the annotator's add button, types the
+   * note and saves it. Resolves once the notes service has stored it.
+   */
+  async takeNote(text: string): Promise<Response> {
+    const paragraph = this.contentFrame.locator(`${COURSEWARE_SELECTORS.notesWrapper} p`).first();
+    await paragraph.evaluate((element) => {
+      const range = element.ownerDocument.createRange();
+      range.selectNodeContents(element);
+      const selection = element.ownerDocument.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    await this.contentFrame.locator(COURSEWARE_SELECTORS.notesAdder).click();
+    await this.contentFrame.locator(COURSEWARE_SELECTORS.notesEditorText).fill(text);
+    const stored = this.page.waitForResponse(
+      (r) => r.url().includes('/annotations') && r.request().method() === 'POST',
+    );
+    await this.contentFrame.locator(COURSEWARE_SELECTORS.notesEditorSave).click();
+    return stored;
   }
 }

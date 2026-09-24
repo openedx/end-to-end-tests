@@ -51,7 +51,7 @@ export class StudioScheduleDetailsPage {
   readonly enrollmentEndDate: Locator;
   readonly enrollmentEndTime: Locator;
   readonly certificateAvailableDate: Locator;
-  readonly certificateAvailableTime: Locator;
+  readonly certificateBehaviorDropdown: Locator;
   readonly courseImageFileInput: Locator;
   readonly courseImagePath: Locator;
   readonly introVideoId: Locator;
@@ -80,7 +80,7 @@ export class StudioScheduleDetailsPage {
     this.enrollmentEndDate = page.locator(s.enrollmentEndDate);
     this.enrollmentEndTime = page.locator(s.enrollmentEndTime);
     this.certificateAvailableDate = page.locator(s.certificateAvailableDate);
-    this.certificateAvailableTime = page.locator(s.certificateAvailableTime);
+    this.certificateBehaviorDropdown = page.locator(s.certificateBehaviorDropdown);
     this.courseImageFileInput = page.locator(s.courseImageFileInput);
     this.courseImagePath = page.locator(s.courseImagePath);
     this.introVideoId = page.locator(s.introVideoId);
@@ -174,8 +174,23 @@ export class StudioScheduleDetailsPage {
       : this.clearDateTime(this.enrollmentEndDate, this.enrollmentEndTime));
   }
 
-  async setCertificateAvailableDate(value: DateTimeFields): Promise<void> {
-    await this.fillDateTime(this.certificateAvailableDate, this.certificateAvailableTime, value);
+  /**
+   * Picks the certificates display behaviour. The dropdown's items carry no
+   * value and their labels are localized, but the authoring MFE always lists
+   * them in the same order (`CertificateDisplayRow`'s options), so an item is
+   * chosen by its place in that order.
+   */
+  async chooseCertificateDisplayBehavior(behavior: CertificateDisplayBehavior): Promise<void> {
+    await this.certificateBehaviorDropdown.click();
+    await this.page
+      .locator('.dropdown-menu.show .dropdown-item')
+      .nth(CERTIFICATE_DISPLAY_BEHAVIORS.indexOf(behavior))
+      .click();
+  }
+
+  /** Sets the certificate available date (`MM/DD/YYYY`; the field has no time). */
+  async setCertificateAvailableDate(date: string): Promise<void> {
+    await this.commitDate(this.certificateAvailableDate, date);
   }
 
   /**
@@ -249,3 +264,7 @@ export class StudioScheduleDetailsPage {
     await this.cancelButton.click();
   }
 }
+
+/** The certificates display behaviours, in the order the authoring MFE lists them. */
+export const CERTIFICATE_DISPLAY_BEHAVIORS = ['early_no_info', 'end', 'end_with_date'] as const;
+export type CertificateDisplayBehavior = (typeof CERTIFICATE_DISPLAY_BEHAVIORS)[number];

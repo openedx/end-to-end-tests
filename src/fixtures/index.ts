@@ -64,9 +64,13 @@ import {
   ensureDataResearcher,
   probeMigrationMode,
   seedTaxonomy,
+  knownChromeDefects,
+  readPageChrome,
   submitProblem,
   taxonomyImportFile,
   type AuthoredLibrary,
+  type ChromeDefectContext,
+  type PageChrome,
   type MigrationMode,
   type MigrationModeProbe,
 } from '../steps';
@@ -92,7 +96,10 @@ import {
   assignRole,
   authorStaffGradedOra,
   buildSection,
+  courseUsageKey,
+  deleteXBlock,
   fetchDiscussionCourse,
+  fetchXBlockOutline,
   grantCourseTeamRole,
   listDiscussionTopics,
   setEmailCadence,
@@ -104,6 +111,7 @@ import {
   establishStudioSession,
   fetchCourseNavigation,
   fetchSequenceMetadata,
+  ensureTeamsTopic,
   updateAdvancedSettings,
   updateCourseDetails,
   type AuthoredSection,
@@ -172,12 +180,26 @@ import {
   type LibraryCollection,
   type LibraryContainer,
   type Taxonomy,
+  type ChromeConfig,
+  ADULT_YEAR_OF_BIRTH,
+  AUTO_CERTIFICATE_GENERATION_SWITCH,
+  enableCourseEmail,
+  setWaffleSwitch,
+  updateAccount,
 } from '../api';
 import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
+import { CatalogHomePage } from '../pages/lms/catalog/catalog-home.page';
+import { FooterBlock } from '../pages/lms/chrome/footer.block';
+import { HeaderBlock } from '../pages/lms/chrome/header.block';
+import { testIdsFromAnnotations } from '../reporting/test-id';
+import { withExclusiveLock, withSharedLock } from './named-lock';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
 import { CourseOutlinePage } from '../pages/lms/course-home/course-outline.page';
+import { CourseToolsPage } from '../pages/lms/course-home/course-tools.page';
+import { ProfilePage } from '../pages/lms/profile/profile.page';
+import { TeamsPage } from '../pages/lms/teams/teams.page';
 import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
@@ -220,6 +242,46 @@ export interface TestFixtures {
   capabilityGate: void;
   /** Catalog MFE page object (`frontend-app-catalog`). */
   catalogPage: CatalogPage;
+  /**
+   * The catalog opened, with the organizations its refine filter offers (the
+   * `value`s of the options, in the order offered). Skips when it offers fewer
+   * than two: an organization filter cannot then narrow the list (TC-00017).
+   */
+  catalogOrganizations: readonly string[];
+  /** The catalog MFE's home — the public landing page. */
+  catalogHomePage: CatalogHomePage;
+  /** The page header, whichever frontend generation renders it. */
+  siteHeader: HeaderBlock;
+  /** The page footer, whichever frontend generation renders it. */
+  siteFooter: FooterBlock;
+  /**
+   * A signed-out visitor alongside the test's own (signed-in) page: a page in a
+   * fresh browser context with its header and footer, for cases that compare
+   * the public site with a learner's view (TC-00060). Closed after the test.
+   */
+  signedOutVisitor: {
+    readonly page: Page;
+    readonly header: HeaderBlock;
+    readonly footer: FooterBlock;
+  };
+  /**
+   * The landing page opened for a signed-out visitor, with the generation of
+   * frontend that rendered its chrome and the configuration behind it. A chrome
+   * defect known for that generation and layout (`KNOWN_CHROME_DEFECTS`) marks
+   * the test as an expected failure here, for the cases it breaks — so specs
+   * stay free of generation checks, and a marker lifts itself when the page
+   * moves to a frontend without the defect.
+   */
+  publicChrome: PageChrome;
+  /**
+   * Chrome readings for a page the test has opened itself: which generation
+   * rendered it and the configuration behind it (`read`), the known chrome
+   * defects to expect for what the test measured (`expectKnownDefects`, which
+   * marks the test an expected failure when one applies to its cases), and the
+   * skip for a Help-link case the target's configuration does not apply to
+   * (`requireSupportUrl`).
+   */
+  chromeCase: ChromeCase;
   /** Course About page object. */
   courseAboutPage: CourseAboutPage;
   /** Courseware unit page object (`frontend-app-learning`). */
@@ -228,6 +290,36 @@ export interface TestFixtures {
   courseOutlinePage: CourseOutlinePage;
   /** Course Progress tab page object. */
   progressPage: ProgressPage;
+  /** Learner profile page object (`frontend-app-profile`). */
+  profilePage: ProfilePage;
+  /**
+   * A fresh learner whose profile can be shared: `courseLearner` with an adult
+   * year of birth, since the platform keeps the profile of an account without
+   * one private whatever its settings say. Not enrolled in anything.
+   */
+  profileLearner: CourseLearner;
+  /**
+   * A second fresh learner, signed in on a request context of its own — the
+   * "someone else" whose reading of the profile learner's account decides a
+   * privacy case. Disposed after the test.
+   */
+  profileViewer: { readonly request: APIRequestContext; readonly username: string };
+  /**
+   * The content course with teams on and one open topic of the suite's own
+   * (`teams_configuration`, written by the author when missing), so learners
+   * can create and join teams in it. Gated by the spec's `@teams` tag.
+   */
+  teamsCourse: AuthoredCourse & { readonly topicId: string };
+  /** The learner dashboard in the admin's browser (`adminPage`), for global staff's "View as". */
+  adminDashboardPage: DashboardPage;
+  /**
+   * Turns course e-mail on for the content course only (`enableCourseEmail`,
+   * through the Django admin under the admin lock), so its learners' dashboard
+   * cards offer "Email settings". Skips without an admin account.
+   */
+  courseEmailEnabled: void;
+  /** The LMS-hosted course tool pages the course home links to (Bookmarks). */
+  courseToolsPage: CourseToolsPage;
   /** Learner dashboard page object (`frontend-app-learner-dashboard`). */
   dashboardPage: DashboardPage;
   /**
@@ -241,6 +333,12 @@ export interface TestFixtures {
   courseKey: string;
   /** The course's own identifiers (number, org, title) from the platform. */
   courseDetail: CourseDetail;
+  /**
+   * The YouTube id of the configured course's About-page intro video. Skips
+   * when the course has none — the sheet's "if the course about page has a
+   * video" — or when its video is not a YouTube URL the catalog can embed.
+   */
+  courseIntroVideoId: string;
   /**
    * A learner of this test's own, freshly provisioned and signed in, with the
    * browser context carrying their session — **not** enrolled in anything.
@@ -411,6 +509,25 @@ export interface TestFixtures {
    */
   certificateLearner: RoundTripLearner;
   /**
+   * The platform's automatic certificate generation, held exclusively: a
+   * learner of its own in `certificateCourse` (honor), with the platform-wide
+   * `certificates.auto_certificate_generation` switch **off** until the test
+   * calls `turnOn()`, and switched off again afterwards. Every `certificateLearner`
+   * case holds the same lock shared, so none of them sees the switch on. Skips
+   * without an admin account.
+   */
+  certificateAutoGeneration: {
+    readonly learner: RoundTripLearner;
+    readonly turnOn: () => Promise<void>;
+  };
+  /**
+   * The platform-wide `certificates.auto_certificate_generation` switch, held
+   * exclusively: off until the test calls `turnOn()`, and off again afterwards.
+   * Every `certificateLearner` case holds the same lock shared. Skips without
+   * an admin account.
+   */
+  certificateSwitch: { readonly turnOn: () => Promise<void> };
+  /**
    * The arrangement the gradebook cases start from: a published graded section
    * with a single-choice problem in the content course, a due date on its
    * subsection, and a {@link roundTripLearner} who has already submitted the
@@ -436,10 +553,12 @@ export interface TestFixtures {
    */
   newLearner: () => Promise<StudioLearner>;
   /**
-   * Gate for the "Certificates available date" fields: skips unless the target
-   * lets Schedule & Details show them (`can_show_certificate_available_date_field`,
-   * which needs the `certificates.auto_certificate_generation` switch — off on a
-   * default install). What TC-00297 needs before it can drive the fields.
+   * The "Certificates available date" fields, which Schedule & Details shows
+   * only while the `certificates.auto_certificate_generation` switch is on
+   * (`can_show_certificate_available_date_field`; off on a default install).
+   * Holds {@link certificateSwitch}, turns it on and waits for the course's
+   * settings to offer the fields — failing, not skipping, if they never do.
+   * What TC-00297 needs before it can drive the fields.
    */
   certificateAvailableDateField: void;
   /**
@@ -540,6 +659,14 @@ export interface TestFixtures {
   roundTripLearners: readonly [RoundTripLearner, RoundTripLearner];
   /** A {@link roundTripLearner} enrolled in the not-yet-started {@link WorkerFixtures.futureCourse}. */
   futureCourseLearner: RoundTripLearner;
+  /**
+   * Builds a section of this test's own in the worker's video-free course
+   * (`videoFreeCourse`), for the cases that need a course the platform can
+   * estimate effort for.
+   */
+  videoFreeSection: (shape: SectionShape) => Promise<AuthoredSection>;
+  /** A fresh learner enrolled in `videoFreeCourse`, on their own contexts. */
+  videoFreeCourseLearner: RoundTripLearner;
   /**
    * A **fresh, empty** course of this test's own (seeded with a past start date),
    * for specs that build the outline through the UI. Unlike the shared
@@ -672,6 +799,13 @@ export interface TestFixtures {
    */
   mailboxLearner: (options?: NotificationRecipientOptions) => Promise<MailboxLearner>;
   /**
+   * A fresh learner registered at an inbox of the configured mailbox provider
+   * and enrolled in nothing — for account mail (password reset) rather than
+   * course mail. Specs using it carry `@email-inbox`. The inbox and the
+   * learner's request context are disposed after the test.
+   */
+  inboxLearner: InboxLearner;
+  /**
    * {@link WorkerFixtures.contentCourse} once its forum is ready for the UI: the
    * topic list is synced from the course structure by a task after the course is
    * created, and the discussions MFE loaded before it offers no topic, so its
@@ -721,6 +855,13 @@ export interface NotificationRecipientOptions {
 
 /** What {@link TestFixtures.mailboxLearner} hands a spec: the learner and its inbox. */
 export interface MailboxLearner extends RoundTripLearner {
+  readonly inbox: Inbox;
+}
+
+/** What {@link TestFixtures.inboxLearner} hands a spec. */
+export interface InboxLearner {
+  readonly identity: LearnerIdentity;
+  readonly request: APIRequestContext;
   readonly inbox: Inbox;
 }
 
@@ -864,6 +1005,14 @@ export interface RoundTripLearner {
   readonly unitPage: UnitPage;
   /** Course-home outline page object bound to this learner's page. */
   readonly courseOutlinePage: CourseOutlinePage;
+  /** The LMS-hosted course tool pages (Bookmarks, Updates) on this learner's page. */
+  readonly courseToolsPage: CourseToolsPage;
+  /** The learner dashboard on this learner's page. */
+  readonly dashboardPage: DashboardPage;
+  /** The course Progress tab on this learner's page. */
+  readonly progressPage: ProgressPage;
+  /** The course Teams page on this learner's page. */
+  readonly teamsPage: TeamsPage;
   /** The header's notifications tray, on whatever page this learner is on. */
   readonly notificationTray: NotificationTray;
   /** The account MFE's notification preference centre. */
@@ -1032,6 +1181,14 @@ export interface WorkerFixtures {
    */
   futureCourse: AuthoredCourse;
   /**
+   * A worker course that never holds a video, started in the past: the course
+   * home's effort estimates (TC-00027) are computed for a whole course only when
+   * every video in it has a duration, and the suite's authored videos have none,
+   * so estimates need a course with no video at all. Built lazily, only by
+   * workers that run a spec asking for it.
+   */
+  videoFreeCourse: AuthoredCourse;
+  /**
    * One course per worker set up so certificates can be issued: start in the
    * past, end in the future, certificates shown as soon as earned
    * (`certificates_display_behavior: early_no_info` — `PUT course_details`
@@ -1136,6 +1293,16 @@ export interface CompletionUnits {
     readonly sequentialId: string;
     readonly units: readonly CourseUnit[];
   };
+}
+
+/** The named lock serialising the certificate auto-generation switch (`named-lock.ts`). */
+const CERTIFICATE_SWITCH_LOCK = 'certificate-auto-generation';
+
+/** What {@link TestFixtures.chromeCase} hands a spec. */
+export interface ChromeCase {
+  read(): Promise<PageChrome>;
+  expectKnownDefects(context: Omit<ChromeDefectContext, 'viewportWidth'>): void;
+  requireSupportUrl(chrome: ChromeConfig, configured: boolean): void;
 }
 
 /** What {@link TestFixtures.enrolledCourse} hands a spec. */
@@ -1325,6 +1492,10 @@ async function provisionRoundTripLearner(
     page,
     unitPage,
     courseOutlinePage: new CourseOutlinePage(page, config),
+    courseToolsPage: new CourseToolsPage(page, config),
+    dashboardPage: new DashboardPage(page, config),
+    progressPage: new ProgressPage(page, config),
+    teamsPage: new TeamsPage(page, config),
     notificationTray: new NotificationTray(page, config),
     notificationPreferences: new NotificationPreferencesPage(page, config),
     discussions: new DiscussionsPage(page, config),
@@ -1654,6 +1825,69 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   ],
   catalogPage: pageObjectFixture(CatalogPage),
 
+  catalogOrganizations: async ({ catalogPage }, use, testInfo) => {
+    await catalogPage.goto();
+    const organizations = await catalogPage.filterValues('org');
+    testInfo.skip(
+      organizations.length < 2,
+      `The catalog lists courses of ${organizations.length} organization(s), so an organization filter cannot narrow it.`,
+    );
+    await use(organizations);
+  },
+
+  catalogHomePage: pageObjectFixture(CatalogHomePage),
+
+  siteHeader: async ({ page }, use) => {
+    await use(new HeaderBlock(page));
+  },
+
+  siteFooter: async ({ page }, use) => {
+    await use(new FooterBlock(page));
+  },
+
+  signedOutVisitor: async ({ browser }, use) => {
+    const context = await browser.newContext();
+    const visitorPage = await context.newPage();
+    await use({
+      page: visitorPage,
+      header: new HeaderBlock(visitorPage),
+      footer: new FooterBlock(visitorPage),
+    });
+    await context.close();
+  },
+
+  chromeCase: async ({ page, request, config, siteHeader }, use, testInfo) => {
+    await use({
+      read: () => readPageChrome(page, siteHeader, request, config),
+      expectKnownDefects: (context) => {
+        const defects = knownChromeDefects(
+          { ...context, viewportWidth: page.viewportSize()?.width ?? 0 },
+          testIdsFromAnnotations(testInfo.annotations),
+        );
+        for (const defect of defects) testInfo.fail(true, defect.reason);
+      },
+      requireSupportUrl: (chrome, configured) => {
+        testInfo.skip(
+          (chrome.supportUrl !== undefined) !== configured,
+          configured
+            ? 'The target configures no SUPPORT_URL, so its headers offer no Help link.'
+            : 'The target configures a SUPPORT_URL, so the no-Help-link case does not apply.',
+        );
+      },
+    });
+  },
+
+  publicChrome: async ({ catalogHomePage, chromeCase }, use) => {
+    await catalogHomePage.goto();
+    const pageChrome = await chromeCase.read();
+    chromeCase.expectKnownDefects({
+      generations: [pageChrome.generation],
+      signedIn: false,
+      scenario: 'navigation',
+    });
+    await use(pageChrome);
+  },
+
   courseAboutPage: pageObjectFixture(CourseAboutPage),
 
   unitPage: pageObjectFixture(UnitPage),
@@ -1661,6 +1895,49 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   courseOutlinePage: pageObjectFixture(CourseOutlinePage),
 
   progressPage: pageObjectFixture(ProgressPage),
+
+  courseToolsPage: pageObjectFixture(CourseToolsPage),
+
+  profilePage: pageObjectFixture(ProfilePage),
+
+  profileLearner: async ({ request, config, courseLearner }, use) => {
+    await updateAccount(request, config, courseLearner.identity.username, {
+      year_of_birth: ADULT_YEAR_OF_BIRTH,
+    });
+    await use(courseLearner);
+  },
+
+  teamsCourse: async ({ request, config, contentCourse }, use) => {
+    const topicId = 'e2e-teams';
+    await buildWithAuthorWriteSession(request, config, () =>
+      ensureTeamsTopic(request, config, contentCourse.courseKey, {
+        id: topicId,
+        name: 'E2E teams',
+        description: 'Teams the end-to-end suite creates',
+        type: 'open',
+      }),
+    );
+    await use({ ...contentCourse, topicId });
+  },
+
+  adminDashboardPage: async ({ adminPage, config }, use) => {
+    await use(new DashboardPage(adminPage, config));
+  },
+
+  courseEmailEnabled: async ({ config, adminLms, contentCourse }, use) => {
+    await adminLms((session) => enableCourseEmail(session, config, contentCourse.courseKey));
+    await use();
+  },
+
+  profileViewer: async ({ playwright, config }, use) => {
+    const viewer = await playwright.request.newContext();
+    try {
+      const identity = await provisionLearnerSession(viewer, config);
+      await use({ request: viewer, username: identity.username });
+    } finally {
+      await viewer.dispose();
+    }
+  },
 
   dashboardPage: pageObjectFixture(DashboardPage),
 
@@ -1676,6 +1953,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   courseDetail: async ({ request, config, courseKey }, use) => {
     await use(await fetchCourseDetail(request, config, courseKey));
+  },
+
+  courseIntroVideoId: async ({ courseDetail }, use) => {
+    const uri = courseDetail.courseVideoUri ?? '';
+    const id = /(?:youtu\.be\/|[?&]v=|\/embed\/)([\w-]{6,})/.exec(uri)?.[1];
+    base.skip(id === undefined, `The configured course has no YouTube intro video ("${uri}").`);
+    await use(id as string);
   },
 
   courseLearner: async ({ page, request, config, courseKey }, use) => {
@@ -1908,7 +2192,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         workerAuthor,
         identity,
         async (request, courseKey) => {
-          // Every write is idempotent, so a restarted worker re-seeds harmlessly.
+          // A restarted worker re-seeds this course, so every write is idempotent.
           await updateCourseDetails(request, config, courseKey, {
             start_date: CONTENT_COURSE_START,
             end_date: CERTIFICATE_COURSE_END,
@@ -1953,18 +2237,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           }
           await setCertificateActive(request, config, courseKey, true);
           await setCourseCertificateGeneration(request, config, courseKey, true);
-          const section = await buildSection(
-            request,
-            config,
-            courseKey,
-            `E2E certificate ${getRunId()} W${workerInfo.parallelIndex}`,
-            {
-              subsections: [
-                { gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] },
-              ],
-              publish: true,
-            },
-          );
+          // The section is the one write that is not idempotent: a re-seed would
+          // add a second graded subsection and halve every learner's grade, so
+          // it replaces the section an earlier seed of this worker built.
+          const sectionName = `E2E certificate ${getRunId()} W${workerInfo.parallelIndex}`;
+          const outline = await fetchXBlockOutline(request, config, courseUsageKey(courseKey));
+          for (const stale of outline.child_info?.children ?? []) {
+            if (stale.display_name === sectionName) {
+              await deleteXBlock(request, config, stale.id);
+            }
+          }
+          const section = await buildSection(request, config, courseKey, sectionName, {
+            subsections: [
+              { gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] },
+            ],
+            publish: true,
+          });
           seeded = { ...firstProblem(section), certificateBearingMode };
         },
       );
@@ -1975,6 +2263,31 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     },
     // Around ten Studio/LMS writes on top of the create.
     { scope: 'worker', timeout: TIMEOUTS.studioSetup * 3 },
+  ],
+
+  videoFreeCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}E`,
+        'video-free',
+      );
+      await use(
+        await provisionWorkerCourse(
+          playwright,
+          workerAuthor,
+          identity,
+          async (request, courseKey) => {
+            await updateCourseDetails(request, config, courseKey, {
+              start_date: CONTENT_COURSE_START,
+            });
+          },
+        ),
+      );
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
   ],
 
   futureCourse: [
@@ -2355,14 +2668,26 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await Promise.all(contexts.map((context) => context.dispose()));
   },
 
-  certificateAvailableDateField: async ({ request, config, authoredCourse }, use) => {
-    const flags = await fetchCourseSettingsFlags(request, config, authoredCourse.courseKey);
-    base.skip(
-      !flags.canShowCertificateAvailableDateField,
-      'Schedule & Details does not offer the "Certificates available date" fields on this ' +
-        'installation (can_show_certificate_available_date_field is false; enable the ' +
-        'certificates.auto_certificate_generation switch to cover TC-00297).',
+  certificateAvailableDateField: async (
+    { request, config, authoredCourse, certificateSwitch },
+    use,
+  ) => {
+    // Studio offers the fields for an instructor-paced course only while
+    // automatic certificate generation is on, which the switch fixture holds.
+    await certificateSwitch.turnOn();
+    const offered = await pollUntil(
+      async () =>
+        (await fetchCourseSettingsFlags(request, config, authoredCourse.courseKey))
+          .canShowCertificateAvailableDateField,
+      (shown) => shown,
+      TIMEOUTS.contentPublish,
     );
+    if (!offered.satisfied) {
+      throw new Error(
+        'Schedule & Details still does not offer the "Certificates available date" fields with ' +
+          'certificates.auto_certificate_generation on (can_show_certificate_available_date_field).',
+      );
+    }
     await use();
   },
 
@@ -2688,6 +3013,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
+  inboxLearner: async ({ playwright, config }, use) => {
+    const provider = await resolveMailProvider(config);
+    const request = await playwright.request.newContext();
+    try {
+      const inbox = await provider.createInbox({ config, request });
+      try {
+        const identity = await provisionLearnerSession(request, config, { email: inbox.address });
+        await use({ identity, request, inbox });
+      } finally {
+        await inbox.dispose(request);
+      }
+    } finally {
+      await request.dispose();
+    }
+  },
+
   mailboxLearner: async ({ playwright, browser, config, contentCourse }, use) => {
     const provider = await resolveMailProvider(config);
     const made: MailboxLearner[] = [];
@@ -2805,6 +3146,44 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 
+  videoFreeSection: async (
+    { page, config, videoFreeCourse, studioAuthorSession },
+    use,
+    testInfo,
+  ) => {
+    void studioAuthorSession;
+    // Built on the author's browser session: creating the worker course can
+    // leave a separate request context without a live Studio session, and the
+    // browser session is the one `studioAuthorSession` keeps alive.
+    let ordinal = 0;
+    await use(async (shape) => {
+      ordinal += 1;
+      return buildWithAuthorWriteSession(page.request, config, () =>
+        buildSection(
+          page.request,
+          config,
+          videoFreeCourse.courseKey,
+          sectionLabel(testInfo, ordinal),
+          shape,
+        ),
+      );
+    });
+  },
+
+  videoFreeCourseLearner: async ({ playwright, browser, config, videoFreeCourse }, use) => {
+    const learner = await provisionRoundTripLearner(
+      playwright,
+      browser,
+      config,
+      videoFreeCourse.courseKey,
+    );
+    try {
+      await use(learner);
+    } finally {
+      await disposeRoundTripLearner(learner);
+    }
+  },
+
   futureCourseLearner: async ({ playwright, browser, config, futureCourse }, use) => {
     const learner = await provisionRoundTripLearner(
       playwright,
@@ -2862,9 +3241,66 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   certificateLearner: async (
     { playwright, browser, config, certificateCourse, certificateGenerationEnabled },
     use,
+    testInfo,
   ) => {
     // Depends on the skip above: without an admin there is no honor mode to
     // enroll into, and the spec must skip rather than fail here.
+    void certificateGenerationEnabled;
+    // As in `certificateSwitch`: a wait for the writer comes on top of the budget.
+    testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
+    // Held shared for the whole test: the auto-generation switch is global, and
+    // a case that turns it on (`certificateAutoGeneration`) must not do so while
+    // this learner's certificate is expected to wait for a request.
+    await withSharedLock(CERTIFICATE_SWITCH_LOCK, { waitMs: TIMEOUTS.sharedLockWait }, async () => {
+      const learner = await provisionRoundTripLearner(
+        playwright,
+        browser,
+        config,
+        certificateCourse.courseKey,
+        { mode: 'honor' },
+      );
+      try {
+        await use(learner);
+      } finally {
+        await disposeRoundTripLearner(learner);
+      }
+    });
+  },
+
+  certificateSwitch: async ({ config, adminLms }, use, testInfo) => {
+    const setSwitch = (active: boolean) =>
+      adminLms((session) =>
+        setWaffleSwitch(session, config, AUTO_CERTIFICATE_GENERATION_SWITCH, active),
+      );
+    // The wait for the readers to drain is on top of the case's own budget, so
+    // a long wait ends in the lock's error naming its holders, not a timeout.
+    testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
+    await withExclusiveLock(
+      CERTIFICATE_SWITCH_LOCK,
+      { waitMs: TIMEOUTS.sharedLockWait },
+      async () => {
+        // Start from the platform default whatever an earlier, interrupted run left.
+        await setSwitch(false);
+        try {
+          await use({ turnOn: () => setSwitch(true) });
+        } finally {
+          await setSwitch(false);
+        }
+      },
+    );
+  },
+
+  certificateAutoGeneration: async (
+    {
+      playwright,
+      browser,
+      config,
+      certificateCourse,
+      certificateGenerationEnabled,
+      certificateSwitch,
+    },
+    use,
+  ) => {
     void certificateGenerationEnabled;
     const learner = await provisionRoundTripLearner(
       playwright,
@@ -2874,7 +3310,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       { mode: 'honor' },
     );
     try {
-      await use(learner);
+      await use({ learner, turnOn: certificateSwitch.turnOn });
     } finally {
       await disposeRoundTripLearner(learner);
     }

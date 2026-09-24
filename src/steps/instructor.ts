@@ -1,8 +1,11 @@
 import type { APIRequestContext } from '@playwright/test';
 
+import type { ProgressPage } from '../pages/lms/course-home/progress.page';
+import { submitProblem } from './gating';
 import { pollUntil, type PollOutcome } from './poll';
 import { TIMEOUTS, type AppConfig } from '../config';
 import {
+  ApiError,
   fetchCourseProgress,
   fetchInstructorCourse,
   fetchInstructorTask,
@@ -11,6 +14,7 @@ import {
   listInstructorTasks,
   listReports,
   regenerateCertificates,
+  type AuthoredProblem,
   type CourseProgress,
   type InstructorTask,
   type LearnerListResult,
@@ -213,4 +217,53 @@ export async function mintCertificateByException(
     downloadable: progress.satisfied,
     elapsedMs: Date.now() - started,
   };
+}
+
+/**
+ * Makes a certificate-course learner pass: answers the course's one graded
+ * problem correctly, then waits until the progress API reports a passing grade.
+ * Returns the last progress reading.
+ */
+export async function passCertificateCourse(
+  learner: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  problem: AuthoredProblem,
+): Promise<PollOutcome<CourseProgress>> {
+  await submitProblem(learner, config, courseKey, problem, problem.correct);
+  return waitForLearnerProgress(learner, config, courseKey, (p) => p.courseGrade.isPassing);
+}
+
+/**
+ * Takes a certificate-course learner to an issued certificate the way a
+ * learner does: passes the course, requests the certificate from the Progress
+ * tab, and waits until the progress API reports it downloadable. Returns the
+ * last progress reading — its `certificateWebViewUrl` is the certificate — or,
+ * when the learner never reached a passing grade, the last grade reading.
+ */
+export async function earnCertificate(
+  learner: APIRequestContext,
+  progressPage: ProgressPage,
+  config: AppConfig,
+  courseKey: string,
+  problem: AuthoredProblem,
+): Promise<PollOutcome<CourseProgress>> {
+  const passed = await passCertificateCourse(learner, config, courseKey, problem);
+  // A learner who is not passing is offered no certificate to request.
+  if (!passed.satisfied) return passed;
+  await progressPage.goto(courseKey);
+  const requested = await progressPage.requestCertificate();
+  if (!requested.ok()) {
+    throw new ApiError(`Requesting the certificate failed (HTTP ${requested.status()}).`, {
+      status: requested.status(),
+      url: requested.url(),
+      body: await requested.text(),
+    });
+  }
+  return waitForLearnerProgress(
+    learner,
+    config,
+    courseKey,
+    (p) => p.certificateStatus === 'downloadable' && p.certificateWebViewUrl !== undefined,
+  );
 }

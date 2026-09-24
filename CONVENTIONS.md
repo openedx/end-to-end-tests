@@ -219,6 +219,14 @@ tabId)` is the "this tab is offered" assertion.
   `certificateLearner` enrolled `honor` on its first enrollment (an existing
   audit enrollment is not moved). Specs are tagged `@certificates` and take
   `certificateGenerationEnabled`, which skips without an admin account.
+- **The auto-generation switch is shared state, so it is locked.**
+  `certificates.auto_certificate_generation` is a platform-wide waffle switch:
+  turned on, a passing learner's certificate is issued without a request, which
+  changes every other certificate case's premise. Every `certificateLearner`
+  holds the `certificate-auto-generation` lock shared, and `certificateSwitch`
+  holds it exclusively, starts from off, turns it on only when the test asks
+  and turns it off afterwards (`src/fixtures/named-lock.ts`). Never flip the
+  switch outside that fixture.
 
 ## Library round trips
 
@@ -400,6 +408,57 @@ grades. A few rules keep them honest.
   links to (`linkingTo`), never by its copy. Only a learner's first immediate
   mail is sent at once, so each case waits for exactly one mail per learner.
 
+## Site chrome and learner pages
+
+The header, footer, landing page and the learner's own pages (dashboard,
+profile, course home, courseware tools) are covered from `tests/lms/chrome/`,
+`tests/lms/catalog/`, `tests/lms/course-home/`, `tests/lms/courseware/`,
+`tests/lms/dashboard/`, `tests/lms/profile/`, `tests/lms/teams/` and
+`tests/lms/i18n/`. A few rules keep this coverage portable while the
+frontend-base conversion moves apps between frontends.
+
+- **Three chrome generations, one set of blocks.** A page's header and footer
+  come from the frontend-base shell, the legacy `frontend-component-header`, or
+  its learning header, and which apps use which is changing release by release.
+  `HeaderBlock` and `FooterBlock` read all three through union anchors
+  (`src/config/selectors/chrome.ts`), and `HeaderBlock.generation()` says which
+  one a page rendered. Nothing lists apps by generation.
+- **Configuration is the oracle for what the chrome offers.** A Help link exists
+  iff `SUPPORT_URL` is set, the catalog link iff discovery is on, Order History
+  iff `ORDER_HISTORY_URL`. `chromeCase.read()` reads the configuration from
+  where the rendered generation reads it (the app's `mfe_config`, or the shell's
+  site config), and specs compare the rendered links with it — never with a
+  sheet's list of labels, which describes one provider's theme.
+- **Known chrome defects are keyed to what rendered.** `KNOWN_CHROME_DEFECTS`
+  ties each defect to the generation, width and scenario that have it;
+  `chromeCase.expectKnownDefects` marks the test an expected failure only
+  there, so a marker lifts itself when the page moves to a frontend without the
+  defect. `@frontend-base` stays reserved for markup only the shell renders
+  (its legal line, its language menu).
+- **One viewport table.** Responsive cases take their sizes from
+  `src/config/viewports.ts`, each on one side of a breakpoint the frontends
+  switch on, and assert structure: nothing scrolls sideways, every promised
+  link is reachable (visible, or behind the menu toggle or the narrow legacy
+  header's account menu), cards fit. Logo sizing
+  compares the pages of one install with each other; there is no pixel
+  baseline (ADR-0002).
+- **Privacy is decided by someone else.** A profile or certificate visibility
+  case reads the account or certificates through a second learner
+  (`profileViewer`); the owner always sees everything. A profile stays private
+  until its account has an adult year of birth (`profileLearner` sets one).
+- **Session-only learner APIs take the learner's own context.** Bookmarks and
+  teams accept a session or Bearer token, not a JWT alone; the learner's
+  signed-in context has both. The dashboard's unenroll and the progress tab's
+  certificate request are Django form views that also need CSRF.
+- **Platform switches are scoped.** Course e-mail is turned on for the content
+  course alone (`courseEmailEnabled`: the flag with course authorization still
+  required, plus one authorization), and the certificate switch is locked (see
+  "Instructor-dashboard round trips").
+- **Read language back through the browser.** The LMS copies the language
+  cookie a request carries into `pref-lang`, so a language case reads the
+  preference on `page.request`; a separate context holding the old cookie would
+  reset it.
+
 ## Tags
 
 Domain decides the folder; everything else is a tag. Tags drive Playwright
@@ -435,7 +494,8 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   declares a capability it does not have fails rather than passing vacuously.
 
 - **MFE / subsystem:** `@mfe-account`, `@mfe-learning`, `@mfe-authoring`,
-  `@mfe-instructor-dashboard`, … —
+  `@mfe-instructor-dashboard`, `@mfe-catalog`, `@mfe-learner-dashboard`,
+  `@mfe-profile`, … —
   filters the suite to one micro-frontend. `@mfe-authn` is also a capability, so
   apply it only to coverage that genuinely needs the authn MFE — not to specs
   that drive sign-in through the account backend's flows.
