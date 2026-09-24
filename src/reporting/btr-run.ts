@@ -12,6 +12,8 @@
  */
 
 import {
+  acrossProfiles,
+  statusSeverity,
   verdictFor,
   type CoverageVerdict,
   type TestAttempt,
@@ -46,6 +48,8 @@ export interface RunAttempt extends TestAttempt {
   readonly errorMessage?: string;
   /** Accessibility violations that failed the `checkA11y` gate, as `id (impact): help`. */
   readonly a11yFailures: readonly string[];
+  /** The CI shard that ran it (`RUN_ID_SUFFIX`, e.g. `d2`); empty or absent outside CI. */
+  readonly shard?: string;
 }
 
 /** One test's final outcome in the run, with the note the sheet shows for it. */
@@ -61,6 +65,14 @@ export interface RunTest {
   readonly attempts: number;
   /** Why the test was skipped / held back / failed. Empty when it passed cleanly. */
   readonly note: string;
+  /**
+   * The CI profile whose result this is (see `acrossProfiles`); empty outside CI.
+   * Optional because reports written before profiles existed lack it, and the
+   * publisher can still read those.
+   */
+  readonly profile?: string;
+  /** The CI shard that produced it; empty outside sharded CI. Optional, as `profile`. */
+  readonly shard?: string;
 }
 
 /** One BTR case row: every test mapped to it, rolled up. */
@@ -208,8 +220,11 @@ export function noteFor(final: RunAttempt, attempts: number): string {
 /**
  * Collapses attempts to one {@link RunTest} per test: the last attempt decides
  * the status and the note (as Playwright itself reports, and as `finalAttempts`
- * does for coverage), every attempt's time counts. Order of first appearance is
- * preserved.
+ * does for coverage), every attempt's time counts. Where a merged report holds
+ * the test from several CI profiles, {@link acrossProfiles} picks the profile
+ * whose result is reported, and its attempts and time are the ones counted.
+ * When the profiles it ran in disagree, the note names the one reported.
+ * Order of first appearance is preserved.
  */
 export function finalTests(attempts: readonly RunAttempt[]): RunTest[] {
   const byKey = new Map<string, { last: RunAttempt; count: number; durationMs: number }>();
@@ -223,16 +238,34 @@ export function finalTests(attempts: readonly RunAttempt[]): RunTest[] {
       byKey.set(attempt.testKey, { last: attempt, count: 1, durationMs: attempt.durationMs });
     }
   }
-  return [...byKey.values()].map(({ last, count, durationMs }) => ({
-    title: last.title,
-    spec: last.spec,
-    project: last.project,
-    testIds: last.testIds,
-    status: last.status,
-    durationMs,
-    attempts: count,
-    note: noteFor(last, count),
-  }));
+  const finals = [...byKey.values()].map((acc) => ({ ...acc, title: acc.last.title }));
+  const ran = (f: (typeof finals)[number]) => f.last.rawStatus !== 'skipped';
+  // The distinct results each test had across the profiles it ran in.
+  const results = new Map<string, Set<string>>();
+  for (const f of finals) {
+    if (!ran(f)) continue;
+    const seen = results.get(f.title) ?? new Set<string>();
+    seen.add(`${f.last.status}/${f.last.rawStatus}`);
+    results.set(f.title, seen);
+  }
+  return acrossProfiles(finals, ran, (f) => statusSeverity(f.last.status)).map(
+    ({ last, count, durationMs }) => {
+      const profile = last.profile ?? '';
+      const note = noteFor(last, count);
+      return {
+        title: last.title,
+        spec: last.spec,
+        project: last.project,
+        testIds: last.testIds,
+        status: last.status,
+        durationMs,
+        attempts: count,
+        note: note && (results.get(last.title)?.size ?? 0) > 1 ? `in ${profile}: ${note}` : note,
+        profile,
+        shard: last.shard ?? '',
+      };
+    },
+  );
 }
 
 function unique(values: readonly string[]): string[] {

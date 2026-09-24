@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 
-import { finalAttempts, summarizeCoverage, type TestOutcome } from '../../src/reporting';
+import {
+  acrossProfiles,
+  finalAttempts,
+  statusSeverity,
+  summarizeCoverage,
+  type TestOutcome,
+} from '../../src/reporting';
 
 test.describe('summarizeCoverage', { tag: '@unit' }, () => {
   test('reports annotation coverage and per-case outcomes', () => {
@@ -137,5 +143,66 @@ test.describe('finalAttempts', { tag: '@unit' }, () => {
 
     expect(outcomes).toHaveLength(1);
     expect(summarizeCoverage(outcomes).byTestId[0]?.counts).toEqual({ timedOut: 1 });
+  });
+
+  test('counts a test merged from several CI profiles once, by the profile that ran it', () => {
+    // Each profile's blob gives the test its own key; the title is shared.
+    const outcomes = finalAttempts([
+      {
+        testKey: 'd',
+        profile: 'default',
+        title: 'gated',
+        status: 'skipped',
+        testIds: ['TC-00560'],
+      },
+      {
+        testKey: 'x',
+        profile: 'extended',
+        title: 'gated',
+        status: 'failed',
+        testIds: ['TC-00560'],
+      },
+      {
+        testKey: 'x',
+        profile: 'extended',
+        title: 'gated',
+        status: 'passed',
+        testIds: ['TC-00560'],
+      },
+    ]);
+
+    expect(outcomes).toEqual([{ title: 'gated', status: 'passed', testIds: ['TC-00560'] }]);
+    expect(summarizeCoverage(outcomes).byTestId[0]?.verdict).toBe('verified');
+  });
+});
+
+test.describe('acrossProfiles', { tag: '@unit' }, () => {
+  const ran = (o: { status: string }) => o.status !== 'skipped';
+  const severity = (o: { status: 'passed' | 'failed' | 'skipped' }) => statusSeverity(o.status);
+
+  test('leaves outcomes with distinct titles alone, in order', () => {
+    const finals = [
+      { title: 'b', status: 'passed' as const },
+      { title: 'a', status: 'skipped' as const },
+    ];
+    expect(acrossProfiles(finals, ran, severity)).toEqual(finals);
+  });
+
+  test('picks the worst of the profiles that ran, and a skip only when none did', () => {
+    expect(
+      acrossProfiles(
+        [
+          { title: 't', status: 'skipped' as const },
+          { title: 't', status: 'passed' as const },
+          { title: 't', status: 'failed' as const },
+          { title: 'u', status: 'skipped' as const },
+        ],
+        ran,
+        severity,
+      ),
+    ).toEqual([
+      { title: 't', status: 'failed' },
+      { title: 'u', status: 'skipped' },
+    ]);
   });
 });

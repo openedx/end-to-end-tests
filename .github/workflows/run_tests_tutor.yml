@@ -495,6 +495,7 @@ jobs:
           # already runs them.
           exclude_features: ${{ inputs.exclude_features }} @unit
           shard: ${{ matrix.shard }}/${{ matrix.shards }}
+          profile: ${{ matrix.profile }}
           run_id_suffix: ${{ matrix.runIdSuffix }}
           artifact_suffix: ${{ env.OPENEDX_RELEASE }}-${{ matrix.profile }}-${{ matrix.shard }}
 

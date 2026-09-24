@@ -1,9 +1,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
 
-import type { FullConfig, Reporter, Suite, TestCase, TestResult } from '@playwright/test/reporter';
+import type { FullConfig, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 
 import { finalAttempts, normalizeStatus, summarizeCoverage, type TestAttempt } from './coverage';
+import { profileOf, projectOf } from './project';
 import { testIdsFromAnnotations } from './test-id';
 
 export interface CoverageReporterOptions {
@@ -18,19 +19,6 @@ export interface CoverageReporterOptions {
 
 const DEFAULT_OUTPUT = 'test-results/btr-coverage.json';
 const DEFAULT_EXCLUDED = ['setup', 'unit'];
-
-/** Finds the enclosing project's name for a test, walking up the suite tree. */
-function projectNameOf(test: TestCase): string {
-  let suite: Suite | undefined = test.parent;
-  while (suite) {
-    const project = suite.project?.();
-    if (project) {
-      return project.name;
-    }
-    suite = suite.parent;
-  }
-  return '';
-}
 
 /**
  * Always-on reporter that maps every annotated test to its BTR case ID and its
@@ -61,11 +49,13 @@ export default class CoverageReporter implements Reporter {
    * Attempts are keyed by `test.id` and collapsed to the final one in `onEnd`.
    */
   onTestEnd(test: TestCase, result: TestResult): void {
-    if (this.excluded.has(projectNameOf(test))) {
+    const project = projectOf(test);
+    if (this.excluded.has(project?.name ?? '')) {
       return;
     }
     this.attempts.push({
       testKey: test.id,
+      profile: profileOf(project),
       title: test.titlePath().slice(1).join(' › '),
       status: normalizeStatus(test.expectedStatus, result.status),
       testIds: testIdsFromAnnotations(test.annotations),

@@ -90,6 +90,24 @@ projects keep through the merge), since worker indexes repeat across shards; a
 merged `timings-tests.csv` has one set of `setup` rows per shard, since each
 shard signs in its own roles.
 
+**Several CI profiles in one merge.** A release's merge can hold the same test
+from more than one profile (`.ci/profiles.json`). For example, the test is
+skipped in `default` for a capability that only `extended` declares. Each
+profile's blob gives the test its own id, so the coverage and run-detail
+summaries collapse by title (`project › spec › test`) with `acrossProfiles`:
+
+- A profile that ran the test beats one that skipped it.
+- Among the profiles that ran it, the worst result wins, and the note names that
+  profile if their results differ.
+- A test skipped everywhere keeps its first skip.
+
+The reported profile's attempts and time are the ones counted. Every
+`btr-run.json` test row records the `profile` and `shard` it came from, from the
+config `metadata` (`CI_PROFILE`, `RUN_ID_SUFFIX`; `project.ts`). Both are
+optional, so reports written before profiles existed still publish. The HTML
+report keeps one entry per profile. The a11y summary already de-duplicates
+identical occurrences.
+
 Publishing `btr-run.json` to the **BTR results sheets** (below) is a separate,
 opt-in CI step. It runs only from `schedule` and `workflow_dispatch` runs, never
 from PR/push runs (the `ci.yml` calls of `run_tests_tutor.yml`), and locally only

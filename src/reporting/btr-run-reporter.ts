@@ -6,7 +6,6 @@ import type {
   FullConfig,
   FullResult,
   Reporter,
-  Suite,
   TestCase,
   TestResult,
 } from '@playwright/test/reporter';
@@ -14,6 +13,7 @@ import type {
 import { A11Y_ATTACHMENT_PREFIX, describeA11yViolation, parseA11yAttachment } from './a11y';
 import { ciMetaFromEnv, summarizeRun, type RunAttempt, type RunMeta } from './btr-run';
 import { normalizeStatus } from './coverage';
+import { profileOf, projectOf, shardOf } from './project';
 import { testIdsFromAnnotations } from './test-id';
 
 export interface BtrRunReporterOptions {
@@ -28,19 +28,6 @@ export interface BtrRunReporterOptions {
 
 const DEFAULT_OUTPUT = 'test-results/btr-run.json';
 const DEFAULT_EXCLUDED = ['setup', 'unit'];
-
-/** Finds the enclosing project's name for a test, walking up the suite tree. */
-function projectNameOf(test: TestCase): string {
-  let suite: Suite | undefined = test.parent;
-  while (suite) {
-    const project = suite.project?.();
-    if (project) {
-      return project.name;
-    }
-    suite = suite.parent;
-  }
-  return '';
-}
 
 /** Playwright's default grep, which means "no filter". */
 const MATCH_ALL = '/.*/';
@@ -102,7 +89,8 @@ export default class BtrRunReporter implements Reporter {
 
   /** Fires once per **attempt**; `summarizeRun` collapses retries per `test.id`. */
   onTestEnd(test: TestCase, result: TestResult): void {
-    if (this.excluded.has(projectNameOf(test))) {
+    const project = projectOf(test);
+    if (this.excluded.has(project?.name ?? '')) {
       return;
     }
 
@@ -121,7 +109,9 @@ export default class BtrRunReporter implements Reporter {
       testKey: test.id,
       title: test.titlePath().slice(1).join(' › '),
       spec: relative(this.configDir, test.location.file).split('\\').join('/'),
-      project: projectNameOf(test),
+      project: project?.name ?? '',
+      profile: profileOf(project),
+      shard: shardOf(project),
       testIds: testIdsFromAnnotations(test.annotations),
       status: normalizeStatus(test.expectedStatus, result.status),
       rawStatus: result.status,
