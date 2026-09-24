@@ -58,3 +58,19 @@ export const STUDIO_EDITOR_SELECTORS = {
     '[role="dialog"] .collapsible-card:not(:has(input)) button.btn-link.btn-sm',
   videoTranscriptFileInput: '[role="dialog"] input.upload[type="file"]',
 } as const;
+
+/**
+ * The XBlock-provided ("legacy") editors — an advanced block's own `studio_view`
+ * — which the authoring MFE opens in a dialog holding one iframe framed at
+ * `/xblock/<key>/action/edit`. Their anchors are the ids each block's editor
+ * template renders, named with the package they come from. Each editor's save
+ * posts to one of the block's Studio handlers, and the dialog closes after it.
+ * Measured on Tutor `main` (2026-09-24).
+ */
+export const LEGACY_EDITOR_SELECTORS = {
+  /** The dialog's editor iframe. */
+  frame: 'iframe.modal-iframe',
+  /** xblock-google-drive `google-calendar`: the calendar id and "Save". */
+  calendarId: '#edit_calendar_id',
+  calendarSave: '#calendar-submit-options',
+} as const;

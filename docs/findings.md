@@ -109,6 +109,7 @@ measured, and issues are opened by hand from them.
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
+| `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 
 ---
 
@@ -2029,4 +2030,23 @@ Suite-authored HTML5 videos have none either.
 **Coverage impact:** open, no `fixme`. TC-00027 runs on `videoFreeCourse`, a
 worker course that never holds a video, where a 530-word text unit is estimated
 at two minutes.
+
+## Epic 15 — Studio content long tail findings (2026-09-24)
+
+### `XBLOCK-001` — the recommender loads its scripts from public CDNs
+
+**Where:** `recommender-xblock` 5.1.0 (an edx-platform requirement on `master`;
+5.0.0 on `verawood`), `RecommenderXBlock.student_view`
+(`src/recommender/recommender.py:995-997`).
+
+**What happens:** the learner view adds jQuery UI from `ajax.googleapis.com`
+and intro.js from `cdnjs.cloudflare.com` rather than from the platform's own
+static files, and opens an intro tour on first view. An install that is
+air-gapped, or whose Content Security Policy allows only its own origins,
+cannot run the block for learners, and every install sends its learners to
+two third parties.
+
+**Coverage impact:** open, no `fixme`. TC-00131 lists the module, adds it from
+the Advanced tile and asserts its server-rendered markup in the Studio preview,
+never in the learner's courseware, so the suite never depends on the CDNs.
 

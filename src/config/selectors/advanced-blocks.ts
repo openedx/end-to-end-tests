@@ -10,6 +10,16 @@
 export const ADVANCED_BLOCK_SELECTORS = {
   /** xblocks-contrib `annotatable`: one highlighted span per `<annotation>`. */
   annotatableSpan: 'span.annotatable-span',
+  /** xblocks-contrib `word_cloud`: the word inputs and "Save". */
+  wordCloudInput: 'input.input-cloud',
+  wordCloudSave: 'button.save',
+  /**
+   * done-xblock: the "Mark as complete" on/off switch — a hidden checkbox whose
+   * label is what a learner clicks.
+   */
+  doneSwitch: 'label.done_onoffswitch-label',
+  /** Google calendar and document embeds: the iframe the block renders. */
+  embedFrame: 'iframe',
 } as const;
 
 /** The element each advanced block renders first inside its wrapper. */
@@ -25,7 +35,8 @@ const ROOTS: Readonly<Record<string, string>> = {
   poll: 'div.poll-block',
   recommender: 'div.recommenderBlock',
   survey: 'div.poll-block table.survey-table',
-  word_cloud: 'div.word_cloud',
+  // The block's root carries an id; the results cloud inside it reuses the class.
+  word_cloud: 'div.word_cloud[id^="word_cloud_"]',
 };
 
 /** The rendered root of an advanced block of `category`; throws for an unknown one. */
