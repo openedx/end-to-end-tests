@@ -17,6 +17,12 @@ export interface TimingRunContext {
 /** One row of `timings-tests.csv`: a single attempt of a single test. */
 export interface TestTimingRow {
   readonly project: string;
+  /**
+   * The CI shard that ran the attempt (its `RUN_ID_SUFFIX`, profile code +
+   * shard number, e.g. `d2`); empty outside sharded CI. Tells apart the rows
+   * of a merged report, where worker indexes repeat across shards.
+   */
+  readonly shard: string;
   readonly file: string;
   readonly title: string;
   readonly testIds: readonly string[];
@@ -42,6 +48,12 @@ export interface StepNode {
 /** One row of `timings-steps.csv`: a step at any depth, with its ancestry. */
 export interface StepTimingRow {
   readonly project: string;
+  /**
+   * The CI shard that ran the attempt (its `RUN_ID_SUFFIX`, profile code +
+   * shard number, e.g. `d2`); empty outside sharded CI. Tells apart the rows
+   * of a merged report, where worker indexes repeat across shards.
+   */
+  readonly shard: string;
   readonly file: string;
   readonly title: string;
   readonly retry: number;
@@ -69,6 +81,7 @@ export const TEST_COLUMNS = [
   'worker_index',
   'started_at',
   'duration_ms',
+  'shard',
 ] as const;
 
 export const STEP_COLUMNS = [
@@ -85,6 +98,7 @@ export const STEP_COLUMNS = [
   'failed',
   'started_at',
   'duration_ms',
+  'shard',
 ] as const;
 
 const PATH_SEPARATOR = ' › ';
@@ -96,7 +110,7 @@ const PATH_SEPARATOR = ' › ';
  * keeps the `test.step` blocks that wrap it.
  */
 export function flattenSteps(
-  test: Pick<StepTimingRow, 'project' | 'file' | 'title' | 'retry'>,
+  test: Pick<StepTimingRow, 'project' | 'shard' | 'file' | 'title' | 'retry'>,
   steps: readonly StepNode[],
   categories?: ReadonlySet<string>,
 ): StepTimingRow[] {
@@ -154,6 +168,7 @@ export function testRowsToCsv(context: TimingRunContext, rows: readonly TestTimi
         row.workerIndex,
         row.startedAt,
         row.durationMs,
+        row.shard,
       ]),
     ),
   ];
@@ -179,6 +194,7 @@ export function stepRowsToCsv(context: TimingRunContext, rows: readonly StepTimi
         row.failed,
         row.startedAt,
         row.durationMs,
+        row.shard,
       ]),
     ),
   ];
