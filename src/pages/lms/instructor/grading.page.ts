@@ -170,7 +170,14 @@ export class InstructorGradingPage extends InstructorDashboardPage {
       await popup.waitForLoadState('domcontentloaded');
       return popup;
     }
+    // Same tab: wait for the URL to leave this page, not just for a load state.
+    // Where the target lives in the same app (the frontend-base shell on `main`
+    // bundles the gradebook with the dashboard) the router changes route without
+    // loading a document, so the load state is already reached and would return
+    // before the URL updates.
+    const from = this.page.url();
     await link.click();
+    await this.page.waitForURL((url) => url.href !== from);
     await this.page.waitForLoadState('domcontentloaded');
     return this.page;
   }
