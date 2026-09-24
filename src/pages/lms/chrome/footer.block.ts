@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { CHROME_SELECTORS } from '../../../config';
+import { CHROME_SELECTORS, languageMenuOtherItems } from '../../../config';
 
 /**
  * The page footer, over both footer generations (the frontend-base shell's and
@@ -23,7 +23,7 @@ export class FooterBlock {
     this.imageLinks = this.root.locator(CHROME_SELECTORS.footerImageLink);
     this.poweredByLink = this.imageLinks.last();
     this.legalNotice = this.root.locator(CHROME_SELECTORS.footerLegalNotice).first();
-    this.languageMenuTrigger = this.root.locator(CHROME_SELECTORS.languageMenuTrigger);
+    this.languageMenuTrigger = this.root.locator(CHROME_SELECTORS.languageMenuTrigger).first();
   }
 
   /** The absolute URLs of every footer link, in document order. */
@@ -68,13 +68,14 @@ export class FooterBlock {
    * code the menu stored — the menu items carry no code of their own.
    */
   async chooseAnotherLanguage(lmsBaseUrl: string): Promise<string> {
+    const triggerId = (await this.languageMenuTrigger.getAttribute('id')) ?? '';
     await this.languageMenuTrigger.click();
     const stored = this.page.waitForResponse(
       (r) =>
         r.url().startsWith(`${lmsBaseUrl}/api/user/v1/preferences/`) &&
         r.request().method() === 'PATCH',
     );
-    await this.page.locator(CHROME_SELECTORS.languageMenuOtherItem).first().click();
+    await this.page.locator(languageMenuOtherItems(triggerId)).first().click();
     const body = JSON.parse((await stored).request().postData() ?? '{}') as Record<string, string>;
     return body['pref-lang'] ?? '';
   }

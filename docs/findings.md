@@ -90,7 +90,7 @@ measured, and issues are opened by hand from them.
 | `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | open, `test.fail` on TC-00038's take-a-note test
 | `FOOTER-001` | `openedx/frontend-component-footer` (no legal / copyright line) | open, no `fixme` — TC-00064 runs only where the shell renders the footer (`@frontend-base`)
 | `DEMO-003`  | `openedx/openedx-demo-course` (no effort estimates)             | open, no `fixme` — TC-00027 runs on a video-free course of the suite's own
-| `CERT-002`  | `openedx/edx-platform` (certificate web view 500 without a marketing About URL) | open, `test.fail` on TC-00033's render test
+| `CERT-002`  | `openedx/edx-platform` (certificate web view 500 without a marketing site; regression on `master`) | open, TC-00033's render test gated on `certificate-web-view` (undeclared on `main`)
 | `PROF-002`  | `openedx/frontend-app-profile` (no certificate-visibility control, wg#582) | **filed** — [wg#582](https://github.com/openedx/wg-build-test-release/issues/582), declarative `fixme` + `knownGap` on TC-00067's UI test
 | `PROF-003`  | `openedx/frontend-app-profile` (empty country list, wg#575)   | **filed** — [wg#575](https://github.com/openedx/wg-build-test-release/issues/575), `test.fail` on TC-00068's add-a-location test
 | `PROF-004`  | `openedx/frontend-app-profile` (unnamed icon buttons at phone width) | open, no `fixme` — `button-name` baselined on the profile scans only (`PROFILE_A11Y_BASELINE`)
@@ -1950,7 +1950,7 @@ the scan passes.
 **Coverage impact:** open, no `fixme`. `button-name` is baselined on the profile
 scans only (`PROFILE_A11Y_BASELINE`).
 
-### `CERT-002` — the certificate web view answers 500 on an install with no marketing "About" URL
+### `CERT-002` — the certificate web view answers 500 on an install with no marketing site (a regression on `master`)
 
 **Where:** `openedx/edx-platform`, `/certificates/<uuid>` (`render_cert_by_uuid`
 → `certificates/valid.html`), `master`. Measured on the local Tutor `main`
@@ -1965,11 +1965,21 @@ disabled. So on a default install the template raises `NameError: Undefined`
 and the learner's "View my certificate" link answers **500**. The certificate
 itself is issued, listed and linked correctly.
 
+**Why only `master`:** the template and the view are unchanged since verawood.
+What changed is `marketing_link()` (`common/djangoapps/edxmako/shortcuts.py`):
+on `release/verawood` an install without a marketing site
+(`ENABLE_MKTG_SITE` off) falls back to the LMS's own page through
+`MKTG_URL_LINK_MAP` (`ABOUT` → `about`), so `get_about_url()` is set and the
+footer context defines `company_about_url`. `master` dropped that fallback —
+an unconfigured link is now `'#'` and `is_marketing_link_set('ABOUT')` is
+false — so the name is never defined. Verawood CI renders the certificate.
+
 **Coverage impact:** open. TC-00033 is split: "links View my certificate to the
-issued certificate" passes; "renders the certificate for the learner and the
-course" is marked `test.fail`. The marker is unconditional: an install that
-configures a marketing About URL renders the certificate, and the test then
-reports an unexpected pass there.
+issued certificate" passes everywhere; "renders the certificate for the learner
+and the course" is gated on the `certificate-web-view` capability, declared for
+every release but `main` (like `rbac-error-view-action` for `RBAC-008`), so it
+passes on verawood and the regression shows on `main` as the undeclared
+capability.
 
 ### `PROF-002` — the profile has no certificate-visibility control
 

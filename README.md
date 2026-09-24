@@ -131,7 +131,9 @@ every unmigrated course's team out of Studio), `rbac-matrix-parity` (the
 console's library permission matrix matches the API's permission list one row
 per permission — `verawood` renders three rows more, wg#609) and
 `rbac-error-view-action` (the console's not-found view offers a working way
-back — `verawood` does; on `main` the anchor does nothing, `RBAC-008`). The
+back — `verawood` does; on `main` the anchor does nothing, `RBAC-008`).
+`certificate-web-view` gates the certificate page's own rendering the same way:
+declared for every release but `main`, where it answers 500 (`CERT-002`). The
 coverage that turns the waffle flag on for a course or an organization also
 needs an admin account, and skips with an operator-facing message without one.
 `analytics` is reserved for the Superset/Aspects reports and has no

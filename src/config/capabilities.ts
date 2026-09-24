@@ -197,6 +197,14 @@ export const CAPABILITIES = [
   // makes the regression visible as an undeclared capability rather than as a
   // permanently red case.
   'rbac-error-view-action',
+  // The **certificate web view renders** on an install with no marketing site.
+  // On `master` `marketing_link()` no longer falls back to the LMS's own pages
+  // (`MKTG_URL_LINK_MAP`), so the About link is unset, the view's footer
+  // context never defines `company_about_url` and the page answers 500
+  // (`CERT-002`); earlier releases render it. Declared where it renders, like
+  // `rbac-error-view-action`, so the regression is an undeclared capability
+  // rather than a permanently red case.
+  'certificate-web-view',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
