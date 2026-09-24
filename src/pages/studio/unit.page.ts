@@ -355,24 +355,39 @@ export class StudioUnitPage {
   }
 
   /**
-   * Clicks a legacy editor's save control and waits for the Studio handler
-   * write it causes (`POST /xblock/<key>/handler/<name>`) and for the dialog to
+   * Clicks a legacy editor's save control and waits for the Studio handler it
+   * posts to (`POST /xblock/<key>/handler/<handler>`), then — unless the editor
+   * stays open after a save, as the recommender's does — for the dialog to
    * close. Returns the handler's response.
    */
-  async saveLegacyEditor(frame: Frame, saveSelector: string): Promise<Response> {
+  async saveLegacyEditor(
+    frame: Frame,
+    saveSelector: string,
+    { handler = 'studio_submit', closes = true }: { handler?: string; closes?: boolean } = {},
+  ): Promise<Response> {
     const response = await waitForWrite(
       this.page,
       {
         method: 'POST',
-        predicate: (r) => /\/xblock\/[^/]+\/handler\//.test(new URL(r.url()).pathname),
+        predicate: (r) => new URL(r.url()).pathname.endsWith(`/handler/${handler}`),
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => frame.locator(saveSelector).click(),
     );
+    if (closes) await this.legacyEditorClosed();
+    return response;
+  }
+
+  /** Closes a legacy editor without saving, through its own cancel control. */
+  async closeLegacyEditor(frame: Frame): Promise<void> {
+    await frame.locator(LEGACY_EDITOR_SELECTORS.close).first().click();
+    await this.legacyEditorClosed();
+  }
+
+  private async legacyEditorClosed(): Promise<void> {
     await this.page
       .locator(LEGACY_EDITOR_SELECTORS.frame)
       .waitFor({ state: 'detached', timeout: TIMEOUTS.navigation });
-    return response;
   }
 
   async openUpdateAvailable(usageKey: string): Promise<void> {
