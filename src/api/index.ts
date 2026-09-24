@@ -93,8 +93,10 @@ export {
 export {
   addToCohort,
   createCohort,
+  createCohortV1,
   enableCohorts,
   linkCohortToGroup,
+  listCohortsV1,
   type Cohort,
 } from './cohorts';
 export { CLIPBOARD_PATH, copyToClipboard, type Clipboard } from './clipboard';

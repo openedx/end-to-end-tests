@@ -225,4 +225,29 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   grantExceptionsModal: '[role="dialog"].grant-exceptions-modal',
   grantExceptionsIndividualTab: '#grant-exceptions-tabs-tab-single',
   invalidateModal: '[role="dialog"].invalidate-certificate-modal',
+
+  // ---- Cohorts -----------------------------------------------------------
+  /**
+   * While cohorts are off, the tab's only primary button is "Enable Cohorts";
+   * once on, the first primary is "+ Add Cohort", beside the cohort picker
+   * (`select[name="cohort"]`, option values are cohort ids).
+   */
+  cohortsPrimaryButton: 'button.btn-primary',
+  cohortPicker: 'select[name="cohort"]',
+  /**
+   * The add-cohort form: the name input (the form's one non-radio input; it
+   * carries no `type`), the assignment method radios (`random` / `manual`,
+   * manual disabled until an automatic cohort exists), the content-group radios
+   * (`noContentGroup` / `selectContentGroup`) and select (values are group ids),
+   * and "Save" (the form's submit).
+   */
+  cohortForm: 'form:has(input[name="assignmentType"])',
+  cohortNameInput: 'input:not([type="radio"])',
+  cohortAssignment: (type: 'random' | 'manual') => `input[name="assignmentType"][value="${type}"]`,
+  cohortContentGroupRadio: 'input[name="associatedContentGroup"][value="selectContentGroup"]',
+  cohortContentGroupSelect: 'select[name="contentGroup"]',
+  cohortFormSubmit: 'button[type="submit"]',
+  /** The selected cohort's "add learners" textarea and its "Add Learners" button. */
+  cohortLearnersInput: 'textarea',
+  cohortLearnersSubmit: 'button.mt-2.btn-primary',
 } as const;
