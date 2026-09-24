@@ -706,6 +706,33 @@ export async function grantCourseTeamRole(
   return result;
 }
 
+/** One course-team member as the Course Team tab lists them. */
+export interface InstructorTeamMember {
+  readonly username: string;
+  readonly email: string;
+  readonly roles: readonly { readonly role: string; readonly display_name: string }[];
+}
+
+/**
+ * The course team (`GET courses/<key>/team`), optionally only the members
+ * holding `role` — forum roles included. The oracle of a Course Team change.
+ */
+export async function listCourseTeam(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  role?: CourseTeamRoleV2,
+): Promise<readonly InstructorTeamMember[]> {
+  const query = new URLSearchParams({ page_size: '100' });
+  if (role !== undefined) query.set('role', role);
+  const page = await get<{ readonly results: readonly InstructorTeamMember[] }>(
+    request,
+    `${instructorApiBase(config, courseKey)}/team?${query.toString()}`,
+    `Listing the course team of ${courseKey}`,
+  );
+  return page.results;
+}
+
 /**
  * Sends a course e-mail to the course's learners, as the instructor
  * dashboard's e-mail tab does (`POST /courses/<key>/instructor/api/send_email`).
