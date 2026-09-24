@@ -1,7 +1,8 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Frame, Locator, Page, Response } from '@playwright/test';
 
 import {
   COURSE_LIBRARY_SYNC_SELECTORS,
+  LEGACY_EDITOR_SELECTORS,
   advancedComponentOption,
   STUDIO_EDITOR_SELECTORS,
   STUDIO_UNIT_PAGE_SELECTORS,
@@ -289,6 +290,17 @@ export class StudioUnitPage {
   }
 
   /**
+   * A component's rendered preview inside the unit's iframe, by its usage key —
+   * the block's own `div.xblock`, not its card header (which carries the same
+   * `data-usage-id`).
+   */
+  component(usageKey: string): Locator {
+    return this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`div.xblock[data-usage-id="${usageKey}"]`);
+  }
+
+  /**
    * Selects a component card inside the unit's iframe by clicking its header —
    * the Verawood interaction that shows the component's Info in the unit-page
    * sidebar (with a Back button and the component's own overflow menu). The
@@ -316,6 +328,51 @@ export class StudioUnitPage {
       .first()
       .click();
     await this.page.locator(STUDIO_EDITOR_SELECTORS.editorDialog).last().waitFor();
+  }
+
+  /**
+   * "Edit" on a component whose editor is its own XBlock `studio_view` (poll,
+   * Google calendar, recommender, ORA, …): the MFE opens a dialog holding the
+   * editor in an iframe. Returns that frame once it has loaded.
+   */
+  async openLegacyEditor(usageKey: string): Promise<Frame> {
+    await this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`[data-usage-id="${usageKey}"]`)
+      .locator(COURSE_LIBRARY_SYNC_SELECTORS.iframeEditButton)
+      .first()
+      .click();
+    const element = this.page.locator(LEGACY_EDITOR_SELECTORS.frame);
+    await element.waitFor({ timeout: TIMEOUTS.navigation });
+    const handle = await element.elementHandle();
+    const frame = await handle?.contentFrame();
+    await handle?.dispose();
+    if (frame === null || frame === undefined) {
+      throw new Error(`The editor for ${usageKey} opened no frame.`);
+    }
+    await frame.waitForLoadState('load', { timeout: TIMEOUTS.navigation });
+    return frame;
+  }
+
+  /**
+   * Clicks a legacy editor's save control and waits for the Studio handler
+   * write it causes (`POST /xblock/<key>/handler/<name>`) and for the dialog to
+   * close. Returns the handler's response.
+   */
+  async saveLegacyEditor(frame: Frame, saveSelector: string): Promise<Response> {
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => /\/xblock\/[^/]+\/handler\//.test(new URL(r.url()).pathname),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => frame.locator(saveSelector).click(),
+    );
+    await this.page
+      .locator(LEGACY_EDITOR_SELECTORS.frame)
+      .waitFor({ state: 'detached', timeout: TIMEOUTS.navigation });
+    return response;
   }
 
   async openUpdateAvailable(usageKey: string): Promise<void> {

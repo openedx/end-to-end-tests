@@ -10,6 +10,8 @@ import {
 } from '../../../config';
 import { AdvancedBlock } from './advanced.block';
 import { AnnotatableBlock } from './annotatable.block';
+import { DoneBlock } from './done.block';
+import { WordCloudBlock } from './word-cloud.block';
 
 /**
  * Headroom added when the viewport is grown to fit a tall content block: enough
@@ -138,6 +140,16 @@ export class UnitPage {
   /** An `annotatable` block in the unit. */
   annotatableBlock(blockId: string): AnnotatableBlock {
     return new AnnotatableBlock(this.contentFrame, blockId);
+  }
+
+  /** A `word_cloud` block in the unit. */
+  wordCloudBlock(blockId: string): WordCloudBlock {
+    return new WordCloudBlock(this.page, this.contentFrame, blockId);
+  }
+
+  /** A `done` ("Completion") block in the unit. */
+  doneBlock(blockId: string): DoneBlock {
+    return new DoneBlock(this.page, this.contentFrame, blockId);
   }
 
   /** The sidebar's link to a unit, anchored by the unit's block ID. */
