@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import {
   narrowConditionalContent,
+  narrowPdfFields,
   narrowPollResults,
   narrowSurveyResults,
   narrowWordCloudState,
@@ -72,5 +73,23 @@ test.describe('XBlock handler readers', { tag: '@unit' }, () => {
 
   test('rejects an unexpected poll body', () => {
     expect(() => narrowPollResults({ success: false })).toThrow();
+  });
+
+  test('narrows a PDF block, whichever form its download flag takes', () => {
+    const body = {
+      display_name: 'PDF',
+      url: 'http://lms.example.test/asset-v1:O+C+R+type@asset+block@e2e.pdf',
+      allow_download: 'false',
+      source_text: 'E2E source',
+      source_url: 'https://example.org/src',
+    };
+    expect(narrowPdfFields(body)).toEqual({
+      displayName: 'PDF',
+      url: body.url,
+      allowDownload: false,
+      sourceText: 'E2E source',
+      sourceUrl: 'https://example.org/src',
+    });
+    expect(narrowPdfFields({ ...body, allow_download: true }).allowDownload).toBe(true);
   });
 });

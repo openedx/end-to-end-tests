@@ -58,7 +58,9 @@ Contains:
   own LMS handlers (`/courses/<course>/xblock/<usage>/handler/<name>`, session
   - CSRF): poll and survey `get_results`, the word cloud's `handle_get_state`,
     and a conditional's `conditional_get` (message only until its condition is
-    met). Each reader narrows to what the learner submitted, never rendered copy.
+    met). Each reader narrows to what the learner submitted, never rendered copy. In Studio,
+    `fetchPdfFields` reads a PDF component's content-scoped fields through its
+    `load_pdf` handler, as its editor does.
 - `notifications.ts` — the recipient's notifications (verawood onward): the
   list (`listNotifications`, filterable by app), the unseen `count/`, **seen**
   (`markNotificationsSeen`, what opening a tray tab sends and all `count/`

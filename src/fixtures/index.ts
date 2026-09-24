@@ -25,6 +25,7 @@ import { StudioOutlineConfigureDialog } from '../pages/studio/outline-configure.
 import { StudioUnitPage } from '../pages/studio/unit.page';
 import { StudioVideoEditor } from '../pages/studio/editors/video-editor';
 import { StudioTextEditor } from '../pages/studio/editors/text-editor';
+import { StudioPdfEditor } from '../pages/studio/editors/pdf-editor';
 import { StudioAdvancedSettingsPage } from '../pages/studio/settings/advanced-settings.page';
 import { StudioCertificatesPage } from '../pages/studio/settings/certificates.page';
 import { StudioCourseTeamPage } from '../pages/studio/settings/course-team.page';
@@ -433,6 +434,8 @@ export interface TestFixtures {
   studioVideoEditor: StudioVideoEditor;
   /** The text (TinyMCE) component editor page object. */
   studioTextEditor: StudioTextEditor;
+  /** The PDF component's editor (TC-00508, TC-00509). */
+  studioPdfEditor: StudioPdfEditor;
   /** Schedule & Details settings page object (authoring MFE). */
   scheduleDetailsPage: StudioScheduleDetailsPage;
   /** Grading settings page object (authoring MFE). */
@@ -2674,6 +2677,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   studioVideoEditor: pageObjectFixture(StudioVideoEditor),
 
   studioTextEditor: pageObjectFixture(StudioTextEditor),
+
+  studioPdfEditor: pageObjectFixture(StudioPdfEditor),
 
   scheduleDetailsPage: pageObjectFixture(StudioScheduleDetailsPage),
 

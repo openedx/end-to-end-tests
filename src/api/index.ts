@@ -533,15 +533,18 @@ export {
 export { lmsGet, lmsWrite } from './lms-json';
 export {
   fetchConditionalContent,
+  fetchPdfFields,
   fetchPollResults,
   fetchSurveyResults,
   fetchWordCloudState,
   narrowConditionalContent,
+  narrowPdfFields,
   narrowPollResults,
   narrowSurveyResults,
   narrowWordCloudState,
   xblockHandlerUrl,
   type ConditionalContent,
+  type PdfFields,
   type PollResults,
   type PollTally,
   type SurveyQuestionTally,

@@ -3,14 +3,16 @@ import type { APIRequestContext } from '@playwright/test';
 import type { AppConfig } from '../config';
 import { ApiError } from './errors';
 import { lmsWrite } from './lms-json';
+import { studioOrigin } from './studio-origin';
 
 /**
- * A block's own XBlock handlers in the LMS
- * (`POST /courses/<course>/xblock/<usage>/handler/<name>`) — what a learner's
- * poll, survey, word cloud or conditional reads its state from. They are
- * session-authed with CSRF, so `request` is the learner's own context. Each
+ * A block's own XBlock handlers — in the LMS
+ * (`POST /courses/<course>/xblock/<usage>/handler/<name>`), what a learner's
+ * poll, survey, word cloud or conditional reads its state from, and in Studio
+ * (`/xblock/<usage>/handler/<name>`), what an editor loads a block's fields
+ * from. They are session-authed, so `request` is the reader's own context. Each
  * reader narrows the handler's JSON to what a spec asserts: the platform's
- * record of what this learner submitted, never the rendered copy.
+ * record, never the rendered copy.
  */
 export function xblockHandlerUrl(
   config: AppConfig,
@@ -174,4 +176,49 @@ export async function fetchConditionalContent(
   return narrowConditionalContent(
     await callHandler(learner, config, courseKey, usageKey, 'xmodule_handler/conditional_get'),
   );
+}
+
+/** A PDF component's fields, as its editor loads them (`load_pdf`). */
+export interface PdfFields {
+  readonly displayName: string;
+  readonly url: string;
+  readonly allowDownload: boolean;
+  readonly sourceText: string;
+  readonly sourceUrl: string;
+}
+
+const text = (value: unknown): string => (typeof value === 'string' ? value : '');
+
+export function narrowPdfFields(body: unknown): PdfFields {
+  if (!isRecord(body) || typeof body.url !== 'string') throw shapeError('The PDF block', body);
+  return {
+    displayName: text(body.display_name),
+    url: body.url,
+    // The block stores the editor's checkbox as a boolean or its string form.
+    allowDownload: body.allow_download === true || body.allow_download === 'true',
+    sourceText: text(body.source_text),
+    sourceUrl: text(body.source_url),
+  };
+}
+
+/**
+ * A PDF component's fields as the author's Studio session reads them. They are
+ * content-scoped, so the block's `/xblock/` metadata does not carry them; the
+ * editor reads them from the block's own `load_pdf` handler, and so does this.
+ */
+export async function fetchPdfFields(
+  author: APIRequestContext,
+  config: AppConfig,
+  usageKey: string,
+): Promise<PdfFields> {
+  const url = `${studioOrigin(config)}/xblock/${usageKey}/handler/load_pdf`;
+  const response = await author.get(url);
+  if (!response.ok()) {
+    throw new ApiError(`Reading the PDF block ${usageKey} failed (HTTP ${response.status()}).`, {
+      status: response.status(),
+      url,
+      body: (await response.text()).slice(0, 500),
+    });
+  }
+  return narrowPdfFields(await response.json());
 }
