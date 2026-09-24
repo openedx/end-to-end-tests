@@ -112,7 +112,8 @@ validation.
 The authoring suite adds opt-in capabilities for features and component types that
 are not on every install: `cohorts` and `courseware-navigation-sidebar`, and the
 component gates `ora`, `drag-and-drop-v2`, `pdf-xblock`, `lti`, `scorm` and
-`edx-sga` (the last two ship with the platform; the others may be plugins). The
+`edx-sga` (all but `scorm` are edx-platform requirements; `scorm` is the
+`openedx-scorm-xblock` Tutor installs). The
 instructor-dashboard suite adds the default-on `instructor-dashboard` (the LMS
 instructor dashboard as its MFE, `verawood` onward — ulmo and earlier opt out
 with `-instructor-dashboard`) and the opt-in `certificates` (course certificates

@@ -126,16 +126,18 @@ export const CAPABILITIES = [
   // Optional component (XBlock) types an author can add to a unit. Each is a
   // tile in the unit page's "Add component" bar and an entry in the CMS
   // `container_handler` API's `component_templates`; a declared type that the
-  // target lacks must fail its spec, never skip it. All of these ship with
-  // edx-platform (and so with a stock Tutor image) and are declared for every
-  // release in `.ci/openedx-releases.json`; a provider that has removed one opts
-  // out by leaving it undeclared.
+  // target lacks must fail its spec, never skip it. All of these ship with a
+  // stock Tutor image (all but `scorm` as edx-platform requirements) and are
+  // declared for every release in `.ci/openedx-releases.json` they exist on; a
+  // provider that has removed one opts out by leaving it undeclared. Advanced
+  // modules the platform itself bundles and no provider opts out of (poll,
+  // word cloud, annotatable, …) have no capability: a missing one fails.
   'ora', // Open Response Assessment (`openassessment`, edx-ora2)
   'drag-and-drop-v2', // `drag-and-drop-v2` (xblock-drag-and-drop-v2)
-  'pdf-xblock', // `pdf` under the "Advanced" tile
+  'pdf-xblock', // `pdf` (xblocks-contrib) under the "Advanced" tile
   'lti', // `lti_consumer` under the "Advanced" tile (no tool launch is asserted)
   'scorm', // `scorm` under the "Advanced" tile
-  'edx-sga', // Staff Graded Assignment (`staffgradedxblock`) under the "Problem" tile
+  'edx-sga', // Staff Graded Assignment (`edx_sga`) under the "Advanced" tile, once listed
   // The LMS instructor dashboard as the instructor-dashboard MFE
   // (`frontend-app-instructor-dashboard`, served at
   // `${APPS_BASE_URL}/instructor-dashboard/<course>`), driven by the
