@@ -26,7 +26,8 @@ import { INSTRUCTOR_TAGS, label } from './helpers';
  * applied to what each test set up on a course of its own — an ORA (Open
  * Responses), course e-mail (Bulk Email) and, for the instructor, the Data
  * Researcher role (Data Downloads) — and to what the target declares
- * (`analytics` adds Aspects' Reports). It is not the sheet's list, which gives
+ * (`special-exams` adds Special Exams, `analytics` Aspects' Reports). It is
+ * not the sheet's list, which gives
  * staff the Course Team tab (the platform offers it to staff only as
  * Discussion Admins) and assumes Special Exams, Certificates and Reports,
  * which are deployment options.
@@ -50,7 +51,8 @@ async function prepareCourse(
   return {
     hasOra: true,
     emailEnabled: true,
-    specialExams: false,
+    // A new course's timed exams follow the platform setting, which `special-exams` declares.
+    specialExams: config.capabilities.has('special-exams'),
     aspects: config.capabilities.has('analytics'),
   };
 }

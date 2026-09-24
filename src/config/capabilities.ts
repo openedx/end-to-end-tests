@@ -159,6 +159,12 @@ export const CAPABILITIES = [
   // skips this coverage with a reason where no admin account is configured.
   // Gates the instructor dashboard's Certificates tab (BTR TC-00536–00538).
   'certificates',
+  // Special exams are on (`ENABLE_SPECIAL_EXAMS`, LMS and CMS; off on a
+  // default install): timed subsections register as exams and the instructor
+  // dashboard offers its Special Exams tab. Gates TC-00541's allowances, and
+  // adds that tab to TC-00514's expected set. CI turns the setting on for the
+  // releases that declare it.
+  'special-exams',
   // Reserved for the Superset / Aspects analytics reports on the instructor
   // dashboard (BTR TC-00542–00559). Aspects is a separate deployment, not part
   // of a default install; no spec uses this capability yet, so declaring it has
