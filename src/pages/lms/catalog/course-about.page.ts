@@ -13,6 +13,8 @@ export class CourseAboutPage {
   readonly shareTwitter: Locator;
   readonly shareFacebook: Locator;
   readonly shareEmail: Locator;
+  /** The course overview the author wrote (TC-00301). */
+  readonly overview: Locator;
   readonly mediaImage: Locator;
   readonly introVideoButton: Locator;
   readonly introVideoFrame: Locator;
@@ -27,6 +29,7 @@ export class CourseAboutPage {
     this.shareTwitter = page.locator(COURSE_ABOUT_SELECTORS.shareTwitter);
     this.shareFacebook = page.locator(COURSE_ABOUT_SELECTORS.shareFacebook);
     this.shareEmail = page.locator(COURSE_ABOUT_SELECTORS.shareEmail);
+    this.overview = page.locator(COURSE_ABOUT_SELECTORS.overview);
     this.mediaImage = page.locator(COURSE_ABOUT_SELECTORS.mediaImage);
     this.introVideoButton = page.locator(COURSE_ABOUT_SELECTORS.introVideoButton);
     this.introVideoFrame = page.locator(COURSE_ABOUT_SELECTORS.introVideoFrame);

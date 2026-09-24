@@ -175,6 +175,23 @@ export class StudioScheduleDetailsPage {
   }
 
   /**
+   * Replaces the course overview's HTML through its editor's "Source code"
+   * dialog (the toolbar's overflow drawer first, where it is folded away), and
+   * waits for the dialog to apply it. The page's own Save still has to follow.
+   */
+  async setOverviewSource(html: string): Promise<void> {
+    const s = STUDIO_SCHEDULE_DETAILS_SELECTORS;
+    const source = this.page.locator(s.overviewSourceButton);
+    await this.page.locator(s.overviewToolbarOverflow).or(source).first().waitFor();
+    if (!(await source.isVisible())) await this.page.locator(s.overviewToolbarOverflow).click();
+    await source.click();
+    const dialog = this.page.locator(s.overviewSourceDialog);
+    await dialog.locator(s.overviewSourceEditor).fill(html);
+    await dialog.locator(s.overviewSourceApply).click();
+    await dialog.waitFor({ state: 'detached' });
+  }
+
+  /**
    * Picks the certificates display behaviour. The dropdown's items carry no
    * value and their labels are localized, but the authoring MFE always lists
    * them in the same order (`CertificateDisplayRow`'s options), so an item is

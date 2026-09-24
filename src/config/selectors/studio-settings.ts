@@ -61,6 +61,19 @@ export const STUDIO_SCHEDULE_DETAILS_SELECTORS = {
   /** "Course short description" textarea. */
   shortDescription: 'textarea[name="shortDescription"]',
 
+  /**
+   * "Course overview": a TinyMCE editor. Its "Source code" toolbar button
+   * (`data-mce-name`, not its localized label) may sit in the toolbar's
+   * overflow drawer at narrower widths, and opens the MFE's "Edit Source Code"
+   * dialog: a CodeMirror editor whose "Save" (the footer's primary) applies the
+   * HTML to the overview. TinyMCE rewrites `/static/<file>` to the asset path.
+   */
+  overviewSourceButton: '.tox-tbtn[data-mce-name="code-modified"]',
+  overviewToolbarOverflow: '.tox-tbtn[data-mce-name="overflow-button"]',
+  overviewSourceDialog: '[role="dialog"].pgn__modal-xl',
+  overviewSourceEditor: '.cm-content',
+  overviewSourceApply: '.pgn__modal-footer button.btn-primary',
+
   /** Course card image: the drop zone's file input ("Upload course card image"). */
   courseImageFileInput: '.pgn__dropzone input[type="file"]',
   /** Course card image path field ("Your course image URL" placeholder). */

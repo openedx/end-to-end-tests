@@ -28,6 +28,13 @@ export const COURSE_ABOUT_SELECTORS = {
   shareFacebook: 'main a[href^="https://www.facebook.com/sharer/sharer.php"]',
   shareEmail: 'main a[href^="mailto:"]',
 
+  /**
+   * The course overview — the HTML an author writes in Schedule & Details,
+   * rendered by the platform's about block (sanitised) with asset paths pointed
+   * at the LMS.
+   */
+  overview: 'main .course-about-overview',
+
   /** The course image — the sheet's "course photo". */
   mediaImage: 'main img.course-media-image',
 
