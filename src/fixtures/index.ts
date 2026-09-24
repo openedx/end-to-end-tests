@@ -56,6 +56,7 @@ import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.pa
 import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
 import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
 import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
+import { InstructorCohortsPage } from '../pages/lms/instructor/cohorts.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
 import {
@@ -455,6 +456,8 @@ export interface TestFixtures {
   instructorEnrollments: InstructorEnrollmentsPage;
   instructorGrading: InstructorGradingPage;
   instructorDateExtensions: InstructorDateExtensionsPage;
+  /** The instructor dashboard's Cohorts tab (TC-00539). */
+  instructorCohorts: InstructorCohortsPage;
   instructorDataDownloads: InstructorDataDownloadsPage;
   instructorCertificates: InstructorCertificatesPage;
   /**
@@ -3257,6 +3260,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   instructorEnrollments: pageObjectFixture(InstructorEnrollmentsPage),
   instructorGrading: pageObjectFixture(InstructorGradingPage),
   instructorDateExtensions: pageObjectFixture(InstructorDateExtensionsPage),
+
+  instructorCohorts: pageObjectFixture(InstructorCohortsPage),
   instructorDataDownloads: pageObjectFixture(InstructorDataDownloadsPage),
   instructorCertificates: pageObjectFixture(InstructorCertificatesPage),
 
