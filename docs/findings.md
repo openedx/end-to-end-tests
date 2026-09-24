@@ -109,6 +109,7 @@ measured, and issues are opened by hand from them.
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
+| `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 
 ---
@@ -2049,4 +2050,20 @@ two third parties.
 **Coverage impact:** open, no `fixme`. TC-00131 lists the module, adds it from
 the Advanced tile and asserts its server-rendered markup in the Studio preview,
 never in the learner's courseware, so the suite never depends on the CDNs.
+
+### `COMMS-001` — the bulk e-mail editor's TinyMCE markup fails two ARIA rules
+
+**Where:** `frontend-app-communications` (`master`), the bulk e-mail form's
+message editor, which is TinyMCE.
+
+**What happens:** axe reports two violations on the form, both inside the
+editor:
+- critical `aria-allowed-attr`: the status bar's element-path item is a
+  `div[role="button"]` carrying `aria-level`;
+- serious `aria-prohibited-attr`: the editable `body#tinymce` carries an
+  `aria-label` ("Rich Text Area…") that its role does not permit.
+
+**Coverage impact:** open, no `fixme`. TC-00540's scan of the form baselines
+both rules there only (`COMMUNICATIONS_A11Y_BASELINE`); the send itself is
+asserted through the mail.
 

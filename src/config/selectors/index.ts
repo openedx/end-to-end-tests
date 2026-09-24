@@ -18,6 +18,7 @@ export {
   sidebarUnitLink,
 } from './courseware';
 export { CAPA_SELECTORS } from './capa';
+export { COMMUNICATIONS_SELECTORS } from './communications';
 export { PROGRESS_SELECTORS, progressTabLink } from './progress';
 export { PROFILE_SELECTORS, profileControl, profileEditor } from './profile';
 export { TEAMS_SELECTORS, teamThread, teamsTopicLink } from './teams';
