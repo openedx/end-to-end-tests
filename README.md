@@ -136,7 +136,9 @@ back — `verawood` does; on `main` the anchor does nothing, `RBAC-008`).
 `special-exams` (opt-in) means `ENABLE_SPECIAL_EXAMS` is on for the LMS and CMS,
 which a default install leaves off: the instructor dashboard's Special Exams tab
 and its allowances; CI's Tutor patch turns it on where it is declared.
-`certificate-web-view` gates the certificate page's own rendering the same way:
+`recommender-studio-settings` is declared where the recommender's Studio editor
+shows its saved settings (recommender-xblock 5.1.0 on `main`; not `verawood`,
+`XBLOCK-002`). `certificate-web-view` gates the certificate page's own rendering the same way:
 declared for every release but `main`, where it answers 500 (`CERT-002`). The
 coverage that turns the waffle flag on for a course or an organization also
 needs an admin account, and skips with an operator-facing message without one.

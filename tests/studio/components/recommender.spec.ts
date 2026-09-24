@@ -7,8 +7,9 @@ import { testId } from '../../../src/reporting';
  * Using the recommender (recommender-xblock) in Studio: the author changes one
  * of its settings in the block's own editor. The block keeps that setting
  * outside its Studio fields, so the reading that decides is the editor itself,
- * reopened. Its learner view is not driven: it loads its scripts from public
- * CDNs (XBLOCK-001).
+ * reopened. That needs recommender-xblock 5.1.0, whose editor renders what it
+ * saved (`recommender-studio-settings`; XBLOCK-002). Its learner view is not
+ * driven: it loads its scripts from public CDNs (XBLOCK-001).
  */
 test.describe(
   'Recommender component',
@@ -18,7 +19,7 @@ test.describe(
 
     test(
       'an author changes a recommender setting',
-      { annotation: testId('TC-00132') },
+      { tag: '@recommender-studio-settings', annotation: testId('TC-00132') },
       async ({ page, config, authoringCourse, studioAuthorSession, studioUnitPage }) => {
         void studioAuthorSession;
         const request = page.request;

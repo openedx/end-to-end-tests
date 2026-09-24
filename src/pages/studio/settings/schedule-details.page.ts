@@ -175,20 +175,24 @@ export class StudioScheduleDetailsPage {
   }
 
   /**
-   * Replaces the course overview's HTML through its editor's "Source code"
-   * dialog (the toolbar's overflow drawer first, where it is folded away), and
-   * waits for the dialog to apply it. The page's own Save still has to follow.
+   * Replaces the course overview's HTML, as the editor's "Source code" dialog
+   * does: through TinyMCE's `setContent`, whose change the MFE's editor binding
+   * turns into an unsaved edit (the page's own Save still has to follow).
+   * A `/static/<file>` path is saved as written; the platform resolves it to the
+   * course asset when it renders the overview.
    */
   async setOverviewSource(html: string): Promise<void> {
-    const s = STUDIO_SCHEDULE_DETAILS_SELECTORS;
-    const source = this.page.locator(s.overviewSourceButton);
-    await this.page.locator(s.overviewToolbarOverflow).or(source).first().waitFor();
-    if (!(await source.isVisible())) await this.page.locator(s.overviewToolbarOverflow).click();
-    await source.click();
-    const dialog = this.page.locator(s.overviewSourceDialog);
-    await dialog.locator(s.overviewSourceEditor).fill(html);
-    await dialog.locator(s.overviewSourceApply).click();
-    await dialog.waitFor({ state: 'detached' });
+    await this.page.locator(STUDIO_SCHEDULE_DETAILS_SELECTORS.overviewEditor).first().waitFor();
+    const applied = await this.page.evaluate((content) => {
+      type Editor = { setContent(html: string): void; fire(event: string): void };
+      const tinymce = (window as unknown as { tinymce?: { get(): Editor[] } }).tinymce;
+      const editor = tinymce?.get()[0];
+      if (editor === undefined) return false;
+      editor.setContent(content);
+      editor.fire('change');
+      return true;
+    }, html);
+    if (!applied) throw new Error('The Schedule & Details page exposes no TinyMCE editor.');
   }
 
   /**

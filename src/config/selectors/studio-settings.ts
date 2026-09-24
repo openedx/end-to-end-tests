@@ -62,17 +62,13 @@ export const STUDIO_SCHEDULE_DETAILS_SELECTORS = {
   shortDescription: 'textarea[name="shortDescription"]',
 
   /**
-   * "Course overview": a TinyMCE editor. Its "Source code" toolbar button
-   * (`data-mce-name`, not its localized label) may sit in the toolbar's
-   * overflow drawer at narrower widths, and opens the MFE's "Edit Source Code"
-   * dialog: a CodeMirror editor whose "Save" (the footer's primary) applies the
-   * HTML to the overview. TinyMCE rewrites `/static/<file>` to the asset path.
+   * "Course overview": a TinyMCE editor, the page's only one. Its toolbar's
+   * "Source code" button has no anchor common to both releases (`main`'s
+   * TinyMCE names its buttons in `data-mce-name`; `verawood`'s folds it into a
+   * "More..." drawer with only localized labels), so HTML is given to the
+   * editor through TinyMCE's own API, which the MFE's editor binding follows.
    */
-  overviewSourceButton: '.tox-tbtn[data-mce-name="code-modified"]',
-  overviewToolbarOverflow: '.tox-tbtn[data-mce-name="overflow-button"]',
-  overviewSourceDialog: '[role="dialog"].pgn__modal-xl',
-  overviewSourceEditor: '.cm-content',
-  overviewSourceApply: '.pgn__modal-footer button.btn-primary',
+  overviewEditor: '.tox-tinymce',
 
   /** Course card image: the drop zone's file input ("Upload course card image"). */
   courseImageFileInput: '.pgn__dropzone input[type="file"]',

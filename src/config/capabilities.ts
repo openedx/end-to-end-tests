@@ -213,6 +213,13 @@ export const CAPABILITIES = [
   // `rbac-error-view-action`, so the regression is an undeclared capability
   // rather than a permanently red case.
   'certificate-web-view',
+  // The **recommender's Studio editor shows the settings it saved**. Before
+  // recommender-xblock 5.1.0 (`verawood` pins 5.0.0) the editor rendered its
+  // defaults whatever the block held, so an author's change looked lost
+  // (`XBLOCK-002`, the sheet's "can't change settings" on TC-00132); 5.1.0
+  // renders the saved configuration. Declared where it does, so the gap is an
+  // undeclared capability rather than a permanently red case.
+  'recommender-studio-settings',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
