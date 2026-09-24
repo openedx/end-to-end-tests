@@ -16,13 +16,21 @@ name: Tutor E2E Test
 # For the "main" release the Docker images come prebuilt from
 # build_tutor_main_images.yml (nightly, pushed to ghcr.io); see that workflow.
 #
+# Jobs: `plan` expands the selected CI profiles (.ci/profiles.json: a Tutor
+# configuration + capability delta + shard count) into one `run` job per
+# shard, each provisioning its own installation and uploading a blob report;
+# `merge` combines the blobs into the release's single HTML report and suite
+# reports (the report-suite action), under the artifact names a one-job run
+# used, and publishes BTR results.
+#
 # BTR results sheet: schedule and workflow_dispatch runs publish the run's
-# BTR-tagged results to the per-release Google Sheet named by the repository
-# variable BTR_SHEET_URL_<RELEASE> (e.g. BTR_SHEET_URL_VERAWOOD), using the
-# repository/Environment secret BTR_SHEET_CREDENTIALS. Credentials are never a
-# workflow input: without that secret the publish is skipped with a warning and
-# the run still passes. Unset variable = no publish. Runs called from ci.yml
-# (PR/push) never publish. See src/reporting/README.md.
+# BTR-tagged results (from the merge job) to the per-release Google Sheet named
+# by the repository variable BTR_SHEET_URL_<RELEASE> (e.g.
+# BTR_SHEET_URL_VERAWOOD), using the repository/Environment secret
+# BTR_SHEET_CREDENTIALS. Credentials are never a workflow input: without that
+# secret the publish is skipped with a warning and the run still passes. Unset
+# variable = no publish. Runs called from ci.yml (PR/push) never publish. See
+# src/reporting/README.md.
 
 on:
   schedule:
@@ -59,9 +67,13 @@ on:
         type: string
         default: ''
       capabilities:
-        description: 'Override capabilities for this run (comma-separated). Empty = use the release default from .ci/openedx-releases.json.'
+        description: 'Override the release''s capabilities for this run (comma-separated); each profile''s delta still applies. Empty = the release default from .ci/openedx-releases.json.'
         type: string
         default: ''
+      profiles:
+        description: 'CI profiles to run (keys of .ci/profiles.json), space-separated. Each profile runs as its shards, and the merge job combines them into one report.'
+        type: string
+        default: 'default'
       btr_sheet_url:
         description: 'Override: publish BTR results to this Google Sheet instead of the release''s BTR_SHEET_URL_<RELEASE> variable. Empty = use the variable (or do not publish if unset).'
         type: string
@@ -89,9 +101,13 @@ on:
         type: string
         default: ''
       capabilities:
-        description: 'Override capabilities for this run (comma-separated). Empty = use the release default from .ci/openedx-releases.json.'
+        description: 'Override the release''s capabilities for this run (comma-separated); each profile''s delta still applies. Empty = the release default from .ci/openedx-releases.json.'
         type: string
         default: ''
+      profiles:
+        description: 'CI profiles to run (keys of .ci/profiles.json), space-separated. Each profile runs as its shards, and the merge job combines them into one report.'
+        type: string
+        default: 'default'
 
 permissions:
   contents: read
@@ -106,27 +122,31 @@ env:
   ADMIN_PASSWORD: e2e-admin-password
 
 jobs:
-  local:
+  # What the run and merge jobs share, resolved once: the release's Tutor
+  # constraint and capabilities, the profile × shard job matrix
+  # (.ci/profiles.json, via scripts/ci-profiles.mts) and the BTR results sheet.
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
     env:
       # workflow_dispatch runs use the chosen input (default: verawood);
       # schedule runs always target the "main" Open edX release.
       OPENEDX_RELEASE: ${{ (github.event_name == 'schedule' && 'main') || inputs.openedx_release }}
-      # Read by scripts/publish-btr-sheet.mts inside the run-suite action, which
-      # takes no credential input. Absent on workflow_call runs from ci.yml,
-      # which do not publish anyway; the publisher warns and skips.
-      BTR_SHEET_CREDENTIALS: ${{ secrets.BTR_SHEET_CREDENTIALS }}
+    outputs:
+      release: ${{ steps.release.outputs.release }}
+      tutor_constraint: ${{ steps.release.outputs.tutor_constraint }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      sheet_url: ${{ steps.btr.outputs.sheet_url }}
+      update_latest: ${{ steps.btr.outputs.update_latest }}
     steps:
       - name: Checkout (test ref)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.test_ref }}
 
-      - name: Setup python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          python-version: 3.12
+          node-version-file: .nvmrc
 
       - name: Resolve release configuration
         id: release
@@ -144,14 +164,96 @@ jobs:
           else
             echo "Open edX 'main' -> Tutor from GitHub main branch"
           fi
-          echo "tutor_constraint=${CONSTRAINT}" >> "$GITHUB_OUTPUT"
-          echo "capabilities=${RELEASE_CAPABILITIES}" >> "$GITHUB_OUTPUT"
+          {
+            echo "release=${RELEASE}"
+            echo "tutor_constraint=${CONSTRAINT}"
+            echo "capabilities=${RELEASE_CAPABILITIES}"
+          } >> "$GITHUB_OUTPUT"
+
+      # A dispatch `capabilities` override replaces the release's list; each
+      # profile's delta applies on top of whichever list that leaves.
+      - name: Build the profile × shard matrix
+        id: matrix
+        env:
+          PROFILES: ${{ inputs.profiles || 'default' }}
+          OVERRIDE_CAPABILITIES: ${{ inputs.capabilities }}
+          RELEASE_CAPABILITIES: ${{ steps.release.outputs.capabilities }}
+        run: |
+          set -euo pipefail
+          MATRIX=$(node scripts/ci-profiles.mts matrix \
+            --profiles "$PROFILES" \
+            --release-capabilities="${OVERRIDE_CAPABILITIES:-$RELEASE_CAPABILITIES}")
+          echo "$MATRIX" | jq .
+          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+
+      # Which sheet (if any) this run publishes to, and whether it may replace the
+      # sheet's "Latest" tab. `vars` is dumped as JSON because expressions have no
+      # upper-case function to build the variable name from the release.
+      - name: Resolve BTR results sheet
+        id: btr
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          OVERRIDE_URL: ${{ inputs.btr_sheet_url }}
+          VARS_JSON: ${{ toJSON(vars) }}
+          TEST_REF: ${{ inputs.test_ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          FILTERED: ${{ inputs.domains != '' || inputs.features != '' || inputs.exclude_features != '' }}
+        run: |
+          set -euo pipefail
+          VAR_NAME="BTR_SHEET_URL_${OPENEDX_RELEASE^^}"
+          URL=""
+          case "$EVENT_NAME" in
+            schedule|workflow_dispatch)
+              URL="${OVERRIDE_URL:-$(jq -r --arg k "$VAR_NAME" '.[$k] // empty' <<< "$VARS_JSON")}"
+              if [ -z "$URL" ]; then
+                echo "::notice::No BTR results sheet for '${OPENEDX_RELEASE}': set the ${VAR_NAME} repository variable (or the btr_sheet_url input) to publish."
+              fi
+              ;;
+            *)
+              echo "BTR results are not published for '${EVENT_NAME}' runs."
+              ;;
+          esac
+          REF="${TEST_REF:-$GITHUB_REF_NAME}"
+          UPDATE_LATEST=false
+          if [ "$FILTERED" != "true" ] && [ "$REF" = "$DEFAULT_BRANCH" ]; then
+            UPDATE_LATEST=true
+          fi
+          {
+            echo "sheet_url=${URL}"
+            echo "test_ref=${TEST_REF}"
+            echo "update_latest=${UPDATE_LATEST}"
+          } >> "$GITHUB_OUTPUT"
+          [ -n "$URL" ] && echo "Publishing to ${URL} (update Latest: ${UPDATE_LATEST}, ref: ${REF})" || true
+
+  # One job per shard of each selected profile, each against its own Tutor
+  # installation, so shards share no users, courses or site settings.
+  run:
+    name: ${{ matrix.profile }} ${{ matrix.shard }}/${{ matrix.shards }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      OPENEDX_RELEASE: ${{ needs.plan.outputs.release }}
+    steps:
+      - name: Checkout (test ref)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.test_ref }}
+
+      - name: Setup python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.12
 
       - name: Install Tutor and plugins (named release)
         if: env.OPENEDX_RELEASE != 'main'
         run: |
           set -euo pipefail
-          C='${{ steps.release.outputs.tutor_constraint }}'
+          C='${{ needs.plan.outputs.tutor_constraint }}'
           pip install \
             "tutor${C}" \
             "tutor-mfe${C}" \
@@ -328,124 +430,22 @@ jobs:
           path: .ci/mysql-dump/
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
 
-      # - SKIP_EMAIL_VALIDATION: without it Playwright can't complete most
-      #   auth tests because accounts can't be activated via email. Some
-      #   activation tests therefore can't run here.
-      # - ENABLE_COURSE_DISCOVERY: exposes the course discovery/search UI the
-      #   catalog tests exercise.
-      # - ENABLE_COURSEWARE_INDEX: courseware indexing is meant to be on by
-      #   default, but on main the top-level setting reads False while only the
-      #   dead FEATURES flag is True (the TUTOR-001 flattening); force it so the
-      #   Studio Reindex button and catalog search see authored content.
-      # - ENABLE_EDXNOTES: the notes plugin sets it only in FEATURES, so on main
-      #   the Notes tool stays off (TUTOR-001 again); the notes specs need it.
-      # - Rate limits: the platform defaults are per-day and CI retries and
-      #   back-to-back runs exhaust them (HTTP 403 forbidden-request), so use
-      #   short, self-resetting per-minute windows.
+      # The profile's Tutor plugins (.ci/profiles.json): each file is copied into
+      # Tutor's plugin root and enabled by its file name. .ci/tutor/e2e_base.py
+      # documents the settings every profile starts from.
       - name: Configure Tutor
+        env:
+          TUTOR_PLUGIN_FILES: ${{ join(matrix.tutorPlugins, ' ') }}
         run: |
           set -euo pipefail
-          mkdir -p "$(tutor plugins printroot)"
-          cat > "$(tutor plugins printroot)/e2e_test.py" << 'EOF'
-          from tutor import hooks
-
-          hooks.Filters.ENV_PATCHES.add_item(
-              (
-                  "openedx-common-settings",
-                  """
-          REGISTRATION_RATELIMIT = "100/m"
-          PASSWORD_RESET_IP_RATE = "100/m"
-          PASSWORD_RESET_EMAIL_RATE = "100/m"
-
-          # Login limits. The per-email default (30/5m) trips first: a worker's
-          # author signs in repeatedly across its Studio run and hits "Too many
-          # failed login attempts"; the per-IP default (100/5m) is shared by all
-          # workers. Both use self-resetting per-minute windows here.
-          LOGISTRATION_PER_EMAIL_RATELIMIT_RATE = "100/m"
-          LOGISTRATION_RATELIMIT_RATE = "100/m"
-          LOGISTRATION_API_RATELIMIT = "100/m"
-
-          ENABLE_COURSE_DISCOVERY = True
-          ENABLE_COURSEWARE_INDEX = True
-          ENABLE_EDXNOTES = True
-          SKIP_EMAIL_VALIDATION = True
-
-          # AuthZ course-authoring migration (Epic 12, 587-614). Off on a stock
-          # install, which leaves a course whose flag is turned on with no authz
-          # roles at all -- its team is locked out of Studio, and the Course
-          # Authoring Migration Run admin (the sheet's oracle for enabling and
-          # rolling back) stays empty, because only this path writes to it. With
-          # it on, saving a course or org waffle override migrates that scope
-          # synchronously and reversibly. The suite probes which mode the target
-          # is in, so the cases for the other mode skip rather than fail.
-          ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION = True
-
-          # Special exams (timed and proctored subsections, the instructor
-          # dashboard's Special Exams tab). Off on a stock install; the
-          # special-exams capability's coverage (TC-00541) needs it on.
-          ENABLE_SPECIAL_EXAMS = True
-
-          # Releases before main still read these from FEATURES; main has
-          # deprecated FEATURES in favour of top-level settings.
-          if "FEATURES" in globals():
-              FEATURES["ENABLE_COURSE_DISCOVERY"] = True
-              FEATURES["ENABLE_COURSEWARE_INDEX"] = True
-              FEATURES["ENABLE_EDXNOTES"] = True
-              FEATURES["SKIP_EMAIL_VALIDATION"] = True
-              FEATURES["ENABLE_SPECIAL_EXAMS"] = True
-          """
-              )
-          )
-
-          # Upload-agreement gating (Epic 11, 501-507). Declared statically on the
-          # LMS so the authoring MFE reads it from /api/mfe_config/v1: three keys
-          # and a list cover every case's shape (files gated by `upload` and
-          # `upload.files`; a distinct videos type; a list). The suite seeds the
-          # matching agreement rows and accepts them per author; it never sets this
-          # config, so it can rely on the map being present.
-          hooks.Filters.ENV_PATCHES.add_item(
-              (
-                  "openedx-lms-production-settings",
-                  """
-          MFE_CONFIG = globals().get("MFE_CONFIG", {})
-          MFE_CONFIG["AGREEMENT_GATING"] = {
-              "upload": "e2e-upload",
-              "upload.files": ["e2e-files", "e2e-files-second"],
-              "upload.videos": "e2e-videos",
-          }
-          """
-              )
-          )
-
-          # Mailpit (Epic 13, the email-inbox capability): the platform's mail
-          # goes to a catcher on the runner instead of Tutor's exim relay, which
-          # delivers straight to recipients' MX on port 25 -- blocked outbound
-          # on GitHub-hosted runners. The suite reads it through
-          # plugins/mailpit.plugin.ts at http://localhost:8025. The same service
-          # and SMTP overrides as tutor-contrib-mailpit, whose own patch only
-          # targets `tutor dev`.
-          hooks.Filters.ENV_PATCHES.add_item(
-              (
-                  "local-docker-compose-services",
-                  """
-          mailpit:
-            image: docker.io/axllent/mailpit:v1.30.7
-            restart: unless-stopped
-            ports:
-              - 8025:8025
-              - 1025:1025
-            environment:
-              MP_MAX_MESSAGES: 5000
-              MP_SMTP_AUTH_ACCEPT_ANY: 1
-              MP_SMTP_AUTH_ALLOW_INSECURE: 1
-          """
-              )
-          )
-          hooks.Filters.CONFIG_OVERRIDES.add_items(
-              [("RUN_SMTP", False), ("SMTP_HOST", "mailpit"), ("SMTP_PORT", 1025)]
-          )
-          EOF
-          tutor plugins enable e2e_test
+          PLUGINS_ROOT="$(tutor plugins printroot)"
+          mkdir -p "$PLUGINS_ROOT"
+          for file in $TUTOR_PLUGIN_FILES; do
+            name="$(basename "$file" .py)"
+            cp "$file" "${PLUGINS_ROOT}/${name}.py"
+            tutor plugins enable "$name"
+            echo "Enabled Tutor plugin '${name}' from ${file}"
+          done
           tutor config save
           tutor local stop
           tutor local start -d
@@ -474,45 +474,6 @@ jobs:
           echo "::error::LMS did not become healthy in time."
           exit 1
 
-      # Which sheet (if any) this run publishes to, and whether it may replace the
-      # sheet's "Latest" tab. `vars` is dumped as JSON because expressions have no
-      # upper-case function to build the variable name from the release.
-      - name: Resolve BTR results sheet
-        id: btr
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          OVERRIDE_URL: ${{ inputs.btr_sheet_url }}
-          VARS_JSON: ${{ toJSON(vars) }}
-          TEST_REF: ${{ inputs.test_ref }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          FILTERED: ${{ inputs.domains != '' || inputs.features != '' || inputs.exclude_features != '' }}
-        run: |
-          set -euo pipefail
-          VAR_NAME="BTR_SHEET_URL_${OPENEDX_RELEASE^^}"
-          URL=""
-          case "$EVENT_NAME" in
-            schedule|workflow_dispatch)
-              URL="${OVERRIDE_URL:-$(jq -r --arg k "$VAR_NAME" '.[$k] // empty' <<< "$VARS_JSON")}"
-              if [ -z "$URL" ]; then
-                echo "::notice::No BTR results sheet for '${OPENEDX_RELEASE}': set the ${VAR_NAME} repository variable (or the btr_sheet_url input) to publish."
-              fi
-              ;;
-            *)
-              echo "BTR results are not published for '${EVENT_NAME}' runs."
-              ;;
-          esac
-          REF="${TEST_REF:-$GITHUB_REF_NAME}"
-          UPDATE_LATEST=false
-          if [ "$FILTERED" != "true" ] && [ "$REF" = "$DEFAULT_BRANCH" ]; then
-            UPDATE_LATEST=true
-          fi
-          {
-            echo "sheet_url=${URL}"
-            echo "test_ref=${TEST_REF}"
-            echo "update_latest=${UPDATE_LATEST}"
-          } >> "$GITHUB_OUTPUT"
-          [ -n "$URL" ] && echo "Publishing to ${URL} (update Latest: ${UPDATE_LATEST}, ref: ${REF})" || true
-
       - name: Run E2E suite
         uses: ./.github/actions/run-suite
         with:
@@ -521,7 +482,7 @@ jobs:
           cms_base_url: http://studio.local.openedx.io
           org: OpenedX
           course_key: course-v1:OpenedX+DemoX+DemoCourse
-          capabilities: ${{ inputs.capabilities != '' && inputs.capabilities || steps.release.outputs.capabilities }}
+          capabilities: ${{ matrix.capabilities }}
           admin_username: ${{ env.ADMIN_USERNAME }}
           admin_password: ${{ env.ADMIN_PASSWORD }}
           mail_provider: mailpit
@@ -533,11 +494,9 @@ jobs:
           # need no target, and the "Lint, types & unit tests" job in ci.yml
           # already runs them.
           exclude_features: ${{ inputs.exclude_features }} @unit
-          artifact_suffix: ${{ env.OPENEDX_RELEASE }}
-          btr_release: ${{ env.OPENEDX_RELEASE }}
-          btr_test_ref: ${{ steps.btr.outputs.test_ref }}
-          btr_sheet_url: ${{ steps.btr.outputs.sheet_url }}
-          btr_update_latest: ${{ steps.btr.outputs.update_latest }}
+          shard: ${{ matrix.shard }}/${{ matrix.shards }}
+          run_id_suffix: ${{ matrix.runIdSuffix }}
+          artifact_suffix: ${{ env.OPENEDX_RELEASE }}-${{ matrix.profile }}-${{ matrix.shard }}
 
       # Collect the LMS/Studio logs whatever the outcome (`always()`, so they
       # survive a failed or cancelled run). `docker ps -a` catches the case
@@ -559,7 +518,46 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: tutor-logs-${{ env.OPENEDX_RELEASE }}
+          name: tutor-logs-${{ env.OPENEDX_RELEASE }}-${{ matrix.profile }}-${{ matrix.shard }}
           path: tutor-logs/
           retention-days: 14
           if-no-files-found: warn
+
+  # Combines every shard's blob report into the release's single HTML report
+  # and suite reports, under the artifact names a one-job run used, then
+  # writes the job summary and publishes BTR results. Runs whether or not
+  # shards failed, so failures are reported.
+  merge:
+    name: Merge reports
+    needs: [plan, run]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      # Read by scripts/publish-btr-sheet.mts inside the report-suite action,
+      # which takes no credential input. Absent on workflow_call runs from
+      # ci.yml, which do not publish anyway; the publisher warns and skips.
+      BTR_SHEET_CREDENTIALS: ${{ secrets.BTR_SHEET_CREDENTIALS }}
+    steps:
+      - name: Checkout (test ref)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.test_ref }}
+
+      - name: Download blob reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: blob-report-${{ needs.plan.outputs.release }}-*
+          path: all-blob-reports
+          merge-multiple: true
+
+      - name: Report E2E suite
+        uses: ./.github/actions/report-suite
+        with:
+          blob_dir: all-blob-reports
+          lms_base_url: http://local.openedx.io
+          domains: ${{ inputs.domains }}
+          artifact_suffix: ${{ needs.plan.outputs.release }}
+          btr_release: ${{ needs.plan.outputs.release }}
+          btr_test_ref: ${{ inputs.test_ref }}
+          btr_sheet_url: ${{ needs.plan.outputs.sheet_url }}
+          btr_update_latest: ${{ needs.plan.outputs.update_latest }}

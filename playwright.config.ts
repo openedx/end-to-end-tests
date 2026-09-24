@@ -1,7 +1,8 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
 
 import { authStateFile } from './src/auth';
 import { getConfigIfValid, resolveWorkerCount, TIMEOUTS } from './src/config';
+import { SUITE_REPORTERS } from './src/reporting/reporters';
 
 const isCI = Boolean(process.env.CI);
 
@@ -46,12 +47,10 @@ export default defineConfig({
   // the results-sheet publisher); the a11y and timing reporters likewise write
   // `a11y-violations.json` and `timings-*.csv` there.
   reporter: [
-    ['list'],
-    ['html', { open: 'never' }],
-    ['./src/reporting/coverage-reporter.ts'],
-    ['./src/reporting/btr-run-reporter.ts'],
-    ['./src/reporting/a11y-reporter.ts'],
-    ['./src/reporting/timing-reporter.ts'],
+    ...SUITE_REPORTERS,
+    // CI also writes a blob report, which `playwright merge-reports`
+    // (`merge.config.ts`) combines across shards into the files above.
+    ...(isCI ? ([['blob']] satisfies ReporterDescription[]) : []),
   ],
 
   use: {

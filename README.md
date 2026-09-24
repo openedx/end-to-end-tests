@@ -64,20 +64,21 @@ run the unit tests and the quality gates; browser projects fail on it fatally.
 
 The essentials:
 
-| Variable                            | Required | Description                                                        |
-| ----------------------------------- | -------- | ------------------------------------------------------------------ |
-| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                         |
-| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`               |
-| `CMS_BASE_URL`                      | —        | Studio origin; required when `studio` is in `CAPABILITIES`         |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`    |
-| `ORG`                               | —        | Organization short code, e.g. `OpenedX`                            |
-| `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip |
-| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install               |
-| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments                         |
-| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)                |
-| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                   |
-| `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`   |
-| `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)    |
+| Variable                            | Required | Description                                                         |
+| ----------------------------------- | -------- | ------------------------------------------------------------------- |
+| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                          |
+| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`                |
+| `CMS_BASE_URL`                      | —        | Studio origin; required when `studio` is in `CAPABILITIES`          |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`     |
+| `ORG`                               | —        | Organization short code, e.g. `OpenedX`                             |
+| `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip  |
+| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install                |
+| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments                          |
+| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)                 |
+| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                    |
+| `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`    |
+| `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)     |
+| `RUN_ID_SUFFIX`                     | —        | Up to 3 lowercase letters/digits appended to the run id (CI shards) |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take
@@ -416,7 +417,11 @@ Browser specs need a running Open edX installation, so they run in dedicated
 GitHub Actions workflows rather than the fast PR gate (`ci.yml`, which runs
 static checks and the browser-free `unit` project as required, blocking checks).
 Both workflows share the same [`run-suite`](.github/actions/run-suite/action.yml)
-composite action. They differ only in how the target installation is provisioned.
+composite action, which runs the suite (or one shard of it) and uploads a
+Playwright blob report, and the [`report-suite`](.github/actions/report-suite/action.yml)
+action, which merges blob reports (`merge.config.ts`) into the HTML report and
+suite reports, writes the job summary and publishes BTR results. They differ
+only in how the target installation is provisioned.
 
 `ci.yml` additionally runs `run_tests_tutor.yml` twice every PR and push to
 `main`: once against an ephemeral **`Tutor main`**, and once against the **last
@@ -435,15 +440,16 @@ Triggers:
 
 - **`workflow_dispatch`** — run on demand with:
 
-  | Input              | Description                                                                                                                                                     |
-  | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `openedx_release`  | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`.                   |
-  | `test_ref`         | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                                  |
-  | `domains`          | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                                                |
-  | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                                           |
-  | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                             |
-  | `capabilities`     | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.                                |
-  | `btr_sheet_url`    | Override: publish BTR results to this Google Sheet instead of the release's `BTR_SHEET_URL_<RELEASE>` variable (see [BTR results sheets](#btr-results-sheets)). |
+  | Input              | Description                                                                                                                                                          |
+  | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `openedx_release`  | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`.                        |
+  | `test_ref`         | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                                       |
+  | `domains`          | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                                                     |
+  | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                                                |
+  | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                                  |
+  | `capabilities`     | Override the release's default capabilities (comma-separated); each profile's delta still applies. Empty = use the release default from `.ci/openedx-releases.json`. |
+  | `profiles`         | Space-separated CI profiles to run (keys of `.ci/profiles.json`, see below). Default `default`.                                                                      |
+  | `btr_sheet_url`    | Override: publish BTR results to this Google Sheet instead of the release's `BTR_SHEET_URL_<RELEASE>` variable (see [BTR results sheets](#btr-results-sheets)).      |
 
 - **`schedule`** — automatically at **09:00 UTC (5am US Eastern in daylight
   time), Mondays and Fridays**,
@@ -465,6 +471,19 @@ do the same there (the `tutor-contrib-mailpit` plugin targets `tutor dev`
 only, so copy its service into a `local-docker-compose-services` patch) and
 set `MAIL_PROVIDER=mailpit`, `CUSTOM_MAIL_PROVIDER_PLUGINS=./plugins/mailpit.plugin.ts`
 and `MAILPIT_BASE_URL=http://localhost:8025`.
+
+**CI profiles and shards.** [`.ci/profiles.json`](.ci/profiles.json) defines
+the named configurations a release can run under. Each profile lists the Tutor
+plugin files that configure the install (`.ci/tutor/e2e_base.py` holds the
+settings every profile starts from), a capability delta applied to the
+release's list, and a shard count. A `plan` job expands the selected profiles
+into one `run` job per shard. Each provisions its **own** Tutor install, so
+shards never share users, courses or site settings, and runs its slice of the
+suite with `--shard`. A `merge` job then combines every shard's blob report into
+the release's single `playwright-report-<release>` and `suite-reports-<release>`
+artifacts. `scripts/ci-profiles.mts` reads the file, and the `unit` project
+validates it. Each shard's run id carries a `RUN_ID_SUFFIX` (profile code +
+shard number), so data created by different shards never collides.
 
 The MySQL state after migrations is cached per release/Tutor-version so most
 runs skip the ~20-minute migration step; delete the `tutor-mysql-*` cache from

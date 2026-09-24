@@ -90,13 +90,17 @@ First-time setup: `nvm use` (Node 24) → `npm install` → `npm run install:bro
 
 ## CI
 
-Both browser workflows share the `run-suite` composite action and differ only in
-how the target is provisioned:
+Both browser workflows share the `run-suite` composite action (runs the suite,
+or one shard of it, and uploads a blob report) and the `report-suite` action
+(merges blob reports into the HTML report and suite reports, job summary, BTR
+publish). They differ only in how the target is provisioned:
 
 - **`run_tests_tutor.yml`** — stands up an ephemeral Tutor "local" install on the
   runner (release's Tutor/plugin versions, demo course, admin user) and runs
   against it. Inputs: `openedx_release`, `test_ref`, `domains`, `features`,
-  `exclude_features`, `capabilities`. Runs on dispatch, on a Mon/Fri 5am ET
+  `exclude_features`, `capabilities`, `profiles`. A `plan` job expands the
+  selected profiles of `.ci/profiles.json` into one job per shard, each with its
+  own Tutor install; a `merge` job combines their reports. Runs on dispatch, on a Mon/Fri 5am ET
   schedule against `main`+`main`, and via `workflow_call` from `ci.yml`.
 - **`run_tests_external.yml`** — runs against an already-running installation.
   Credentials come from a **GitHub Environment**, base URLs and filters from
