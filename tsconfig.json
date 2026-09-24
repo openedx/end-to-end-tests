@@ -30,6 +30,7 @@
     "tests/**/*.ts",
     "plugins/**/*.ts",
     "playwright.config.ts",
+    "merge.config.ts",
     "eslint.config.mjs"
   ],
   "exclude": ["node_modules", "dist", "test-results", "playwright-report"]

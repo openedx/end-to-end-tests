@@ -1,0 +1,9 @@
+{
+  "default": {
+    "description": "The standard CI installation: every release's capabilities as .ci/openedx-releases.json declares them, run as the whole suite.",
+    "code": "d",
+    "tutorPlugins": [".ci/tutor/e2e_base.py"],
+    "capabilities": { "add": [], "remove": [] },
+    "shards": 1
+  }
+}

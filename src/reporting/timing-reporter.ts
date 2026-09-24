@@ -101,7 +101,11 @@ export default class TimingReporter implements Reporter {
 
   onBegin(config: FullConfig): void {
     this.configDir = dirname(config.configFile ?? process.cwd());
-    const baseUrl = config.projects.find((p) => p.use.baseURL)?.use.baseURL ?? '';
+    // A merged report (`playwright merge-reports`) carries no project `use`, so
+    // fall back to the LMS origin the environment names, as the BTR run
+    // reporter does.
+    const baseUrl =
+      config.projects.find((p) => p.use.baseURL)?.use.baseURL ?? process.env.LMS_BASE_URL ?? '';
     this.context = { runStartedAt: new Date().toISOString(), baseUrl };
   }
 

@@ -32,7 +32,7 @@ export {
   viewportUse,
   type ViewportSpec,
 } from './viewports';
-export { RUN_ID_ENV, getRunId } from './run-id';
+export { RUN_ID_ENV, RUN_ID_SUFFIX_ENV, getRunId, parseRunIdSuffix } from './run-id';
 export {
   ACCOUNT_MENU_SELECTORS,
   ADMIN_CONSOLE_SELECTORS,
