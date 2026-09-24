@@ -60,6 +60,23 @@ export const STUDIO_EDITOR_SELECTORS = {
 } as const;
 
 /**
+ * The PDF component's editor (the authoring MFE's own `PdfEditor`, opened in the
+ * component editor dialog). Measured on Tutor `main` (2026-09-24).
+ */
+export const PDF_EDITOR_SELECTORS = {
+  /**
+   * "File": the hidden file input the editor uploads from, straight to the
+   * course's Files. The file row's "Replace" action opens this same input.
+   */
+  fileInput: 'input#pdf-url[type="file"]',
+  /** "Show PDF download link". */
+  allowDownload: 'input[name="allowDownload"]',
+  /** "Original File URL" and "Original File Link Text". */
+  sourceUrl: '#pdf-source-url',
+  sourceText: '#pdf-source-text',
+} as const;
+
+/**
  * The XBlock-provided ("legacy") editors — an advanced block's own `studio_view`
  * — which the authoring MFE opens in a dialog holding one iframe framed at
  * `/xblock/<key>/action/edit`. Their anchors are the ids each block's editor

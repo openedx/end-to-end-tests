@@ -25,8 +25,14 @@ export const ADVANCED_BLOCK_SELECTORS = {
    * label is what a learner clicks.
    */
   doneSwitch: 'label.done_onoffswitch-label',
-  /** Google calendar and document embeds: the iframe the block renders. */
+  /** Google calendar and document embeds, and the PDF: the iframe the block renders. */
   embedFrame: 'iframe',
+  /**
+   * xblocks-contrib `pdf`: the links under the viewer — "Download the PDF"
+   * (only while downloads are allowed) and the author's source-document link;
+   * both are `li.pdf-download-button`, told apart by their `href`.
+   */
+  pdfLink: 'li.pdf-download-button a',
 } as const;
 
 /** The element each advanced block renders first inside its wrapper. */
