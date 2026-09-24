@@ -380,6 +380,11 @@ jobs:
           # is in, so the cases for the other mode skip rather than fail.
           ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION = True
 
+          # Special exams (timed and proctored subsections, the instructor
+          # dashboard's Special Exams tab). Off on a stock install; the
+          # special-exams capability's coverage (TC-00541) needs it on.
+          ENABLE_SPECIAL_EXAMS = True
+
           # Releases before main still read these from FEATURES; main has
           # deprecated FEATURES in favour of top-level settings.
           if "FEATURES" in globals():
@@ -387,6 +392,7 @@ jobs:
               FEATURES["ENABLE_COURSEWARE_INDEX"] = True
               FEATURES["ENABLE_EDXNOTES"] = True
               FEATURES["SKIP_EMAIL_VALIDATION"] = True
+              FEATURES["ENABLE_SPECIAL_EXAMS"] = True
           """
               )
           )

@@ -109,6 +109,7 @@ measured, and issues are opened by hand from them.
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
+| `INSTR-009` | `openedx/frontend-app-instructor-dashboard` (allowance Delete sends a numeric user id) | open, `test.fail` on TC-00541's delete test
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 
@@ -2066,4 +2067,20 @@ editor:
 **Coverage impact:** open, no `fixme`. TC-00540's scan of the form baselines
 both rules there only (`COMMUNICATIONS_A11Y_BASELINE`); the send itself is
 asserted through the mail.
+
+### `INSTR-009` — deleting a special-exam allowance does nothing
+
+**Where:** `frontend-app-instructor-dashboard` (`DeleteAllowanceModal.tsx`; the
+same in v1.2.0, v2.0.0-alpha.5 and `master`) against the platform's v2
+`DELETE …/special_exams/<exam>/allowance`.
+
+**What happens:** the Delete confirmation sends the learner's numeric user id
+(`user_ids: [10219]`). The server resolves each identifier as a username or
+e-mail, finds none, and answers **200** with
+`results: [{identifier: 10219, success: false, error: "User not found"}]`. The
+MFE treats the 200 as done, and the allowance stays, both in the API's list and
+in the table after a reload. Measured on local `main` (2026-09-24).
+
+**Coverage impact:** open. TC-00541's add and edit test passes; its delete test
+is a `test.fail` that lifts itself when the fix lands.
 

@@ -58,6 +58,7 @@ import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
 import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
 import { InstructorCohortsPage } from '../pages/lms/instructor/cohorts.page';
 import { InstructorCourseTeamPage } from '../pages/lms/instructor/course-team.page';
+import { InstructorSpecialExamsPage } from '../pages/lms/instructor/special-exams.page';
 import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
 import { BulkEmailPage } from '../pages/lms/communications/bulk-email.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
@@ -101,6 +102,8 @@ import {
   assignRole,
   authorStaffGradedOra,
   buildSection,
+  listSpecialExams,
+  publishXBlock,
   courseUsageKey,
   deleteXBlock,
   fetchDiscussionCourse,
@@ -473,6 +476,8 @@ export interface TestFixtures {
   instructorCohorts: InstructorCohortsPage;
   /** The instructor dashboard's Course Team tab (TC-00520). */
   instructorCourseTeam: InstructorCourseTeamPage;
+  /** The instructor dashboard's Special Exams tab (TC-00541). */
+  instructorSpecialExams: InstructorSpecialExamsPage;
   instructorDataDownloads: InstructorDataDownloadsPage;
   instructorCertificates: InstructorCertificatesPage;
   /**
@@ -714,6 +719,17 @@ export interface TestFixtures {
   authoringCourse: AuthoredCourse;
   /** A {@link roundTripLearner} enrolled in this test's {@link authoringCourse}. */
   authoringCourseLearner: RoundTripLearner;
+  /**
+   * A timed exam in this test's {@link authoringCourse}: timed exams on in its
+   * Advanced Settings, one published subsection made time-limited (30 minutes),
+   * and edx-proctoring's registration of it awaited. Needs `ENABLE_SPECIAL_EXAMS`
+   * (the `special-exams` capability).
+   */
+  timedExam: {
+    readonly courseKey: string;
+    readonly examId: number;
+    readonly sequentialKey: string;
+  };
   /**
    * A deferred {@link roundTripLearnerLater} enrolled in this test's
    * {@link authoringCourse} — provisioned only when first awaited, so a library
@@ -3387,6 +3403,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   instructorCohorts: pageObjectFixture(InstructorCohortsPage),
 
   instructorCourseTeam: pageObjectFixture(InstructorCourseTeamPage),
+
+  instructorSpecialExams: pageObjectFixture(InstructorSpecialExamsPage),
   instructorDataDownloads: pageObjectFixture(InstructorDataDownloadsPage),
   instructorCertificates: pageObjectFixture(InstructorCertificatesPage),
 
@@ -3571,6 +3589,38 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await disposeRoundTripLearner(learner);
     }
+  },
+
+  timedExam: async ({ page, config, authoringCourse, studioAuthorSession }, use) => {
+    void studioAuthorSession;
+    const request = page.request;
+    const { courseKey } = authoringCourse;
+    await updateAdvancedSettings(request, config, courseKey, { enable_timed_exams: true });
+    const section = await buildSection(request, config, courseKey, 'E2E timed exam', {
+      subsections: [{ units: [{ blocks: ['html'] }] }],
+    });
+    const sequentialKey = section.subsections[0]!.usageKey;
+    await updateXBlock(request, config, sequentialKey, {
+      metadata: {
+        is_time_limited: true,
+        default_time_limit_minutes: 30,
+        is_proctored_enabled: false,
+      },
+    });
+    await publishXBlock(request, config, section.usageKey);
+    // The CMS worker registers the exam after the publish.
+    let examId: number | undefined;
+    await expect
+      .poll(
+        async () => {
+          const exams = await listSpecialExams(request, config, courseKey, 'timed');
+          examId = exams.find((exam) => exam.content_id === sequentialKey)?.id;
+          return examId;
+        },
+        { timeout: TIMEOUTS.contentPublish },
+      )
+      .toBeDefined();
+    await use({ courseKey, examId: examId!, sequentialKey });
   },
 
   authoringCourseLearnerLater: async ({ playwright, browser, config, authoringCourse }, use) => {
