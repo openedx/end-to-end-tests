@@ -668,6 +668,12 @@ export interface TestFixtures {
   /** A fresh learner enrolled in `videoFreeCourse`, on their own contexts. */
   videoFreeCourseLearner: RoundTripLearner;
   /**
+   * A deferred {@link roundTripLearnerLater} enrolled in the worker's
+   * {@link WorkerFixtures.advancedModulesCourse}, provisioned when first awaited
+   * so the case's Studio writes come first.
+   */
+  advancedModulesLearnerLater: () => Promise<RoundTripLearner>;
+  /**
    * A **fresh, empty** course of this test's own (seeded with a past start date),
    * for specs that build the outline through the UI. Unlike the shared
    * {@link WorkerFixtures.contentCourse}, its outline holds only what the test
@@ -1188,6 +1194,15 @@ export interface WorkerFixtures {
    * workers that run a spec asking for it.
    */
   videoFreeCourse: AuthoredCourse;
+  /**
+   * A worker course whose Advanced Settings `advanced_modules` belongs to the
+   * advanced-component matrix alone, started in the past. Each case only
+   * **adds** its own module, so "not offered before, offered after" holds on it
+   * and no other spec's picker changes; `authoredCourse` and `contentCourse`
+   * are unsuitable because other specs write or read their module list. Built
+   * lazily, only by workers that run the matrix — one course per such worker.
+   */
+  advancedModulesCourse: AuthoredCourse;
   /**
    * One course per worker set up so certificates can be issued: start in the
    * past, end in the future, certificates shown as soon as earned
@@ -2290,6 +2305,31 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
   ],
 
+  advancedModulesCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}M`,
+        'advanced-modules',
+      );
+      await use(
+        await provisionWorkerCourse(
+          playwright,
+          workerAuthor,
+          identity,
+          async (request, courseKey) => {
+            await updateCourseDetails(request, config, courseKey, {
+              start_date: CONTENT_COURSE_START,
+            });
+          },
+        ),
+      );
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
+  ],
+
   futureCourse: [
     async ({ playwright, workerAuthor }, use, workerInfo) => {
       const identity = newCourseIdentity(
@@ -3182,6 +3222,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await disposeRoundTripLearner(learner);
     }
+  },
+
+  advancedModulesLearnerLater: async (
+    { playwright, browser, config, advancedModulesCourse },
+    use,
+  ) => {
+    await deferredLearner(playwright, browser, config, advancedModulesCourse.courseKey, use);
   },
 
   futureCourseLearner: async ({ playwright, browser, config, futureCourse }, use) => {

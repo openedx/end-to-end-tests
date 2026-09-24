@@ -54,6 +54,11 @@ Contains:
   (an `ApiError` naming the action on a non-2xx or non-JSON answer; the CSRF
   header on writes; `mergePatch` for the discussion API's `PATCH`), the LMS
   counterpart of `studioJson` / `studioWrite`.
+- `xblock-handler.ts` — a learner's reading of an advanced block through its
+  own LMS handlers (`/courses/<course>/xblock/<usage>/handler/<name>`, session
+  - CSRF): poll and survey `get_results`, the word cloud's `handle_get_state`,
+    and a conditional's `conditional_get` (message only until its condition is
+    met). Each reader narrows to what the learner submitted, never rendered copy.
 - `notifications.ts` — the recipient's notifications (verawood onward): the
   list (`listNotifications`, filterable by app), the unseen `count/`, **seen**
   (`markNotificationsSeen`, what opening a tray tab sends and all `count/`
@@ -101,6 +106,8 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   (`v1/course_settings`: whether the certificates-available-date and prerequisite
   controls render on this target). `ensureTeamsTopic` turns teams on with a
   team set through `teams_configuration`, writing only when it is missing.
+  `addAdvancedModules` adds XBlock types to `advanced_modules`, keeping the
+  listed ones.
 - `course-team.ts`, `group-configurations.ts`, `certificates.ts`,
   `course-apps.ts` (Pages & Resources toggles), `custom-pages.ts` (static-tab
   create/rename/delete + reorder read, `v0/tabs`), `course-transfer.ts` (export
