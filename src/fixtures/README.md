@@ -85,6 +85,9 @@ Rules:
   `certificateLearner` enrolls a fresh learner `honor` on its first enrollment;
   `certificateGenerationEnabled` flips the platform-wide switch through a fresh
   admin `loginSession` under the admin lock, and skips without an admin account.
+  A test on another course takes `platformCertificates` and calls
+  `ensureEnabled(courseKey)` itself. Never rely on an earlier test having
+  flipped the switch: each CI shard is a fresh installation.
 - **The library admin is the author, and libraries are seeded per test.**
   `seededLibrary` (a published text / problem / video / PDF block, a unit, a
   subsection, a section and a collection) and the empty `authoringLibrary` are

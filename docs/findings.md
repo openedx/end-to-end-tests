@@ -108,7 +108,7 @@ measured, and issues are opened by hand from them.
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
-| `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
+| `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
 | `INSTR-009` | `openedx/frontend-app-instructor-dashboard` (allowance Delete sends a numeric user id) | open, `test.fail` on TC-00541's delete test
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
@@ -1172,7 +1172,7 @@ which is the API-side oracle the spec asserts.
 console, which is admin-only here (see `LIB-005` and the Epic 12 plan), so the
 sheet may be recording a UI failure this suite reaches by a different route.
 
-### `PLAT-010` — the user clipboard save deadlocks under parallel authoring load
+### `PLAT-010` — the user clipboard save deadlocks with its own cleanup task
 
 **Where:** `POST /api/content-staging/v1/clipboard/`
 (`openedx/core/djangoapps/content_staging/views.py:136` →
@@ -1189,12 +1189,33 @@ save. Each worker copies as its own author, so the contention is not two workers
 writing one clipboard row; it is the surrounding transaction taking locks in an
 order that another concurrent CMS write can cross.
 
+**Cause (measured 2026-09-24, run 36052847274, `verawood.1` source):** Studio
+requests run in one transaction (`ATOMIC_REQUESTS`). A copy first marks the
+user's previous `StagedContent` rows `EXPIRED`, then enqueues
+`delete_expired_clipboards.delay(expired_ids)` from inside that transaction
+(`content_staging/api.py`), not from `transaction.on_commit`. An idle CMS worker
+starts at once. It deletes the expired row and, by cascade, the user's
+`UserClipboard` row that still points at it. Meanwhile the request goes on to
+`update_or_create` that same clipboard row. The two take the locks in opposite
+orders and MySQL kills the request. In the CMS logs the worker reports
+`Successfully deleted StagedContent entries` about 30 ms before the request's
+`Internal Server Error`. So the race needs a *quiet* worker, not a busy CMS. The
+original "under parallel authoring load" reading was backwards: in one
+long run the worker's queue delayed the deletion past the commit. After the
+suite split into shards, each on its own Tutor install, a shard's worker was idle
+enough to lose the race on all three attempts of the `clipboard.spec.ts`
+paste case (verawood shard 3).
+
 **Coverage impact:** TC-00334/00335
-(`tests/studio/library/clipboard.spec.ts`) fail the first attempt and pass on
-retry, so they report as flaky rather than failed. Not worked around — a retry
-inside the API client would hide a genuine platform race that an author hits too.
-Upstream ask: retry the deadlock (`transaction.atomic` plus a bounded retry) or
-narrow the transaction, as the platform does elsewhere for 1213.
+(`tests/studio/library/clipboard.spec.ts`). They used to report as flaky; once
+CI was sharded, they failed. Worked around since 2026-09-24:
+`copyToClipboard` (`src/api/clipboard.ts`) re-issues a copy that answers 500,
+up to twice. The failed request rolls back, but the worker's deletion stands,
+so the retry finds nothing left to cross and succeeds. The UI "Copy to
+clipboard" path is not retried; an author who hits the race sees the error.
+Upstream ask: enqueue the cleanup with `transaction.on_commit`, or retry the
+deadlock (`transaction.atomic` plus a bounded retry), as the platform does
+elsewhere for 1213.
 
 ## Epic 11 — Authoring sidebar / tagging findings (2026-09-16)
 
