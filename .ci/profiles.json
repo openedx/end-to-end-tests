@@ -4,6 +4,6 @@
     "code": "d",
     "tutorPlugins": [".ci/tutor/e2e_base.py"],
     "capabilities": { "add": [], "remove": [] },
-    "shards": 1
+    "shards": 4
   }
 }
