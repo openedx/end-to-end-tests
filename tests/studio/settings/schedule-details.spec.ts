@@ -647,13 +647,16 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       );
       expect((await scheduleDetailsPage.save()).status).toBe(200);
 
-      // Studio keeps the image as a course asset; the platform serves it in the
+      // Studio keeps the overview as written; the platform renders the image's
+      // course path as the course asset (`…asset-v1:<course>…/<file>`) in the
       // overview the catalog reads.
-      const assetPath = `type@asset+block@${image}`;
       const overview = (await fetchCourseDetails(api, config, courseKey)).overview ?? '';
-      expect(overview).toContain(assetPath);
+      expect(overview).toContain(image);
       expect(overview).toContain(`alt="${alt}"`);
-      expect((await fetchCoursewareCourse(api, config, courseKey)).overview).toContain(assetPath);
+      const rendered = new RegExp(
+        `asset-v1:${escapeRegExp(courseKey.replace(/^course-v1:/, ''))}.*${escapeRegExp(image)}`,
+      );
+      expect((await fetchCoursewareCourse(api, config, courseKey)).overview).toMatch(rendered);
 
       // A visitor's About page shows the overview with the image loaded from the LMS.
       const { aboutPage } = signedOutVisitor;
@@ -661,8 +664,9 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       const img = aboutPage.overview.locator(`img[alt="${alt}"]`);
       await expect(img).toHaveAttribute(
         'src',
-        new RegExp(`^${escapeRegExp(config.baseUrls.lms)}/asset-v1:.*${escapeRegExp(assetPath)}$`),
+        new RegExp(`^${escapeRegExp(config.baseUrls.lms)}/`),
       );
+      await expect(img).toHaveAttribute('src', rendered);
       await expect
         .poll(() => img.evaluate((el) => (el as HTMLImageElement).naturalWidth))
         .toBeGreaterThan(0);

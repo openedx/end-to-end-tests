@@ -111,6 +111,7 @@ measured, and issues are opened by hand from them.
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
 | `INSTR-009` | `openedx/frontend-app-instructor-dashboard` (allowance Delete sends a numeric user id) | open, `test.fail` on TC-00541's delete test
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
+| `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 
 ---
@@ -2083,4 +2084,23 @@ in the table after a reload. Measured on local `main` (2026-09-24).
 
 **Coverage impact:** open. TC-00541's add and edit test passes; its delete test
 is a `test.fail` that lifts itself when the fix lands.
+
+### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
+
+**Where:** `recommender-xblock` 5.0.0, pinned by `release/verawood.1`. Fixed in
+5.1.0 (RecommenderXBlock#137, "render current config in studio template and
+prevent auto-save crash"), which `master` pins.
+
+**What happens:** the recommender's Studio editor is a static template that
+always selects its defaults (five entries per page, and so on). An author's
+"Set configurations" is posted (`set_client_configuration`, 200), but reopening
+the editor shows the defaults again, so the change looks lost. This is the
+sheet's note on TC-00132, "can't change settings". 5.1.0 renders the saved
+configuration. Measured in CI (2026-09-24): `main` passes, `verawood` reopens on
+`5`.
+
+**Coverage impact:** fixed on `main`. TC-00132 is gated on the
+`recommender-studio-settings` capability, declared for `main` only, so the
+`verawood` gap is an undeclared capability. A `verawood.2` that picks up 5.1.0
+can declare it.
 
