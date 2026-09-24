@@ -1,7 +1,13 @@
 import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
 
 import { authStateFile } from './src/auth';
-import { getConfigIfValid, resolveWorkerCount, TIMEOUTS } from './src/config';
+import {
+  getConfigIfValid,
+  parseRunIdSuffix,
+  resolveWorkerCount,
+  RUN_ID_SUFFIX_ENV,
+  TIMEOUTS,
+} from './src/config';
 import { SUITE_REPORTERS } from './src/reporting/reporters';
 
 const isCI = Boolean(process.env.CI);
@@ -52,6 +58,12 @@ export default defineConfig({
     // (`merge.config.ts`) combines across shards into the files above.
     ...(isCI ? ([['blob']] satisfies ReporterDescription[]) : []),
   ],
+
+  // Labels every result with the CI shard that ran it (its run-id suffix, e.g.
+  // `d2`). Projects inherit config metadata, and a merged report keeps each
+  // shard's projects, with their metadata, apart, so the timing reporter can
+  // attribute rows of a merged report to their shard. Empty outside CI shards.
+  metadata: { shard: parseRunIdSuffix(process.env[RUN_ID_SUFFIX_ENV]) },
 
   use: {
     baseURL: resolveBaseURL(),
