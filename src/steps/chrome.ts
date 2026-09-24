@@ -150,18 +150,22 @@ export function knownChromeDefects(
 /**
  * The account-menu items a signed-in header offers, as the URLs they point at,
  * in the order the header renders them. The shell and the legacy headers
- * differ: the legacy ones lead with the dashboard (the shell reaches it
- * through its logo and "Courses" link instead).
+ * differ: the legacy ones lead with the dashboard — except on the dashboard
+ * itself, whose own header leaves it out — and the shell reaches it through
+ * its logo and "Courses" link instead.
  */
 export function expectedUserMenu(
   generation: ChromeGeneration,
   chrome: ChromeConfig,
   username: string,
+  options: { readonly onDashboard?: boolean } = {},
 ): readonly string[] {
   const join = (base: string | undefined, path: string) =>
     base === undefined ? undefined : `${base.replace(/\/$/, '')}${path}`;
   const items = [
-    generation === 'shell' ? undefined : join(chrome.lmsBaseUrl, '/dashboard'),
+    generation === 'shell' || options.onDashboard
+      ? undefined
+      : join(chrome.lmsBaseUrl, '/dashboard'),
     join(chrome.accountProfileUrl, `/u/${username}`),
     chrome.accountSettingsUrl,
     chrome.orderHistoryUrl,

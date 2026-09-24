@@ -90,14 +90,12 @@ test.describe(
       },
     );
 
-    // CERT-002: on a default install the certificate web view answers 500 — its
-    // footer template needs a marketing "About" URL the platform only defines
-    // when one is configured.
+    // Gated on `certificate-web-view`: on `master` the view answers 500 on an
+    // install with no marketing site (`CERT-002`).
     test(
       'renders the certificate for the learner and the course',
-      { annotation: testId('TC-00033') },
+      { tag: '@certificate-web-view', annotation: testId('TC-00033') },
       async ({ config, certificateCourse, certificateLearner }) => {
-        test.fail(true, 'CERT-002: the certificate web view 500s without a marketing About URL');
         const learner = certificateLearner;
         const webView = await earnedWebView(learner, config, certificateCourse);
         const page = await learner.request.get(webView);

@@ -116,7 +116,8 @@ export class CatalogPage {
    * filter has rendered, so an empty filter reads as `[]`.
    */
   async filterValues(facet: CatalogFacet): Promise<readonly string[]> {
-    await this.page.locator(catalogFilterGroup(facet)).waitFor({ state: 'attached' });
+    // The form group and its control set both carry the label, nested.
+    await this.page.locator(catalogFilterGroup(facet)).first().waitFor({ state: 'attached' });
     return this.filterOptions(facet).evaluateAll((inputs) =>
       inputs.map((input) => input.getAttribute('value') ?? ''),
     );

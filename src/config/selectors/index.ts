@@ -1,7 +1,7 @@
 // Barrel for structural anchors, one module per surface. See ./README.md.
 export { ACCOUNT_MENU_SELECTORS } from './account-menu';
 export { ADMIN_CONSOLE_SELECTORS } from './admin-console';
-export { CHROME_SELECTORS } from './chrome';
+export { CHROME_SELECTORS, languageMenuOtherItems } from './chrome';
 export {
   CATALOG_SEARCH_PATH,
   CATALOG_SELECTORS,

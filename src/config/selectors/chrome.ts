@@ -130,12 +130,17 @@ export const CHROME_SELECTORS = {
   footerLegalNotice: '.text-center.x-small',
 
   /** The shell's language menu — "English" and the other site languages. */
-  languageMenuTrigger: '#language-menu-dropdown-trigger',
-
-  /**
-   * The languages that menu offers other than the current one, scoped to the
-   * menu the trigger labels (an open account menu is a `.dropdown-menu` too).
-   */
-  languageMenuOtherItem:
-    '.dropdown-menu[aria-labelledby="language-menu-dropdown-trigger"] a.dropdown-item:not(.active):visible',
+  // Resolved inside the footer. Older shell builds give the trigger this id;
+  // newer ones a generated one (`:r0:`), and the footer holds no other dropdown.
+  languageMenuTrigger:
+    ':is(#language-menu-dropdown-trigger, .pgn__dropdown > button.dropdown-toggle)',
 } as const;
+
+/**
+ * The languages a language menu offers other than the current one, scoped to
+ * the menu its trigger (`triggerId`) labels — an open account menu is a
+ * `.dropdown-menu` too.
+ */
+export function languageMenuOtherItems(triggerId: string): string {
+  return `.dropdown-menu[aria-labelledby="${triggerId}"] a.dropdown-item:not(.active):visible`;
+}

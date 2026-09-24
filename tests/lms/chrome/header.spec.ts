@@ -59,7 +59,7 @@ test.describe('Site header', () => {
           chrome.courseDiscovery,
         );
 
-        const menu = expectedUserMenu(generation, chrome, username);
+        const menu = expectedUserMenu(generation, chrome, username, { onDashboard: true });
         expect(await siteHeader.openUserMenu()).toEqual(menu);
 
         // The profile item opens this learner's profile.
@@ -134,7 +134,9 @@ test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] 
   test(
     'points at SUPPORT_URL on the dashboard',
     { tag: '@mfe-learner-dashboard', annotation: testId('TC-00023') },
-    async ({ siteHeader, chromeCase, dashboardPage }) => {
+    async ({ siteHeader, chromeCase, dashboardPage, enrolledCourse }) => {
+      // A signed-in learner of the test's own; the dashboard renders its cards.
+      void enrolledCourse;
       await dashboardPage.goto();
       const { chrome } = await chromeCase.read();
       chromeCase.requireSupportUrl(chrome, true);
@@ -147,7 +149,9 @@ test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] 
   test(
     'is absent without SUPPORT_URL on the dashboard',
     { tag: '@mfe-learner-dashboard', annotation: testId('TC-00023') },
-    async ({ siteHeader, chromeCase, dashboardPage }) => {
+    async ({ siteHeader, chromeCase, dashboardPage, enrolledCourse }) => {
+      // A signed-in learner of the test's own; the dashboard renders its cards.
+      void enrolledCourse;
       await dashboardPage.goto();
       const { generation, chrome } = await chromeCase.read();
       chromeCase.requireSupportUrl(chrome, false);
