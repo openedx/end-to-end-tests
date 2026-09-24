@@ -5,12 +5,14 @@ import {
   fetchCourseDetail,
   fetchCourseDetails,
   fetchCourseMetadata,
+  fetchCoursewareCourse,
   isEnrolled,
   listStudioCourses,
   updateCourseDetails,
+  uploadAsset,
   type CourseDetails,
 } from '../../../src/api';
-import { getRunId } from '../../../src/config';
+import { COURSE_ABOUT_SELECTORS, getRunId } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { toDateTimeFields } from '../../../src/pages/studio/settings/schedule-details.page';
 import { knownGap, testId } from '../../../src/reporting';
@@ -618,6 +620,58 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
         .toMatchObject({ has_access: false, error_code: 'prerequisites_not_met' });
     },
   );
+
+  test(
+    'writes an About page overview with an instructor image the catalog shows',
+    { tag: ['@regression', '@mfe-catalog'], annotation: testId('TC-00301') },
+    async (
+      { page, config, authoredCourse, scheduleDetailsPage, studioAuthorSession, signedOutVisitor },
+      testInfo,
+    ) => {
+      void studioAuthorSession;
+      const api = page.request;
+      const { courseKey } = authoredCourse;
+      const suffix = `${getRunId()}-${testInfo.testId.slice(-6)}r${testInfo.retry}`;
+      const image = `e2e-instructor-${suffix}.png`;
+      const alt = `E2E instructor ${suffix}`;
+      await uploadAsset(api, config, courseKey, {
+        name: image,
+        mimeType: 'image/png',
+        buffer: ONE_PIXEL_PNG,
+      });
+
+      // The author writes the overview as HTML, the image by its course path.
+      await scheduleDetailsPage.goto(courseKey);
+      await scheduleDetailsPage.setOverviewSource(
+        `<h2>E2E instructors</h2><p><img src="/static/${image}" alt="${alt}"></p>`,
+      );
+      expect((await scheduleDetailsPage.save()).status).toBe(200);
+
+      // Studio keeps the image as a course asset; the platform serves it in the
+      // overview the catalog reads.
+      const assetPath = `type@asset+block@${image}`;
+      const overview = (await fetchCourseDetails(api, config, courseKey)).overview ?? '';
+      expect(overview).toContain(assetPath);
+      expect(overview).toContain(`alt="${alt}"`);
+      expect((await fetchCoursewareCourse(api, config, courseKey)).overview).toContain(assetPath);
+
+      // A visitor's About page shows the overview with the image loaded from the LMS.
+      const { aboutPage } = signedOutVisitor;
+      await aboutPage.gotoRendered(courseKey);
+      const img = aboutPage.overview.locator(`img[alt="${alt}"]`);
+      await expect(img).toHaveAttribute(
+        'src',
+        new RegExp(`^${escapeRegExp(config.baseUrls.lms)}/asset-v1:.*${escapeRegExp(assetPath)}$`),
+      );
+      await expect
+        .poll(() => img.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+        .toBeGreaterThan(0);
+      await checkA11y(signedOutVisitor.page, {
+        label: 'course-about-overview',
+        include: COURSE_ABOUT_SELECTORS.overview,
+      });
+    },
+  );
 });
 
 /** The smallest valid PNG: one transparent pixel. */
@@ -625,3 +679,5 @@ const ONE_PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   'base64',
 );
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -67,10 +67,15 @@ export function courseTool(
   return outline?.course_tools.find((tool) => tool.analytics_id === analyticsId);
 }
 
-/** The learning MFE's per-course settings a unit page's tools follow. */
+/** The per-course metadata the learning and catalog MFEs read. */
 export interface CoursewareCourse {
   readonly show_calculator: boolean;
   readonly notes: { readonly enabled: boolean; readonly visible: boolean };
+  /**
+   * The course overview the catalog's About page renders: the author's HTML
+   * rendered by the about block (asset paths rewritten) and sanitised.
+   */
+  readonly overview?: string;
 }
 
 /** The courseware metadata the learning MFE reads (`/api/courseware/course/<key>`). */

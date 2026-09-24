@@ -258,12 +258,14 @@ export interface TestFixtures {
   /**
    * A signed-out visitor alongside the test's own (signed-in) page: a page in a
    * fresh browser context with its header and footer, for cases that compare
-   * the public site with a learner's view (TC-00060). Closed after the test.
+   * the public site with a learner's view (TC-00060), or read what an author published (TC-00301). Closed after the test.
    */
   signedOutVisitor: {
     readonly page: Page;
     readonly header: HeaderBlock;
     readonly footer: FooterBlock;
+    /** The catalog's course About page, as the visitor sees it. */
+    readonly aboutPage: CourseAboutPage;
   };
   /**
    * The landing page opened for a signed-out visitor, with the generation of
@@ -1863,13 +1865,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(new FooterBlock(page));
   },
 
-  signedOutVisitor: async ({ browser }, use) => {
+  signedOutVisitor: async ({ browser, config }, use) => {
     const context = await browser.newContext();
     const visitorPage = await context.newPage();
     await use({
       page: visitorPage,
       header: new HeaderBlock(visitorPage),
       footer: new FooterBlock(visitorPage),
+      aboutPage: new CourseAboutPage(visitorPage, config),
     });
     await context.close();
   },
