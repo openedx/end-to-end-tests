@@ -66,7 +66,8 @@ export {
 } from './studio-tools';
 export { STUDIO_PAGES_RESOURCES_SELECTORS } from './studio-pages-resources';
 export { STUDIO_CUSTOM_PAGES_SELECTORS } from './studio-custom-pages';
-export { STUDIO_UNIT_PAGE_SELECTORS } from './studio-unit';
+export { STUDIO_UNIT_PAGE_SELECTORS, advancedComponentOption } from './studio-unit';
+export { ADVANCED_BLOCK_SELECTORS, advancedBlockRoot } from './advanced-blocks';
 export { STUDIO_EDITOR_SELECTORS } from './studio-editors';
 export {
   CERTIFICATE_GENERATION_ADMIN_SELECTORS,

@@ -8,6 +8,8 @@ import {
   sidebarUnitLink,
   type AppConfig,
 } from '../../../config';
+import { AdvancedBlock } from './advanced.block';
+import { AnnotatableBlock } from './annotatable.block';
 
 /**
  * Headroom added when the viewport is grown to fit a tall content block: enough
@@ -126,6 +128,16 @@ export class UnitPage {
   /** One block inside the unit, anchored by its usage ID from the Blocks API. */
   block(blockId: string): Locator {
     return this.contentFrame.locator(coursewareBlock(blockId));
+  }
+
+  /** An advanced component in the unit, by its usage ID and block type. */
+  advancedBlock(blockId: string, category: string): AdvancedBlock {
+    return new AdvancedBlock(this.contentFrame, blockId, category);
+  }
+
+  /** An `annotatable` block in the unit. */
+  annotatableBlock(blockId: string): AnnotatableBlock {
+    return new AnnotatableBlock(this.contentFrame, blockId);
   }
 
   /** The sidebar's link to a unit, anchored by the unit's block ID. */

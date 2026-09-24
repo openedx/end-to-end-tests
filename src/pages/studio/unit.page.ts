@@ -2,12 +2,13 @@ import type { Locator, Page } from '@playwright/test';
 
 import {
   COURSE_LIBRARY_SYNC_SELECTORS,
+  advancedComponentOption,
   STUDIO_EDITOR_SELECTORS,
   STUDIO_UNIT_PAGE_SELECTORS,
   TIMEOUTS,
   type AppConfig,
 } from '../../config';
-import { CLIPBOARD_PATH, XBLOCK_PATH, studioOrigin } from '../../api';
+import { ApiError, CLIPBOARD_PATH, XBLOCK_PATH, studioOrigin } from '../../api';
 import { waitForWrite } from './wait-for-write';
 
 /** The usage key in a `/container/<vertical>/…` URL, or undefined if none. */
@@ -218,6 +219,36 @@ export class StudioUnitPage {
    */
   async openAddComponent(index: number): Promise<void> {
     await this.addComponentTiles().nth(index).click();
+  }
+
+  /**
+   * Adds a component through the "Advanced" tile: opens the picker (the tile at
+   * `advancedTileIndex`, from `availableComponentTypes`), chooses `category` by
+   * its radio's value and selects it, waiting for the create it causes
+   * (`POST /xblock/`). Returns the new block's usage key.
+   */
+  async addAdvancedComponent(advancedTileIndex: number, category: string): Promise<string> {
+    await this.openAddComponent(advancedTileIndex);
+    const picker = this.page.locator(this.s.advancedPickerDialog);
+    await picker.locator(advancedComponentOption(category)).check();
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => new URL(r.url()).pathname === XBLOCK_PATH,
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => picker.locator(this.s.advancedPickerSelect).click(),
+    );
+    const body = (await response.json()) as { locator?: string };
+    if (!response.ok() || body.locator === undefined) {
+      throw new ApiError(`Adding a ${category} component failed (HTTP ${response.status()}).`, {
+        status: response.status(),
+        url: response.url(),
+        body: JSON.stringify(body).slice(0, 500),
+      });
+    }
+    return body.locator;
   }
 
   /**
