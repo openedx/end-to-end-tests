@@ -59,6 +59,7 @@ import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-exten
 import { InstructorCohortsPage } from '../pages/lms/instructor/cohorts.page';
 import { InstructorCourseTeamPage } from '../pages/lms/instructor/course-team.page';
 import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
+import { BulkEmailPage } from '../pages/lms/communications/bulk-email.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
 import {
@@ -1065,6 +1066,8 @@ export interface RoundTripLearner {
   readonly progressPage: ProgressPage;
   /** The course Teams page on this learner's page. */
   readonly teamsPage: TeamsPage;
+  /** The communications MFE's bulk e-mail form, for a learner granted course staff. */
+  readonly bulkEmailPage: BulkEmailPage;
   /** The header's notifications tray, on whatever page this learner is on. */
   readonly notificationTray: NotificationTray;
   /** The account MFE's notification preference centre. */
@@ -1594,6 +1597,7 @@ async function provisionRoundTripLearner(
     dashboardPage: new DashboardPage(page, config),
     progressPage: new ProgressPage(page, config),
     teamsPage: new TeamsPage(page, config),
+    bulkEmailPage: new BulkEmailPage(page, config),
     notificationTray: new NotificationTray(page, config),
     notificationPreferences: new NotificationPreferencesPage(page, config),
     discussions: new DiscussionsPage(page, config),
