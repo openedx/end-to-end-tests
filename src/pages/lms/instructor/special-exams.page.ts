@@ -60,7 +60,7 @@ export class InstructorSpecialExamsPage extends InstructorDashboardPage {
   }
 
   /** A learner's row in the allowances table (the username is the test's own). */
-  allowanceRow(learner: string): Locator {
+  private allowanceRow(learner: string): Locator {
     return this.main.locator('table tbody tr').filter({ hasText: learner });
   }
 

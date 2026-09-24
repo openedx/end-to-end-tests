@@ -73,7 +73,9 @@ Contains:
   the reading a moderator grant is verified by), topics, threads (created
   **following** by default, because the platform notifies an author only of
   threads it follows), search (`listThreads` with `textSearch`, indexed
-  asynchronously), responses and comments, and the `PATCH`es that follow, vote,
+  asynchronously), responses and comments, `divideDiscussionsByCohort` (the
+  legacy session-authed settings view, as the admin; it reports a login
+  redirect rather than following it into a 405), and the `PATCH`es that follow, vote,
   report, endorse and edit.
 
 ### Studio clients
@@ -139,7 +141,9 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   **session**-auth LMS views, not JWT: a JWT-only context is redirected to login
   and the write surfaces as **HTTP 405**, so drive them from a fresh
   `loginSession` on a throwaway context
-  (see `.private/studio-auth-resilience.md` §2.4).
+  (see `.private/studio-auth-resilience.md` §2.4). The v1 cohorts API the
+  instructor-dashboard MFE writes through (`listCohortsV1`, `createCohortV1`,
+  `enableCohortsV1`) accepts the JWT and rides `page.request`.
 - `search.ts` — `searchCourseDiscovery` (the LMS catalog-search index the
   discovery page runs) and `reindexCourse` (Studio's `reindex_link`, global-staff
   only — rebuilds the index so freshly authored content becomes findable).
@@ -160,8 +164,11 @@ outcome").
   learner / per-problem readings, the two grading writes the seeds and steps
   need (`resetAttempts`, `overrideScore`), extensions (`listUnitExtensions`),
   the certificate reads and the writes the certificate step composes,
-  `sendCourseEmail` (the legacy bulk-email view, a form post), and
-  `grantCourseTeamRole` (report generation needs `data_researcher`). Only what
+  `sendCourseEmail` (the legacy bulk-email view, a form post),
+  `grantCourseTeamRole` (report generation needs `data_researcher`) and its
+  read-back `listCourseTeam` (forum roles included), and the special-exam
+  readings (`listSpecialExams`, `listAllowances`). Team and allowance writes
+  answer 200 with a per-row `success`, so their lists are the oracle. Only what
   a page object, step, fixture or spec calls is here; the rest of the surface
   is driven through the dashboard and asserted on the response it returns. DRF views that accept the JWT, so the author's
   `page.request` drives them. A `400 "already running"` is a
@@ -282,7 +289,8 @@ registration created, always is.
 - `course-home.ts` — `fetchCourseHomeOutline`: the course home's own
   reading — the Resume target, handouts and course tools (`courseTool` picks
   one by its `analytics_id`) — and `fetchCoursewareCourse`, the courseware
-  metadata (`show_calculator`, the notes state).
+  metadata (`show_calculator`, the notes state, and the About page's rendered
+  `overview`).
 - `teams.ts` — `createTeam` / `joinTeam` / `fetchTeam` / `listTeamsOf` and
   `listTeamThreadIds`: session or Bearer only, on the learner's own context.
 - `notes.ts` — `listCourseNotes`: the learner's notes in a course as the LMS

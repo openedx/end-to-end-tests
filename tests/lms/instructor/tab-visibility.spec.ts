@@ -57,7 +57,10 @@ async function prepareCourse(
   };
 }
 
-/** The dashboard model's tabs and the nav's links, as one viewer reads them. */
+/**
+ * The dashboard model's tabs and the nav's links, as one viewer reads them —
+ * both taken in the same poll, so a grant still settling cannot split them.
+ */
 async function readTabs(
   request: APIRequestContext,
   dashboard: InstructorDashboardPage,
@@ -130,8 +133,15 @@ test.describe(
         );
         await ensureDataResearcher(page.request, config, courseKey);
         const conditions = { ...course, dataResearcher: true };
-        const read = await readTabs(page.request, instructorDashboard, config, courseKey);
-        expect(departures(read, 'instructor', conditions)).toEqual(FOLLOWS_THE_RULES);
+        await expect
+          .poll(async () =>
+            departures(
+              await readTabs(page.request, instructorDashboard, config, courseKey),
+              'instructor',
+              conditions,
+            ),
+          )
+          .toEqual(FOLLOWS_THE_RULES);
       },
     );
 
@@ -162,15 +172,15 @@ test.describe(
               role,
             );
           }
-          const read = await readTabs(
-            member.request,
-            member.instructorDashboardPage,
-            config,
-            courseKey,
-          );
-          expect(departures(read, viewer, { ...course, dataResearcher: false })).toEqual(
-            FOLLOWS_THE_RULES,
-          );
+          await expect
+            .poll(async () =>
+              departures(
+                await readTabs(member.request, member.instructorDashboardPage, config, courseKey),
+                viewer,
+                { ...course, dataResearcher: false },
+              ),
+            )
+            .toEqual(FOLLOWS_THE_RULES);
         },
       );
     }
