@@ -643,6 +643,7 @@ export { listCourseNotes, type CourseNote } from './notes';
 export { enableCourseEmail } from './bulk-email-admin';
 export {
   AUTO_CERTIFICATE_GENERATION_SWITCH,
+  ORA_TEAM_SUBMISSIONS_SWITCH,
   fetchWaffleSwitch,
   setWaffleSwitch,
 } from './waffle-switch';

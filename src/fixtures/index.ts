@@ -185,6 +185,7 @@ import {
   type ChromeConfig,
   ADULT_YEAR_OF_BIRTH,
   AUTO_CERTIFICATE_GENERATION_SWITCH,
+  ORA_TEAM_SUBMISSIONS_SWITCH,
   enableCourseEmail,
   setWaffleSwitch,
   updateAccount,
@@ -535,6 +536,13 @@ export interface TestFixtures {
    * an admin account.
    */
   certificateSwitch: { readonly turnOn: () => Promise<void> };
+  /**
+   * The platform-wide `openresponseassessment.team_submissions` switch, held
+   * exclusively the same way: off until the test calls `turnOn()`, off again
+   * afterwards. Nothing else reads it: a team assignment also needs an ORA's
+   * own `teams_enabled`. Skips without an admin account.
+   */
+  oraTeamSwitch: { readonly turnOn: () => Promise<void> };
   /**
    * The arrangement the gradebook cases start from: a published graded section
    * with a single-choice problem in the content course, a due date on its
@@ -1320,6 +1328,34 @@ export interface CompletionUnits {
 
 /** The named lock serialising the certificate auto-generation switch (`named-lock.ts`). */
 const CERTIFICATE_SWITCH_LOCK = 'certificate-auto-generation';
+const ORA_TEAM_SWITCH_LOCK = 'ora-team-submissions';
+
+/**
+ * Holds a platform-wide waffle switch for one test: takes its named lock
+ * exclusively (the wait added to the test's budget, so a long one ends in the
+ * lock's error naming its holders), starts it off whatever an interrupted run
+ * left, hands the test `turnOn`, and turns it off again afterwards.
+ */
+async function holdSwitch(
+  config: AppConfig,
+  adminLms: AdminLmsRunner,
+  testInfo: TestInfo,
+  switchName: string,
+  lock: string,
+  use: (held: { readonly turnOn: () => Promise<void> }) => Promise<void>,
+): Promise<void> {
+  const setSwitch = (active: boolean) =>
+    adminLms((session) => setWaffleSwitch(session, config, switchName, active));
+  testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
+  await withExclusiveLock(lock, { waitMs: TIMEOUTS.sharedLockWait }, async () => {
+    await setSwitch(false);
+    try {
+      await use({ turnOn: () => setSwitch(true) });
+    } finally {
+      await setSwitch(false);
+    }
+  });
+}
 
 /** What {@link TestFixtures.chromeCase} hands a spec. */
 export interface ChromeCase {
@@ -3328,25 +3364,24 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   certificateSwitch: async ({ config, adminLms }, use, testInfo) => {
-    const setSwitch = (active: boolean) =>
-      adminLms((session) =>
-        setWaffleSwitch(session, config, AUTO_CERTIFICATE_GENERATION_SWITCH, active),
-      );
-    // The wait for the readers to drain is on top of the case's own budget, so
-    // a long wait ends in the lock's error naming its holders, not a timeout.
-    testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
-    await withExclusiveLock(
+    await holdSwitch(
+      config,
+      adminLms,
+      testInfo,
+      AUTO_CERTIFICATE_GENERATION_SWITCH,
       CERTIFICATE_SWITCH_LOCK,
-      { waitMs: TIMEOUTS.sharedLockWait },
-      async () => {
-        // Start from the platform default whatever an earlier, interrupted run left.
-        await setSwitch(false);
-        try {
-          await use({ turnOn: () => setSwitch(true) });
-        } finally {
-          await setSwitch(false);
-        }
-      },
+      use,
+    );
+  },
+
+  oraTeamSwitch: async ({ config, adminLms }, use, testInfo) => {
+    await holdSwitch(
+      config,
+      adminLms,
+      testInfo,
+      ORA_TEAM_SUBMISSIONS_SWITCH,
+      ORA_TEAM_SWITCH_LOCK,
+      use,
     );
   },
 
