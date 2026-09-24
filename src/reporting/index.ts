@@ -5,8 +5,10 @@ export {
   type TestIdAnnotation,
 } from './test-id';
 export {
+  acrossProfiles,
   finalAttempts,
   normalizeStatus,
+  statusSeverity,
   summarizeCoverage,
   verdictFor,
   type CoverageSummary,
@@ -68,3 +70,4 @@ export {
   type RunTotals,
 } from './btr-run';
 export { default as BtrRunReporter, type BtrRunReporterOptions } from './btr-run-reporter';
+export { profileOf, projectOf, shardOf } from './project';

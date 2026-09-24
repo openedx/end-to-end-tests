@@ -79,6 +79,10 @@ inputs:
     description: 'Playwright shard to run, as "<index>/<total>" (e.g. 2/4). Empty = the whole selection.'
     required: false
     default: ''
+  profile:
+    description: 'CI_PROFILE: the CI profile (a key of .ci/profiles.json) this job runs, recorded on every result so a merged report can tell profiles apart. Empty = none.'
+    required: false
+    default: ''
   run_id_suffix:
     description: 'RUN_ID_SUFFIX: up to three lowercase letters/digits appended to the run id, unique per shard of a run (e.g. d2).'
     required: false
@@ -195,6 +199,7 @@ runs:
         OPENINBOX_API_KEY: ${{ inputs.openinbox_api_key }}
         SHARD: ${{ inputs.shard }}
         RUN_ID_SUFFIX: ${{ inputs.run_id_suffix }}
+        CI_PROFILE: ${{ inputs.profile }}
         PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.artifact_suffix }}.zip
       run: |
         set -euo pipefail

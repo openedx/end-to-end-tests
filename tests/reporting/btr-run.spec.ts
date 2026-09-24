@@ -12,11 +12,16 @@ import {
   type RunMeta,
 } from '../../src/reporting';
 
-/** A passing attempt with sensible defaults; override what the case is about. */
+/**
+ * A passing attempt with sensible defaults; override what the case is about. A
+ * test is identified by its title across CI profiles, so each key gets its own
+ * default title unless the case sets one.
+ */
 function attempt(overrides: Partial<RunAttempt> = {}): RunAttempt {
+  const testKey = overrides.testKey ?? 'k1';
   return {
-    testKey: 'k1',
-    title: 'signs in',
+    testKey,
+    title: testKey === 'k1' ? 'signs in' : `signs in (${testKey})`,
     spec: 'tests/lms/auth/login.spec.ts',
     project: 'smoke',
     testIds: ['TC-00003'],
@@ -166,6 +171,112 @@ test.describe('finalTests', { tag: '@unit' }, () => {
       note: 'flaky: passed on attempt 2',
     });
     expect(tests[1]).toMatchObject({ title: 'other', attempts: 1, durationMs: 200, note: '' });
+  });
+});
+
+test.describe('finalTests across CI profiles', { tag: '@unit' }, () => {
+  // The same test from two profiles' blobs: merge-reports gives the second its
+  // own key, the title (project › spec › test) stays the same.
+  const skippedInDefault = attempt({
+    testKey: 'default-id',
+    title: 'signs in',
+    profile: 'default',
+    shard: 'd1',
+    status: 'skipped',
+    rawStatus: 'skipped',
+    annotations: [{ type: 'skip', description: 'missing capability rbac-global' }],
+  });
+
+  test('reports the profile that ran a test over one that skipped it', () => {
+    const tests = finalTests([
+      skippedInDefault,
+      attempt({ testKey: 'extended-id', title: 'signs in', profile: 'extended', shard: 'x1' }),
+    ]);
+    expect(tests).toHaveLength(1);
+    expect(tests[0]).toMatchObject({
+      status: 'passed',
+      profile: 'extended',
+      shard: 'x1',
+      note: '',
+      attempts: 1,
+    });
+  });
+
+  test('keeps the first skip when every profile skipped the test', () => {
+    const tests = finalTests([
+      skippedInDefault,
+      attempt({ ...skippedInDefault, testKey: 'extended-id', profile: 'extended', shard: 'x1' }),
+    ]);
+    expect(tests).toHaveLength(1);
+    expect(tests[0]).toMatchObject({ status: 'skipped', profile: 'default' });
+  });
+
+  test('reports the worst result, naming its profile, when the profiles disagree', () => {
+    const tests = finalTests([
+      attempt({ testKey: 'default-id', title: 'signs in', profile: 'default' }),
+      attempt({
+        testKey: 'extended-id',
+        title: 'signs in',
+        profile: 'extended',
+        status: 'failed',
+        rawStatus: 'failed',
+        errorMessage: 'boom',
+      }),
+    ]);
+    expect(tests).toHaveLength(1);
+    expect(tests[0]).toMatchObject({
+      status: 'failed',
+      profile: 'extended',
+      note: 'in extended: failed: boom',
+    });
+  });
+
+  test('does not name a profile when every profile that ran the test agrees', () => {
+    const known = { status: 'skipped', rawStatus: 'failed', expectedStatus: 'failed' } as const;
+    const tests = finalTests([
+      attempt({ testKey: 'default-id', title: 'signs in', profile: 'default', ...known }),
+      attempt({ testKey: 'extended-id', title: 'signs in', profile: 'extended', ...known }),
+    ]);
+    expect(tests[0]?.note).toBe('expected failure (known defect)');
+  });
+
+  test('counts the reported profile’s attempts and time, not the others’', () => {
+    const tests = finalTests([
+      { ...skippedInDefault, durationMs: 50 },
+      attempt({
+        testKey: 'extended-id',
+        title: 'signs in',
+        profile: 'extended',
+        status: 'failed',
+        rawStatus: 'failed',
+        durationMs: 3000,
+      }),
+      attempt({ testKey: 'extended-id', title: 'signs in', profile: 'extended', durationMs: 1000 }),
+    ]);
+    expect(tests[0]).toMatchObject({
+      status: 'passed',
+      attempts: 2,
+      durationMs: 4000,
+      note: 'flaky: passed on attempt 2',
+    });
+  });
+
+  test('prefers a known-gap run (test.fail) over a capability skip', () => {
+    const tests = finalTests([
+      skippedInDefault,
+      attempt({
+        testKey: 'extended-id',
+        title: 'signs in',
+        profile: 'extended',
+        status: 'skipped',
+        rawStatus: 'failed',
+        expectedStatus: 'failed',
+      }),
+    ]);
+    expect(tests[0]).toMatchObject({
+      profile: 'extended',
+      note: 'expected failure (known defect)',
+    });
   });
 });
 
