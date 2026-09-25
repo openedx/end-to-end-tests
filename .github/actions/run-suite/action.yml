@@ -79,6 +79,10 @@ inputs:
     description: 'Playwright shard to run, as "<index>/<total>" (e.g. 2/4). Empty = the whole selection.'
     required: false
     default: ''
+  select_grep:
+    description: 'The profile''s test selection, as a --grep regex (a select: delta profile). Combined with `features` so a test must match both. Empty = no selection.'
+    required: false
+    default: ''
   profile:
     description: 'CI_PROFILE: the CI profile (a key of .ci/profiles.json) this job runs, recorded on every result so a merged report can tell profiles apart. Empty = none.'
     required: false
@@ -198,6 +202,7 @@ runs:
         # A secret, so a process env var rather than a .env line (see above).
         OPENINBOX_API_KEY: ${{ inputs.openinbox_api_key }}
         SHARD: ${{ inputs.shard }}
+        SELECT_GREP: ${{ inputs.select_grep }}
         RUN_ID_SUFFIX: ${{ inputs.run_id_suffix }}
         CI_PROFILE: ${{ inputs.profile }}
         PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.artifact_suffix }}.zip
@@ -210,6 +215,15 @@ runs:
         grep_expr=""
         if [ -n "${FEATURES// /}" ]; then
           grep_expr="$(echo "$FEATURES" | xargs | tr ' ' '|')"
+        fi
+        # A profile's selection and the features filter must both match: the
+        # two lookaheads express that as the one --grep Playwright takes.
+        if [ -n "$SELECT_GREP" ]; then
+          if [ -n "$grep_expr" ]; then
+            grep_expr="^(?=.*(?:${SELECT_GREP}))(?=.*(?:${grep_expr}))"
+          else
+            grep_expr="$SELECT_GREP"
+          fi
         fi
         grep_invert_expr=""
         if [ -n "${EXCLUDE_FEATURES// /}" ]; then

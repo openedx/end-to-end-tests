@@ -19,9 +19,21 @@ Settings in the common patch:
 - Rate limits: the platform defaults are per-day and CI retries and
   back-to-back runs exhaust them (HTTP 403 forbidden-request), so use short,
   self-resetting per-minute windows.
+
+Settings a later profile plugin changes are read from Tutor configuration
+(`E2E_*`, defaults below), which that plugin overrides with
+`CONFIG_OVERRIDES`. That way the result does not depend on the order Tutor
+renders the two plugins' patches in.
 """
 
 from tutor import hooks
+
+hooks.Filters.CONFIG_DEFAULTS.add_items(
+    [
+        # ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION, below.
+        ("E2E_AUTHZ_AUTOMATIC_MIGRATION", True),
+    ]
+)
 
 hooks.Filters.ENV_PATCHES.add_item(
     (
@@ -50,9 +62,10 @@ SKIP_EMAIL_VALIDATION = True
 # Authoring Migration Run admin (the sheet's oracle for enabling and
 # rolling back) stays empty, because only this path writes to it. With
 # it on, saving a course or org waffle override migrates that scope
-# synchronously and reversibly. The suite probes which mode the target
-# is in, so the cases for the other mode skip rather than fail.
-ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION = True
+# synchronously and reversibly. The capabilities authz-auto-migration /
+# authz-manual-migration declare which mode the target is in; the
+# extended profile turns it off (e2e_extended.py) for the manual cases.
+ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION = {{ E2E_AUTHZ_AUTOMATIC_MIGRATION }}
 
 # Special exams (timed and proctored subsections, the instructor
 # dashboard's Special Exams tab). Off on a stock install; the

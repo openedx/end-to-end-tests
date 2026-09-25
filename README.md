@@ -448,7 +448,7 @@ Triggers:
   | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                                                |
   | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                                  |
   | `capabilities`     | Override the release's default capabilities (comma-separated); each profile's delta still applies. Empty = use the release default from `.ci/openedx-releases.json`. |
-  | `profiles`         | Space-separated CI profiles to run (keys of `.ci/profiles.json`, see below). Default `default`.                                                                      |
+  | `profiles`         | Space-separated CI profiles to run (keys of `.ci/profiles.json`, see below), e.g. `default extended`. Default `default`.                                             |
   | `btr_sheet_url`    | Override: publish BTR results to this Google Sheet instead of the release's `BTR_SHEET_URL_<RELEASE>` variable (see [BTR results sheets](#btr-results-sheets)).      |
 
 - **`schedule`** — automatically at **09:00 UTC (5am US Eastern in daylight
@@ -484,6 +484,19 @@ the release's single `playwright-report-<release>` and `suite-reports-<release>`
 artifacts. `scripts/ci-profiles.mts` reads the file, and the `unit` project
 validates it. Each shard's run id carries a `RUN_ID_SUFFIX` (profile code +
 shard number), so data created by different shards never collides.
+
+Two profiles exist, and `ci.yml` runs both for `main` and `verawood`:
+
+| Profile    | Runs                                               | Installation                                                                                                                                                                                                                                                                 |
+| ---------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default`  | the whole suite, in 4 shards                       | `.ci/tutor/e2e_base.py`                                                                                                                                                                                                                                                      |
+| `extended` | only the cases `default` skips (`select: "delta"`) | plus `.ci/tutor/e2e_extended.py` (AuthZ migration left to an operator, a `SUPPORT_URL`), `.ci/seed/extended.sh` (a second-organization course, an intro video on the demo course) and, where the release has the plugin, `tutor-contrib-codejail` for Python-graded problems |
+
+A `select: "delta"` profile runs only the tests tagged with a capability it
+declares and `default` does not. The merge then reports those tests from it and
+everything else from `default`. `rbac-global` is not in `extended`: turning the
+authz flag on for the whole site locks every unmigrated course's team out of
+Studio, which the other cases need. It would need a profile of its own.
 
 The MySQL state after migrations is cached per release/Tutor-version so most
 runs skip the ~20-minute migration step; delete the `tutor-mysql-*` cache from

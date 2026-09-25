@@ -21,6 +21,36 @@ export interface CapabilityDelta {
   readonly remove: readonly string[];
 }
 
+/**
+ * A published Tutor plugin a profile installs, where a release has one. It
+ * brings its capability only on those releases, so a profile can use an
+ * optional service that some Tutor lines lack (`tutor-contrib-codejail` stops
+ * at the Verawood line).
+ */
+export interface TutorExtension {
+  /** The pip package; installed with the release's Tutor constraint, e.g. `>=22.0.0,<23.0.0`. */
+  readonly pip: string;
+  /** The Tutor plugin name to enable. */
+  readonly plugin: string;
+  /** Whether it has a `tutor local do init --limit <plugin>` task to run after enabling. */
+  readonly init: boolean;
+  /** The capability it makes true on the target. */
+  readonly capability: string;
+  /** Releases (keys of `.ci/openedx-releases.json`) the package supports. */
+  readonly releases: readonly string[];
+}
+
+/** Which tests a profile's jobs run. */
+export type Selection =
+  /** The whole suite (sharded); undeclared capabilities skip as usual. */
+  | 'all'
+  /**
+   * Only tests tagged with a capability this profile declares and the
+   * `default` profile does not: the cases the profile exists to un-skip. The
+   * release merge reports them from here and everything else from `default`.
+   */
+  | 'delta';
+
 export interface Profile {
   readonly name: string;
   readonly description: string;
@@ -28,9 +58,22 @@ export interface Profile {
   readonly code: string;
   /** Tutor plugin files (repository paths), each enabled by its file name. */
   readonly tutorPlugins: readonly string[];
+  readonly tutorExtensions: readonly TutorExtension[];
+  /** Scripts run on the runner after the install is provisioned, to seed content. */
+  readonly seedScripts: readonly string[];
   readonly capabilities: CapabilityDelta;
+  readonly select: Selection;
   /** How many shards (matrix jobs, each with its own Tutor stack) run the profile. */
   readonly shards: number;
+}
+
+/** What `shardMatrix` needs of a release (an entry of `.ci/openedx-releases.json`). */
+export interface ReleaseInfo {
+  readonly name: string;
+  /** Comma-separated capabilities (possibly a dispatch override of the release's list). */
+  readonly capabilities: string;
+  /** The Tutor version constraint, e.g. `>=22.0.0,<23.0.0`; empty for `main`. */
+  readonly tutorConstraint: string;
 }
 
 export interface MatrixEntry {
@@ -39,14 +82,32 @@ export interface MatrixEntry {
   readonly shards: number;
   /** `RUN_ID_SUFFIX` for the job: profile code + shard number, e.g. `d2`. */
   readonly runIdSuffix: string;
-  /** The release's capabilities with the profile's delta applied. */
+  /** The release's capabilities with the profile's delta (and its extensions') applied. */
   readonly capabilities: string;
   readonly tutorPlugins: readonly string[];
+  /** Pip requirements for the profile's extensions on this release, constraint applied. */
+  readonly tutorPip: readonly string[];
+  /** Extension plugins to enable, and those with an init task to run. */
+  readonly tutorEnable: readonly string[];
+  readonly tutorInit: readonly string[];
+  readonly seedScripts: readonly string[];
+  /** A `--grep` limiting the job to the profile's selection; empty for `select: all`. */
+  readonly grep: string;
 }
 
 export class ProfileError extends Error {}
 
-const KNOWN_KEYS = new Set(['description', 'code', 'tutorPlugins', 'capabilities', 'shards']);
+const KNOWN_KEYS = new Set([
+  'description',
+  'code',
+  'tutorPlugins',
+  'tutorExtensions',
+  'seedScripts',
+  'capabilities',
+  'select',
+  'shards',
+]);
+const EXTENSION_KEYS = new Set(['pip', 'plugin', 'init', 'capability', 'releases']);
 /** Two digits of shard number plus the code keep the suffix within its three characters. */
 const MAX_SHARDS = 20;
 
@@ -151,12 +212,59 @@ export function parseProfiles(
     checkCapabilityNames(add, `${where}: capabilities.add`, isCapability);
     checkCapabilityNames(remove, `${where}: capabilities.remove`, isCapability);
 
+    const select = entry.select ?? 'all';
+    if (select !== 'all' && select !== 'delta') {
+      throw new ProfileError(`${where}: select must be "all" or "delta".`);
+    }
+    if (name === 'default' && select !== 'all') {
+      throw new ProfileError(`${where}: the default profile runs the whole suite (select "all").`);
+    }
+
+    const seedScripts = stringList(entry.seedScripts ?? [], `${where}: seedScripts`);
+    for (const script of seedScripts) {
+      if (!fileExists(script)) {
+        throw new ProfileError(`${where}: seed script "${script}" does not exist.`);
+      }
+    }
+
+    const rawExtensions: unknown = entry.tutorExtensions ?? [];
+    if (!Array.isArray(rawExtensions)) {
+      throw new ProfileError(`${where}: tutorExtensions must be a list.`);
+    }
+    const tutorExtensions = rawExtensions.map((raw: unknown, i): TutorExtension => {
+      const at = `${where}: tutorExtensions[${i}]`;
+      if (typeof raw !== 'object' || raw === null)
+        throw new ProfileError(`${at} must be an object.`);
+      const ext = raw as Record<string, unknown>;
+      const extra = Object.keys(ext).filter((key) => !EXTENSION_KEYS.has(key));
+      if (extra.length > 0) {
+        throw new ProfileError(`${at} has unknown key(s): ${extra.join(', ')}.`);
+      }
+      const { pip, plugin, init, capability } = ext;
+      if (typeof pip !== 'string' || !/^[A-Za-z0-9][\w.-]*$/.test(pip)) {
+        throw new ProfileError(`${at}: pip must be a package name (the constraint is added).`);
+      }
+      if (typeof plugin !== 'string' || !/^[a-z][a-z0-9_-]*$/.test(plugin)) {
+        throw new ProfileError(`${at}: plugin must be a Tutor plugin name.`);
+      }
+      if (typeof init !== 'boolean') throw new ProfileError(`${at}: init must be true or false.`);
+      if (typeof capability !== 'string') throw new ProfileError(`${at} needs a capability.`);
+      checkCapabilityNames([capability], at, isCapability);
+      const releases = stringList(ext.releases, `${at}: releases`);
+      if (releases.length === 0)
+        throw new ProfileError(`${at} must list the releases it supports.`);
+      return { pip, plugin, init, capability, releases };
+    });
+
     profiles.push({
       name,
       description,
       code,
       tutorPlugins,
+      tutorExtensions,
+      seedScripts,
       capabilities: { add, remove },
+      select,
       shards,
     });
   }
@@ -181,29 +289,70 @@ export function findProfile(profiles: readonly Profile[], name: string): Profile
   return profile;
 }
 
+/** A profile's capabilities on a release: its delta, plus its extensions for that release. */
+export function profileCapabilities(profile: Profile, release: ReleaseInfo): string {
+  const extensions = profile.tutorExtensions
+    .filter((ext) => ext.releases.includes(release.name))
+    .map((ext) => ext.capability);
+  return resolveCapabilities(release.capabilities, {
+    add: [...profile.capabilities.add, ...extensions],
+    remove: profile.capabilities.remove,
+  });
+}
+
+/**
+ * The `--grep` for a `select: delta` profile: its tests are those tagged with a
+ * capability it declares and `default` does not, on the same release. The tag
+ * must end there (`(?![\w-])`), so `@rbac` does not select `@rbac-global`.
+ *
+ * @throws {ProfileError} when the profile declares nothing `default` lacks.
+ */
+export function deltaGrep(profile: Profile, defaults: Profile, release: ReleaseInfo): string {
+  const declared = (list: string) =>
+    list.split(',').filter((c) => c !== '' && !c.startsWith(CAPABILITY_OPT_OUT_PREFIX));
+  const base = new Set(declared(profileCapabilities(defaults, release)));
+  const extra = declared(profileCapabilities(profile, release)).filter((c) => !base.has(c));
+  if (extra.length === 0) {
+    throw new ProfileError(
+      `Profile "${profile.name}" declares no capability the default profile lacks on ` +
+        `${release.name}, so it would select no tests.`,
+    );
+  }
+  return `@(?:${extra.join('|')})(?![\\w-])`;
+}
+
 /**
  * One matrix entry per shard of each selected profile, in the order given,
- * each carrying the capabilities and Tutor plugins its job provisions.
+ * each carrying what its job provisions and runs on this release.
  */
 export function shardMatrix(
   profiles: readonly Profile[],
   selected: readonly string[],
-  releaseCapabilities: string,
+  release: ReleaseInfo,
 ): MatrixEntry[] {
   const names = [...new Set(selected.map((s) => s.trim()).filter(Boolean))];
   if (names.length === 0) {
     throw new ProfileError('Select at least one profile.');
   }
+  const defaults = findProfile(profiles, 'default');
   return names.flatMap((name) => {
     const profile = findProfile(profiles, name);
-    const capabilities = resolveCapabilities(releaseCapabilities, profile.capabilities);
+    const extensions = profile.tutorExtensions.filter((ext) => ext.releases.includes(release.name));
+    const shared = {
+      shards: profile.shards,
+      capabilities: profileCapabilities(profile, release),
+      tutorPlugins: profile.tutorPlugins,
+      tutorPip: extensions.map((ext) => `${ext.pip}${release.tutorConstraint}`),
+      tutorEnable: extensions.map((ext) => ext.plugin),
+      tutorInit: extensions.filter((ext) => ext.init).map((ext) => ext.plugin),
+      seedScripts: profile.seedScripts,
+      grep: profile.select === 'delta' ? deltaGrep(profile, defaults, release) : '',
+    };
     return Array.from({ length: profile.shards }, (_, i) => ({
       profile: profile.name,
       shard: i + 1,
-      shards: profile.shards,
       runIdSuffix: `${profile.code}${i + 1}`,
-      capabilities,
-      tutorPlugins: profile.tutorPlugins,
+      ...shared,
     }));
   });
 }

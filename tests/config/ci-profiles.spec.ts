@@ -4,10 +4,13 @@ import { test, expect } from '@playwright/test';
 
 import {
   ProfileError,
+  deltaGrep,
+  findProfile,
   parseProfiles,
   pluginName,
   resolveCapabilities,
   shardMatrix,
+  type ReleaseInfo,
 } from '../../scripts/ci-profiles/profiles.mts';
 import { CAPABILITY_OPT_OUT_PREFIX, isCapability } from '../../src/config';
 
@@ -19,6 +22,18 @@ import { CAPABILITY_OPT_OUT_PREFIX, isCapability } from '../../src/config';
 
 const PLUGIN = '.ci/tutor/e2e_base.py';
 const always = () => true;
+
+function release(capabilities: string, name = 'verawood'): ReleaseInfo {
+  return { name, capabilities, tutorConstraint: '>=22.0.0,<23.0.0' };
+}
+
+const CODEJAIL = {
+  pip: 'tutor-contrib-codejail',
+  plugin: 'codejail',
+  init: true,
+  capability: 'codejail',
+  releases: ['verawood'],
+};
 
 function profile(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -36,6 +51,57 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
     const json: unknown = JSON.parse(readFileSync('.ci/profiles.json', 'utf8'));
     const profiles = parseProfiles(json, existsSync, isCapability);
     expect(profiles.map((p) => p.name)).toContain('default');
+  });
+
+  test('every profile selects tests on every release of the repository', () => {
+    // A delta profile that un-skips nothing on some release would fail its plan job.
+    const profiles = parseProfiles(
+      JSON.parse(readFileSync('.ci/profiles.json', 'utf8')),
+      existsSync,
+      isCapability,
+    );
+    const releases = JSON.parse(readFileSync('.ci/openedx-releases.json', 'utf8')) as Record<
+      string,
+      { tutorConstraint: string; capabilities: string }
+    >;
+    for (const [name, entry] of Object.entries(releases)) {
+      const matrix = shardMatrix(
+        profiles,
+        profiles.map((p) => p.name),
+        { name, ...entry },
+      );
+      expect(matrix.length, name).toBeGreaterThan(0);
+    }
+  });
+
+  test('rejects a delta default profile, a bad selection and a missing seed script', () => {
+    expect(() => parseProfiles({ default: profile({ select: 'delta' }) }, always)).toThrow(
+      /whole suite/,
+    );
+    expect(() => parseProfiles({ default: profile({ select: 'some' }) }, always)).toThrow(
+      /"all" or "delta"/,
+    );
+    expect(() =>
+      parseProfiles(
+        { default: profile({ seedScripts: ['.ci/seed/none.sh'] }) },
+        (path) => path === PLUGIN,
+      ),
+    ).toThrow(/seed script ".ci\/seed\/none.sh" does not exist/);
+  });
+
+  test('rejects a Tutor extension without its releases or with an unknown key', () => {
+    expect(() =>
+      parseProfiles(
+        { default: profile({ tutorExtensions: [{ ...CODEJAIL, releases: [] }] }) },
+        always,
+      ),
+    ).toThrow(/releases it supports/);
+    expect(() =>
+      parseProfiles(
+        { default: profile({ tutorExtensions: [{ ...CODEJAIL, version: '22' }] }) },
+        always,
+      ),
+    ).toThrow(/unknown key\(s\): version/);
   });
 
   test('requires a default profile', () => {
@@ -96,8 +162,16 @@ test.describe('shardMatrix', { tag: '@unit' }, () => {
   );
 
   test('expands each selected profile into its shards, with run-id suffixes', () => {
-    const shared = { capabilities: 'notes', tutorPlugins: [PLUGIN] };
-    expect(shardMatrix(profiles, ['default', 'extended'], 'notes')).toEqual([
+    const shared = {
+      capabilities: 'notes',
+      tutorPlugins: [PLUGIN],
+      tutorPip: [],
+      tutorEnable: [],
+      tutorInit: [],
+      seedScripts: [],
+      grep: '',
+    };
+    expect(shardMatrix(profiles, ['default', 'extended'], release('notes'))).toEqual([
       { profile: 'default', shard: 1, shards: 2, runIdSuffix: 'd1', ...shared },
       { profile: 'default', shard: 2, shards: 2, runIdSuffix: 'd2', ...shared },
       { profile: 'extended', shard: 1, shards: 1, runIdSuffix: 'x1', ...shared },
@@ -109,16 +183,74 @@ test.describe('shardMatrix', { tag: '@unit' }, () => {
       { default: profile({ capabilities: { add: ['teams'], remove: ['notes'] } }) },
       always,
     );
-    expect(shardMatrix(withDelta, ['default'], 'notes,wiki')[0]?.capabilities).toBe('wiki,teams');
+    expect(shardMatrix(withDelta, ['default'], release('notes,wiki'))[0]?.capabilities).toBe(
+      'wiki,teams',
+    );
+  });
+
+  test('installs an extension, and declares its capability, only where the release has it', () => {
+    const withCodejail = parseProfiles(
+      {
+        default: profile(),
+        extended: profile({ code: 'x', tutorExtensions: [CODEJAIL], select: 'delta' }),
+      },
+      always,
+    );
+    const [verawood] = shardMatrix(withCodejail, ['extended'], release('notes'));
+    expect(verawood).toMatchObject({
+      capabilities: 'notes,codejail',
+      tutorPip: ['tutor-contrib-codejail>=22.0.0,<23.0.0'],
+      tutorEnable: ['codejail'],
+      tutorInit: ['codejail'],
+      grep: '@(?:codejail)(?![\\w-])',
+    });
+    // On main the extension is left out, so the profile un-skips nothing there.
+    expect(() => shardMatrix(withCodejail, ['extended'], release('notes', 'main'))).toThrow(
+      /declares no capability the default profile lacks on main/,
+    );
   });
 
   test('ignores blanks and repeats in the selection', () => {
-    expect(shardMatrix(profiles, ['', 'extended', ' extended '], '')).toHaveLength(1);
+    expect(shardMatrix(profiles, ['', 'extended', ' extended '], release(''))).toHaveLength(1);
   });
 
   test('rejects an empty selection or an unknown profile', () => {
-    expect(() => shardMatrix(profiles, [''], '')).toThrow(/at least one/);
-    expect(() => shardMatrix(profiles, ['aspects'], '')).toThrow(/Unknown profile "aspects"/);
+    expect(() => shardMatrix(profiles, [''], release(''))).toThrow(/at least one/);
+    expect(() => shardMatrix(profiles, ['aspects'], release(''))).toThrow(
+      /Unknown profile "aspects"/,
+    );
+  });
+});
+
+test.describe('deltaGrep', { tag: '@unit' }, () => {
+  const profiles = parseProfiles(
+    {
+      default: profile(),
+      extended: profile({
+        code: 'x',
+        select: 'delta',
+        capabilities: { add: ['rbac-global', 'support-url'], remove: ['no-support-url'] },
+      }),
+    },
+    always,
+  );
+  const grep = new RegExp(
+    deltaGrep(
+      findProfile(profiles, 'extended'),
+      findProfile(profiles, 'default'),
+      release('rbac,no-support-url'),
+    ),
+  );
+
+  test('selects tests tagged with a capability only the profile declares', () => {
+    expect(grep.test('console link @regression @rbac-global')).toBe(true);
+    expect(grep.test('points at SUPPORT_URL @support-url @mfe-learning')).toBe(true);
+  });
+
+  test('does not select what default already runs, or a longer tag with the same start', () => {
+    expect(grep.test('roles @rbac')).toBe(false);
+    expect(grep.test('absent @no-support-url')).toBe(false);
+    expect(grep.test('other @support-url-extra')).toBe(false);
   });
 });
 
