@@ -11,7 +11,13 @@ import {
 } from '../../src/reporting';
 
 const context = { runStartedAt: '2026-09-12T10:00:00.000Z', baseUrl: 'https://lms.example' };
-const identity = { project: 'smoke', file: 'tests/lms/auth/login.spec.ts', title: 'a', retry: 0 };
+const identity = {
+  project: 'smoke',
+  shard: 'd2',
+  file: 'tests/lms/auth/login.spec.ts',
+  title: 'a',
+  retry: 0,
+};
 
 function step(title: string, category: string, steps: StepNode[] = []): StepNode {
   return {
@@ -81,12 +87,12 @@ test.describe('timing report', { tag: '@unit' }, () => {
     const csv = testRowsToCsv(context, rows).split('\n');
 
     expect(csv[0]).toBe(
-      'run_started_at,base_url,project,file,title,test_ids,tags,retry,status,expected_status,worker_index,started_at,duration_ms',
+      'run_started_at,base_url,project,file,title,test_ids,tags,retry,status,expected_status,worker_index,started_at,duration_ms,shard',
     );
     expect(csv[1]).toBe(
       '2026-09-12T10:00:00.000Z,https://lms.example,smoke,tests/lms/auth/login.spec.ts,' +
         '"Login › signs in, then out",TC-00003 TC-00004,@smoke @authenticated,0,passed,passed,2,' +
-        '2026-09-12T10:00:01.000Z,1234',
+        '2026-09-12T10:00:01.000Z,1234,d2',
     );
     expect(csv).toHaveLength(3); // trailing newline
   });
@@ -96,11 +102,11 @@ test.describe('timing report', { tag: '@unit' }, () => {
     const csv = stepRowsToCsv(context, rows).split('\n');
 
     expect(csv[0]).toBe(
-      'run_started_at,base_url,project,file,title,retry,depth,path,step_title,category,failed,started_at,duration_ms',
+      'run_started_at,base_url,project,file,title,retry,depth,path,step_title,category,failed,started_at,duration_ms,shard',
     );
     expect(csv[1]).toBe(
       '2026-09-12T10:00:00.000Z,https://lms.example,smoke,tests/lms/auth/login.spec.ts,a,0,0,' +
-        'page.goto,page.goto,pw:api,false,2026-09-12T10:00:01.000Z,10',
+        'page.goto,page.goto,pw:api,false,2026-09-12T10:00:01.000Z,10,d2',
     );
   });
 

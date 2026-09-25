@@ -22,6 +22,18 @@ Rules:
   `capabilityGate` fixture is `auto` and reads each test's own tags.
 - Skip for _optional_ coverage; fail for _misconfiguration_. `courseKey` skips
   when unset but fails when the target lacks the course.
+- **An installation setting is a capability, not a probe** (see
+  [`docs/capabilities.md`](../../docs/capabilities.md)). Where a case depends
+  on how the target is configured, or on content a default install lacks (the
+  AuthZ migration mode, `SUPPORT_URL`, `ENABLE_CREATOR_GROUP`, a multi-org
+  catalog, an intro video), the test carries that capability's tag and the gate
+  decides. The stock half of each setting is on by default, so an undeclared
+  target runs the stock case. The fixture that reads the setting keeps its probe
+  as a check: it refuses an untagged test (`requireCapabilityTag`) and fails when
+  the target contradicts the declaration (`capabilityContradicted`). A CI profile can then
+  select exactly the cases its configuration enables. Every remaining skip is
+  labelled with its kind (`// skip-kind:`), which `tests/conventions/skip-kinds.spec.ts`
+  checks.
 - Per-test identity where state is mutated: `courseLearner` provisions a fresh
   learner and installs its session over the project's shared storage state, so
   enrollment and completion tests are parallel-safe.
@@ -85,6 +97,9 @@ Rules:
   `certificateLearner` enrolls a fresh learner `honor` on its first enrollment;
   `certificateGenerationEnabled` flips the platform-wide switch through a fresh
   admin `loginSession` under the admin lock, and skips without an admin account.
+  A test on another course takes `platformCertificates` and calls
+  `ensureEnabled(courseKey)` itself. Never rely on an earlier test having
+  flipped the switch: each CI shard is a fresh installation.
 - **The library admin is the author, and libraries are seeded per test.**
   `seededLibrary` (a published text / problem / video / PDF block, a unit, a
   subsection, a section and a collection) and the empty `authoringLibrary` are

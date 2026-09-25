@@ -21,6 +21,12 @@ export interface TestOutcome {
  */
 export interface TestAttempt extends TestOutcome {
   readonly testKey: string;
+  /**
+   * The CI profile that ran it (`.ci/profiles.json`); empty or absent outside CI.
+   * A merged report can hold the same test from several profiles, under
+   * different keys: {@link acrossProfiles} keeps one outcome per test.
+   */
+  readonly profile?: string;
 }
 
 /**
@@ -49,11 +55,42 @@ export function normalizeStatus(expectedStatus: TestStatus, status: TestStatus):
  * `failed`. Order of first appearance is preserved so titles stay deterministic.
  */
 export function finalAttempts(attempts: readonly TestAttempt[]): TestOutcome[] {
-  const latest = new Map<string, TestOutcome>();
-  for (const { testKey, ...outcome } of attempts) {
-    latest.set(testKey, outcome);
+  const latest = new Map<string, TestAttempt>();
+  for (const attempt of attempts) {
+    latest.set(attempt.testKey, attempt);
   }
-  return [...latest.values()];
+  return acrossProfiles(
+    [...latest.values()],
+    (a) => a.status !== 'skipped',
+    (a) => statusSeverity(a.status),
+  ).map(({ title, status, testIds }) => ({ title, status, testIds }));
+}
+
+/**
+ * Keeps one final outcome per test when a merged report holds the same test
+ * from several CI profiles. A test is identified by its title, which carries
+ * the project and spec path, since each profile's blob gives the test its own
+ * key. A profile the test ran in wins over one that skipped it, which is what
+ * the extended profiles exist for. Among the profiles it ran in, the worst
+ * result wins. A test skipped everywhere keeps its first skip. Order of first
+ * appearance is preserved. With one profile, or none, this changes nothing.
+ */
+export function acrossProfiles<T extends { readonly title: string }>(
+  finals: readonly T[],
+  ran: (final: T) => boolean,
+  severity: (final: T) => number,
+): T[] {
+  const byTitle = new Map<string, T[]>();
+  for (const final of finals) {
+    const group = byTitle.get(final.title);
+    if (group) group.push(final);
+    else byTitle.set(final.title, [final]);
+  }
+  return [...byTitle.values()].map((group) => {
+    const ranIn = group.filter(ran);
+    const candidates = ranIn.length > 0 ? ranIn : group;
+    return candidates.reduce((chosen, next) => (severity(next) > severity(chosen) ? next : chosen));
+  });
 }
 
 /**
@@ -117,6 +154,11 @@ const STATUS_SEVERITY: Record<TestStatus, number> = {
   timedOut: 3,
   failed: 4,
 };
+
+/** How bad a status is, for picking the worst of several: `passed` 0 … `failed` 4. */
+export function statusSeverity(status: TestStatus): number {
+  return STATUS_SEVERITY[status];
+}
 
 function worst(a: TestStatus, b: TestStatus): TestStatus {
   return STATUS_SEVERITY[b] > STATUS_SEVERITY[a] ? b : a;

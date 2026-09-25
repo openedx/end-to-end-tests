@@ -74,7 +74,7 @@ test.describe('Course About page', { tag: '@mfe-catalog' }, () => {
 
   test(
     'plays the course intro video',
-    { tag: '@regression', annotation: testId('TC-00013') },
+    { tag: ['@course-intro-video', '@regression'], annotation: testId('TC-00013') },
     async ({ courseAboutPage, courseKey, courseIntroVideoId }) => {
       await courseAboutPage.gotoRendered(courseKey);
       // The player embeds a third-party site: its address is the assertion, and

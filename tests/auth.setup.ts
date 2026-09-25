@@ -51,6 +51,7 @@ for (const role of rolesToAuthenticate) {
       state = await defaultAuthProvider.authenticate(role, { config, browser, request });
     } catch (error) {
       if (error instanceof AuthNotConfiguredError) {
+        // skip-kind: suite-config
         setup.skip(true, error.message);
         return;
       }

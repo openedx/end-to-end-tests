@@ -128,8 +128,11 @@ function parseUrl(source: string, value: string, issues: string[]): URL | undefi
  * Every problem is reported rather than guessed at, including an opt-out of a
  * capability that is off anyway — silently accepting it would leave an operator
  * believing they had disabled coverage that was never enabled.
+ *
+ * Exported for the CI profile checks (`tests/config/ci-profiles.spec.ts`), which
+ * validate every capability list the job matrix would declare.
  */
-function parseCapabilities(raw: string | undefined, issues: string[]): Set<Capability> {
+export function parseCapabilities(raw: string | undefined, issues: string[]): Set<Capability> {
   const enabled = new Set<Capability>(DEFAULT_ON_CAPABILITIES);
   if (raw === undefined) {
     return enabled;
@@ -181,6 +184,19 @@ function parseCapabilities(raw: string | undefined, issues: string[]): Set<Capab
         `CAPABILITIES both declares and opts out of "${capability}". Keep whichever ` +
           'matches your installation.',
       );
+    }
+  }
+
+  // Declaring one side of an exclusive pair replaces a default-on other side
+  // (`support-url` stands in for the stock `no-support-url`), so a target that
+  // differs from the stock default says only what it has. Declaring both sides
+  // is still the conflict below.
+  for (const group of MUTUALLY_EXCLUSIVE_CAPABILITIES) {
+    if (!group.some((capability) => declared.has(capability))) continue;
+    for (const capability of group) {
+      if (isDefaultOnCapability(capability) && !declared.has(capability)) {
+        enabled.delete(capability);
+      }
     }
   }
 

@@ -64,20 +64,22 @@ run the unit tests and the quality gates; browser projects fail on it fatally.
 
 The essentials:
 
-| Variable                            | Required | Description                                                        |
-| ----------------------------------- | -------- | ------------------------------------------------------------------ |
-| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                         |
-| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`               |
-| `CMS_BASE_URL`                      | —        | Studio origin; required when `studio` is in `CAPABILITIES`         |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`    |
-| `ORG`                               | —        | Organization short code, e.g. `OpenedX`                            |
-| `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip |
-| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install               |
-| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments                         |
-| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)                |
-| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                   |
-| `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`   |
-| `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)    |
+| Variable                            | Required | Description                                                         |
+| ----------------------------------- | -------- | ------------------------------------------------------------------- |
+| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                          |
+| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`                |
+| `CMS_BASE_URL`                      | —        | Studio origin; required when `studio` is in `CAPABILITIES`          |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`     |
+| `ORG`                               | —        | Organization short code, e.g. `OpenedX`                             |
+| `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip  |
+| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install                |
+| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments                          |
+| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)                 |
+| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                    |
+| `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`    |
+| `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)     |
+| `RUN_ID_SUFFIX`                     | —        | Up to 3 lowercase letters/digits appended to the run id (CI shards) |
+| `CI_PROFILE`                        | —        | The CI profile a job runs (`.ci/profiles.json`); set by CI          |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take
@@ -86,65 +88,21 @@ overridden by `.env`. In practice: use `.env` for local development, and set
 environment variables directly in CI (no `.env` needed there). A `.env` value only
 applies when that variable is not already present in the environment.
 
-**Capabilities.** Optional coverage is gated on an explicit declaration: a spec
-tagged `@teams` runs only where `CAPABILITIES` names `teams`. Stock
-surfaces a default installation ships invert that — they are on unless you turn
-them off with a `-` prefix, so a missing declaration never silently drops
-coverage you have. Today those are `mfe-authn` — the authn MFE owning accounts
-(native registration, password reset, its own screens) — and `frontend-base`,
-the shell that bundles the MFEs into one application with a shared header and
-footer (`main` onward). An install whose identity lives in an external service
-sets `CAPABILITIES=-mfe-authn`, and those specs skip with a reason instead of
-failing; a named release still on the separate-MFE model (verawood and earlier)
-sets `-frontend-base`, which skips the coverage about the shell's own chrome.
-`discussions` (the forum on the `openedx` provider, with the discussions MFE)
-and `notifications` (on by default platform-wide, the v3 preferences API and
-the tray in every MFE header, verawood onward) are default-on too: an install
-without the forum sets `-discussions`, and ulmo and earlier set
-`-notifications`. On Tutor the forum is the `forum` plugin; enable it with
-`tutor local launch` (or `tutor local do init --limit=forum`), because its init
-task creates the search indices the forum needs to accept a post. The opt-in
-`email-inbox` capability makes notification e-mail assertable: it needs a
-mailbox provider (`MAIL_PROVIDER` plus `CUSTOM_MAIL_PROVIDER_PLUGINS`; the
-`mailpit` and `openinbox` plugins ship in `plugins/`, see
-[`src/mail/README.md`](src/mail/README.md)), and declaring it without one fails
-validation.
-The authoring suite adds opt-in capabilities for features and component types that
-are not on every install: `cohorts` and `courseware-navigation-sidebar`, and the
-component gates `ora`, `drag-and-drop-v2`, `pdf-xblock`, `lti`, `scorm` and
-`edx-sga` (all but `scorm` are edx-platform requirements; `scorm` is the
-`openedx-scorm-xblock` Tutor installs). The
-instructor-dashboard suite adds the default-on `instructor-dashboard` (the LMS
-instructor dashboard as its MFE, `verawood` onward — ulmo and earlier opt out
-with `-instructor-dashboard`) and the opt-in `certificates` (course certificates
-can be issued; the platform-wide switch is turned on through the admin account,
-so that coverage skips without one). The content-libraries suite adds
-`content-libraries` (the v2 library-authoring MFE and `/api/libraries/v2/` —
-`tests/studio/library/`; declared on `main` and `verawood`) and the opt-in
-`content-libraries-v1` (legacy `library-v1:` libraries and their migration into
-v2; an install that has disabled the legacy library index leaves it
-undeclared). The roles-and-permissions suite (`tests/rbac/`) adds `rbac` (the
-`openedx-authz` API and the Roles and Permissions console MFE; declared on
-`main` and `verawood`, so `ulmo` and earlier skip the tree) and three narrower
-gates: `rbac-global` (AuthZ course authoring is on for the **whole**
-installation — CI declares it nowhere, because enabling it platform-wide locks
-every unmigrated course's team out of Studio), `rbac-matrix-parity` (the
-console's library permission matrix matches the API's permission list one row
-per permission — `verawood` renders three rows more, wg#609) and
-`rbac-error-view-action` (the console's not-found view offers a working way
-back — `verawood` does; on `main` the anchor does nothing, `RBAC-008`).
-`special-exams` (opt-in) means `ENABLE_SPECIAL_EXAMS` is on for the LMS and CMS,
-which a default install leaves off: the instructor dashboard's Special Exams tab
-and its allowances; CI's Tutor patch turns it on where it is declared.
-`recommender-studio-settings` is declared where the recommender's Studio editor
-shows its saved settings (recommender-xblock 5.1.0 on `main`; not `verawood`,
-`XBLOCK-002`). `certificate-web-view` gates the certificate page's own rendering the same way:
-declared for every release but `main`, where it answers 500 (`CERT-002`). The
-coverage that turns the waffle flag on for a course or an organization also
-needs an admin account, and skips with an operator-facing message without one.
-`analytics` is reserved for the Superset/Aspects reports and has no
-specs yet. The full vocabulary, with which ship by default, is in
-`.env.example`.
+**Capabilities.** Coverage that depends on what an installation runs is gated on
+an explicit declaration: a spec tagged `@teams` runs only where `CAPABILITIES`
+names `teams`.
+
+- **Default-on:** stock surfaces and stock settings are on unless turned off
+  with a `-` prefix (`CAPABILITIES=-mfe-authn`), so a missing declaration never
+  silently drops coverage an install has.
+- **Mutually exclusive pairs:** two implementations or configurations of one
+  surface. Declaring both halves fails validation.
+- **Declared but missing:** a declared capability the target lacks fails its
+  specs rather than skipping.
+
+[`docs/capabilities.md`](docs/capabilities.md) describes every capability: what
+it means, which specs it gates, which Open edX releases are known to support it,
+and where CI turns it on.
 Sign-in and sign-out coverage is not gated — it runs through the account
 backend's own UI flows, whatever those are.
 
@@ -416,12 +374,17 @@ Browser specs need a running Open edX installation, so they run in dedicated
 GitHub Actions workflows rather than the fast PR gate (`ci.yml`, which runs
 static checks and the browser-free `unit` project as required, blocking checks).
 Both workflows share the same [`run-suite`](.github/actions/run-suite/action.yml)
-composite action. They differ only in how the target installation is provisioned.
+composite action, which runs the suite (or one shard of it) and uploads a
+Playwright blob report, and the [`report-suite`](.github/actions/report-suite/action.yml)
+action, which merges blob reports (`merge.config.ts`) into the HTML report and
+suite reports, writes the job summary and publishes BTR results. They differ
+only in how the target installation is provisioned.
 
 `ci.yml` additionally runs `run_tests_tutor.yml` twice every PR and push to
 `main`: once against an ephemeral **`Tutor main`**, and once against the **last
-named release** environment (currently `verawood`). Both PR runs are filtered to
-`@smoke`; the full suite runs on the schedule below and on manual dispatch.
+named release** environment (currently `verawood`). Each runs the full suite
+under the `default` and `extended` CI profiles (see _CI profiles and shards_
+below), so a PR's result covers everything the scheduled runs do.
 
 ### `run_tests_tutor.yml` — ephemeral Tutor installation
 
@@ -435,15 +398,16 @@ Triggers:
 
 - **`workflow_dispatch`** — run on demand with:
 
-  | Input              | Description                                                                                                                                                     |
-  | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `openedx_release`  | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`.                   |
-  | `test_ref`         | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                                  |
-  | `domains`          | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                                                |
-  | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                                           |
-  | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                             |
-  | `capabilities`     | Override the release's default capabilities (comma-separated). Empty = use the release default from `.ci/openedx-releases.json`.                                |
-  | `btr_sheet_url`    | Override: publish BTR results to this Google Sheet instead of the release's `BTR_SHEET_URL_<RELEASE>` variable (see [BTR results sheets](#btr-results-sheets)). |
+  | Input              | Description                                                                                                                                                          |
+  | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `openedx_release`  | Named release (`main`, `verawood`, `ulmo`, `teak`, `sumac`, `redwood`); drives the Tutor/plugin version and capabilities. Default `verawood`.                        |
+  | `test_ref`         | Git ref of _this_ repo to test. Defaults to the branch the workflow runs from.                                                                                       |
+  | `domains`          | Space-separated domains to run (e.g. `lms studio`). Empty = all.                                                                                                     |
+  | `features`         | Space-separated tag filter (e.g. `@smoke @discussions`). Empty = all.                                                                                                |
+  | `exclude_features` | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                                  |
+  | `capabilities`     | Override the release's default capabilities (comma-separated); each profile's delta still applies. Empty = use the release default from `.ci/openedx-releases.json`. |
+  | `profiles`         | Space-separated CI profiles to run (keys of `.ci/profiles.json`, see below), e.g. `default extended`. Default `default`.                                             |
+  | `btr_sheet_url`    | Override: publish BTR results to this Google Sheet instead of the release's `BTR_SHEET_URL_<RELEASE>` variable (see [BTR results sheets](#btr-results-sheets)).      |
 
 - **`schedule`** — automatically at **09:00 UTC (5am US Eastern in daylight
   time), Mondays and Fridays**,
@@ -465,6 +429,32 @@ do the same there (the `tutor-contrib-mailpit` plugin targets `tutor dev`
 only, so copy its service into a `local-docker-compose-services` patch) and
 set `MAIL_PROVIDER=mailpit`, `CUSTOM_MAIL_PROVIDER_PLUGINS=./plugins/mailpit.plugin.ts`
 and `MAILPIT_BASE_URL=http://localhost:8025`.
+
+**CI profiles and shards.** [`.ci/profiles.json`](.ci/profiles.json) defines
+the named configurations a release can run under. Each profile lists the Tutor
+plugin files that configure the install (`.ci/tutor/e2e_base.py` holds the
+settings every profile starts from), a capability delta applied to the
+release's list, and a shard count. A `plan` job expands the selected profiles
+into one `run` job per shard. Each provisions its **own** Tutor install, so
+shards never share users, courses or site settings, and runs its slice of the
+suite with `--shard`. A `merge` job then combines every shard's blob report into
+the release's single `playwright-report-<release>` and `suite-reports-<release>`
+artifacts. `scripts/ci-profiles.mts` reads the file, and the `unit` project
+validates it. Each shard's run id carries a `RUN_ID_SUFFIX` (profile code +
+shard number), so data created by different shards never collides.
+
+Two profiles exist, and `ci.yml` runs both for `main` and `verawood`:
+
+| Profile    | Runs                                               | Installation                                                                                                                                                                                                                                                                 |
+| ---------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default`  | the whole suite, in 4 shards                       | `.ci/tutor/e2e_base.py`                                                                                                                                                                                                                                                      |
+| `extended` | only the cases `default` skips (`select: "delta"`) | plus `.ci/tutor/e2e_extended.py` (AuthZ migration left to an operator, a `SUPPORT_URL`), `.ci/seed/extended.sh` (a second-organization course, an intro video on the demo course) and, where the release has the plugin, `tutor-contrib-codejail` for Python-graded problems |
+
+A `select: "delta"` profile runs only the tests tagged with a capability it
+declares and `default` does not. The merge then reports those tests from it and
+everything else from `default`. `rbac-global` is not in `extended`: turning the
+authz flag on for the whole site locks every unmigrated course's team out of
+Studio, which the other cases need. It would need a profile of its own.
 
 The MySQL state after migrations is cached per release/Tutor-version so most
 runs skip the ~20-minute migration step; delete the `tutor-mysql-*` cache from
@@ -579,9 +569,11 @@ src/
   reporting/           # BTR test_id annotations, coverage + run-detail + a11y reporters
   a11y/                # @axe-core/playwright WCAG 2.2 AA gate
 plugins/               # example account-backend plugin (openinbox)
-.ci/                   # per-release CI configuration (openedx-releases.json)
+.ci/                   # CI configuration: releases, profiles, Tutor plugins, seeds
 docs/
   decisions/           # ADRs
+  capabilities.md      # every capability: meaning, releases, CI declarations
+  findings.md          # defects the suite has surfaced
 ```
 
 The layers have a strict dependency direction —

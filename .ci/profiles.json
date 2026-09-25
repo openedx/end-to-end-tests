@@ -1,0 +1,35 @@
+{
+  "default": {
+    "description": "The standard CI installation: every release's capabilities as .ci/openedx-releases.json declares them, run as the whole suite.",
+    "code": "d",
+    "tutorPlugins": [".ci/tutor/e2e_base.py"],
+    "capabilities": { "add": [], "remove": [] },
+    "shards": 4
+  },
+  "extended": {
+    "description": "The installation configured the other way round, plus seeded content and codejail, running only the cases default skips: manual AuthZ migration, a SUPPORT_URL, a multi-organization catalog, a course intro video and (where the release has the plugin) Python-graded problems.",
+    "code": "x",
+    "tutorPlugins": [".ci/tutor/e2e_base.py", ".ci/tutor/e2e_extended.py"],
+    "tutorExtensions": [
+      {
+        "pip": "tutor-contrib-codejail",
+        "plugin": "codejail",
+        "init": true,
+        "capability": "codejail",
+        "releases": ["verawood"]
+      }
+    ],
+    "seedScripts": [".ci/seed/extended.sh"],
+    "capabilities": {
+      "add": [
+        "authz-manual-migration",
+        "support-url",
+        "multi-org-catalog",
+        "course-intro-video"
+      ],
+      "remove": ["authz-auto-migration"]
+    },
+    "select": "delta",
+    "shards": 1
+  }
+}

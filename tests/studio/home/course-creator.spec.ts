@@ -26,7 +26,7 @@ test.describe(
   () => {
     test(
       'a regular user requests access, an admin grants it, and the user can create a course',
-      { annotation: testId('TC-00310') },
+      { tag: '@course-creator-group', annotation: testId('TC-00310') },
       async ({
         page,
         config,

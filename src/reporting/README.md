@@ -61,10 +61,10 @@ Contains:
 - `timing-reporter.ts` — the always-on reporter that writes two CSV files made
   for import into a spreadsheet or database:
 
-  | File                             | One row per                                                                                                                                                |
-  | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `test-results/timings-tests.csv` | test **attempt** (retries kept, told apart by `retry`): project, file, title, BTR `test_ids`, tags, status, expected status, worker, start time, duration. |
-  | `test-results/timings-steps.csv` | recorded **step** at any depth: category (`pw:api`, `expect`, `hook`, `fixture`, `test.step`), ancestry `path`, failed flag, start time, duration.         |
+  | File                             | One row per                                                                                                                                                          |
+  | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `test-results/timings-tests.csv` | test **attempt** (retries kept, told apart by `retry`): project, file, title, BTR `test_ids`, tags, status, expected status, worker, start time, duration, CI shard. |
+  | `test-results/timings-steps.csv` | recorded **step** at any depth: category (`pw:api`, `expect`, `hook`, `fixture`, `test.step`), ancestry `path`, failed flag, start time, duration, CI shard.         |
 
   Every row carries `run_started_at` (ISO, UTC) and `base_url`, so files from
   many runs append into one table and compare across time and targets. Nothing
@@ -76,11 +76,37 @@ Contains:
 ## Policy
 
 All reporters write **local files only**. Uploading them is a CI-only
-concern: the shared `run-suite` composite action (used by both
-`run_tests_tutor.yml` and `run_tests_external.yml`) publishes
-`btr-coverage.json`, `btr-run.json`, `a11y-violations.json` and
-`timings-*.csv` as a `suite-reports-*` build artifact alongside the full
-report bundle.
+concern. In CI each job running the suite (the shared `run-suite` composite
+action, one job per shard) also writes a Playwright **blob report**, and the
+`report-suite` action combines the blobs with `playwright merge-reports
+--config merge.config.ts`. That replays every shard's results through the same
+reporters (`reporters.ts`, shared by `playwright.config.ts` and
+`merge.config.ts`), so the merged `btr-coverage.json`, `btr-run.json`,
+`a11y-violations.json` and `timings-*.csv` have the shape a one-job run writes.
+`report-suite` uploads them as a `suite-reports-*` build artifact alongside the
+HTML report. The timing rows carry a `shard` column (the shard's
+`RUN_ID_SUFFIX`, e.g. `d2`, taken from the config `metadata` that each shard's
+projects keep through the merge), since worker indexes repeat across shards; a
+merged `timings-tests.csv` has one set of `setup` rows per shard, since each
+shard signs in its own roles.
+
+**Several CI profiles in one merge.** A release's merge can hold the same test
+from more than one profile (`.ci/profiles.json`). For example, the test is
+skipped in `default` for a capability that only `extended` declares. Each
+profile's blob gives the test its own id, so the coverage and run-detail
+summaries collapse by title (`project › spec › test`) with `acrossProfiles`:
+
+- A profile that ran the test beats one that skipped it.
+- Among the profiles that ran it, the worst result wins, and the note names that
+  profile if their results differ.
+- A test skipped everywhere keeps its first skip.
+
+The reported profile's attempts and time are the ones counted. Every
+`btr-run.json` test row records the `profile` and `shard` it came from, from the
+config `metadata` (`CI_PROFILE`, `RUN_ID_SUFFIX`; `project.ts`). Both are
+optional, so reports written before profiles existed still publish. The HTML
+report keeps one entry per profile. The a11y summary already de-duplicates
+identical occurrences.
 
 Publishing `btr-run.json` to the **BTR results sheets** (below) is a separate,
 opt-in CI step. It runs only from `schedule` and `workflow_dispatch` runs, never
