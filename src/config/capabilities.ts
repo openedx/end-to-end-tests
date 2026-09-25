@@ -220,6 +220,52 @@ export const CAPABILITIES = [
   // renders the saved configuration. Declared where it does, so the gap is an
   // undeclared capability rather than a permanently red case.
   'recommender-studio-settings',
+  // --- Installation settings a test depends on -------------------------------
+  // Each of these used to be a runtime probe that skipped the case it did not
+  // describe. Declaring the setting instead makes the selection explicit (a CI
+  // profile can run exactly the cases its configuration enables), and the probe
+  // stays as a check: a declaration the target contradicts **fails** the case,
+  // naming the setting, rather than skipping it. A test that reads one of these
+  // settings must carry its tag (the fixture refuses an untagged test), so the
+  // selection cannot drift from the code. Where a case needs the setting *off*,
+  // the pair is mutually exclusive (`MUTUALLY_EXCLUSIVE_CAPABILITIES`); a target
+  // that declares neither skips both halves.
+  //
+  // AuthZ course-authoring migration mode: whether saving a course or org waffle
+  // override migrates that scope's roles by itself
+  // (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`, off on a stock install)
+  // or leaves migration to an operator. CI turns it on (`.ci/tutor/e2e_base.py`).
+  // Probed by `authzMigrationMode` (`src/steps/rbac.ts`).
+  'authz-auto-migration',
+  'authz-manual-migration',
+  // The MFE config's `SUPPORT_URL`: set, the headers offer a Help link to it
+  // (TC-00020/00021/00023); unset, they offer none. Read from `/api/mfe_config/v1`.
+  'support-url',
+  'no-support-url',
+  // Studio's course-creator group (`ENABLE_CREATOR_GROUP`): a new account has to
+  // request course creation, and staff grant it (Studio Home reports the status).
+  // Off, every account may create courses and there is nothing to request.
+  'course-creator-group',
+  // --- Content a test depends on ------------------------------------------------
+  // Properties of the target's catalog and configured course that a case needs
+  // and a default install lacks, declared like the settings above (and checked
+  // the same way) so a profile that seeds the content can select the cases.
+  //
+  // The catalog lists courses of at least two organizations, so its organization
+  // filter can narrow the list (TC-00013's filter case).
+  'multi-org-catalog',
+  // The configured course (`COURSE_KEY`) has a YouTube intro video on its About
+  // page. The demo course has none.
+  'course-intro-video',
+  // --- Optional services --------------------------------------------------------
+  // A working codejail sandbox (a codejail service via `CODE_JAIL_REST_SERVICE_*`,
+  // or a local sandbox that can actually run): Python-graded (`loncapa/python`)
+  // problems can be scored. Without one, grading fails. edx-codejail raises "safe_exec
+  // has not been configured for Python" when nothing is configured. On a stock
+  // Tutor install, where the jail is configured but its sandbox cannot start,
+  // the jailed subprocess fails (measured on the local `main` sandbox,
+  // 2026-09-24). Either way, a default install cannot run TC-00203.
+  'codejail',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -287,6 +333,10 @@ export const MUTUALLY_EXCLUSIVE_CAPABILITIES: ReadonlyArray<readonly Capability[
   // the older in-course navigation of earlier releases. An installation has one
   // or the other, never both.
   ['courseware-navigation-sidebar', 'courseware-legacy-navigation'],
+  // AuthZ migration either happens on save or is left to an operator.
+  ['authz-auto-migration', 'authz-manual-migration'],
+  // The MFE config either sets SUPPORT_URL or it does not.
+  ['support-url', 'no-support-url'],
 ];
 
 export function isCapability(value: string): value is Capability {

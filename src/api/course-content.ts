@@ -14,13 +14,19 @@ import { courseUsageKey, createXBlock, publishXBlock, updateXBlock } from './xbl
  * so the learner half of a spec can score without reading platform copy.
  */
 
-/** The common problem types the MFE's picker offers, by their OLX response tag. */
+/**
+ * The problem types the suite authors, by their OLX response tag: the common
+ * types the MFE's picker offers, plus `customresponse`, a problem graded by
+ * author-supplied Python, which only a target with the codejail sandbox can
+ * score (the `codejail` capability).
+ */
 export type ProblemType =
   | 'multiplechoiceresponse'
   | 'choiceresponse'
   | 'optionresponse'
   | 'numericalresponse'
-  | 'stringresponse';
+  | 'stringresponse'
+  | 'customresponse';
 
 /**
  * What a learner enters to answer an authored problem. `inputSuffix` is the part
@@ -92,6 +98,20 @@ const PROBLEM_TEMPLATES: Readonly<Record<ProblemType, ProblemTemplate>> = {
       `<textline size="20"/></stringresponse></problem>`,
     correct: { inputSuffix: '2_1', values: ['openedx'] },
     incorrect: { inputSuffix: '2_1', values: ['closedx'] },
+  },
+  // Graded by the script, not by an answer attribute: the right answer (42) is
+  // computed in Python, so a correct grade proves the sandbox executed it. The
+  // script's lines must start at column 0.
+  customresponse: {
+    olx: (label) =>
+      `<problem><script type="loncapa/python">\n` +
+      `def e2e_check(expect, ans):\n` +
+      `    return ans.strip() == str(6 * 7)\n` +
+      `</script>` +
+      `<customresponse cfn="e2e_check"><label>${label}</label>` +
+      `<textline size="10"/></customresponse></problem>`,
+    correct: { inputSuffix: '2_1', values: ['42'] },
+    incorrect: { inputSuffix: '2_1', values: ['41'] },
   },
 };
 

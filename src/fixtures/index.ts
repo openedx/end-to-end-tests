@@ -196,7 +196,14 @@ import {
   setWaffleSwitch,
   updateAccount,
 } from '../api';
-import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
+import {
+  getConfig,
+  getRunId,
+  missingCapabilities,
+  TIMEOUTS,
+  type AppConfig,
+  type Capability,
+} from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
 import { CatalogHomePage } from '../pages/lms/catalog/catalog-home.page';
@@ -289,8 +296,8 @@ export interface TestFixtures {
    * rendered it and the configuration behind it (`read`), the known chrome
    * defects to expect for what the test measured (`expectKnownDefects`, which
    * marks the test an expected failure when one applies to its cases), and the
-   * skip for a Help-link case the target's configuration does not apply to
-   * (`requireSupportUrl`).
+   * check that a Help-link case's `support-url` / `no-support-url` declaration
+   * matches the target (`requireSupportUrl`).
    */
   chromeCase: ChromeCase;
   /** Course About page object. */
@@ -1434,6 +1441,10 @@ async function holdSwitch(
 export interface ChromeCase {
   read(): Promise<PageChrome>;
   expectKnownDefects(context: Omit<ChromeDefectContext, 'viewportWidth'>): void;
+  /**
+   * Checks the Help-link case's `support-url` / `no-support-url` declaration
+   * against the configuration `read` measured, and fails the test on a mismatch.
+   */
   requireSupportUrl(chrome: ChromeConfig, configured: boolean): void;
 }
 
@@ -1723,16 +1734,44 @@ function librarySlug(scope: string): string {
 }
 
 /**
+ * For a fixture that reads an installation setting or content a capability
+ * describes (`src/config/capabilities.ts`, "Installation settings a test depends
+ * on"): refuses a test that does not carry the capability's tag, so which cases
+ * a CI profile runs is always decided by tags, never by a probe.
+ */
+function requireCapabilityTag(testInfo: TestInfo, capability: Capability): void {
+  if (!testInfo.tags.includes(`@${capability}`)) {
+    throw new Error(
+      `This test reads what the \`${capability}\` capability declares; tag it '@${capability}' ` +
+        'so the capability gate selects it.',
+    );
+  }
+}
+
+/**
+ * The failure for a declared capability the target contradicts: the probe that
+ * used to decide a skip now checks the declaration instead.
+ */
+function capabilityContradicted(capability: Capability, measured: string): Error {
+  return new Error(
+    `\`${capability}\` is declared in CAPABILITIES, but ${measured}. Declare what the target ` +
+      'has, or configure the target to match.',
+  );
+}
+
+/**
  * Gate for the taxonomy fixtures: managing a taxonomy (import, assign org,
  * delete) is staff-only, so the coverage skips without a declared `taxonomies`
  * capability or a configured admin account — the `certificateGenerationEnabled`
  * shape. Returns the org the taxonomy is assigned to (the worker's content org).
  */
 function requireTaxonomyAdmin(config: AppConfig): string {
+  // skip-kind: capability
   base.skip(
     !config.capabilities.has('taxonomies'),
     'Content tagging is not declared for this installation (taxonomies).',
   );
+  // skip-kind: suite-config
   base.skip(
     config.credentials.admin === undefined || !isUsableStateFile(authStateFile('staff')),
     'Taxonomy management needs the administrator: importing and assigning a taxonomy is ' +
@@ -1948,6 +1987,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   capabilityGate: [
     async ({ config }, use, testInfo) => {
       const missing = missingCapabilities(testInfo.tags, config.capabilities);
+      // skip-kind: capability
       testInfo.skip(
         missing.length > 0,
         `Installation does not have: ${missing.join(', ')}. Declare ${missing.length === 1 ? 'it' : 'them'} in CAPABILITIES to run this spec.`,
@@ -1959,12 +1999,15 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   catalogPage: pageObjectFixture(CatalogPage),
 
   catalogOrganizations: async ({ catalogPage }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'multi-org-catalog');
     await catalogPage.goto();
     const organizations = await catalogPage.filterValues('org');
-    testInfo.skip(
-      organizations.length < 2,
-      `The catalog lists courses of ${organizations.length} organization(s), so an organization filter cannot narrow it.`,
-    );
+    if (organizations.length < 2) {
+      throw capabilityContradicted(
+        'multi-org-catalog',
+        `the catalog lists courses of ${organizations.length} organization(s)`,
+      );
+    }
     await use(organizations);
   },
 
@@ -2001,12 +2044,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         for (const defect of defects) testInfo.fail(true, defect.reason);
       },
       requireSupportUrl: (chrome, configured) => {
-        testInfo.skip(
-          (chrome.supportUrl !== undefined) !== configured,
-          configured
-            ? 'The target configures no SUPPORT_URL, so its headers offer no Help link.'
-            : 'The target configures a SUPPORT_URL, so the no-Help-link case does not apply.',
-        );
+        const capability = configured ? 'support-url' : 'no-support-url';
+        requireCapabilityTag(testInfo, capability);
+        if ((chrome.supportUrl !== undefined) !== configured) {
+          throw capabilityContradicted(
+            capability,
+            configured
+              ? 'the target configures no SUPPORT_URL'
+              : `the target configures SUPPORT_URL ${chrome.supportUrl ?? ''}`,
+          );
+        }
       },
     });
   },
@@ -2081,6 +2128,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   courseKey: async ({ request, config }, use) => {
     const skipReason = courseKeySkipReason(config);
+    // skip-kind: suite-config
     base.skip(skipReason !== undefined, skipReason);
     // Narrowing: courseKeySkipReason returns undefined only when courseKey is set.
     const courseKey = config.courseKey as string;
@@ -2093,11 +2141,17 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(await fetchCourseDetail(request, config, courseKey));
   },
 
-  courseIntroVideoId: async ({ courseDetail }, use) => {
+  courseIntroVideoId: async ({ courseDetail }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'course-intro-video');
     const uri = courseDetail.courseVideoUri ?? '';
     const id = /(?:youtu\.be\/|[?&]v=|\/embed\/)([\w-]{6,})/.exec(uri)?.[1];
-    base.skip(id === undefined, `The configured course has no YouTube intro video ("${uri}").`);
-    await use(id as string);
+    if (id === undefined) {
+      throw capabilityContradicted(
+        'course-intro-video',
+        `the configured course has no YouTube intro video ("${uri}")`,
+      );
+    }
+    await use(id);
   },
 
   courseLearner: async ({ page, request, config, courseKey }, use) => {
@@ -2152,6 +2206,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   studio: async ({ config }, use) => {
+    // skip-kind: capability
     base.skip(
       !config.capabilities.has('studio'),
       'Studio coverage needs the "studio" capability (and CMS_BASE_URL). Declare it in ' +
@@ -2197,6 +2252,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           });
         } catch (error) {
           if (error instanceof AccountNotConfiguredError) {
+            // skip-kind: suite-config
             base.skip(true, error.message);
           }
           throw error;
@@ -2557,6 +2613,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           });
         } catch (error) {
           if (error instanceof AccountNotConfiguredError) {
+            // skip-kind: suite-config
             base.skip(true, error.message);
           }
           throw error;
@@ -2896,6 +2953,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   certificateCourseMode: async ({ playwright, config, authoredCourse }, use) => {
     const staffState = authStateFile('staff');
+    // skip-kind: suite-config
     base.skip(
       config.credentials.admin === undefined || !isUsableStateFile(staffState),
       'Certificates need a certificate-bearing course mode, which only a staff/superuser ' +
@@ -2923,8 +2981,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(identity);
   },
 
-  studioNewcomer: async ({ page, playwright, config, studio }, use) => {
+  studioNewcomer: async ({ page, playwright, config, studio }, use, testInfo) => {
     void studio;
+    requireCapabilityTag(testInfo, 'course-creator-group');
     const request = await playwright.request.newContext();
     try {
       const identity = await provisionLearnerSession(request, config);
@@ -2934,15 +2993,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         credentials: { emailOrUsername: identity.email, password: identity.password },
       });
       const home = await fetchStudioHome(request, config);
-      base.skip(
-        home.courseCreatorStatus === 'granted',
-        'This installation grants course creation to every account (ENABLE_CREATOR_GROUP ' +
-          'off), so there is no course-creator request to make or grant.',
-      );
-      base.skip(
-        home.courseCreatorStatus === 'disallowed_for_this_site',
-        'Course creation is disallowed for this site, so no request can be made.',
-      );
+      if (home.courseCreatorStatus === 'granted') {
+        throw capabilityContradicted(
+          'course-creator-group',
+          'Studio grants course creation to every new account (ENABLE_CREATOR_GROUP is off)',
+        );
+      }
+      if (home.courseCreatorStatus === 'disallowed_for_this_site') {
+        throw capabilityContradicted(
+          'course-creator-group',
+          'course creation is disallowed for this site, so no request can be made',
+        );
+      }
       await page.context().clearCookies();
       await page.context().addCookies((await request.storageState()).cookies);
       await use({ identity, request });
@@ -2953,6 +3015,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   adminPage: async ({ browser, config }, use) => {
     const admin = config.credentials.admin;
+    // skip-kind: suite-config
     base.skip(
       admin === undefined,
       'This case needs the administrator: set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
@@ -2978,6 +3041,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   adminApi: async ({ playwright, config }, use) => {
     const staffState = authStateFile('staff');
+    // skip-kind: suite-config
     base.skip(
       config.credentials.admin === undefined || !isUsableStateFile(staffState),
       'This case needs the administrator: set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
@@ -2997,6 +3061,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   adminLms: async ({ playwright, config }, use) => {
     const admin = config.credentials.admin;
+    // skip-kind: suite-config
     base.skip(
       admin === undefined,
       'This coverage writes through the Django admin, which needs a superuser session. Set ' +
@@ -3031,27 +3096,32 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 
-  automaticMigrationTarget: async ({ authzTarget }, use) => {
-    base.skip(
-      authzTarget.mode !== 'automatic',
-      'These cases describe a target that migrates AuthZ roles when a waffle override is saved ' +
-        `(${authzTarget.modeEvidence}). This one leaves migration to an operator, so there is no ` +
-        'migration run to read; set ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION to cover it.',
-    );
+  automaticMigrationTarget: async ({ authzTarget }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'authz-auto-migration');
+    if (authzTarget.mode !== 'automatic') {
+      throw capabilityContradicted(
+        'authz-auto-migration',
+        `the target leaves AuthZ migration to an operator (${authzTarget.modeEvidence}); ` +
+          'ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION turns migration on save on',
+      );
+    }
     await use();
   },
 
-  manualMigrationTarget: async ({ authzTarget }, use) => {
-    base.skip(
-      authzTarget.mode === 'automatic',
-      'This target migrates AuthZ roles by itself when a waffle override is saved ' +
-        `(${authzTarget.modeEvidence}), so the stock default these cases describe does not ` +
-        'apply here; the migrating path has its own coverage.',
-    );
+  manualMigrationTarget: async ({ authzTarget }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'authz-manual-migration');
+    if (authzTarget.mode === 'automatic') {
+      throw capabilityContradicted(
+        'authz-manual-migration',
+        `the target migrates AuthZ roles by itself when a waffle override is saved ` +
+          `(${authzTarget.modeEvidence})`,
+      );
+    }
     await use();
   },
 
   authzTarget: async ({ authzCourse }, use) => {
+    // skip-kind: suite-config
     base.skip(
       authzCourse === undefined,
       'AuthZ coverage needs the `rbac` capability and an admin account: the waffle override that ' +
@@ -3078,6 +3148,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     // the browser), and hand the spec an admin API context for its assertions.
     const admin = config.credentials.admin;
     const state = authStateFile('staff');
+    // skip-kind: suite-config
     base.skip(
       admin === undefined || !isUsableStateFile(state),
       'Authors may not create organizations on this installation (allow_to_create_new_org ' +
@@ -3425,6 +3496,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   platformCertificates: async ({ page, playwright, config }, use) => {
     const admin = config.credentials.admin;
+    // skip-kind: suite-config
     base.skip(
       admin === undefined,
       'Certificates need the administrator: the platform-wide certificate switch lives in ' +
@@ -3457,6 +3529,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   certificateGenerationEnabled: async ({ certificateCourse, platformCertificates }, use) => {
+    // skip-kind: suite-config
     base.skip(
       !certificateCourse.certificateBearingMode,
       'Certificates need the administrator: the honor course mode needs a staff session. Set ' +
@@ -3770,15 +3843,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   uploadAgreements: async ({ config, seededUploadAgreements }, use) => {
+    // skip-kind: suite-config
     base.skip(
       !config.capabilities.has('upload-agreements') || config.credentials.admin === undefined,
       'Upload agreements are not declared for this installation, or no administrator is ' +
         'configured (the agreement rows are seeded through the LMS Django admin).',
     );
-    base.skip(
-      seededUploadAgreements.types.length === 0,
-      'No AGREEMENT_GATING is configured on this installation.',
-    );
+    if (seededUploadAgreements.types.length === 0) {
+      throw capabilityContradicted(
+        'upload-agreements',
+        'the MFE config sets no AGREEMENT_GATING map',
+      );
+    }
     await use(seededUploadAgreements);
   },
 
@@ -3840,6 +3916,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     testInfo,
   ) => {
     void studioAuthorSession;
+    // skip-kind: capability
     base.skip(
       !config.capabilities.has('content-libraries-v1'),
       'Legacy (v1) content libraries are not declared for this installation (content-libraries-v1).',
@@ -3877,6 +3954,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         });
       } catch (error) {
         if (error instanceof AccountNotConfiguredError) {
+          // skip-kind: suite-config
           base.skip(true, error.message);
         }
         throw error;
@@ -3930,6 +4008,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       .sort((left, right) => left[1].length - right[1].length)
       .map(([sequentialId, units]) => ({ sequentialId, units }))[0];
 
+    // skip-kind: content
     base.skip(
       viewOnly === undefined || withProblem === undefined || drivableSubsection === undefined,
       `The configured course offers no unit for every completion mechanism ` +
@@ -3947,6 +4026,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   videoUnit: async ({ courseOutline }, use) => {
     const unit = unitsWithHtml5Video(courseOutline)[0];
+    // skip-kind: content
     base.skip(
       unit === undefined,
       'The configured course has no video with an HTML5 source: a YouTube-only video ' +

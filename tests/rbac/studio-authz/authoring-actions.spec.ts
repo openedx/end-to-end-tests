@@ -102,7 +102,7 @@ test.describe(
 
     test(
       'publishes a unit as a course admin, and the learner sees it',
-      { annotation: testId('TC-00621') },
+      { tag: '@authz-auto-migration', annotation: testId('TC-00621') },
       async (
         {
           page,

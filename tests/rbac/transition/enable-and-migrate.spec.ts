@@ -60,6 +60,7 @@ test.describe(
     test(
       'migrates a course’s whole team and leaves every role’s access exactly as it was',
       {
+        tag: '@authz-auto-migration',
         annotation: [
           testId('TC-00587'),
           testId('TC-00588'),
@@ -219,7 +220,7 @@ test.describe(
 
     test(
       'migrates an organization-wide role with its organization, and no further',
-      { annotation: [testId('TC-00615'), testId('TC-00599')] },
+      { tag: '@authz-auto-migration', annotation: [testId('TC-00615'), testId('TC-00599')] },
       async (
         {
           page,
