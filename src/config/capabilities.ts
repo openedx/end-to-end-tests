@@ -12,7 +12,9 @@
  * Coarse capabilities that gate optional spec coverage. Each corresponds to a
  * Playwright tag (e.g. `@discussions`). This list **is** the tag vocabulary:
  * extend it when new capability-gated coverage is added, and mirror the change in
- * the "Known capabilities" comment of `.env.example`.
+ * the "Known capabilities" comment of `.env.example` and in
+ * `docs/capabilities.md` (the reader-facing description, with the releases and
+ * CI declarations; `tests/config/capabilities-doc.spec.ts` keeps it in step).
  */
 export const CAPABILITIES = [
   'mfe-authn',
@@ -47,8 +49,6 @@ export const CAPABILITIES = [
   'teams',
   'notes',
   'wiki',
-  'badges',
-  'credly-badges',
   'cohorts',
   // Content libraries v2 (Learning Core): the library-authoring MFE
   // (`/library/<lib key>` inside the authoring app), the `/api/libraries/v2/`
@@ -72,8 +72,10 @@ export const CAPABILITIES = [
   // `verawood` declare this. Gates only the BTR migration cases.
   'content-libraries-v1',
   // The learning MFE's in-course outline sidebar, behind the
-  // `courseware.enable_navigation_sidebar` waffle flag. Its counterpart covers the
-  // installations that keep the older in-course navigation instead.
+  // `courseware.enable_navigation_sidebar` waffle flag. Its counterpart describes
+  // the installations that keep the older in-course navigation instead (ulmo and
+  // earlier). No spec is tagged with the legacy half yet: declaring it gates
+  // nothing, but keeps a target from also declaring the sidebar.
   'courseware-navigation-sidebar',
   'courseware-legacy-navigation',
   // Search and filtering in the catalog MFE, gated on the LMS's top-level
@@ -165,11 +167,11 @@ export const CAPABILITIES = [
   // adds that tab to TC-00514's expected set. CI turns the setting on for the
   // releases that declare it.
   'special-exams',
-  // Reserved for the Superset / Aspects analytics reports on the instructor
-  // dashboard (BTR TC-00542–00559). Aspects is a separate deployment, not part
-  // of a default install; no spec uses this capability yet, so declaring it has
-  // no effect — it exists so the tag vocabulary is settled before that coverage
-  // is written.
+  // Aspects (the Superset analytics deployment, not part of a default install)
+  // is installed. No spec is tagged with it yet; the report coverage itself
+  // (BTR TC-00542–00559) is Epic 16. It already changes one expectation:
+  // declared, TC-00514 expects the instructor dashboard to offer Aspects'
+  // Reports tab (`tests/lms/instructor/tab-visibility.spec.ts`).
   'analytics',
   // Roles and permissions under **openedx-authz**: the `/api/authz/v1/` API and
   // the Roles and Permissions console (the admin-console MFE, reached through
@@ -333,14 +335,11 @@ export const CAPABILITY_OPT_OUT_PREFIX = '-';
  * Groups of capabilities that must not be enabled together: each group is a
  * single platform surface backed by mutually-exclusive implementations, so
  * enabling one means the other's tests are not applicable (ADR-0002). Declaring
- * more than one member of a group is a configuration error.
- *
- * This is intentionally seeded with a single illustrative pair; the mechanism is
- * the deliverable. Add real exclusive groups here as they are identified.
+ * more than one member of a group is a configuration error. Add a group here
+ * when a surface gains a second implementation or configuration that coverage
+ * has to tell apart.
  */
 export const MUTUALLY_EXCLUSIVE_CAPABILITIES: ReadonlyArray<readonly Capability[]> = [
-  // Only one badging backend can be active on an installation at a time.
-  ['badges', 'credly-badges'],
   // In-course navigation is one surface with two implementations: the outline
   // sidebar (verawood onward, where the platform no longer reads the
   // `courseware.enable_navigation_sidebar` flag; BTR TC-00047, 49–52, 55–57) and
