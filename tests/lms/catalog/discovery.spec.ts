@@ -324,7 +324,10 @@ test.describe('Course catalog discovery', () => {
 
   test(
     'refines the results with the organization, language and type filters',
-    { tag: ['@regression', '@catalog-search', '@mfe-catalog'], annotation: testId('TC-00017') },
+    {
+      tag: ['@multi-org-catalog', '@regression', '@catalog-search', '@mfe-catalog'],
+      annotation: testId('TC-00017'),
+    },
     async ({ catalogPage, catalogOrganizations }) => {
       // Three refine filters, each offering the values the platform's facets hold.
       for (const facet of ['org', 'language', 'modes'] as const) {

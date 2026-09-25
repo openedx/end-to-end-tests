@@ -39,7 +39,7 @@ test.describe(
 
     test(
       'assigns the creator the admin role in AuthZ when a course is created under the flag',
-      { annotation: [testId('TC-00616'), testId('TC-00627')] },
+      { tag: '@authz-auto-migration', annotation: [testId('TC-00616'), testId('TC-00627')] },
       async (
         {
           config,
@@ -117,7 +117,7 @@ test.describe(
 
     test(
       'lets an organization instructor create a course in that organization',
-      { annotation: testId('TC-00640') },
+      { tag: '@authz-auto-migration', annotation: testId('TC-00640') },
       async (
         {
           page,
@@ -213,7 +213,7 @@ test.describe(
 
     test(
       'copies a course’s team into the re-run',
-      { annotation: testId('TC-00632') },
+      { tag: '@authz-auto-migration', annotation: testId('TC-00632') },
       async (
         {
           page,
@@ -312,6 +312,7 @@ test.describe(
     test(
       'lists an organization holder only the courses of that organization',
       {
+        tag: '@authz-auto-migration',
         annotation: [
           testId('TC-00622'),
           issue('https://github.com/openedx/wg-build-test-release/issues/612'),
@@ -390,6 +391,7 @@ test.describe(
     test.fixme(
       'lets an organization-wide holder create a course under an AuthZ override',
       {
+        tag: '@authz-auto-migration',
         annotation: [
           testId('TC-00640'),
           knownGap(
@@ -463,6 +465,7 @@ test.describe(
     test.fixme(
       'carries an AuthZ course’s team into its re-run',
       {
+        tag: '@authz-auto-migration',
         annotation: [
           testId('TC-00632'),
           knownGap(
