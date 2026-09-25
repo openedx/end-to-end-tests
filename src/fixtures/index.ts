@@ -260,8 +260,9 @@ export interface TestFixtures {
   catalogPage: CatalogPage;
   /**
    * The catalog opened, with the organizations its refine filter offers (the
-   * `value`s of the options, in the order offered). Skips when it offers fewer
-   * than two: an organization filter cannot then narrow the list (TC-00017).
+   * `value`s of the options, in the order offered). For cases tagged
+   * `@multi-org-catalog`: fails when it offers fewer than two, where an
+   * organization filter cannot narrow the list (TC-00017). Refuses an untagged test.
    */
   catalogOrganizations: readonly string[];
   /** The catalog MFE's home — the public landing page. */
@@ -359,9 +360,10 @@ export interface TestFixtures {
   /** The course's own identifiers (number, org, title) from the platform. */
   courseDetail: CourseDetail;
   /**
-   * The YouTube id of the configured course's About-page intro video. Skips
-   * when the course has none — the sheet's "if the course about page has a
-   * video" — or when its video is not a YouTube URL the catalog can embed.
+   * The YouTube id of the configured course's About-page intro video, for
+   * cases tagged `@course-intro-video` (the sheet's "if the course about page has
+   * a video"). Fails when the course has none, or its video is not a YouTube URL
+   * the catalog can embed. Refuses an untagged test.
    */
   courseIntroVideoId: string;
   /**
@@ -531,18 +533,18 @@ export interface TestFixtures {
    */
   adminConsole: AdminConsoleFixture;
   /**
-   * Skips unless this target leaves AuthZ migration to an operator — the stock
-   * default, where saving a waffle override migrates nothing. The cases that
-   * describe that default take it; the ones that describe a migrating target
-   * take {@link TestFixtures.authzTarget} and read its `mode`.
+   * For the cases tagged `@authz-manual-migration` (on by default): checks that
+   * this target leaves AuthZ migration to an operator (the stock default, where
+   * saving a waffle override migrates nothing) and fails where it migrates by
+   * itself. Refuses an untagged test.
    */
   manualMigrationTarget: void;
   /**
-   * Skips unless this target migrates AuthZ roles **itself** when a waffle
-   * override is saved — the setting CI turns on
-   * (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`). The transition cases
-   * describe that path: without it there is no migration run to read and no
-   * roles move, so the coverage has no subject rather than a failure.
+   * For the cases tagged `@authz-auto-migration`: checks that
+   * this target migrates AuthZ roles **itself** when a waffle override is saved
+   * (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`, which CI turns on) and
+   * fails where it does not. The transition cases describe that path. Refuses an
+   * untagged test.
    */
   automaticMigrationTarget: void;
   /**
@@ -630,8 +632,10 @@ export interface TestFixtures {
    * A freshly registered account with a Studio session but **no** course-creator
    * status yet, installed in the browser context — the subject of TC-00310.
    *
-   * Skips where the installation grants course creation to every account
-   * (`ENABLE_CREATOR_GROUP` off): there is no request-and-grant flow to test.
+   * For cases tagged `@course-creator-group` (on by default): fails where the
+   * installation grants course creation to every account (`ENABLE_CREATOR_GROUP`
+   * off, which opts out with `-course-creator-group`), or disallows it. Refuses an
+   * untagged test.
    */
   studioNewcomer: StudioNewcomer;
   /**
@@ -834,9 +838,10 @@ export interface TestFixtures {
   /**
    * The upload-agreement gating declared for this installation, with its
    * `UserAgreement` rows seeded (see {@link WorkerFixtures.seededUploadAgreements},
-   * which does the work once per worker). Skips without a configured admin, the
-   * `upload-agreements` capability or an empty gating map — so only the specs
-   * whose subject *is* the gating should take it.
+   * which does the work once per worker). Skips without a configured admin or
+   * the `upload-agreements` capability, and fails where it is declared but the
+   * gating map is empty, so only the specs whose subject *is* the gating should
+   * take it.
    */
   uploadAgreements: UploadAgreements;
   /**

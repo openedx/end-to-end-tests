@@ -3,8 +3,6 @@
  * Reads `.ci/profiles.json` for `run_tests_tutor.yml`. Runs natively on Node 24
  * (type stripping); no build step.
  *
- *   node scripts/ci-profiles.mts check
- *       Validate the file (the `checks` job in ci.yml).
  *   node scripts/ci-profiles.mts matrix --profiles "default extended" --release main \
  *       [--release-capabilities="<list>"]
  *       Print the job matrix: a JSON list of `MatrixEntry` (`ci-profiles/profiles.mts`)
@@ -37,9 +35,6 @@ function main(): void {
   const profiles = parseProfiles(JSON.parse(readFileSync(PROFILES_FILE, 'utf8')), existsSync);
 
   switch (positionals[0]) {
-    case 'check':
-      console.log(`OK: ${PROFILES_FILE} defines ${profiles.map((p) => p.name).join(', ')}`);
-      return;
     case 'matrix': {
       const name = values.release ?? '';
       const releases = JSON.parse(readFileSync(RELEASES_FILE, 'utf8')) as Record<
@@ -62,7 +57,7 @@ function main(): void {
       return;
     }
     default:
-      throw new ProfileError('Usage: ci-profiles.mts check | matrix (see the header).');
+      throw new ProfileError('Usage: ci-profiles.mts matrix (see the header).');
   }
 }
 

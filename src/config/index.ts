@@ -4,7 +4,7 @@ import { ConfigError } from './errors';
 import { loadConfig, type AppConfig } from './load';
 
 export type { AppConfig, AdminCredentials, BaseUrls, Env, Scheme } from './load';
-export { loadConfig } from './load';
+export { loadConfig, parseCapabilities } from './load';
 export { ConfigError };
 export {
   CAPABILITIES,
@@ -32,7 +32,14 @@ export {
   viewportUse,
   type ViewportSpec,
 } from './viewports';
-export { RUN_ID_ENV, RUN_ID_SUFFIX_ENV, getRunId, parseRunIdSuffix } from './run-id';
+export {
+  CI_PROFILE_ENV,
+  RUN_ID_ENV,
+  RUN_ID_SUFFIX_ENV,
+  ciResultLabels,
+  getRunId,
+  parseRunIdSuffix,
+} from './run-id';
 export {
   ACCOUNT_MENU_SELECTORS,
   ADMIN_CONSOLE_SELECTORS,

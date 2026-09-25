@@ -51,3 +51,29 @@ export function getRunId(): string {
   process.env[RUN_ID_ENV] = runId;
   return runId;
 }
+
+/**
+ * Env var naming the CI profile a job runs (a key of `.ci/profiles.json`,
+ * e.g. `default`); empty outside CI. Set by the run-suite action.
+ */
+export const CI_PROFILE_ENV = 'CI_PROFILE';
+
+const CI_PROFILE_PATTERN = /^(?:[a-z][a-z0-9-]*)?$/;
+
+/**
+ * The labels `playwright.config.ts` puts in the config `metadata`, which every
+ * result carries into a merged report (see `src/reporting/project.ts`): the
+ * shard that ran it (its run-id suffix) and the CI profile.
+ */
+export function ciResultLabels(env: NodeJS.ProcessEnv = process.env): {
+  readonly shard: string;
+  readonly profile: string;
+} {
+  const profile = (env[CI_PROFILE_ENV] ?? '').trim();
+  if (!CI_PROFILE_PATTERN.test(profile)) {
+    throw new Error(
+      `${CI_PROFILE_ENV} must be a profile name of .ci/profiles.json; got "${profile}".`,
+    );
+  }
+  return { shard: parseRunIdSuffix(env[RUN_ID_SUFFIX_ENV]), profile };
+}

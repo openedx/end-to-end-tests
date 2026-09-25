@@ -79,6 +79,7 @@ The essentials:
 | `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`    |
 | `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)     |
 | `RUN_ID_SUFFIX`                     | —        | Up to 3 lowercase letters/digits appended to the run id (CI shards) |
+| `CI_PROFILE`                        | —        | The CI profile a job runs (`.ci/profiles.json`); set by CI          |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take
@@ -425,8 +426,9 @@ only in how the target installation is provisioned.
 
 `ci.yml` additionally runs `run_tests_tutor.yml` twice every PR and push to
 `main`: once against an ephemeral **`Tutor main`**, and once against the **last
-named release** environment (currently `verawood`). Both PR runs are filtered to
-`@smoke`; the full suite runs on the schedule below and on manual dispatch.
+named release** environment (currently `verawood`). Each runs the full suite
+under the `default` and `extended` CI profiles (see _CI profiles and shards_
+below), so a PR's result covers everything the scheduled runs do.
 
 ### `run_tests_tutor.yml` — ephemeral Tutor installation
 

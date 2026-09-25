@@ -70,4 +70,3 @@ export {
   type RunTotals,
 } from './btr-run';
 export { default as BtrRunReporter, type BtrRunReporterOptions } from './btr-run-reporter';
-export { profileOf, projectOf, shardOf } from './project';

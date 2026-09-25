@@ -27,7 +27,7 @@
         "multi-org-catalog",
         "course-intro-video"
       ],
-      "remove": ["authz-auto-migration", "no-support-url"]
+      "remove": ["authz-auto-migration"]
     },
     "select": "delta",
     "shards": 1

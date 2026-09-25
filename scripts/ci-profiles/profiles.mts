@@ -305,6 +305,13 @@ export function profileCapabilities(profile: Profile, release: ReleaseInfo): str
  * capability it declares and `default` does not, on the same release. The tag
  * must end there (`(?![\w-])`), so `@rbac` does not select `@rbac-global`.
  *
+ * It works from the declared lists, since this script cannot load the
+ * default-on capabilities (`src/config/capabilities.ts`). So it can also name
+ * a capability that default has on by default without declaring it (the stock
+ * `authz-manual-migration` on a release that does not declare
+ * `authz-auto-migration`). That only re-runs tests the release merge counts
+ * once; `tests/config/ci-profiles.spec.ts` checks that it is never a gap.
+ *
  * @throws {ProfileError} when the profile declares nothing `default` lacks.
  */
 export function deltaGrep(profile: Profile, defaults: Profile, release: ReleaseInfo): string {

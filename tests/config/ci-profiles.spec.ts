@@ -12,7 +12,12 @@ import {
   shardMatrix,
   type ReleaseInfo,
 } from '../../scripts/ci-profiles/profiles.mts';
-import { CAPABILITY_OPT_OUT_PREFIX, isCapability } from '../../src/config';
+import {
+  CAPABILITY_OPT_OUT_PREFIX,
+  isCapability,
+  parseCapabilities,
+  type Capability,
+} from '../../src/config';
 
 /**
  * The CI profile rules (`.ci/profiles.json`, read by `scripts/ci-profiles.mts`
@@ -71,6 +76,45 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
         { name, ...entry },
       );
       expect(matrix.length, name).toBeGreaterThan(0);
+    }
+  });
+
+  test('every job declares a valid capability list, and a delta profile selects all it gains', () => {
+    const profiles = parseProfiles(
+      JSON.parse(readFileSync('.ci/profiles.json', 'utf8')),
+      existsSync,
+      isCapability,
+    );
+    const releases = JSON.parse(readFileSync('.ci/openedx-releases.json', 'utf8')) as Record<
+      string,
+      { tutorConstraint: string; capabilities: string }
+    >;
+    const enabled = (list: string, where: string) => {
+      const issues: string[] = [];
+      const set = parseCapabilities(list, issues);
+      expect(issues, where).toEqual([]);
+      return set;
+    };
+    for (const [name, entry] of Object.entries(releases)) {
+      const matrix = shardMatrix(
+        profiles,
+        profiles.map((p) => p.name),
+        { name, ...entry },
+      );
+      const defaults = enabled(matrix.find((m) => m.profile === 'default')!.capabilities, name);
+      for (const job of matrix.filter((m) => m.grep !== '')) {
+        const gained = [...enabled(job.capabilities, `${name} ${job.profile}`)].filter(
+          (c) => !defaults.has(c),
+        );
+        const named = (/^@\(\?:(.*)\)\(/.exec(job.grep)?.[1] ?? '').split('|');
+        // Every capability the profile gains is selected. The grep works from
+        // declarations, so it may also name one default already has on by default,
+        // which only re-runs tests the merge then counts once.
+        expect(named, `${name} ${job.profile}`).toEqual(expect.arrayContaining(gained));
+        for (const extra of named.filter((c) => !(gained as string[]).includes(c))) {
+          expect(defaults.has(extra as Capability), `${name} ${job.profile}: ${extra}`).toBe(true);
+        }
+      }
     }
   });
 

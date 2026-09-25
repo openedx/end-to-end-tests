@@ -228,23 +228,28 @@ export const CAPABILITIES = [
   // naming the setting, rather than skipping it. A test that reads one of these
   // settings must carry its tag (the fixture refuses an untagged test), so the
   // selection cannot drift from the code. Where a case needs the setting *off*,
-  // the pair is mutually exclusive (`MUTUALLY_EXCLUSIVE_CAPABILITIES`); a target
-  // that declares neither skips both halves.
+  // the pair is mutually exclusive (`MUTUALLY_EXCLUSIVE_CAPABILITIES`), and the
+  // half that matches a stock install is on by default (`DEFAULT_ON_CAPABILITIES`):
+  // declaring the other half replaces it, and `-name` opts out of both.
   //
   // AuthZ course-authoring migration mode: whether saving a course or org waffle
   // override migrates that scope's roles by itself
-  // (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`, off on a stock install)
-  // or leaves migration to an operator. CI turns it on (`.ci/tutor/e2e_base.py`).
+  // (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`, off on a stock install,
+  // so `authz-manual-migration` is on by default) or leaves migration to an
+  // operator. CI turns it on (`.ci/tutor/e2e_base.py`) and declares
+  // `authz-auto-migration`.
   // Probed by `authzMigrationMode` (`src/steps/rbac.ts`).
   'authz-auto-migration',
   'authz-manual-migration',
   // The MFE config's `SUPPORT_URL`: set, the headers offer a Help link to it
-  // (TC-00020/00021/00023); unset, they offer none. Read from `/api/mfe_config/v1`.
+  // (TC-00020/00021/00023); unset (stock, so `no-support-url` is on by default),
+  // they offer none. Read from `/api/mfe_config/v1`.
   'support-url',
   'no-support-url',
-  // Studio's course-creator group (`ENABLE_CREATOR_GROUP`): a new account has to
-  // request course creation, and staff grant it (Studio Home reports the status).
-  // Off, every account may create courses and there is nothing to request.
+  // Studio's course-creator group (`ENABLE_CREATOR_GROUP`, on in a stock CMS, so
+  // this is on by default): a new account has to request course creation, and
+  // staff grant it (Studio Home reports the status). An install that turns it off,
+  // where every account may create courses, opts out with `-course-creator-group`.
   'course-creator-group',
   // --- Content a test depends on ------------------------------------------------
   // Properties of the target's catalog and configured course that a case needs
@@ -303,6 +308,12 @@ export type Capability = (typeof CAPABILITIES)[number];
  * `notifications` is on by default because verawood and every later release
  * enable notifications platform-wide and render the tray; ulmo and earlier opt
  * out with `-notifications`.
+ *
+ * `authz-manual-migration`, `no-support-url` and `course-creator-group` describe
+ * the stock settings (automatic AuthZ migration off, no `SUPPORT_URL`,
+ * `ENABLE_CREATOR_GROUP` on). The first two are one half of an exclusive pair:
+ * declaring the other half (`authz-auto-migration`, `support-url`) replaces the
+ * default-on one without an opt-out, as `parseCapabilities` in `load.ts` applies.
  */
 export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = [
   'mfe-authn',
@@ -310,6 +321,9 @@ export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = [
   'instructor-dashboard',
   'discussions',
   'notifications',
+  'authz-manual-migration',
+  'no-support-url',
+  'course-creator-group',
 ];
 
 /** Marks an opt-out in `CAPABILITIES`, e.g. `-mfe-authn`. */

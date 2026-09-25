@@ -253,4 +253,8 @@ Two `src/` modules support specs across every domain rather than a single layer:
 | `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline. Per-scan results are attached to each test and aggregated by the reporter above.                                                                                                                                                                                                                                                                                                  |
 
 Configuration lives in [`playwright.config.ts`](playwright.config.ts); timeouts
-are centralized in `src/config/timeouts.ts` (no fixed sleeps).
+are centralized in `src/config/timeouts.ts` (no fixed sleeps). Both it and
+[`merge.config.ts`](merge.config.ts), the configuration CI's `playwright
+merge-reports` step uses to combine the blob reports of its shards and CI
+profiles, take the reporters from `src/reporting/reporters.ts`. A merged run
+therefore writes the same report files as a single one.
