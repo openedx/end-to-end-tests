@@ -103,6 +103,7 @@ jobs:
     uses: ./.github/workflows/run_tests_tutor.yml
     with:
       openedx_release: main
+      profiles: default extended
 
   docker-last-release:
     name: 'Docker: last release (verawood)'
@@ -110,3 +111,4 @@ jobs:
     with:
       # Keep in sync with the newest non-"main" entry in .ci/openedx-releases.json.
       openedx_release: verawood
+      profiles: default extended

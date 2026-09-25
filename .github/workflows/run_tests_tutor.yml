@@ -71,7 +71,7 @@ on:
         type: string
         default: ''
       profiles:
-        description: 'CI profiles to run (keys of .ci/profiles.json), space-separated. Each profile runs as its shards, and the merge job combines them into one report.'
+        description: 'CI profiles to run (keys of .ci/profiles.json), space-separated, e.g. "default extended". Each profile runs as its shards, and the merge job combines them into one report.'
         type: string
         default: 'default'
       btr_sheet_url:
@@ -105,7 +105,7 @@ on:
         type: string
         default: ''
       profiles:
-        description: 'CI profiles to run (keys of .ci/profiles.json), space-separated. Each profile runs as its shards, and the merge job combines them into one report.'
+        description: 'CI profiles to run (keys of .ci/profiles.json), space-separated, e.g. "default extended". Each profile runs as its shards, and the merge job combines them into one report.'
         type: string
         default: 'default'
 
@@ -182,6 +182,7 @@ jobs:
           set -euo pipefail
           MATRIX=$(node scripts/ci-profiles.mts matrix \
             --profiles "$PROFILES" \
+            --release "$OPENEDX_RELEASE" \
             --release-capabilities="${OVERRIDE_CAPABILITIES:-$RELEASE_CAPABILITIES}")
           echo "$MATRIX" | jq .
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
@@ -263,6 +264,18 @@ jobs:
       - name: Install Tutor and plugins (main branch)
         if: env.OPENEDX_RELEASE == 'main'
         uses: ./.github/actions/install-tutor-main
+
+      # Published Tutor plugins the profile uses on this release
+      # (`tutorExtensions` in .ci/profiles.json, e.g. tutor-contrib-codejail),
+      # each pinned to the release's Tutor line by the plan job.
+      - name: Install the profile's Tutor extensions
+        if: join(matrix.tutorPip, '') != ''
+        env:
+          TUTOR_PIP: ${{ join(matrix.tutorPip, ' ') }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086  # TUTOR_PIP is a deliberate word list
+          pip install $TUTOR_PIP
 
       # Tutor "main" images aren't always reliably published, especially for
       # the plugins. So build_tutor_main_images.yml builds them nightly and
@@ -433,9 +446,13 @@ jobs:
       # The profile's Tutor plugins (.ci/profiles.json): each file is copied into
       # Tutor's plugin root and enabled by its file name. .ci/tutor/e2e_base.py
       # documents the settings every profile starts from.
+      # Extensions with an init task (codejail loads its AppArmor profile onto
+      # the host) run it before the restart, so their services start confined.
       - name: Configure Tutor
         env:
           TUTOR_PLUGIN_FILES: ${{ join(matrix.tutorPlugins, ' ') }}
+          TUTOR_EXTENSION_PLUGINS: ${{ join(matrix.tutorEnable, ' ') }}
+          TUTOR_INIT_PLUGINS: ${{ join(matrix.tutorInit, ' ') }}
         run: |
           set -euo pipefail
           PLUGINS_ROOT="$(tutor plugins printroot)"
@@ -446,7 +463,14 @@ jobs:
             tutor plugins enable "$name"
             echo "Enabled Tutor plugin '${name}' from ${file}"
           done
+          for name in $TUTOR_EXTENSION_PLUGINS; do
+            tutor plugins enable "$name"
+            echo "Enabled Tutor extension '${name}'"
+          done
           tutor config save
+          for name in $TUTOR_INIT_PLUGINS; do
+            tutor local do init --limit "$name"
+          done
           tutor local stop
           tutor local start -d
 
@@ -474,6 +498,19 @@ jobs:
           echo "::error::LMS did not become healthy in time."
           exit 1
 
+      # Content the profile declares (`seedScripts`), e.g. the extended
+      # profile's second-organization course and intro video.
+      - name: Seed the profile's content
+        if: join(matrix.seedScripts, '') != ''
+        env:
+          SEED_SCRIPTS: ${{ join(matrix.seedScripts, ' ') }}
+        run: |
+          set -euo pipefail
+          for script in $SEED_SCRIPTS; do
+            echo "Running ${script}"
+            bash "$script"
+          done
+
       - name: Run E2E suite
         uses: ./.github/actions/run-suite
         with:
@@ -496,6 +533,7 @@ jobs:
           exclude_features: ${{ inputs.exclude_features }} @unit
           shard: ${{ matrix.shard }}/${{ matrix.shards }}
           profile: ${{ matrix.profile }}
+          select_grep: ${{ matrix.grep }}
           run_id_suffix: ${{ matrix.runIdSuffix }}
           artifact_suffix: ${{ env.OPENEDX_RELEASE }}-${{ matrix.profile }}-${{ matrix.shard }}
 
