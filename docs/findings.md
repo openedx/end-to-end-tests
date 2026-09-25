@@ -1834,11 +1834,15 @@ there is nowhere to send it, as the shell's Help widget does. This is the
 "Help link does not redirect" half of wg-build-test-release#579 (TC-00021).
 
 **Coverage impact:** open. The Help-link tests of TC-00020, TC-00021 and TC-00023
-are split: "points at `SUPPORT_URL`" runs where the target configures one, and
-"is absent without `SUPPORT_URL`" runs where it does not. The absent test is
-marked `test.fail` by `chromeCase` wherever the learning header renders
-(`KNOWN_CHROME_DEFECTS` in `src/steps/chrome.ts`); on the dashboard, which the
-shell renders on `main`, it passes.
+are split. "is absent without `SUPPORT_URL`" runs where `no-support-url` holds,
+which is the stock default and so on by default. "points at `SUPPORT_URL`" runs
+where a target declares `support-url`: in CI, that is the `extended` profile,
+which sets one. The absent test is marked `test.fail` by `chromeCase` wherever
+the learning header renders (`KNOWN_CHROME_DEFECTS` in `src/steps/chrome.ts`);
+on the dashboard, which the shell renders on `main`, it passes. With a
+`SUPPORT_URL` set, every header generation offers the right link on both
+`main` and `verawood` (CI run 36124418941, 2026-09-25), so the defect is only
+the unset case.
 
 ### `BASE-004` — logo sizes differ between pages rendered by different frontend generations
 
@@ -2125,3 +2129,35 @@ configuration. Measured in CI (2026-09-24): `main` passes, `verawood` reopens on
 `verawood` gap is an undeclared capability. A `verawood.2` that picks up 5.1.0
 can declare it.
 
+## CI split — sharded runs and profiles (2026-09-24/25, suite-side)
+
+Splitting CI into shards, each against its own fresh Tutor install, and adding
+an `extended` profile (`.ci/profiles.json`) surfaced one platform race and three
+suite-side defects. The platform race is `PLAT-010`, whose cause is now
+measured (see its entry). The three suite-side defects are recorded here so they
+are not mistaken for platform ones.
+
+- **A spec relied on a site-wide switch an earlier test had flipped (TC-00530).**
+  The instructor dashboard's Certificates report tab renders only while
+  platform certificate generation is on. The issued-certificates case never
+  turned it on; in one long run an earlier certificate test always had. In a
+  fresh shard it failed on every attempt. It now turns the switch on itself
+  (`platformCertificates`). Rule since: never depend on state another test left
+  behind; each shard is a clean installation.
+- **A same-tab link was read before the router had moved (TC-00524, `main`).**
+  On `main` the gradebook and the instructor dashboard are one frontend-base app,
+  so "View Gradebook" is a client-side route change with no document load. The
+  page object waited for `domcontentloaded`, which had already fired, and read
+  the old URL. It now waits for the URL to change (`grading.page.ts`).
+- **The intro-video reader had never run (TC-00013).** The demo course has no
+  intro video, so the case always skipped. Once the extended profile seeded one,
+  the reader failed at once: it resolved the player's scheme-relative `src`
+  (`//www.youtube.com/embed/<id>`, from `CourseDetails.recompose_video_tag`)
+  against `https:`, which is not a valid base URL. It now resolves against the
+  page.
+
+Also measured, and not a defect: a stock Tutor install has codejail configured
+but no sandbox that can start, so a Python-graded problem (TC-00203) answers with
+no grade. Scoring one needs a working sandbox, which the extended profile gets
+from `tutor-contrib-codejail` on `verawood`. That plugin stops at the Tutor 22
+line, so `main` has no build of it yet.

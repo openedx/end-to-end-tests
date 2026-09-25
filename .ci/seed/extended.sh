@@ -2,7 +2,12 @@
 # Seeds the content the `extended` CI profile declares (`.ci/profiles.json`),
 # on a Tutor "local" install that the run job has provisioned: the demo course
 # is imported, the admin exists and the courses are indexed. Run from the repo
-# root with TUTOR_ROOT and ADMIN_USERNAME / ADMIN_EMAIL set.
+# root with TUTOR_ROOT and ADMIN_USERNAME / ADMIN_EMAIL set. Idempotent: every
+# step checks or overwrites, so a re-run changes nothing.
+#
+# This provisions CI's own Tutor install, like the workflow's importdemocourse
+# step; it is not test data the suite depends on. A provider whose target has
+# such content declares the same capabilities instead (`.env.example`).
 #
 # - multi-org-catalog: a course under a second organization, started (the
 #   create_course command backdates the start a week) and indexed for catalog
@@ -19,8 +24,20 @@ SECOND_ORG_COURSE="course-v1:E2ESEED+CATALOG2+run1"
 INTRO_VIDEO_ID="dQw4w9WgXcQ"
 
 echo "Seeding a second-organization course (${SECOND_ORG_COURSE})..."
-tutor local exec cms ./manage.py cms create_course split "$ADMIN_EMAIL" \
-  E2ESEED CATALOG2 run1 "E2E second-organization course"
+tutor local exec cms ./manage.py cms shell -c "
+from django.core.management import call_command
+from opaque_keys.edx.keys import CourseKey
+from xmodule.modulestore.django import modulestore
+
+key = CourseKey.from_string('${SECOND_ORG_COURSE}')
+if modulestore().has_course(key):
+    print('Already present:', key)
+else:
+    call_command(
+        'create_course', 'split', '${ADMIN_EMAIL}', key.org, key.course, key.run,
+        'E2E second-organization course',
+    )
+"
 tutor local exec cms ./manage.py cms reindex_course "$SECOND_ORG_COURSE"
 
 echo "Setting the intro video of ${DEMO_COURSE}..."

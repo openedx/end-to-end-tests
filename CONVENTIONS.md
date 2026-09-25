@@ -509,8 +509,29 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   skips it where that capability is not enabled, so the tag is the whole of the
   contract — while any other tag is only a filter. Most capabilities are off until
   declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces: `mfe-authn`,
-  `frontend-base`, `instructor-dashboard`, `discussions` and `notifications`) are
-  on unless turned off with a `-` prefix.
+  `frontend-base`, `instructor-dashboard`, `discussions` and `notifications`, and
+  the stock settings `authz-manual-migration`, `no-support-url` and
+  `course-creator-group`) are on unless turned off with a `-` prefix.
+
+  **An installation setting a case depends on is a capability, not a probe.**
+  Where a case describes one configuration of the target (the AuthZ migration
+  mode, whether `SUPPORT_URL` is set, `ENABLE_CREATOR_GROUP`) or content a
+  default install lacks (a second organization in the catalog, an intro video),
+  tag it with that capability. Do not have a fixture skip it after probing the
+  target. The fixture that reads the setting keeps the probe as a check: it
+  refuses a test without the tag (`requireCapabilityTag`) and fails one whose
+  target contradicts the declaration (`capabilityContradicted`). Where a case
+  needs the setting off, the two halves are a mutually exclusive pair whose
+  stock half is on by default. Declaring the other half replaces it. Tags, not
+  probes, then decide what a run covers, which is what lets a CI profile
+  (`.ci/profiles.json`) select exactly the cases its configuration enables.
+
+  Every remaining conditional skip carries a `// skip-kind:` label on the line
+  above: `capability`, `suite-config` (the suite's own configuration lacks an
+  admin account, an account, or `COURSE_KEY`) or `content` (the configured
+  course lacks content of the needed shape). There is deliberately no label for
+  "the target is configured differently": that case gets a capability instead.
+  `tests/conventions/skip-kinds.spec.ts` enforces the labels.
 
   `@frontend-base` marks coverage that only makes sense in the `frontend-base`
   shell (`main` onward): its chrome's a11y debt, markup only it renders. It is
@@ -585,8 +606,8 @@ is described in `src/reporting/README.md`.
 
 Every run also writes `test-results/timings-tests.csv` (one row per test attempt)
 and `test-results/timings-steps.csv` (one row per recorded step), each row stamped
-with the run's start time and target URL for import into a spreadsheet or
-database and comparison across runs. Nothing to do in a spec: Playwright records
+with the run's start time, target URL and CI shard (empty locally) for import into
+a spreadsheet or database and comparison across runs. Nothing to do in a spec: Playwright records
 the durations; the reporter reshapes them. Wrapping a long flow in
 `test.step('…')` gives it a named row in the steps file.
 

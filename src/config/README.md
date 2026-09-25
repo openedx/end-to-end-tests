@@ -20,6 +20,12 @@ Contains:
   opt-out syntax. `missingCapabilities()` is the decision the gate in
   `src/fixtures/` applies to every spec's tags.
 - The built-in account-backend names (`account-backends.ts`).
+- The run id (`run-id.ts`): minted once per run and shared by every worker, with
+  CI's per-shard `RUN_ID_SUFFIX`, and the CI labels (`ciResultLabels`: shard and
+  `CI_PROFILE`) that `playwright.config.ts` puts in the config `metadata` for the
+  reporters to read back from a merged report.
+- `parseCapabilities`, the `CAPABILITIES` parser `loadConfig` uses, exported for
+  the CI profile checks that validate every list a job would declare.
 - Centralized timeout budgets (`timeouts.ts`), each one justified — including
   `sharedLockWait`, which the named-lock fixtures add to a waiting case's own
   budget.

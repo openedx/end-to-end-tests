@@ -37,7 +37,11 @@ should be a new `*.spec.ts` and nothing else.
 5. **Composition** → `src/fixtures/index.ts`. Add a typed fixture with a doc
    comment so the spec receives a finished object. Put any `test.skip` condition
    here (missing `COURSE_KEY`, a course lacking the needed content) — conditionals
-   do not belong in test bodies.
+   do not belong in test bodies — and label it `// skip-kind: capability |
+suite-config | content` (enforced by `tests/conventions/skip-kinds.spec.ts`).
+   A case that depends on how the target is **configured** is not a skip: give it
+   a capability tag, and have the fixture check the declaration with
+   `requireCapabilityTag` / `capabilityContradicted` (see CONVENTIONS "Tags").
 6. **The spec** → `tests/<domain>/<feature>.spec.ts`.
 
 ```ts

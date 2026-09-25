@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import csv
 import io
 import json
 import os
@@ -32,7 +33,8 @@ import re
 import subprocess
 import sys
 import zipfile
-from collections import Counter
+from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
 
 DEFAULT_REPO = 'openedx/end-to-end-tests'
@@ -383,8 +385,6 @@ def logs(args: argparse.Namespace) -> None:
 def iso_seconds(value: str | None) -> float | None:
     if not value:
         return None
-    from datetime import datetime
-
     return datetime.fromisoformat(value.replace('Z', '+00:00')).timestamp()
 
 
@@ -402,9 +402,6 @@ def shards(args: argparse.Namespace) -> None:
     shard pays again (sign-ins, worker authors and courses). Fixture totals are
     summed across shards so a 1-shard and an N-shard run can be compared.
     """
-    import csv
-    from collections import defaultdict
-
     root = Path(args.dir)
     meta_path = root / 'run.json'
     if meta_path.exists():
