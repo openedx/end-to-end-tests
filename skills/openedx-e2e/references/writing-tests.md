@@ -106,7 +106,9 @@ visits, and run `npm run check`.
 - Tier: `@smoke` (critical path) or `@regression` (broader depth); `@unit` for
   pure logic (no browser/target).
 - Capability: `@discussions`, `@catalog-search`, … — must exist in
-  `src/config/capabilities.ts`. The `capabilityGate` fixture reads the test's
+  `src/config/capabilities.ts`; `docs/capabilities.md` says what each means,
+  which releases have it and where CI declares it (a new one must be added
+  there too). The `capabilityGate` fixture reads the test's
   own tags and skips automatically, so **the tag is the whole contract**. A gated
   spec must assert the feature's surface is really present, so a target that
   declares a capability it lacks fails rather than passing vacuously.

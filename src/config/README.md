@@ -17,7 +17,8 @@ Contains:
 - The capability vocabulary and mutually-exclusive pairs (`capabilities.ts`) —
   the authoritative list a `@capability` tag must match — including which
   capabilities are on by default (`DEFAULT_ON_CAPABILITIES`) and the `-name`
-  opt-out syntax. `missingCapabilities()` is the decision the gate in
+  opt-out syntax. [`docs/capabilities.md`](../../docs/capabilities.md) describes
+  each capability, the releases known to support it and where CI declares it. `missingCapabilities()` is the decision the gate in
   `src/fixtures/` applies to every spec's tags.
 - The built-in account-backend names (`account-backends.ts`).
 - The run id (`run-id.ts`): minted once per run and shared by every worker, with

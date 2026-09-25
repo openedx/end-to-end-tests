@@ -83,7 +83,8 @@ First-time setup: `nvm use` (Node 24) → `npm install` → `npm run install:bro
   `CUSTOM_ACCOUNT_BACKEND_PLUGINS`. Specs driving a _separate_ UI sign-in (`login`,
   `logout`) need an install where the account can actually log in — i.e.
   `SKIP_EMAIL_VALIDATION = True`, or `manual` to activate first.
-- **Capabilities.** Ask the install, don't assume. e.g. catalog search:
+- **Capabilities.** `docs/capabilities.md` lists them all, with the releases
+  known to support each. Ask the install, don't assume. e.g. catalog search:
   `curl -s <LMS_BASE_URL>/api/mfe_config/v1 | grep ENABLE_COURSE_DISCOVERY`.
   Declaring a capability the target lacks makes gated specs fail (by design);
   declaring two mutually-exclusive ones fails validation at load time.

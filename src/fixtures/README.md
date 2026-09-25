@@ -22,7 +22,8 @@ Rules:
   `capabilityGate` fixture is `auto` and reads each test's own tags.
 - Skip for _optional_ coverage; fail for _misconfiguration_. `courseKey` skips
   when unset but fails when the target lacks the course.
-- **An installation setting is a capability, not a probe.** Where a case depends
+- **An installation setting is a capability, not a probe** (see
+  [`docs/capabilities.md`](../../docs/capabilities.md)). Where a case depends
   on how the target is configured, or on content a default install lacks (the
   AuthZ migration mode, `SUPPORT_URL`, `ENABLE_CREATOR_GROUP`, a multi-org
   catalog, an intro video), the test carries that capability's tag and the gate

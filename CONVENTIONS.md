@@ -502,16 +502,17 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 - **Stability tier:** `@smoke` (critical path), `@regression` (broader depth).
 - **Pure logic:** `@unit` (no browser/target; runs in the `unit` project).
 - **Capability:** `@discussions`, `@teams`, `@notes`, `@mfe-authn`, … —
-  gates coverage on what the installation has (see `CAPABILITIES` in
-  `.env.example`). `src/config/capabilities.ts` is the authoritative vocabulary; a
-  tag must match an entry there. A tag that names a capability is **enforced** —
+  gates coverage on what the installation has. `src/config/capabilities.ts` is
+  the authoritative vocabulary; a tag must match an entry there.
+  [`docs/capabilities.md`](docs/capabilities.md) describes each one: what it
+  means, which specs it gates, the releases known to support it, and where CI
+  turns it on. Add a new capability there too; `tests/config/capabilities-doc.spec.ts`
+  fails until you do. A tag that names a capability is **enforced** —
   the `capabilityGate` fixture in `src/fixtures/` reads each test's own tags and
   skips it where that capability is not enabled, so the tag is the whole of the
   contract — while any other tag is only a filter. Most capabilities are off until
-  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces: `mfe-authn`,
-  `frontend-base`, `instructor-dashboard`, `discussions` and `notifications`, and
-  the stock settings `authz-manual-migration`, `no-support-url` and
-  `course-creator-group`) are on unless turned off with a `-` prefix.
+  declared; the `DEFAULT_ON_CAPABILITIES` (the stock surfaces and stock settings
+  listed in `docs/capabilities.md`) are on unless turned off with a `-` prefix.
 
   **An installation setting a case depends on is a capability, not a probe.**
   Where a case describes one configuration of the target (the AuthZ migration

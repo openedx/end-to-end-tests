@@ -88,65 +88,21 @@ overridden by `.env`. In practice: use `.env` for local development, and set
 environment variables directly in CI (no `.env` needed there). A `.env` value only
 applies when that variable is not already present in the environment.
 
-**Capabilities.** Optional coverage is gated on an explicit declaration: a spec
-tagged `@teams` runs only where `CAPABILITIES` names `teams`. Stock
-surfaces a default installation ships invert that — they are on unless you turn
-them off with a `-` prefix, so a missing declaration never silently drops
-coverage you have. Today those are `mfe-authn` — the authn MFE owning accounts
-(native registration, password reset, its own screens) — and `frontend-base`,
-the shell that bundles the MFEs into one application with a shared header and
-footer (`main` onward). An install whose identity lives in an external service
-sets `CAPABILITIES=-mfe-authn`, and those specs skip with a reason instead of
-failing; a named release still on the separate-MFE model (verawood and earlier)
-sets `-frontend-base`, which skips the coverage about the shell's own chrome.
-`discussions` (the forum on the `openedx` provider, with the discussions MFE)
-and `notifications` (on by default platform-wide, the v3 preferences API and
-the tray in every MFE header, verawood onward) are default-on too: an install
-without the forum sets `-discussions`, and ulmo and earlier set
-`-notifications`. On Tutor the forum is the `forum` plugin; enable it with
-`tutor local launch` (or `tutor local do init --limit=forum`), because its init
-task creates the search indices the forum needs to accept a post. The opt-in
-`email-inbox` capability makes notification e-mail assertable: it needs a
-mailbox provider (`MAIL_PROVIDER` plus `CUSTOM_MAIL_PROVIDER_PLUGINS`; the
-`mailpit` and `openinbox` plugins ship in `plugins/`, see
-[`src/mail/README.md`](src/mail/README.md)), and declaring it without one fails
-validation.
-The authoring suite adds opt-in capabilities for features and component types that
-are not on every install: `cohorts` and `courseware-navigation-sidebar`, and the
-component gates `ora`, `drag-and-drop-v2`, `pdf-xblock`, `lti`, `scorm` and
-`edx-sga` (all but `scorm` are edx-platform requirements; `scorm` is the
-`openedx-scorm-xblock` Tutor installs). The
-instructor-dashboard suite adds the default-on `instructor-dashboard` (the LMS
-instructor dashboard as its MFE, `verawood` onward — ulmo and earlier opt out
-with `-instructor-dashboard`) and the opt-in `certificates` (course certificates
-can be issued; the platform-wide switch is turned on through the admin account,
-so that coverage skips without one). The content-libraries suite adds
-`content-libraries` (the v2 library-authoring MFE and `/api/libraries/v2/` —
-`tests/studio/library/`; declared on `main` and `verawood`) and the opt-in
-`content-libraries-v1` (legacy `library-v1:` libraries and their migration into
-v2; an install that has disabled the legacy library index leaves it
-undeclared). The roles-and-permissions suite (`tests/rbac/`) adds `rbac` (the
-`openedx-authz` API and the Roles and Permissions console MFE; declared on
-`main` and `verawood`, so `ulmo` and earlier skip the tree) and three narrower
-gates: `rbac-global` (AuthZ course authoring is on for the **whole**
-installation — CI declares it nowhere, because enabling it platform-wide locks
-every unmigrated course's team out of Studio), `rbac-matrix-parity` (the
-console's library permission matrix matches the API's permission list one row
-per permission — `verawood` renders three rows more, wg#609) and
-`rbac-error-view-action` (the console's not-found view offers a working way
-back — `verawood` does; on `main` the anchor does nothing, `RBAC-008`).
-`special-exams` (opt-in) means `ENABLE_SPECIAL_EXAMS` is on for the LMS and CMS,
-which a default install leaves off: the instructor dashboard's Special Exams tab
-and its allowances; CI's Tutor patch turns it on where it is declared.
-`recommender-studio-settings` is declared where the recommender's Studio editor
-shows its saved settings (recommender-xblock 5.1.0 on `main`; not `verawood`,
-`XBLOCK-002`). `certificate-web-view` gates the certificate page's own rendering the same way:
-declared for every release but `main`, where it answers 500 (`CERT-002`). The
-coverage that turns the waffle flag on for a course or an organization also
-needs an admin account, and skips with an operator-facing message without one.
-`analytics` is reserved for the Superset/Aspects reports and has no
-specs yet. The full vocabulary, with which ship by default, is in
-`.env.example`.
+**Capabilities.** Coverage that depends on what an installation runs is gated on
+an explicit declaration: a spec tagged `@teams` runs only where `CAPABILITIES`
+names `teams`.
+
+- **Default-on:** stock surfaces and stock settings are on unless turned off
+  with a `-` prefix (`CAPABILITIES=-mfe-authn`), so a missing declaration never
+  silently drops coverage an install has.
+- **Mutually exclusive pairs:** two implementations or configurations of one
+  surface. Declaring both halves fails validation.
+- **Declared but missing:** a declared capability the target lacks fails its
+  specs rather than skipping.
+
+[`docs/capabilities.md`](docs/capabilities.md) describes every capability: what
+it means, which specs it gates, which Open edX releases are known to support it,
+and where CI turns it on.
 Sign-in and sign-out coverage is not gated — it runs through the account
 backend's own UI flows, whatever those are.
 
@@ -613,9 +569,11 @@ src/
   reporting/           # BTR test_id annotations, coverage + run-detail + a11y reporters
   a11y/                # @axe-core/playwright WCAG 2.2 AA gate
 plugins/               # example account-backend plugin (openinbox)
-.ci/                   # per-release CI configuration (openedx-releases.json)
+.ci/                   # CI configuration: releases, profiles, Tutor plugins, seeds
 docs/
   decisions/           # ADRs
+  capabilities.md      # every capability: meaning, releases, CI declarations
+  findings.md          # defects the suite has surfaced
 ```
 
 The layers have a strict dependency direction —

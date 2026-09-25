@@ -257,7 +257,13 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   });
 
   test('rejects mutually-exclusive capabilities declared together', () => {
-    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'badges,credly-badges' })));
+    const issues = issuesFrom(() =>
+      loadConfig(
+        validEnv({
+          CAPABILITIES: 'courseware-navigation-sidebar,courseware-legacy-navigation',
+        }),
+      ),
+    );
     expect(issues.join('\n')).toContain('mutually-exclusive');
   });
 
