@@ -87,7 +87,12 @@ export class CourseAboutPage {
   async openIntroVideo(): Promise<string> {
     await this.introVideoButton.click();
     await this.introVideoFrame.waitFor({ state: 'attached' });
-    return new URL((await this.introVideoFrame.getAttribute('src')) ?? '', 'https:').toString();
+    // The platform writes a scheme-relative src (`//www.youtube.com/embed/<id>`),
+    // so resolve it against the page, as the browser does.
+    return new URL(
+      (await this.introVideoFrame.getAttribute('src')) ?? '',
+      this.page.url(),
+    ).toString();
   }
 
   /**
