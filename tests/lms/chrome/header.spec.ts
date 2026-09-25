@@ -127,13 +127,14 @@ test.describe('Site header', () => {
 /**
  * The Help link (TC-00020, TC-00021, TC-00023): present and pointing at
  * `SUPPORT_URL` where the target configures one, absent where it does not.
- * Each half runs only where the target's configuration makes it the case in
- * point (`chromeCase.requireSupportUrl`).
+ * Each half is gated on the target's declaration (`@support-url` /
+ * `@no-support-url`), which `chromeCase.requireSupportUrl` checks against the
+ * configuration the page was served with.
  */
 test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] }, () => {
   test(
     'points at SUPPORT_URL on the dashboard',
-    { tag: '@mfe-learner-dashboard', annotation: testId('TC-00023') },
+    { tag: ['@support-url', '@mfe-learner-dashboard'], annotation: testId('TC-00023') },
     async ({ siteHeader, chromeCase, dashboardPage, enrolledCourse }) => {
       // A signed-in learner of the test's own; the dashboard renders its cards.
       void enrolledCourse;
@@ -148,7 +149,7 @@ test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] 
 
   test(
     'is absent without SUPPORT_URL on the dashboard',
-    { tag: '@mfe-learner-dashboard', annotation: testId('TC-00023') },
+    { tag: ['@no-support-url', '@mfe-learner-dashboard'], annotation: testId('TC-00023') },
     async ({ siteHeader, chromeCase, dashboardPage, enrolledCourse }) => {
       // A signed-in learner of the test's own; the dashboard renders its cards.
       void enrolledCourse;
@@ -166,7 +167,7 @@ test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] 
 
   test(
     'points at SUPPORT_URL on the course home',
-    { tag: '@mfe-learning', annotation: testId('TC-00020') },
+    { tag: ['@support-url', '@mfe-learning'], annotation: testId('TC-00020') },
     async ({ siteHeader, chromeCase, courseOutlinePage, enrolledCourse }) => {
       await courseOutlinePage.goto(enrolledCourse.courseKey);
       await courseOutlinePage.dismissTourDialog();
@@ -180,7 +181,7 @@ test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] 
 
   test(
     'is absent without SUPPORT_URL on the course home',
-    { tag: '@mfe-learning', annotation: testId('TC-00020') },
+    { tag: ['@no-support-url', '@mfe-learning'], annotation: testId('TC-00020') },
     async ({ siteHeader, chromeCase, courseOutlinePage, enrolledCourse }) => {
       await courseOutlinePage.goto(enrolledCourse.courseKey);
       await courseOutlinePage.dismissTourDialog();
@@ -197,7 +198,7 @@ test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] 
 
   test(
     'points at SUPPORT_URL on the in-course page',
-    { tag: '@mfe-learning', annotation: testId('TC-00021') },
+    { tag: ['@support-url', '@mfe-learning'], annotation: testId('TC-00021') },
     async ({ siteHeader, chromeCase, unitPage, courseOutline, enrolledCourse }) => {
       const unit = courseOutline.units[0]!;
       await unitPage.goto(enrolledCourse.courseKey, unit.sequentialId, unit.id);
@@ -211,7 +212,7 @@ test.describe('Site header Help link', { tag: ['@regression', '@authenticated'] 
 
   test(
     'is absent without SUPPORT_URL on the in-course page',
-    { tag: '@mfe-learning', annotation: testId('TC-00021') },
+    { tag: ['@no-support-url', '@mfe-learning'], annotation: testId('TC-00021') },
     async ({ siteHeader, chromeCase, unitPage, courseOutline, enrolledCourse }) => {
       const unit = courseOutline.units[0]!;
       await unitPage.goto(enrolledCourse.courseKey, unit.sequentialId, unit.id);

@@ -32,8 +32,9 @@ import { testId } from '../../../src/reporting';
  * (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`), which the
  * `authzMigrationMode` fixture probes once per worker against an organization
  * that holds no courses. TC-00613/00614 describe the **stock** default — a
- * toggle that migrates nothing — so they take `manualMigrationTarget` and skip
- * where the target migrates by itself; the rest runs everywhere.
+ * toggle that migrates nothing — so they are tagged `@authz-manual-migration`
+ * and take `manualMigrationTarget`, which fails them where the target migrates
+ * by itself after all; the rest runs everywhere.
  *
  * Admin work is batched: every `adminLms` call is an admin sign-in, and a long
  * one would hold the cross-worker lock past its staleness window.
@@ -161,7 +162,7 @@ test.describe(
 
     test(
       'a course-level toggle migrates nothing where automatic migration is off',
-      { annotation: testId('TC-00613') },
+      { tag: '@authz-manual-migration', annotation: testId('TC-00613') },
       async ({ page, config, adminLms, authoringCourse, manualMigrationTarget, newLearner }) => {
         void manualMigrationTarget;
         const courseKey = authoringCourse.courseKey;
@@ -200,7 +201,7 @@ test.describe(
 
     test(
       'an org-level toggle migrates nothing where automatic migration is off',
-      { annotation: testId('TC-00614') },
+      { tag: '@authz-manual-migration', annotation: testId('TC-00614') },
       async ({ config, adminLms, manualMigrationTarget }) => {
         void manualMigrationTarget;
         // An organization of this run's own, with no courses in it: an override
