@@ -61,6 +61,17 @@ Contains:
     met). Each reader narrows to what the learner submitted, never rendered copy. In Studio,
     `fetchPdfFields` reads a PDF component's content-scoped fields through its
     `load_pdf` handler, as its editor does.
+- `aspects.ts` — Aspects' LMS views (`/aspects/…`, **session auth only**, so the
+  reader's own signed-in context): the Reports tab's dashboards and Superset URL
+  (`fetchInstructorReports`), a course's Superset guest token
+  (`fetchGuestToken`, five minutes' life) and Studio's in-context dashboard for a
+  course or block (`fetchInContextDashboard`).
+- `superset.ts` — Superset's API as the analytics oracle: `parseChartQuery`
+  reads a chart-data request the dashboard sent, and `replayChartData` sends it
+  again with only `force` set (`replayBody`, the guard: Superset itself accepts
+  a modified query), on the guest token or the context's Superset session.
+  `fetchSupersetUser` says whether the SSO signed the context in and with which
+  roles.
 - `notifications.ts` — the recipient's notifications (verawood onward): the
   list (`listNotifications`, filterable by app), the unseen `count/`, **seen**
   (`markNotificationsSeen`, what opening a tray tab sends and all `count/`
