@@ -216,4 +216,14 @@ export const TIMEOUTS = {
    * for a shared CI worker and an external provider's polling.
    */
   emailDelivery: 120_000,
+
+  /**
+   * Budget for an Aspects dashboard embedded in the instructor dashboard's
+   * Reports tab to load: the tab asks the LMS for a guest token, the LMS asks
+   * Superset to mint it, and the iframe fetches its first chart data (its filter
+   * options). Measured 2026-09-27 on Tutor `main` with Aspects 5.0.0: a few
+   * seconds from selecting the tab. The headroom is for Superset's first request
+   * after start, which warms its caches, on a shared CI runner.
+   */
+  supersetEmbed: 60_000,
 } as const;

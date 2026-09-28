@@ -670,6 +670,7 @@ export {
   narrowGuestToken,
   narrowInContextDashboard,
   narrowInstructorReports,
+  supersetOrigin,
   type AspectsDashboard,
   type InContextDashboard,
   type InstructorReports,

@@ -60,6 +60,7 @@ import { InstructorCohortsPage } from '../pages/lms/instructor/cohorts.page';
 import { InstructorCourseTeamPage } from '../pages/lms/instructor/course-team.page';
 import { InstructorSpecialExamsPage } from '../pages/lms/instructor/special-exams.page';
 import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
+import { ReportsPage } from '../pages/lms/instructor/reports.page';
 import { BulkEmailPage } from '../pages/lms/communications/bulk-email.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
@@ -331,6 +332,16 @@ export interface TestFixtures {
   teamsCourse: AuthoredCourse & { readonly topicId: string };
   /** The learner dashboard in the admin's browser (`adminPage`), for global staff's "View as". */
   adminDashboardPage: DashboardPage;
+  /** Aspects' Reports tab in the admin's browser (`adminPage`): the superuser's reading (TC-00543). */
+  adminReportsPage: ReportsPage;
+  /**
+   * A course's Reports-tab viewer: the worker's `instructorCast('staff')`
+   * member, granted `staff` on `courseKey` by the worker author (the course's
+   * instructor), with a {@link ReportsPage} on its own page. Aspects' LMS views
+   * accept only a session, which the member's own sign-in holds and the author's
+   * JWT-only browser does not. The grant is revoked when the test ends.
+   */
+  reportsViewer: (courseKey: string) => Promise<ReportsViewer>;
   /**
    * Turns course e-mail on for the content course only (`enableCourseEmail`,
    * through the Django admin under the admin lock), so its learners' dashboard
@@ -1055,6 +1066,12 @@ export type ForumCastPart = 'poster' | 'moderator';
  * `discussionAdmin`, or a `teamMember` whose roles the Course Team tab changes.
  */
 export type InstructorCastPart = 'staff' | 'limitedStaff' | 'discussionAdmin' | 'teamMember';
+
+/** What {@link TestFixtures.reportsViewer} hands a spec. */
+export interface ReportsViewer {
+  readonly member: InstructorCastMember;
+  readonly reportsPage: ReportsPage;
+}
 
 /** A cast member: its identity, its API and browser sessions, and the pages it reads. */
 export interface InstructorCastMember {
@@ -2108,6 +2125,41 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   adminDashboardPage: async ({ adminPage, config }, use) => {
     await use(new DashboardPage(adminPage, config));
+  },
+
+  adminReportsPage: async ({ adminPage, config }, use) => {
+    const reportsPage = new ReportsPage(adminPage, config);
+    await use(reportsPage);
+    reportsPage.detach();
+  },
+
+  reportsViewer: async ({ page, config, studioAuthorSession, instructorCast }, use) => {
+    void studioAuthorSession;
+    const made: { courseKey: string; viewer: ReportsViewer }[] = [];
+    await use(async (courseKey) => {
+      const member = await instructorCast('staff');
+      await grantCourseTeamRole(
+        page.request,
+        config,
+        courseKey,
+        [member.identity.username],
+        'staff',
+      );
+      const viewer = { member, reportsPage: new ReportsPage(member.page, config) };
+      made.push({ courseKey, viewer });
+      return viewer;
+    });
+    for (const { courseKey, viewer } of made) {
+      viewer.reportsPage.detach();
+      await grantCourseTeamRole(
+        page.request,
+        config,
+        courseKey,
+        [viewer.member.identity.username],
+        'staff',
+        'revoke',
+      );
+    }
   },
 
   courseEmailEnabled: async ({ config, adminLms, contentCourse }, use) => {

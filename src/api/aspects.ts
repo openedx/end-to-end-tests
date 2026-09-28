@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 
-import type { AppConfig } from '../config';
+import { registrableDomain, type AppConfig } from '../config';
 import { ApiError } from './errors';
 import { lmsGet } from './lms-json';
 
@@ -73,6 +73,33 @@ export async function fetchInstructorReports(
       `Reading the Aspects Reports config for ${courseKey}`,
     ),
   );
+}
+
+/**
+ * Superset's origin, from the URL the platform advertises, held to the rule
+ * every configured origin follows: the same scheme and registrable domain as the
+ * LMS, so the one LMS sign-in reaches it (Superset signs users in through the
+ * LMS). A target that allows cross-site origins (`ALLOW_CROSS_SITE_ORIGINS`) is
+ * not held to the domain half.
+ */
+export function supersetOrigin(config: AppConfig, reports: InstructorReports): string {
+  const url = new URL(reports.supersetUrl);
+  const lms = new URL(config.baseUrls.lms);
+  const shared = config.registrableDomain;
+  if (url.protocol !== lms.protocol) {
+    throw new Error(
+      `Aspects advertises Superset at ${url.origin}, on a different scheme than the LMS ` +
+        `(${lms.origin}). Serve both over one scheme.`,
+    );
+  }
+  if (shared !== null && registrableDomain(url.hostname) !== shared) {
+    throw new Error(
+      `Aspects advertises Superset at ${url.origin}, outside the LMS's registrable domain ` +
+        `(${shared}), so one sign-in cannot reach it. Serve Superset under ${shared}, or set ` +
+        'ALLOW_CROSS_SITE_ORIGINS=true.',
+    );
+  }
+  return url.origin;
 }
 
 export function narrowGuestToken(body: unknown): string {

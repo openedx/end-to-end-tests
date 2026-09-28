@@ -165,6 +165,13 @@ Rules:
   `discussionAdmin`, `teamMember`), enrolled nowhere and granted its role by
   the test that reads it. It depends on no worker course on purpose: building
   `contentCourse` mid-worker for it broke the author's next Studio write.
+- **Aspects' Reports tab is read with a real LMS session.** Its LMS views
+  accept only a session, which the worker author's JWT-first browser lacks, so
+  `reportsViewer(courseKey)` grants the cast's `staff` member `staff` on the
+  course and hands back a `ReportsPage` on the member's own page (the grant is
+  revoked at teardown), and `adminReportsPage` is the superuser's. A
+  `ReportsPage` records the embed traffic from the moment the tab opens and is
+  detached when the test ends, because a cast member's page outlives it.
 - **Special exams need a timed exam.** `timedExam` turns timed exams on in an
   `authoringCourse`, publishes one time-limited subsection and waits for the
   CMS worker to register it (`special-exams` capability).
