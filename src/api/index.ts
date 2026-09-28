@@ -663,3 +663,27 @@ export {
   listTeamsOf,
   type Team,
 } from './teams';
+export {
+  fetchGuestToken,
+  fetchInContextDashboard,
+  fetchInstructorReports,
+  narrowGuestToken,
+  narrowInContextDashboard,
+  narrowInstructorReports,
+  type AspectsDashboard,
+  type InContextDashboard,
+  type InstructorReports,
+} from './aspects';
+export {
+  fetchSupersetUser,
+  isFilterQuery,
+  narrowChartData,
+  narrowSupersetUser,
+  parseChartQuery,
+  replayBody,
+  replayChartData,
+  type ChartQuery,
+  type ChartResult,
+  type SupersetAuth,
+  type SupersetUser,
+} from './superset';

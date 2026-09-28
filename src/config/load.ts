@@ -7,6 +7,7 @@ import {
 import {
   CAPABILITIES,
   CAPABILITY_OPT_OUT_PREFIX,
+  CAPABILITY_REQUIRES,
   DEFAULT_ON_CAPABILITIES,
   isCapability,
   isDefaultOnCapability,
@@ -206,6 +207,15 @@ export function parseCapabilities(raw: string | undefined, issues: string[]): Se
       issues.push(
         `CAPABILITIES declares mutually-exclusive capabilities together: ` +
           `${conflicting.join(' and ')}. Enable at most one of them.`,
+      );
+    }
+  }
+
+  for (const [capability, required] of Object.entries(CAPABILITY_REQUIRES)) {
+    if (enabled.has(capability as Capability) && required !== undefined && !enabled.has(required)) {
+      issues.push(
+        `CAPABILITIES declares "${capability}" without "${required}", which it is part of. ` +
+          `Declare "${required}" too, or remove "${capability}".`,
       );
     }
   }

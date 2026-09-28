@@ -289,6 +289,19 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
     expect(issues.join('\n')).toContain('mutually-exclusive');
   });
 
+  test('rejects a capability declared without the one it is part of', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'analytics-pii' })));
+    expect(issues.join('\n')).toContain('declares "analytics-pii" without "analytics"');
+  });
+
+  test('accepts a capability together with the one it is part of', () => {
+    const config = loadConfig(
+      validEnv({ CAPABILITIES: 'analytics,analytics-in-context,analytics-pii' }),
+    );
+    expect(config.capabilities.has('analytics-in-context')).toBe(true);
+    expect(config.capabilities.has('analytics-pii')).toBe(true);
+  });
+
   test('requires CMS_BASE_URL when studio is declared', () => {
     const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'studio' })));
     expect(issues.join('\n')).toContain('declares "studio" but CMS_BASE_URL is not set');

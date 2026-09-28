@@ -25,6 +25,9 @@ it, and `tests/config/capabilities-doc.spec.ts` keeps the two in step.
   ships and are on unless a target opts out with a `-` prefix
   (`CAPABILITIES=-mfe-authn`). Opting out of a capability that is not default-on
   is a configuration error.
+- **Required partners.** A few capabilities describe part of another's
+  deployment (`analytics-in-context` and `analytics-pii` are parts of
+  `analytics`). Declaring one without its partner fails validation.
 - **Mutually exclusive pairs.** Some capabilities are two implementations or two
   configurations of one surface; declaring both fails validation. Where one half
   of a pair is default-on, declaring the other half replaces it without an
@@ -110,6 +113,8 @@ profile. The `extended` column shows what that profile changes on top.
 | `certificates` | declared | declared | declared | declared | declared | declared | |
 | `special-exams` | declared | declared | — | — | — | — | |
 | `analytics` | — | — | — | — | — | — | |
+| `analytics-in-context` | — | — | — | — | — | — | |
+| `analytics-pii` | — | — | — | — | — | — | |
 | `rbac` | declared | declared | — | — | — | — | |
 | `rbac-global` | — | — | — | — | — | — | |
 | `rbac-matrix-parity` | declared | — | — | — | — | — | |
@@ -165,7 +170,9 @@ A target that differs from the stock setting declares the other half.
 | `certificates` | Course certificates can be generated. The platform-wide switch is off on a fresh install. The suite turns it on through the admin account and skips without one. | The certificate specs: Studio settings, the instructor dashboard's Certificates tab and report, learner certificates, profile visibility. | every release CI runs |
 | `special-exams` | `ENABLE_SPECIAL_EXAMS` is on (LMS and CMS; off on a default install): timed subsections register as exams, and the instructor dashboard offers its Special Exams tab. | TC-00541, and TC-00514's expected tab set. | `main`, `verawood` |
 | `codejail` | A working codejail sandbox: Python-graded (`loncapa/python`) problems can be scored. A stock Tutor install has codejail configured but no sandbox that can start, so such a problem answers with no grade. | TC-00203 (`tests/studio/unit/python-grader.spec.ts`). | `verawood` with `tutor-contrib-codejail`. That plugin has no Tutor 23 (`main`) build yet. |
-| `analytics` | Aspects (the Superset analytics deployment) is installed. No spec is tagged with it yet; the reports (TC-00542–00559) and Studio's in-context metrics are Epic 16. Declared, it already adds Aspects' Reports tab to TC-00514's expected instructor-dashboard tabs. | TC-00514 reads it; the Aspects coverage of Epic 16. | not yet verified |
+| `analytics` | Aspects (`tutor-contrib-aspects`: ClickHouse, Vector or Ralph, and Superset) is installed with its instructor-dashboard plugin: the dashboard's Reports tab embeds the Superset dashboards, and Superset signs users in through the LMS. Superset's origin is the one the platform advertises (`superset_url`) and must be same-site with the LMS. | The Reports tab and Superset coverage (TC-00542–00559), and TC-00514's expected tab set. | `main` (tutor-contrib-aspects 5.0.0, local stack) |
+| `analytics-in-context` | Aspects' Studio in-context metrics (`ASPECTS_ENABLE_STUDIO_IN_CONTEXT_METRICS`, off in Tutor): an Analytics page in the outline and unit sidebars. Requires `analytics`. | TC-00312–00316. | `main` (local stack) |
+| `analytics-pii` | Aspects exposes learner PII (`ASPECTS_ENABLE_PII`, off in Tutor): the Reports tab offers the Individual Learner dashboard. Requires `analytics`. | TC-00544. | `main` (local stack) |
 
 ### Course and LMS features
 
