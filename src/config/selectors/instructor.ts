@@ -29,6 +29,8 @@ export const INSTRUCTOR_TAB_IDS = {
   specialExams: 'special_exams',
   certificates: 'certificates',
   openResponses: 'open_responses',
+  /** Aspects' Reports tab (platform-plugin-aspects), where Aspects is installed. */
+  aspects: 'aspects',
 } as const;
 
 export type InstructorTabId = (typeof INSTRUCTOR_TAB_IDS)[keyof typeof INSTRUCTOR_TAB_IDS];
@@ -40,7 +42,12 @@ export function instructorTabPath(courseKey: string, tabId?: InstructorTabId): s
 
 /** The nav link for one tab — present only when the user may see that tab. */
 export function instructorTabLink(courseKey: string, tabId: InstructorTabId): string {
-  return `${INSTRUCTOR_DASHBOARD_SELECTORS.tabNav} a.nav-link[href$="${instructorTabPath(courseKey, tabId)}"]`;
+  const path = instructorTabPath(courseKey, tabId);
+  // A plugin's tab (Aspects' `aspects`) carries the URL its filter gives it,
+  // with a trailing slash; the dashboard's own tabs have none.
+  return [path, `${path}/`]
+    .map((href) => `${INSTRUCTOR_DASHBOARD_SELECTORS.tabNav} a.nav-link[href$="${href}"]`)
+    .join(', ');
 }
 
 /**

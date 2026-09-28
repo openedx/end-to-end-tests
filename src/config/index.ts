@@ -121,9 +121,11 @@ export {
   INSTRUCTOR_CERTIFICATE_FILTERS,
   INSTRUCTOR_DASHBOARD_SELECTORS,
   INSTRUCTOR_REPORT_ROWS,
+  INSTRUCTOR_REPORTS_SELECTORS,
   INSTRUCTOR_TAB_IDS,
   instructorTabLink,
   instructorTabPath,
+  reportsDashboardTab,
   type InstructorReportType,
   type InstructorTabId,
 } from './selectors';

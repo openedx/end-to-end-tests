@@ -13,6 +13,12 @@ export const WCAG_22_AA_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wca
 export interface CheckA11yOptions {
   /** Restrict the scan to a CSS selector (e.g. a form) instead of the whole page. */
   readonly include?: string;
+  /**
+   * Leave a CSS selector out of the scan: a cross-document embed whose markup
+   * belongs to another product (Aspects' Superset iframe) and is scanned on its
+   * own page instead.
+   */
+  readonly exclude?: string;
   /** Override the known-debt baseline (mainly for testing). */
   readonly baseline?: ReadonlySet<string>;
   /**
@@ -41,6 +47,9 @@ export async function checkA11y(page: Page, options: CheckA11yOptions = {}): Pro
   let builder = new AxeBuilder({ page }).withTags(WCAG_22_AA_TAGS);
   if (options.include) {
     builder = builder.include(options.include);
+  }
+  if (options.exclude) {
+    builder = builder.exclude(options.exclude);
   }
   const results = await builder.analyze();
 
