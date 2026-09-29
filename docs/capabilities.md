@@ -64,13 +64,13 @@ it, and `tests/config/capabilities-doc.spec.ts` keeps the two in step.
 
 ## Where CI turns each capability on
 
-CI runs `main` and `verawood` on every pull request, under the `default` and
-`extended` profiles (`.ci/profiles.json`). The older releases run on demand
-through `run_tests_tutor.yml`'s `openedx_release` input, usually with `default`
-only.
+CI runs `main` and `verawood` on every pull request, under the `default`,
+`extended` and `aspects` profiles (`.ci/profiles.json`). The older releases run
+on demand through `run_tests_tutor.yml`'s `openedx_release` input, usually with
+`default` only. `aspects` runs only on `main` and `verawood`.
 
 The release columns show what `.ci/openedx-releases.json` gives the `default`
-profile. The `extended` column shows what that profile changes on top.
+profile. Each profile's column shows what that profile changes on top.
 
 | Value | Meaning |
 | --- | --- |
@@ -79,58 +79,58 @@ profile. The `extended` column shows what that profile changes on top.
 | `opted out` | turned off with `-name` |
 | `replaced` | on by default, but the release declares the other half of its pair |
 | `—` | off |
-| `+` / `−` (extended) | the profile turns it on / off |
-| `+ verawood` (extended) | on only where the release has the plugin that provides it |
+| `+` / `−` (a profile) | the profile turns it on / off |
+| `+ verawood` (a profile) | on only on those releases: where the release has the plugin that provides it, or the behaviour only that release has |
 
 <!-- ci-table:start -->
 
-| Capability | main | verawood | ulmo | teak | sumac | redwood | extended |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `mfe-authn` | default | default | default | default | default | default | |
-| `frontend-base` | default | opted out | opted out | opted out | opted out | opted out | |
-| `discussions` | default | default | default | default | default | default | |
-| `notifications` | default | default | opted out | opted out | opted out | opted out | |
-| `email-inbox` | declared | declared | — | — | — | — | |
-| `teams` | declared | declared | declared | declared | declared | declared | |
-| `notes` | declared | declared | declared | declared | declared | declared | |
-| `wiki` | declared | declared | — | — | — | — | |
-| `cohorts` | declared | declared | declared | declared | declared | declared | |
-| `content-libraries` | declared | declared | — | — | — | — | |
-| `content-libraries-v1` | declared | declared | — | — | — | — | |
-| `courseware-navigation-sidebar` | declared | declared | — | — | — | — | |
-| `courseware-legacy-navigation` | — | — | declared | declared | declared | declared | |
-| `catalog-search` | declared | declared | declared | declared | declared | declared | |
-| `studio` | declared | declared | declared | declared | declared | declared | |
-| `taxonomies` | declared | declared | — | — | — | — | |
-| `authoring-sidebar` | declared | declared | — | — | — | — | |
-| `upload-agreements` | declared | declared | — | — | — | — | |
-| `ora` | declared | declared | declared | declared | declared | declared | |
-| `drag-and-drop-v2` | declared | declared | declared | declared | declared | declared | |
-| `pdf-xblock` | declared | declared | — | — | — | — | |
-| `lti` | declared | declared | declared | declared | declared | declared | |
-| `scorm` | declared | declared | declared | declared | declared | declared | |
-| `edx-sga` | declared | declared | declared | declared | declared | declared | |
-| `instructor-dashboard` | default | default | opted out | opted out | opted out | opted out | |
-| `certificates` | declared | declared | declared | declared | declared | declared | |
-| `special-exams` | declared | declared | — | — | — | — | |
-| `analytics` | — | — | — | — | — | — | |
-| `analytics-in-context` | — | — | — | — | — | — | |
-| `analytics-pii` | — | — | — | — | — | — | |
-| `analytics-in-context-cards` | — | — | — | — | — | — | |
-| `rbac` | declared | declared | — | — | — | — | |
-| `rbac-global` | — | — | — | — | — | — | |
-| `rbac-matrix-parity` | declared | — | — | — | — | — | |
-| `rbac-error-view-action` | — | declared | — | — | — | — | |
-| `certificate-web-view` | — | declared | declared | declared | declared | declared | |
-| `recommender-studio-settings` | declared | — | — | — | — | — | |
-| `authz-auto-migration` | declared | declared | — | — | — | — | − |
-| `authz-manual-migration` | replaced | replaced | default | default | default | default | + |
-| `support-url` | — | — | — | — | — | — | + |
-| `no-support-url` | default | default | default | default | default | default | − |
-| `course-creator-group` | default | default | default | default | default | default | |
-| `multi-org-catalog` | — | — | — | — | — | — | + |
-| `course-intro-video` | — | — | — | — | — | — | + |
-| `codejail` | — | — | — | — | — | — | + verawood |
+| Capability | main | verawood | ulmo | teak | sumac | redwood | extended | aspects |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `mfe-authn` | default | default | default | default | default | default | |  |
+| `frontend-base` | default | opted out | opted out | opted out | opted out | opted out | |  |
+| `discussions` | default | default | default | default | default | default | |  |
+| `notifications` | default | default | opted out | opted out | opted out | opted out | |  |
+| `email-inbox` | declared | declared | — | — | — | — | |  |
+| `teams` | declared | declared | declared | declared | declared | declared | |  |
+| `notes` | declared | declared | declared | declared | declared | declared | |  |
+| `wiki` | declared | declared | — | — | — | — | |  |
+| `cohorts` | declared | declared | declared | declared | declared | declared | |  |
+| `content-libraries` | declared | declared | — | — | — | — | |  |
+| `content-libraries-v1` | declared | declared | — | — | — | — | |  |
+| `courseware-navigation-sidebar` | declared | declared | — | — | — | — | |  |
+| `courseware-legacy-navigation` | — | — | declared | declared | declared | declared | |  |
+| `catalog-search` | declared | declared | declared | declared | declared | declared | |  |
+| `studio` | declared | declared | declared | declared | declared | declared | |  |
+| `taxonomies` | declared | declared | — | — | — | — | |  |
+| `authoring-sidebar` | declared | declared | — | — | — | — | |  |
+| `upload-agreements` | declared | declared | — | — | — | — | |  |
+| `ora` | declared | declared | declared | declared | declared | declared | |  |
+| `drag-and-drop-v2` | declared | declared | declared | declared | declared | declared | |  |
+| `pdf-xblock` | declared | declared | — | — | — | — | |  |
+| `lti` | declared | declared | declared | declared | declared | declared | |  |
+| `scorm` | declared | declared | declared | declared | declared | declared | |  |
+| `edx-sga` | declared | declared | declared | declared | declared | declared | |  |
+| `instructor-dashboard` | default | default | opted out | opted out | opted out | opted out | |  |
+| `certificates` | declared | declared | declared | declared | declared | declared | |  |
+| `special-exams` | declared | declared | — | — | — | — | |  |
+| `analytics` | — | — | — | — | — | — | | + main, verawood |
+| `analytics-in-context` | — | — | — | — | — | — | | + |
+| `analytics-pii` | — | — | — | — | — | — | | + |
+| `analytics-in-context-cards` | — | — | — | — | — | — | | + verawood |
+| `rbac` | declared | declared | — | — | — | — | |  |
+| `rbac-global` | — | — | — | — | — | — | |  |
+| `rbac-matrix-parity` | declared | — | — | — | — | — | |  |
+| `rbac-error-view-action` | — | declared | — | — | — | — | |  |
+| `certificate-web-view` | — | declared | declared | declared | declared | declared | |  |
+| `recommender-studio-settings` | declared | — | — | — | — | — | |  |
+| `authz-auto-migration` | declared | declared | — | — | — | — | − |  |
+| `authz-manual-migration` | replaced | replaced | default | default | default | default | + |  |
+| `support-url` | — | — | — | — | — | — | + |  |
+| `no-support-url` | default | default | default | default | default | default | − |  |
+| `course-creator-group` | default | default | default | default | default | default | |  |
+| `multi-org-catalog` | — | — | — | — | — | — | + |  |
+| `course-intro-video` | — | — | — | — | — | — | + |  |
+| `codejail` | — | — | — | — | — | — | + verawood |  |
 
 <!-- ci-table:end -->
 
@@ -172,7 +172,7 @@ A target that differs from the stock setting declares the other half.
 | `certificates` | Course certificates can be generated. The platform-wide switch is off on a fresh install. The suite turns it on through the admin account and skips without one. | The certificate specs: Studio settings, the instructor dashboard's Certificates tab and report, learner certificates, profile visibility. | every release CI runs |
 | `special-exams` | `ENABLE_SPECIAL_EXAMS` is on (LMS and CMS; off on a default install): timed subsections register as exams, and the instructor dashboard offers its Special Exams tab. | TC-00541, and TC-00514's expected tab set. | `main`, `verawood` |
 | `codejail` | A working codejail sandbox: Python-graded (`loncapa/python`) problems can be scored. A stock Tutor install has codejail configured but no sandbox that can start, so such a problem answers with no grade. | TC-00203 (`tests/studio/unit/python-grader.spec.ts`). | `verawood` with `tutor-contrib-codejail`. That plugin has no Tutor 23 (`main`) build yet. |
-| `analytics` | Aspects (`tutor-contrib-aspects`: ClickHouse, Vector or Ralph, and Superset) is installed with its instructor-dashboard plugin: the dashboard's Reports tab embeds the Superset dashboards, and Superset signs users in through the LMS. Superset's origin is the one the platform advertises (`superset_url`) and must be same-site with the LMS. | The Reports tab and Superset coverage (TC-00542–00559), and TC-00514's expected tab set. | `main` (tutor-contrib-aspects 5.0.0, local stack) |
+| `analytics` | Aspects (`tutor-contrib-aspects`: ClickHouse, Vector or Ralph, and Superset) is installed with its instructor-dashboard plugin: the dashboard's Reports tab embeds the Superset dashboards, and Superset signs users in through the LMS. Superset's origin is the one the platform advertises (`superset_url`) and must be same-site with the LMS. | The Reports tab and Superset coverage (TC-00542–00559), and TC-00514's expected tab set. | `main` (tutor-contrib-aspects 5.0.0); CI's `aspects` profile runs it on `main` and `verawood` |
 | `analytics-in-context` | Aspects' Studio in-context metrics (`ASPECTS_ENABLE_STUDIO_IN_CONTEXT_METRICS`, off in Tutor): an Analytics page in the outline and unit sidebars. Requires `analytics`. | TC-00312–00316. | `main` (local stack) |
 | `analytics-pii` | Aspects exposes learner PII (`ASPECTS_ENABLE_PII`, off in Tutor): the Reports tab offers the Individual Learner dashboard. Requires `analytics`. | TC-00544. | `main` (local stack) |
 

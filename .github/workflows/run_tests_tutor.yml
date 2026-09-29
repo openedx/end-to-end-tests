@@ -291,6 +291,16 @@ jobs:
         if: env.OPENEDX_RELEASE == 'main'
         run: .ci/tutor-main-images.sh "ghcr.io/${{ github.repository }}"
 
+      # A profile with images of its own (`images` in .ci/profiles.json, e.g.
+      # `aspects`) pulls the variant build_tutor_main_images.yml builds for this
+      # release, which replaces only the images it builds (on main, after the
+      # stock ones above).
+      - name: Point Tutor at the profile's image variant
+        if: matrix.images != ''
+        env:
+          VARIANT: ${{ matrix.images }}
+        run: .ci/tutor-main-images.sh "ghcr.io/${{ github.repository }}" "${OPENEDX_RELEASE}-${VARIANT}" "$VARIANT"
+
       - name: Capture installed Tutor version
         id: tutor_version
         run: |
@@ -329,9 +339,9 @@ jobs:
       ##################
       # We'll run out of disk pulling or building images if we don't clear up
       # some space
-      - name: Free Disk Space (main only)
+      - name: Free Disk Space (main, or an image variant)
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
-        if: env.OPENEDX_RELEASE == 'main'
+        if: env.OPENEDX_RELEASE == 'main' || matrix.images != ''
         with:
           # this might remove tools that are actually needed,
           # if set to "true" but frees about 6 GB
@@ -348,20 +358,25 @@ jobs:
       # GITHUB_TOKEN can read packages published by this repo's workflows, so
       # this works even while the ghcr.io packages are private. Fork PRs get a
       # read-only token, which should be all that is needed.
-      - name: Log in to GitHub Container Registry (main only)
-        if: env.OPENEDX_RELEASE == 'main'
+      - name: Log in to GitHub Container Registry (main, or an image variant)
+        if: env.OPENEDX_RELEASE == 'main' || matrix.images != ''
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin || \
             echo "::warning::ghcr.io login failed; pulling anonymously."
 
-      - name: Pull prebuilt main images (main only)
+      - name: Pull prebuilt images (main, or an image variant)
         id: pull_images
-        if: env.OPENEDX_RELEASE == 'main'
+        if: env.OPENEDX_RELEASE == 'main' || matrix.images != ''
         run: |
           set -uo pipefail
-          # shellcheck disable=SC2086  # TUTOR_MAIN_IMAGES is a deliberate word list
-          if tutor images pull $TUTOR_MAIN_IMAGES; then
+          # shellcheck disable=SC2086  # deliberate word lists of image names
+          if tutor images pull ${TUTOR_MAIN_IMAGES:-} ${TUTOR_VARIANT_IMAGES:-}; then
             echo "pulled=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "${TUTOR_VARIANT_IMAGES:-}" ]; then
+            # A variant is built with the profile's plugins enabled, which this
+            # job only enables after launch, so it cannot be rebuilt here.
+            echo "::error::Could not pull the '${{ matrix.images }}' images for ${OPENEDX_RELEASE} from ghcr.io. Run build_tutor_main_images.yml (it builds every profile's variant) and retry."
+            exit 1
           else
             echo "::warning::Could not pull prebuilt main images from ghcr.io; building them on this runner instead. Has build_tutor_main_images.yml run for this repository?"
             echo "pulled=false" >> "$GITHUB_OUTPUT"
@@ -546,11 +561,15 @@ jobs:
       # where a service died and therefore logged nothing.
       - name: Collect Tutor container logs
         if: always()
+        env:
+          # The Aspects services, where the profile runs them.
+          EXTRA_LOG_SERVICES: ${{ matrix.images == 'aspects' && 'superset superset-worker clickhouse vector' || '' }}
         run: |
           set -uo pipefail
           mkdir -p tutor-logs
           docker ps -a > tutor-logs/docker-ps.txt 2>&1 || true
-          for service in lms cms lms-worker cms-worker mfe caddy; do
+          # shellcheck disable=SC2086  # EXTRA_LOG_SERVICES is a deliberate word list
+          for service in lms cms lms-worker cms-worker mfe caddy $EXTRA_LOG_SERVICES; do
             echo "Collecting logs for '${service}'..."
             tutor local logs "$service" > "tutor-logs/${service}.log" 2>&1 || \
               echo "::warning::Could not collect logs for '${service}'."

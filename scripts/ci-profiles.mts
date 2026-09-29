@@ -12,6 +12,11 @@
  *       (a dispatch input). Use the `=` form: a list may start with an opt-out
  *       (`-frontend-base,…`), which would otherwise read as an option.
  *
+ *   node scripts/ci-profiles.mts build --profile aspects --release main
+ *       Print what `build_tutor_main_images.yml` needs to build a profile's image
+ *       variant on a release: `{images, tutorPlugins, tutorPip, tutorEnable}` (JSON).
+ *       The profile must declare an image variant (`images`).
+ *
  * Errors are printed as `::error::` annotations and exit 1.
  */
 
@@ -28,23 +33,37 @@ function main(): void {
     allowPositionals: true,
     options: {
       profiles: { type: 'string' },
+      profile: { type: 'string' },
       release: { type: 'string' },
       'release-capabilities': { type: 'string' },
     },
   });
   const profiles = parseProfiles(JSON.parse(readFileSync(PROFILES_FILE, 'utf8')), existsSync);
 
+  const name = values.release ?? '';
+  const releases = JSON.parse(readFileSync(RELEASES_FILE, 'utf8')) as Record<
+    string,
+    { tutorConstraint: string; capabilities: string } | undefined
+  >;
+  const release = releases[name];
+  if (release === undefined) {
+    throw new ProfileError(`Unknown release "${name}"; add it to ${RELEASES_FILE}.`);
+  }
   switch (positionals[0]) {
-    case 'matrix': {
-      const name = values.release ?? '';
-      const releases = JSON.parse(readFileSync(RELEASES_FILE, 'utf8')) as Record<
-        string,
-        { tutorConstraint: string; capabilities: string } | undefined
-      >;
-      const release = releases[name];
-      if (release === undefined) {
-        throw new ProfileError(`Unknown release "${name}"; add it to ${RELEASES_FILE}.`);
+    case 'build': {
+      const [entry] = shardMatrix(profiles, [values.profile ?? ''], {
+        name,
+        capabilities: release.capabilities,
+        tutorConstraint: release.tutorConstraint,
+      });
+      if (entry === undefined || entry.images === '') {
+        throw new ProfileError(`Profile "${values.profile ?? ''}" declares no image variant.`);
       }
+      const { images, tutorPlugins, tutorPip, tutorEnable } = entry;
+      console.log(JSON.stringify({ images, tutorPlugins, tutorPip, tutorEnable }));
+      return;
+    }
+    case 'matrix': {
       console.log(
         JSON.stringify(
           shardMatrix(profiles, (values.profiles ?? '').split(/[\s,]+/), {
@@ -57,7 +76,7 @@ function main(): void {
       return;
     }
     default:
-      throw new ProfileError('Usage: ci-profiles.mts matrix (see the header).');
+      throw new ProfileError('Usage: ci-profiles.mts matrix|build (see the header).');
   }
 }
 

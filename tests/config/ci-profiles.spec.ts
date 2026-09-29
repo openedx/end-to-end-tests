@@ -9,6 +9,7 @@ import {
   parseProfiles,
   pluginName,
   resolveCapabilities,
+  runsOn,
   shardMatrix,
   type ReleaseInfo,
 } from '../../scripts/ci-profiles/profiles.mts';
@@ -72,7 +73,7 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
     for (const [name, entry] of Object.entries(releases)) {
       const matrix = shardMatrix(
         profiles,
-        profiles.map((p) => p.name),
+        profiles.filter((p) => runsOn(p, name)).map((p) => p.name),
         { name, ...entry },
       );
       expect(matrix.length, name).toBeGreaterThan(0);
@@ -98,7 +99,7 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
     for (const [name, entry] of Object.entries(releases)) {
       const matrix = shardMatrix(
         profiles,
-        profiles.map((p) => p.name),
+        profiles.filter((p) => runsOn(p, name)).map((p) => p.name),
         { name, ...entry },
       );
       const defaults = enabled(matrix.find((m) => m.profile === 'default')!.capabilities, name);
@@ -142,10 +143,71 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
     ).toThrow(/releases it supports/);
     expect(() =>
       parseProfiles(
-        { default: profile({ tutorExtensions: [{ ...CODEJAIL, version: '22' }] }) },
+        { default: profile({ tutorExtensions: [{ ...CODEJAIL, branch: 'main' }] }) },
         always,
       ),
-    ).toThrow(/unknown key\(s\): version/);
+    ).toThrow(/unknown key\(s\): branch/);
+  });
+
+  test('pins an extension to its own version instead of the Tutor constraint', () => {
+    const profiles = parseProfiles(
+      {
+        default: profile(),
+        extra: profile({
+          code: 'x',
+          tutorExtensions: [{ ...CODEJAIL, pip: 'tutor-contrib-aspects', version: '==5.0.0' }],
+        }),
+      },
+      always,
+    );
+    const [job] = shardMatrix(profiles, ['extra'], release('teams'));
+    expect(job!.tutorPip).toEqual(['tutor-contrib-aspects==5.0.0']);
+    expect(() =>
+      parseProfiles(
+        { default: profile({ tutorExtensions: [{ ...CODEJAIL, version: '5.0.0' }] }) },
+        always,
+      ),
+    ).toThrow(/version specifier/);
+  });
+
+  test('runs a profile only on its releases, adding per-release capabilities', () => {
+    const profiles = parseProfiles(
+      {
+        default: profile(),
+        extra: profile({
+          code: 'x',
+          releases: ['main', 'verawood'],
+          capabilities: { add: ['teams'], remove: [] },
+          releaseCapabilities: { verawood: ['notes'] },
+          images: 'extra',
+          select: 'delta',
+        }),
+      },
+      always,
+    );
+    const [onVerawood] = shardMatrix(profiles, ['extra'], release('cohorts'));
+    expect(onVerawood!.capabilities).toBe('cohorts,teams,notes');
+    expect(onVerawood!.images).toBe('extra');
+    const [onMain] = shardMatrix(profiles, ['extra'], release('cohorts', 'main'));
+    expect(onMain!.capabilities).toBe('cohorts,teams');
+    expect(() => shardMatrix(profiles, ['extra'], release('cohorts', 'ulmo'))).toThrow(
+      /does not run on ulmo/,
+    );
+    expect(runsOn(findProfile(profiles, 'default'), 'ulmo')).toBe(true);
+  });
+
+  test('rejects release capabilities for a release the profile skips, and a bad image variant', () => {
+    expect(() =>
+      parseProfiles(
+        {
+          default: profile({ releases: ['main'], releaseCapabilities: { verawood: ['notes'] } }),
+        },
+        always,
+      ),
+    ).toThrow(/not one of its releases/);
+    expect(() => parseProfiles({ default: profile({ images: 'Aspects!' }) }, always)).toThrow(
+      /image variant/,
+    );
   });
 
   test('requires a default profile', () => {
@@ -214,6 +276,7 @@ test.describe('shardMatrix', { tag: '@unit' }, () => {
       tutorInit: [],
       seedScripts: [],
       grep: '',
+      images: '',
     };
     expect(shardMatrix(profiles, ['default', 'extended'], release('notes'))).toEqual([
       { profile: 'default', shard: 1, shards: 2, runIdSuffix: 'd1', ...shared },

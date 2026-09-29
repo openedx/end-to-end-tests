@@ -14,7 +14,7 @@ import {
 /**
  * Keeps `docs/capabilities.md` in step with the code: every capability is
  * described, and the "Where CI turns each capability on" table says what
- * `.ci/openedx-releases.json` and the `extended` profile in `.ci/profiles.json`
+ * `.ci/openedx-releases.json` and each CI profile in `.ci/profiles.json`
  * actually declare. Adding or re-declaring a capability without updating the
  * doc fails here.
  */
@@ -25,15 +25,17 @@ const DOC = readFileSync(path.join(ROOT, 'docs/capabilities.md'), 'utf8');
 const releases = JSON.parse(
   readFileSync(path.join(ROOT, '.ci/openedx-releases.json'), 'utf8'),
 ) as Record<string, { capabilities: string }>;
-const extended = (
+/** The CI profiles other than `default`, each a column of the CI table. */
+const profiles = Object.entries(
   JSON.parse(readFileSync(path.join(ROOT, '.ci/profiles.json'), 'utf8')) as Record<
     string,
     {
       capabilities: { add: string[]; remove: string[] };
       tutorExtensions?: { capability: string; releases: string[] }[];
+      releaseCapabilities?: Record<string, string[]>;
     }
-  >
-).extended;
+  >,
+).filter(([name]) => name !== 'default');
 
 /** The rows of the CI table, keyed by capability: the cell under each column header. */
 function ciTable(): Map<string, Record<string, string>> {
@@ -75,18 +77,31 @@ function enabledBy(list: string): Set<Capability> {
 }
 
 /**
- * What the extended column should say: what the profile turns on or off
- * relative to `default`, measured on `main`'s list (a pair's default-on half is
- * switched off by declaring the other half, not only by `remove`), and the
- * capabilities its Tutor extensions bring on the releases that have them.
+ * What a profile's column should say: what the profile turns on or off relative
+ * to `default`, measured on `main`'s list (a pair's default-on half is switched
+ * off by declaring the other half, not only by `remove`); and, for what it
+ * brings on some releases only (its Tutor extensions, its per-release
+ * capabilities), those releases.
  */
-function extendedCell(capability: Capability): string {
-  const extension = (extended?.tutorExtensions ?? []).find((e) => e.capability === capability);
+function profileCell(profile: (typeof profiles)[number][1], capability: Capability): string {
+  const extension = (profile.tutorExtensions ?? []).find((e) => e.capability === capability);
   if (extension) return `+ ${extension.releases.join(', ')}`;
+  const onReleases = Object.entries(profile.releaseCapabilities ?? {})
+    .filter(([, list]) => list.includes(capability))
+    .map(([release]) => release);
+  if (onReleases.length > 0) return `+ ${onReleases.join(', ')}`;
   const main = releases.main?.capabilities ?? '';
   const before = enabledBy(main);
+  // What the profile enables on main, extensions included, so a capability that
+  // needs another (`analytics-pii` needs `analytics`) is measured with it.
+  const onMain = (profile.tutorExtensions ?? [])
+    .filter((e) => e.releases.includes('main'))
+    .map((e) => e.capability);
   const after = enabledBy(
-    resolveCapabilities(main, extended?.capabilities ?? { add: [], remove: [] }),
+    resolveCapabilities(main, {
+      add: [...profile.capabilities.add, ...onMain, ...(profile.releaseCapabilities?.main ?? [])],
+      remove: profile.capabilities.remove,
+    }),
   );
   if (after.has(capability) && !before.has(capability)) return '+';
   if (before.has(capability) && !after.has(capability)) return '−';
@@ -112,7 +127,7 @@ test.describe('docs/capabilities.md', { tag: '@unit' }, () => {
     expect([...ciTable().keys()]).toEqual([...CAPABILITIES]);
   });
 
-  test('says what CI declares for each release and for the extended profile', () => {
+  test('says what CI declares for each release and for each CI profile', () => {
     const table = ciTable();
     for (const capability of CAPABILITIES) {
       const row = table.get(capability) ?? {};
@@ -121,7 +136,9 @@ test.describe('docs/capabilities.md', { tag: '@unit' }, () => {
           releaseCell(capability, entry.capabilities),
         );
       }
-      expect(row.extended, `${capability} under extended`).toBe(extendedCell(capability));
+      for (const [name, profile] of profiles) {
+        expect(row[name], `${capability} under ${name}`).toBe(profileCell(profile, capability));
+      }
     }
   });
 });
