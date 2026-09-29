@@ -22,8 +22,10 @@ can reuse — e.g.:
   pipeline poll that returns its readings rather than throwing.
   `signInToSuperset` runs Superset's LMS sign-in from wherever a page is and
   returns who Superset says the user is (a refused user comes back anonymous),
-  and `openCourseComparison` reads the courses Course Comparison's own course
-  filter offers the signed-in user, which is row-level security's answer.
+  and `openCourseComparison` opens Course Comparison on the user's Superset
+  session once it offers the courses asked for (reloading after Superset learns
+  a new course, as its filters load once), and reads its courses, its charts per
+  tab, and filter changes made through its filter bar.
 - `instructor.ts` — the instructor-dashboard waits and flows: `waitForInstructorTask`
   / `waitForReport` / `waitForLearnerProgress` / `waitForLearnerProblem` (bounded
   polls that return their last readings instead of throwing, so a spec's failure

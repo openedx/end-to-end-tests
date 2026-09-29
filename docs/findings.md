@@ -116,6 +116,7 @@ measured, and issues are opened by hand from them.
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 | `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
 | `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
+| `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
 
 ---
 
@@ -2183,6 +2184,33 @@ Both are Superset's own markup, not Aspects' dashboards.
 baselines the two rules (`SUPERSET_A11Y_BASELINE`, Superset-page scans only).
 The Reports tab's own scan excludes the embed, so the Open edX surface keeps the
 full gate.
+
+### `ASPECTS-007` — a new course-level tag reaches Course Comparison only sometimes
+
+**Where:** `aspects-dbt`'s `event_sink.dim_course_names` dictionary (as
+tutor-contrib-aspects 5.0.0 installs it). Course Comparison's Course Info tag
+list and its Tag filter read course tags from it, through
+`reporting.dim_most_recent_course_tags`.
+
+**What happens:** tagging a course makes platform-plugin-aspects dump the
+course overview again, now with the tag. But the dump carries the same
+`modified` as the previous one, because tagging does not change the course
+overview. `dim_course_names` keeps, per course, the `course_overviews` row
+whose `modified` is the latest (`max(modified)` joined back to the table). The
+two rows tie, and the dictionary keeps either.
+
+Measured on local `main` (2026-09-29): seven dumps of one new course, the last
+with tags `[993]` and the same `modified` as the one before it. The dictionary
+held `tags_str: []`, and six minutes on, the Tag filter still offered nothing.
+On a second new course the tag showed within 10 s. Republishing the course
+makes a newer `modified`, and the tag then shows reliably.
+
+**Coverage impact:** open.
+- TC-00556's filter case tags the course and then republishes it. That is a
+  workaround, commented in the spec with this finding, so the Course Info tag
+  list and the Tag filter are covered.
+- A separate `fixme` holds the sheet's case as written: tag the course, and the
+  tag shows without anything else.
 
 ### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
 

@@ -27,6 +27,8 @@ export { importPluginModule, instantiatePluginExport } from './plugin-module';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
 export {
+  COURSE_COMPARISON_CHARTS,
+  COURSE_COMPARISON_FILTERS,
   COURSE_COMPARISON_SLUG,
   COURSE_COMPARISON_TABS,
   COURSE_DASHBOARD_CHARTS,
@@ -137,6 +139,8 @@ export {
   reportsDashboardTab,
   SUPERSET_SELECTORS,
   supersetDashboardTab,
+  supersetNativeFilter,
+  supersetSelectOption,
   type InstructorReportType,
   type InstructorTabId,
 } from './selectors';

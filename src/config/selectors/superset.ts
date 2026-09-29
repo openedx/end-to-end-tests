@@ -19,7 +19,21 @@ export const SUPERSET_SELECTORS = {
    * django-oauth-toolkit form and its `allow` submit.
    */
   lmsOAuthAllow: 'form#authorizationForm button[name="allow"]',
+  /** The filter bar's "Apply filters". */
+  filterApply: '[data-test="filter-bar__apply-button"]',
+  /** The open dropdown of a select filter (antd renders it apart from the control). */
+  openSelectDropdown: '.ant-select-dropdown:not(.ant-select-dropdown-hidden)',
 } as const;
+
+/** A native filter's control, by filter id (`NATIVE_FILTER-…`). */
+export function supersetNativeFilter(filterId: string): string {
+  return `[data-test="${filterId}"]`;
+}
+
+/** An option of an open select filter, by its value (the test's own data, like a course name). */
+export function supersetSelectOption(value: string): string {
+  return `.ant-select-item-option[title="${value.replace(/"/g, '\\"')}"]`;
+}
 
 /**
  * A dashboard tab by its layout id (`TAB-…` in the dashboard's asset file).

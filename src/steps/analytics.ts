@@ -207,29 +207,100 @@ export function dashboardLocaleSuffix(reports: InstructorReports): string {
 /** Course Comparison, opened on a signed-in Superset session. */
 export interface CourseComparison {
   readonly dashboardPage: SupersetDashboardPage;
+  readonly block: SupersetDashboardBlock;
   /** The course names its Course Name filter offers this user (row-level security applied). */
   courseNames(): Promise<readonly string[]>;
+  /**
+   * Shows a tab and returns its charts, answered. `since` (from {@link filter})
+   * waits for the answers to a filter change instead.
+   */
+  chartsOn(tab: string, since?: number): Promise<readonly CapturedChart[]>;
+  /** Replays one captured chart on the Superset session, cache bypassed, and returns its rows. */
+  read(chart: CapturedChart): Promise<readonly Readonly<Record<string, unknown>>[]>;
+  /** Chooses values in a select filter and applies it; returns the marker for `chartsOn`. */
+  filter(filterId: string, values: readonly string[]): Promise<number>;
 }
 
 /**
- * Opens Course Comparison on `page`'s Superset session (sign in first) and hands
- * back a reader of the courses it shows this user. The reading replays the
- * dashboard's own Course Name filter query on the session, with the cache
- * bypassed, so it lists exactly what row-level security lets the user see.
+ * Opens Course Comparison on `page`'s Superset session (sign in first) and waits
+ * until it offers every course in `mustList`.
+ *
+ * Its filters and charts are fetched once per load, and a course reaches
+ * Superset's course names on a dictionary refresh after it is created. So when
+ * the first load's Course Name filter lacks a course, this replays the filter
+ * until it lists it, then loads the page again. Readings replay the dashboard's
+ * own queries on the session, with the cache bypassed: exactly what row-level
+ * security lets the user see.
  */
 export async function openCourseComparison(
   page: Page,
   origin: string,
   localeSuffix: string,
+  mustList: readonly string[] = [],
 ): Promise<CourseComparison> {
   const dashboardPage = new SupersetDashboardPage(page, origin);
-  await dashboardPage.goto(`${COURSE_COMPARISON_SLUG}${localeSuffix}`);
-  const filter = await dashboardPage.dashboard().filterQuery('course_name', TIMEOUTS.supersetEmbed);
+  const slug = `${COURSE_COMPARISON_SLUG}${localeSuffix}`;
+  const replay = (chart: CapturedChart) =>
+    replayChartData(page.request, origin, chart.query, 'session');
+  const names = (rows: readonly Readonly<Record<string, unknown>>[]) =>
+    rows.map((row) => row.course_name).filter((n): n is string => typeof n === 'string');
+  const listsAll = (listed: readonly string[]) => mustList.every((name) => listed.includes(name));
+
+  // The Organization filter preselects its first option and the charts wait for
+  // it, so the page is ready only when it offers an organization too.
+  const ready = (reading: { readonly courses: readonly string[]; readonly orgs: number }) =>
+    listsAll(reading.courses) && reading.orgs > 0;
+  const loaded = async () => {
+    const block = dashboardPage.dashboard();
+    return {
+      courses: await block.filterQuery('course_name', TIMEOUTS.supersetEmbed),
+      orgs: await block.filterQuery('org', TIMEOUTS.supersetEmbed),
+    };
+  };
+
+  await dashboardPage.goto(slug);
+  let filters = await loaded();
+  if (
+    !ready({
+      courses: names(chartRows(filters.courses.result)),
+      orgs: chartRows(filters.orgs.result).length,
+    })
+  ) {
+    const { courses, orgs } = filters;
+    const known = await waitForAnalytics(
+      async () => ({
+        courses: names(chartRows(await replay(courses))),
+        orgs: chartRows(await replay(orgs)).length,
+      }),
+      ready,
+    );
+    if (!known.met) {
+      throw new Error(
+        `Course Comparison never offered ${JSON.stringify(mustList)} and an organization; it last ` +
+          `offered ${JSON.stringify(known.last)}.`,
+      );
+    }
+    await dashboardPage.goto(slug);
+    filters = await loaded();
+  }
+  const filter = filters.courses;
+
+  const block = dashboardPage.dashboard();
   return {
     dashboardPage,
+    block,
     async courseNames() {
-      const rows = chartRows(await replayChartData(page.request, origin, filter.query, 'session'));
-      return rows.map((row) => row.course_name).filter((n): n is string => typeof n === 'string');
+      return names(chartRows(await replay(filter)));
+    },
+    async chartsOn(tab, since = 0) {
+      await block.selectTab(tab);
+      return block.visibleChartQueries(TIMEOUTS.supersetEmbed, since);
+    },
+    async read(chart) {
+      return chartRows(await replay(chart));
+    },
+    filter(filterId, values) {
+      return block.applySelectFilter(filterId, values);
     },
   };
 }

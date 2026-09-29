@@ -125,3 +125,83 @@ export const COURSE_COMPARISON_TABS = {
   /** "Run Metrics": one row per course run. */
   runMetrics: 'TAB-GuHDMLqRC',
 } as const;
+
+/** Course Comparison's native filters, by id (`native_filter_configuration` in its asset). */
+export const COURSE_COMPARISON_FILTERS = {
+  /** "Organization": preselects the first organization; the course filters cascade from it. */
+  organization: 'NATIVE_FILTER-QrTlO4wBf',
+  /** "Tag": course-level tags. */
+  tag: 'NATIVE_FILTER-M1zEXEB97',
+  /** "Course Name". */
+  courseName: 'NATIVE_FILTER-IfS-Rd0ZS',
+  /** "Course Run". */
+  courseRun: 'NATIVE_FILTER-w863AfFgi',
+} as const;
+
+const CC = COURSE_COMPARISON_TABS;
+
+/** The Course Comparison charts TC-00553–00559 read, per tab (each tab has its own copy). */
+export const COURSE_COMPARISON_CHARTS = {
+  /** "Course Info" per course: enrollees, active in the last 7 days, tags, "More details". */
+  courseInfo: {
+    tab: CC.courseMetrics,
+    vizType: 'table',
+    metrics: ['enrollees', 'active_count', 'tag_list'],
+  },
+  /** "Enrollment Counts" per course and enrollment mode. */
+  courseEnrollmentCounts: {
+    tab: CC.courseMetrics,
+    vizType: 'pivot_table_v2',
+    metrics: ['enrollees'],
+  },
+  /** "Learner Performance Breakdown" per course (`name_org`). */
+  coursePerformanceBreakdown: {
+    tab: CC.courseMetrics,
+    vizType: 'echarts_timeseries_bar',
+    metrics: ['count', 'passed', 'active', 'at_risk'],
+  },
+  /** "Learner Performance" per course. */
+  coursePerformance: {
+    tab: CC.courseMetrics,
+    vizType: 'table',
+    metrics: ['first_try_correct', 'count_passing', 'avg_course_grade', 'med_course_grade'],
+  },
+  /** "Video Engagement" per course (`video_count` is a column). */
+  courseVideoEngagement: {
+    tab: CC.courseMetrics,
+    vizType: 'table',
+    metrics: ['avg_video_length', 'num_videos_watched', 'watched_percent', 'rewatched_percent'],
+  },
+  /** "Course Info" per run. */
+  runInfo: {
+    tab: CC.runMetrics,
+    vizType: 'table',
+    metrics: ['enrollees', 'active_count', 'tag_list'],
+  },
+  /** "Enrollment Counts" per run and enrollment mode. */
+  runEnrollmentCounts: { tab: CC.runMetrics, vizType: 'pivot_table_v2', metrics: ['enrollees'] },
+  /** "Learner Performance Breakdown" per run (`run_name`). */
+  runPerformanceBreakdown: {
+    tab: CC.runMetrics,
+    vizType: 'echarts_timeseries_bar',
+    metrics: ['passed', 'count', 'at_risk', 'active'],
+  },
+  /** "Learner Performance" per run. */
+  runPerformance: {
+    tab: CC.runMetrics,
+    vizType: 'table',
+    metrics: ['first_try_correct', 'count_passing', 'avg_course_grade', 'med_course_grade'],
+  },
+  /** "Video Engagement" per run. */
+  runVideoEngagement: {
+    tab: CC.runMetrics,
+    vizType: 'table',
+    metrics: [
+      'Number of Videos',
+      'avg_video_length',
+      'num_videos_watched',
+      'watched_percent',
+      'rewatched_percent',
+    ],
+  },
+} as const satisfies Record<string, AspectsChartKey>;

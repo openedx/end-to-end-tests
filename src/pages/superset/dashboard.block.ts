@@ -1,6 +1,11 @@
 import type { Locator, Page, Response } from '@playwright/test';
 
-import { SUPERSET_SELECTORS, supersetDashboardTab } from '../../config';
+import {
+  SUPERSET_SELECTORS,
+  supersetDashboardTab,
+  supersetNativeFilter,
+  supersetSelectOption,
+} from '../../config';
 import {
   isFilterQuery,
   narrowChartData,
@@ -82,6 +87,33 @@ export class SupersetDashboardBlock {
     }
   }
 
+  /** How many chart-data answers have been captured so far: a marker for {@link visibleChartQueries}. */
+  capturedCount(): number {
+    return this.captured().length;
+  }
+
+  /**
+   * Chooses values in a select filter by typing each (the test's own data, a
+   * course name or run) and picking its option, then applies the filters.
+   * Returns the capture marker taken before applying, so the charts' answers to
+   * the new filter can be told from the old ones.
+   */
+  async applySelectFilter(filterId: string, values: readonly string[]): Promise<number> {
+    const control = this.root.locator(supersetNativeFilter(filterId));
+    for (const value of values) {
+      await control.click();
+      await control.locator('input').first().fill(value);
+      await this.root
+        .locator(`${SUPERSET_SELECTORS.openSelectDropdown} ${supersetSelectOption(value)}`)
+        .first()
+        .click();
+    }
+    await this.page.keyboard.press('Escape');
+    const marker = this.capturedCount();
+    await this.root.locator(SUPERSET_SELECTORS.filterApply).click();
+    return marker;
+  }
+
   /** Waits for the page's next chart-data answer, or for the budget to run out. */
   private async nextChartData(timeout: number): Promise<void> {
     await this.page
@@ -92,10 +124,11 @@ export class SupersetDashboardBlock {
   /**
    * The chart queries of every chart on screen, newest answer per chart, once
    * each of them has been answered. Charts load only while their tab is shown,
-   * so select the tab first. Throws, naming the charts still unanswered, when
-   * the budget runs out.
+   * so select the tab first. `since` (a {@link capturedCount} taken earlier)
+   * counts only answers captured after it, such as those to a filter change.
+   * Throws, naming the charts still unanswered, when the budget runs out.
    */
-  async visibleChartQueries(timeout: number): Promise<readonly CapturedChart[]> {
+  async visibleChartQueries(timeout: number, since = 0): Promise<readonly CapturedChart[]> {
     const holders = this.root.locator(`${SUPERSET_SELECTORS.chartHolder}:visible`);
     await holders.first().waitFor({ timeout });
     const deadline = Date.now() + timeout;
@@ -106,7 +139,7 @@ export class SupersetDashboardBlock {
         )
       ).map(Number);
       const answered = new Map<number, CapturedChart>();
-      for (const c of this.captured()) {
+      for (const c of this.captured().slice(since)) {
         if (c.query.sliceId !== null) answered.set(c.query.sliceId, c);
       }
       const missing = ids.filter((id) => !answered.has(id));
