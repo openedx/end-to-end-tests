@@ -153,6 +153,7 @@ import {
   ensureAgreement,
   type AgreementGating,
   type AuthoredProblem,
+  type CourseTeamRoleV2,
   courseKeySkipReason,
   enrollInCourseViaApi,
   fetchCourseDetail,
@@ -342,6 +343,15 @@ export interface TestFixtures {
    * JWT-only browser does not. The grant is revoked when the test ends.
    */
   reportsViewer: (courseKey: string) => Promise<ReportsViewer>;
+  /**
+   * A throwaway account for a Superset access case, with its own LMS session in
+   * a request context and a browser. `role`, when given, is granted on
+   * `courseKey` by the worker author **before** the account ever signs in to
+   * Superset: Superset caches what a user may see at sign-in, so an account with
+   * an earlier history (a cast member) would answer for its past. Disposed when
+   * the test ends.
+   */
+  supersetColleague: (options?: SupersetColleagueOptions) => Promise<SupersetColleague>;
   /**
    * Turns course e-mail on for the content course only (`enableCourseEmail`,
    * through the Django admin under the admin lock), so its learners' dashboard
@@ -1089,6 +1099,21 @@ export interface AnalyticsCourse extends AuthoredCourse {
   readonly videoKey: string;
   /** The video's one HTML5 source URL (answered by the suite's clip in the learner's browser). */
   readonly videoSource: string;
+}
+
+/** What a {@link TestFixtures.supersetColleague} is granted before its first Superset sign-in. */
+export interface SupersetColleagueOptions {
+  readonly courseKey: string;
+  readonly role: CourseTeamRoleV2;
+}
+
+/** What {@link TestFixtures.supersetColleague} hands a spec. */
+export interface SupersetColleague {
+  readonly identity: LearnerIdentity;
+  /** Request context holding the account's LMS session. */
+  readonly request: APIRequestContext;
+  readonly context: BrowserContext;
+  readonly page: Page;
 }
 
 /** What {@link TestFixtures.reportsViewer} hands a spec. */
@@ -2151,6 +2176,33 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(new DashboardPage(adminPage, config));
   },
 
+  supersetColleague: async ({ playwright, browser, page, config, studioAuthorSession }, use) => {
+    void studioAuthorSession;
+    const made: SupersetColleague[] = [];
+    await use(async (options) => {
+      const request = await playwright.request.newContext();
+      const identity = await provisionLearnerSession(request, config);
+      if (options !== undefined) {
+        await grantCourseTeamRole(
+          page.request,
+          config,
+          options.courseKey,
+          [identity.username],
+          options.role,
+        );
+      }
+      const context = await browser.newContext();
+      await context.addCookies((await request.storageState()).cookies);
+      const colleague = { identity, request, context, page: await context.newPage() };
+      made.push(colleague);
+      return colleague;
+    });
+    for (const colleague of made) {
+      await colleague.context.close();
+      await colleague.request.dispose();
+    }
+  },
+
   adminReportsPage: async ({ adminPage, config }, use) => {
     const reportsPage = new ReportsPage(adminPage, config);
     await use(reportsPage);
@@ -2175,6 +2227,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
     for (const { courseKey, viewer } of made) {
       viewer.reportsPage.detach();
+      // Tabs the test opened from the Reports tab (its Superset link).
+      for (const extra of viewer.member.context.pages()) {
+        if (extra !== viewer.member.page) await extra.close();
+      }
       await grantCourseTeamRole(
         page.request,
         config,

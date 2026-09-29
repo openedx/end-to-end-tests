@@ -230,6 +230,19 @@ export async function findAdminRowPk(
   query: string,
 ): Promise<string | undefined> {
   const url = `${origin}${adminPath}/?q=${encodeURIComponent(query)}`;
-  const html = await (await adminSession.get(url)).text();
+  const response = await adminSession.get(url);
+  // A signed-out session is redirected to the login page, which lists no rows:
+  // say so, rather than report the row missing, so the admin runner signs in again.
+  if (!new URL(response.url()).pathname.startsWith(adminPath)) {
+    throw new ApiError(
+      `The admin changelist ${adminPath} did not render (landed on ${response.url()}).`,
+      {
+        status: response.status(),
+        url,
+        body: '',
+      },
+    );
+  }
+  const html = await response.text();
   return new RegExp(`${adminPath}/(\\d+)/change/`).exec(html)?.[1];
 }

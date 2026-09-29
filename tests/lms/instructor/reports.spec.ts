@@ -3,7 +3,9 @@ import { INSTRUCTOR_REPORTS_SELECTORS, INSTRUCTOR_TAB_IDS, TIMEOUTS } from '../.
 import { fetchInstructorCourse, supersetOrigin, type InstructorReports } from '../../../src/api';
 import type { ReportsPage } from '../../../src/pages/lms/instructor/reports.page';
 import { checkA11y } from '../../../src/a11y';
+import { dashboardLocaleSuffix, openCourseComparison, signInToSuperset } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
+import { SUPERSET_A11Y_BASELINE } from '../../aspects/helpers';
 import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS } from './helpers';
 
 /**
@@ -87,6 +89,33 @@ test.describe('Aspects Reports tab', { tag: ['@regression', ...REPORTS_TAGS] }, 
 
       await expect(adminReportsPage.tabLink(courseKey, INSTRUCTOR_TAB_IDS.aspects)).toBeVisible();
       await expectEveryDashboardEmbeds(adminReportsPage, reports);
+    },
+  );
+
+  test(
+    'course staff follow the Superset link and sign in through the LMS',
+    { annotation: testId('TC-00549') },
+    async ({ config, authoringCourse, reportsViewer }) => {
+      const { courseKey } = authoringCourse;
+      const { reportsPage } = await reportsViewer(courseKey);
+      const reports = await reportsPage.openReports(courseKey);
+      const origin = supersetOrigin(config, reports);
+
+      const superset = await reportsPage.openSupersetLink();
+      expect(new URL(superset.url()).origin, 'the link opens the advertised Superset').toBe(origin);
+
+      // Single sign-on: the LMS session is all it takes, and course staff are
+      // Superset instructors.
+      const user = await signInToSuperset(superset, origin);
+      expect(user.anonymous, 'Superset signed the user in').toBe(false);
+      expect(user.roles).toContain('Instructor');
+
+      // Superset's own pages have a scan of their own (the tab's excludes the embed).
+      await openCourseComparison(superset, origin, dashboardLocaleSuffix(reports));
+      await checkA11y(superset, {
+        label: 'superset-course-comparison',
+        additionalBaseline: SUPERSET_A11Y_BASELINE,
+      });
     },
   );
 });

@@ -114,3 +114,14 @@ export const COURSE_DASHBOARD_CHARTS = {
 
 /** The Course Dashboard's slug, before the locale suffix Aspects appends (`-en`). */
 export const COURSE_DASHBOARD_SLUG = 'course-dashboard';
+
+/** Course Comparison's slug, before the locale suffix. It is not embeddable: read on Superset. */
+export const COURSE_COMPARISON_SLUG = 'course-comparison';
+
+/** Course Comparison's tabs, by asset layout id (`Course_Comparison_Dashboard.yaml`). */
+export const COURSE_COMPARISON_TABS = {
+  /** "Course Metrics": one row per course. */
+  courseMetrics: 'TAB-J31MdXj-sa',
+  /** "Run Metrics": one row per course run. */
+  runMetrics: 'TAB-GuHDMLqRC',
+} as const;

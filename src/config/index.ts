@@ -27,6 +27,8 @@ export { importPluginModule, instantiatePluginExport } from './plugin-module';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
 export {
+  COURSE_COMPARISON_SLUG,
+  COURSE_COMPARISON_TABS,
   COURSE_DASHBOARD_CHARTS,
   COURSE_DASHBOARD_SLUG,
   COURSE_DASHBOARD_TAB_PARENTS,

@@ -7,6 +7,23 @@ import { findAdminRowPk, openAdminForm, postAdminForm, readAdminForm } from './d
 /** The LMS user admin — the only route to an account's `is_active` flag. */
 export const USER_ADMIN = '/admin/auth/user';
 
+/** The user admin's change form for `username`. */
+async function userChangeUrl(
+  adminSession: APIRequestContext,
+  config: AppConfig,
+  username: string,
+): Promise<string> {
+  const pk = await findAdminRowPk(adminSession, USER_ADMIN, config.baseUrls.lms, username);
+  if (pk === undefined) {
+    throw new ApiError(`No user row for ${username} in the LMS admin.`, {
+      status: 404,
+      url: `${config.baseUrls.lms}${USER_ADMIN}/`,
+      body: '',
+    });
+  }
+  return `${config.baseUrls.lms}${USER_ADMIN}/${pk}/change/`;
+}
+
 /**
  * Turns an account's `is_active` off, so a spec can exercise what the platform
  * does with a **registered but not activated** user.
@@ -24,18 +41,27 @@ export async function deactivateAccount(
   config: AppConfig,
   username: string,
 ): Promise<void> {
-  const pk = await findAdminRowPk(adminSession, USER_ADMIN, config.baseUrls.lms, username);
-  if (pk === undefined) {
-    throw new ApiError(`No user row for ${username} in the LMS admin.`, {
-      status: 404,
-      url: `${config.baseUrls.lms}${USER_ADMIN}/`,
-      body: '',
-    });
-  }
-  const url = `${config.baseUrls.lms}${USER_ADMIN}/${pk}/change/`;
+  const url = await userChangeUrl(adminSession, config, username);
   const { html, token } = await openAdminForm(adminSession, url, `Deactivating ${username}`);
   const form = readAdminForm(html);
   // An unchecked checkbox is simply absent from a form body.
   delete form.is_active;
   await postAdminForm(adminSession, url, token, form, `Deactivating ${username}`);
+}
+
+/**
+ * Makes an account **global staff** (`is_staff`), as the sheet's "make your test
+ * account a staff account" asks: through the LMS user admin, like
+ * {@link deactivateAccount}, since no API grants it.
+ */
+export async function makeGlobalStaff(
+  adminSession: APIRequestContext,
+  config: AppConfig,
+  username: string,
+): Promise<void> {
+  const url = await userChangeUrl(adminSession, config, username);
+  const { html, token } = await openAdminForm(adminSession, url, `Making ${username} staff`);
+  const form = readAdminForm(html);
+  form.is_staff = 'on';
+  await postAdminForm(adminSession, url, token, form, `Making ${username} staff`);
 }

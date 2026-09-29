@@ -1,7 +1,13 @@
-import type { FrameLocator, Page } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 
 import { SUPERSET_SELECTORS, supersetDashboardTab } from '../../config';
-import { isFilterQuery, type ChartQuery, type ChartResult } from '../../api';
+import {
+  isFilterQuery,
+  narrowChartData,
+  parseChartQuery,
+  type ChartQuery,
+  type ChartResult,
+} from '../../api';
 
 /** A chart-data request a Superset dashboard sent, with the answer it got. */
 export interface CapturedChart {
@@ -10,25 +16,47 @@ export interface CapturedChart {
   readonly result: readonly ChartResult[];
 }
 
+/** Where a dashboard renders: an embed's iframe (`FrameLocator`) or Superset's own page. */
+export interface DashboardRoot {
+  locator(selector: string): Locator;
+}
+
 /**
- * One Superset dashboard as a page renders it: embedded in the Reports tab
- * (`frame` is its iframe) or, later, on Superset's own dashboard page. Its
- * chart-data traffic is recorded by the page object that owns the frame and read
- * here through `captured`, so the block only drives the dashboard and says which
- * of the captured queries belong to the charts on screen.
+ * A chart-data exchange as the page object that watches a dashboard records it:
+ * the query the dashboard sent and the rows it got back. `undefined` for a
+ * request with no body.
  */
-export class EmbeddedDashboardBlock {
+export async function captureChartData(response: Response): Promise<CapturedChart | undefined> {
+  const postData = response.request().postData();
+  if (postData === null) return undefined;
+  let result: CapturedChart['result'] = [];
+  try {
+    result = narrowChartData(await response.json());
+  } catch {
+    // An error answer carries no rows; its status says what happened.
+  }
+  return { query: parseChartQuery(postData), status: response.status(), result };
+}
+
+/**
+ * One Superset dashboard as a page renders it: embedded in the Reports tab, or on
+ * Superset's own dashboard page. Its chart-data traffic is recorded by the page
+ * object that owns the page and read here through `captured`, so the block only
+ * drives the dashboard and says which of the captured queries belong to the
+ * charts on screen.
+ */
+export class SupersetDashboardBlock {
   constructor(
     private readonly page: Page,
-    readonly frame: FrameLocator,
+    readonly root: DashboardRoot,
     private readonly captured: () => readonly CapturedChart[],
   ) {}
 
   /** Shows a dashboard tab by its asset layout id, and waits for it to be selected. */
   async selectTab(tabId: string): Promise<void> {
-    const tab = this.frame.locator(supersetDashboardTab(tabId)).first();
+    const tab = this.root.locator(supersetDashboardTab(tabId)).first();
     if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click();
-    await this.frame
+    await this.root
       .locator(`${supersetDashboardTab(tabId)}[aria-selected="true"]`)
       .first()
       .waitFor();
@@ -68,7 +96,7 @@ export class EmbeddedDashboardBlock {
    * the budget runs out.
    */
   async visibleChartQueries(timeout: number): Promise<readonly CapturedChart[]> {
-    const holders = this.frame.locator(`${SUPERSET_SELECTORS.chartHolder}:visible`);
+    const holders = this.root.locator(`${SUPERSET_SELECTORS.chartHolder}:visible`);
     await holders.first().waitFor({ timeout });
     const deadline = Date.now() + timeout;
     for (;;) {

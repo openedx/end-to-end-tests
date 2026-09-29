@@ -172,6 +172,10 @@ Rules:
   revoked at teardown), and `adminReportsPage` is the superuser's. A
   `ReportsPage` records the embed traffic from the moment the tab opens and is
   detached when the test ends, because a cast member's page outlives it.
+- **Superset access cases take throwaway accounts.** `supersetColleague` is a
+  new account with its own LMS session and browser, granted its course role (if
+  any) before it first signs in to Superset, which caches what a user may see at
+  sign-in. `reportsViewer` also closes the tabs its Superset link opened.
 - **An Aspects pipeline case starts from an empty course.** `analyticsCourse`
   is an `authoringCourse` with a graded subsection (a multiple-choice and a
   numerical problem, then an HTML5 video) and an ungraded HTML-only one,

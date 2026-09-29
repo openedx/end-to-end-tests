@@ -20,6 +20,10 @@ can reuse — e.g.:
   cache bypassed on a guest token it re-mints when it expires. `findChart`
   picks a chart by `COURSE_DASHBOARD_CHARTS` key, and `waitForAnalytics` is the
   pipeline poll that returns its readings rather than throwing.
+  `signInToSuperset` runs Superset's LMS sign-in from wherever a page is and
+  returns who Superset says the user is (a refused user comes back anonymous),
+  and `openCourseComparison` reads the courses Course Comparison's own course
+  filter offers the signed-in user, which is row-level security's answer.
 - `instructor.ts` — the instructor-dashboard waits and flows: `waitForInstructorTask`
   / `waitForReport` / `waitForLearnerProgress` / `waitForLearnerProblem` (bounded
   polls that return their last readings instead of throwing, so a spec's failure
