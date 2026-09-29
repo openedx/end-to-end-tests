@@ -106,9 +106,11 @@ export {
   findChart,
   openCourseComparison,
   openCourseDashboard,
+  openReportsDashboard,
   signInToSuperset,
   waitForAnalytics,
   type AnalyticsWait,
   type CourseComparison,
   type CourseDashboard,
+  type ReportsDashboard,
 } from './analytics';

@@ -21,6 +21,10 @@ export const SUPERSET_SELECTORS = {
   lmsOAuthAllow: 'form#authorizationForm button[name="allow"]',
   /** The filter bar's "Apply filters". */
   filterApply: '[data-test="filter-bar__apply-button"]',
+  /** A select filter's own clear control (shown on hover once it holds a value). */
+  selectClear: '.ant-select-clear',
+  /** The collapsed filter bar's expand control (embedded dashboards start collapsed). */
+  filterBarExpand: '[data-test="filter-bar__expand-button"]',
   /** The open dropdown of a select filter (antd renders it apart from the control). */
   openSelectDropdown: '.ant-select-dropdown:not(.ant-select-dropdown-hidden)',
 } as const;

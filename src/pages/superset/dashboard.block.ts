@@ -99,6 +99,7 @@ export class SupersetDashboardBlock {
    * the new filter can be told from the old ones.
    */
   async applySelectFilter(filterId: string, values: readonly string[]): Promise<number> {
+    await this.expandFilterBar();
     const control = this.root.locator(supersetNativeFilter(filterId));
     for (const value of values) {
       await control.click();
@@ -112,6 +113,29 @@ export class SupersetDashboardBlock {
     const marker = this.capturedCount();
     await this.root.locator(SUPERSET_SELECTORS.filterApply).click();
     return marker;
+  }
+
+  /**
+   * Clears one select filter with its own clear control and applies, leaving the
+   * others (a dashboard's preselected course filter among them) as they are.
+   * Returns the capture marker taken before applying.
+   */
+  async clearSelectFilter(filterId: string): Promise<number> {
+    await this.expandFilterBar();
+    const control = this.root.locator(supersetNativeFilter(filterId));
+    await control.hover();
+    await control.locator(SUPERSET_SELECTORS.selectClear).click();
+    await this.page.keyboard.press('Escape');
+    const marker = this.capturedCount();
+    await this.root.locator(SUPERSET_SELECTORS.filterApply).click();
+    return marker;
+  }
+
+  /** Opens the filter bar where it starts collapsed (an embedded dashboard's does). */
+  private async expandFilterBar(): Promise<void> {
+    const expand = this.root.locator(`${SUPERSET_SELECTORS.filterBarExpand}:visible`);
+    if (await expand.count()) await expand.first().click();
+    await this.root.locator(SUPERSET_SELECTORS.filterApply).waitFor();
   }
 
   /** Waits for the page's next chart-data answer, or for the budget to run out. */

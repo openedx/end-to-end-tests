@@ -205,3 +205,24 @@ export const COURSE_COMPARISON_CHARTS = {
     ],
   },
 } as const satisfies Record<string, AspectsChartKey>;
+
+/** The Individual Learner dashboard's slug, before the locale suffix (offered where Aspects exposes PII). */
+export const INDIVIDUAL_LEARNER_SLUG = 'individual-learner';
+
+/** Individual Learner's tabs, by asset layout id (`Individual_Learner.yaml`). */
+export const INDIVIDUAL_LEARNER_TABS = {
+  /** "Pages" (the default tab). The Learner Summary above the tabs loads with it. */
+  pages: 'TAB-LMmJ7FePiY',
+} as const;
+
+/** Individual Learner's native filters, by id. */
+export const INDIVIDUAL_LEARNER_FILTERS = {
+  /** "Username": the course's learners, row-level-secured to the course. */
+  username: 'NATIVE_FILTER-FDZVMcK41',
+} as const;
+
+/** The Individual Learner charts TC-00544 reads. */
+export const INDIVIDUAL_LEARNER_CHARTS = {
+  /** "Learner Summary": one row per learner (`username`, `name`, `email`, grade, …), no metrics. */
+  learnerSummary: { tab: INDIVIDUAL_LEARNER_TABS.pages, vizType: 'table', metrics: [] },
+} as const satisfies Record<string, AspectsChartKey>;

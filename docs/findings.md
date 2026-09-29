@@ -117,6 +117,7 @@ measured, and issues are opened by hand from them.
 | `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
 | `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
 | `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
+| `ASPECTS-008` | `openedx/tutor-contrib-aspects` (dashboard assets: "Clear all" empties the preselected course filter) | open, no `fixme` — TC-00544 clears only the learner filter, as the sheet asks
 
 ---
 
@@ -2211,6 +2212,24 @@ makes a newer `modified`, and the tag then shows reliably.
   list and the Tag filter are covered.
 - A separate `fixme` holds the sheet's case as written: tag the course, and the
   tag shows without anything else.
+
+### `ASPECTS-008` — "Clear all" leaves an Aspects dashboard unable to render
+
+**Where:** the Aspects dashboards' native filters (tutor-contrib-aspects 5.0.0
+assets), in Superset 6.1.0. Seen on the Individual Learner dashboard embedded in
+the Reports tab.
+
+**What happens:** each dashboard's Course Name filter is set to "Select first
+filter value by default", which is how the dashboard scopes itself to the
+course. The filter bar's "Clear all" empties that filter too. Superset then
+shows "The following filters have the 'Select first filter value by default'
+option checked and could not be loaded, which is preventing the dashboard from
+rendering: Course Name", and the charts and tabs are gone until the page is
+reloaded. The Individual Learner filters also cascade in a loop: Organization's
+parent is Course Name, and Course Name's is Organization.
+
+**Coverage impact:** open, no `fixme`. TC-00544 asks to clear the learner
+filter, and the spec clears that one filter with its own control, which works.
 
 ### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
 

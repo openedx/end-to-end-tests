@@ -91,42 +91,54 @@ export function chartRows(
   return result[0]?.data ?? [];
 }
 
-/** A course's Aspects Course Dashboard, opened in the Reports tab, ready to be read. */
-export interface CourseDashboard {
+/** One of a course's Aspects dashboards, opened in the Reports tab, ready to be read. */
+export interface ReportsDashboard {
   readonly block: SupersetDashboardBlock;
-  /** Shows the key's tab (and its parent) and returns the charts on it, answered. */
-  chartsOn(tab: string): Promise<readonly CapturedChart[]>;
+  /**
+   * Shows a tab (and its parent, for the Course Dashboard's nested tabs) and
+   * returns the charts on it, answered. `since` (from {@link filter} or
+   * {@link clearFilter}) waits for the answers to that filter change instead.
+   */
+  chartsOn(tab: string, since?: number): Promise<readonly CapturedChart[]>;
   /** Replays one captured chart with the cache bypassed and returns its rows. */
   read(chart: CapturedChart): Promise<readonly Readonly<Record<string, unknown>>[]>;
+  /** Chooses values in a select filter and applies it; returns the marker for `chartsOn`. */
+  filter(filterId: string, values: readonly string[]): Promise<number>;
+  /** Clears one select filter and applies; returns the marker for `chartsOn`. */
+  clearFilter(filterId: string): Promise<number>;
 }
 
+/** The Course Dashboard (`openCourseDashboard`) is one of them. */
+export type CourseDashboard = ReportsDashboard;
+
 /**
- * Opens a course's Course Dashboard in the Reports tab as `viewer` (its
- * `request` holds the viewer's LMS session) and waits until the dashboard knows
- * the course.
+ * Opens one of a course's dashboards in the Reports tab, by slug (before its
+ * locale suffix), as `viewer` (its `request` holds the viewer's LMS session),
+ * and waits until the dashboard knows the course.
  *
- * Aspects' course filter preselects the course's **name**, which reaches Superset
- * on a dictionary refresh after the course is created; a dashboard loaded before
- * that sends no chart queries at all. So when the first load's filter options
- * lack the course, this replays the filter until they list it, then loads the tab
- * again.
+ * Aspects' dashboards preselect the course's **name** in their course filter,
+ * and the name reaches Superset on a dictionary refresh after the course is
+ * created; a dashboard loaded before that sends no chart queries at all. So when
+ * the first load's filter options lack the course, this replays the filter until
+ * they list it, then loads the tab again.
  */
-export async function openCourseDashboard(
+export async function openReportsDashboard(
   reportsPage: ReportsPage,
   viewer: APIRequestContext,
   config: AppConfig,
   course: { readonly courseKey: string; readonly displayName: string },
-): Promise<CourseDashboard> {
+  slug: string,
+): Promise<ReportsDashboard> {
   const { courseKey, displayName } = course;
   let reports = await reportsPage.openReports(courseKey);
   const origin = supersetOrigin(config, reports);
   const dashboardUuid = () => {
     const dashboard = reports.dashboards.find(
-      (d) => d.slug === COURSE_DASHBOARD_SLUG || d.slug.startsWith(`${COURSE_DASHBOARD_SLUG}-`),
+      (d) => d.slug === slug || d.slug.startsWith(`${slug}-`),
     );
     if (dashboard === undefined) {
       throw new Error(
-        `The Reports tab offers no Course Dashboard (${COURSE_DASHBOARD_SLUG}); it offers ` +
+        `The Reports tab offers no ${slug} dashboard; it offers ` +
           `${reports.dashboards.map((d) => d.slug).join(', ') || 'nothing'}.`,
       );
     }
@@ -173,16 +185,32 @@ export async function openCourseDashboard(
   const block = reportsPage.dashboard(uuid);
   return {
     block,
-    async chartsOn(tab) {
+    async chartsOn(tab, since = 0) {
       const parent = COURSE_DASHBOARD_TAB_PARENTS[tab];
       if (parent !== undefined) await block.selectTab(parent);
       await block.selectTab(tab);
-      return block.visibleChartQueries(TIMEOUTS.supersetEmbed);
+      return block.visibleChartQueries(TIMEOUTS.supersetEmbed, since);
     },
     async read(chart) {
       return chartRows(await replay(chart));
     },
+    filter(filterId, values) {
+      return block.applySelectFilter(filterId, values);
+    },
+    clearFilter(filterId) {
+      return block.clearSelectFilter(filterId);
+    },
   };
+}
+
+/** A course's Course Dashboard in the Reports tab ({@link openReportsDashboard}). */
+export function openCourseDashboard(
+  reportsPage: ReportsPage,
+  viewer: APIRequestContext,
+  config: AppConfig,
+  course: { readonly courseKey: string; readonly displayName: string },
+): Promise<CourseDashboard> {
+  return openReportsDashboard(reportsPage, viewer, config, course, COURSE_DASHBOARD_SLUG);
 }
 
 /**
