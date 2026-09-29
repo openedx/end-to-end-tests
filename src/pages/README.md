@@ -36,7 +36,11 @@ Page objects live in the same platform-domain folder as the specs that use them,
   the same dashboard on Superset's own pages (Course Comparison, read on the
   user's Superset session), and `sign-in.page.ts` is Superset's sign-in through
   the LMS, accepting the LMS's consent page on a first sign-in
-- `pages/lms/notifications/tray.page.ts` is the notifications tray in any MFE's
+- `pages/studio/sidebar/analytics.block.ts` is Aspects' in-context Analytics page
+  of the authoring sidebar (outline and unit page) and the outline cards'
+  Analytics buttons; every open or drill-in returns the
+  `superset_in_context_dashboard` request it caused
+  is the notifications tray in any MFE's
   header (no `goto`: navigate first, then `open()`); it opens tabs, reads rows by
   notification id, and returns the new tab a row opens (`openRow`, since the
   row is a `target="_blank"` link). `preferences.page.ts` is the account MFE's

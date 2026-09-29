@@ -176,6 +176,10 @@ Rules:
   new account with its own LMS session and browser, granted its course role (if
   any) before it first signs in to Superset, which caches what a user may see at
   sign-in. `reportsViewer` also closes the tabs its Superset link opened.
+- **In-context metrics are read by a Studio colleague.** `inContextViewer(courseKey)`
+  is a `studioColleague` granted course `staff`, with the outline, unit page,
+  Analytics sidebar and authoring sidebar objects on its page: the plugin's LMS
+  calls need the LMS session the worker author's browser lacks.
 - **An Aspects pipeline case starts from an empty course.** `analyticsCourse`
   is an `authoringCourse` with a graded subsection (a multiple-choice and a
   numerical problem, then an HTML5 video) and an ungraded HTML-only one,

@@ -61,6 +61,7 @@ import { InstructorCourseTeamPage } from '../pages/lms/instructor/course-team.pa
 import { InstructorSpecialExamsPage } from '../pages/lms/instructor/special-exams.page';
 import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
 import { ReportsPage } from '../pages/lms/instructor/reports.page';
+import { AnalyticsSidebar } from '../pages/studio/sidebar/analytics.block';
 import { BulkEmailPage } from '../pages/lms/communications/bulk-email.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
@@ -352,6 +353,14 @@ export interface TestFixtures {
    * the test ends.
    */
   supersetColleague: (options?: SupersetColleagueOptions) => Promise<SupersetColleague>;
+  /**
+   * A Studio user for Aspects' in-context metrics on `courseKey`: a
+   * `studioColleague` the worker author grants course `staff`, with the outline,
+   * unit and Analytics-sidebar page objects on its page. The plugin's LMS calls
+   * need an LMS session, which the colleague's sign-in holds and the worker
+   * author's JWT-only browser does not.
+   */
+  inContextViewer: (courseKey: string) => Promise<InContextViewer>;
   /**
    * Turns course e-mail on for the content course only (`enableCourseEmail`,
    * through the Django admin under the admin lock), so its learners' dashboard
@@ -1114,6 +1123,16 @@ export interface SupersetColleague {
   readonly request: APIRequestContext;
   readonly context: BrowserContext;
   readonly page: Page;
+}
+
+/** What {@link TestFixtures.inContextViewer} hands a spec. */
+export interface InContextViewer {
+  readonly colleague: StudioColleague;
+  readonly outlinePage: StudioCourseOutlinePage;
+  readonly unitPage: StudioUnitPage;
+  readonly analytics: AnalyticsSidebar;
+  /** The authoring sidebar the Analytics page lives in (its collapse is the panel's close). */
+  readonly sidebar: AuthoringSidebar;
 }
 
 /** What {@link TestFixtures.reportsViewer} hands a spec. */
@@ -2201,6 +2220,27 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       await colleague.context.close();
       await colleague.request.dispose();
     }
+  },
+
+  inContextViewer: async ({ page, config, studioAuthorSession, studioColleague }, use) => {
+    void studioAuthorSession;
+    await use(async (courseKey) => {
+      const colleague = await studioColleague();
+      await grantCourseTeamRole(
+        page.request,
+        config,
+        courseKey,
+        [colleague.identity.username],
+        'staff',
+      );
+      return {
+        colleague,
+        outlinePage: new StudioCourseOutlinePage(colleague.page, config),
+        unitPage: colleague.unitPage,
+        analytics: new AnalyticsSidebar(colleague.page, config),
+        sidebar: new AuthoringSidebar(colleague.page, config),
+      };
+    });
   },
 
   adminReportsPage: async ({ adminPage, config }, use) => {

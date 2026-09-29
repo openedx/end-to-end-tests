@@ -89,6 +89,7 @@ export {
   type InstructorTabId,
 } from './instructor';
 export { INSTRUCTOR_REPORTS_SELECTORS, reportsDashboardTab } from './instructor-reports';
+export { STUDIO_ANALYTICS_SELECTORS, outlineCardHeader } from './studio-analytics';
 export {
   SUPERSET_SELECTORS,
   supersetDashboardTab,

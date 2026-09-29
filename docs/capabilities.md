@@ -27,7 +27,8 @@ it, and `tests/config/capabilities-doc.spec.ts` keeps the two in step.
   is a configuration error.
 - **Required partners.** A few capabilities describe part of another's
   deployment (`analytics-in-context` and `analytics-pii` are parts of
-  `analytics`). Declaring one without its partner fails validation.
+  `analytics`, and `analytics-in-context-cards` of `analytics-in-context`).
+  Declaring one without its partner fails validation.
 - **Mutually exclusive pairs.** Some capabilities are two implementations or two
   configurations of one surface; declaring both fails validation. Where one half
   of a pair is default-on, declaring the other half replaces it without an
@@ -115,6 +116,7 @@ profile. The `extended` column shows what that profile changes on top.
 | `analytics` | — | — | — | — | — | — | |
 | `analytics-in-context` | — | — | — | — | — | — | |
 | `analytics-pii` | — | — | — | — | — | — | |
+| `analytics-in-context-cards` | — | — | — | — | — | — | |
 | `rbac` | declared | declared | — | — | — | — | |
 | `rbac-global` | — | — | — | — | — | — | |
 | `rbac-matrix-parity` | declared | — | — | — | — | — | |
@@ -229,6 +231,7 @@ permanently red case. Declare one where the behaviour is right.
 | `rbac-error-view-action` | The console's not-found view offers a working way back. On `main` the action does nothing (`RBAC-008`). | TC-00442. | `verawood` |
 | `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood`, `ulmo`, `teak`, `sumac`, `redwood` |
 | `recommender-studio-settings` | The recommender's Studio editor shows the settings it saved (recommender-xblock ≥ 5.1.0). `verawood` pins 5.0.0 (`XBLOCK-002`). | TC-00132. | `main` |
+| `analytics-in-context-cards` | The outline cards' Analytics buttons open the element's own in-context analytics. frontend-plugin-aspects 3.0.1 reads the selection from the authoring MFE's `currentItemData`, which `master` removed, so on `main` they show the course's view (`ASPECTS-009`). Requires `analytics-in-context`. | TC-00314's card-opens-element case. | `verawood` (not yet run there) |
 
 ### Content
 

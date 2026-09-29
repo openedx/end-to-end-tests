@@ -184,6 +184,13 @@ export const CAPABILITIES = [
   // Reports tab offers the Individual Learner dashboard, filterable by
   // username (TC-00544). Requires `analytics`.
   'analytics-pii',
+  // The **outline cards' Analytics buttons open the element's own analytics**
+  // (Aspects' in-context metrics). frontend-plugin-aspects 3.0.1 reads the
+  // selected element from the authoring MFE's outline-sidebar `currentItemData`,
+  // which `release/verawood` provides and `master` no longer does, so on `main`
+  // every card button shows the course's view (`ASPECTS-009`). Declared where it
+  // works, like `rbac-error-view-action`. Requires `analytics-in-context`.
+  'analytics-in-context-cards',
   // Roles and permissions under **openedx-authz**: the `/api/authz/v1/` API and
   // the Roles and Permissions console (the admin-console MFE, reached through
   // the `ADMIN_CONSOLE_URL` the authoring MFE config advertises). Both ship on
@@ -372,6 +379,7 @@ export const MUTUALLY_EXCLUSIVE_CAPABILITIES: ReadonlyArray<readonly Capability[
 export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability>>> = {
   'analytics-in-context': 'analytics',
   'analytics-pii': 'analytics',
+  'analytics-in-context-cards': 'analytics-in-context',
 };
 
 export function isCapability(value: string): value is Capability {

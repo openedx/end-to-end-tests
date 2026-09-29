@@ -141,6 +141,8 @@ export {
   instructorTabLink,
   instructorTabPath,
   reportsDashboardTab,
+  STUDIO_ANALYTICS_SELECTORS,
+  outlineCardHeader,
   SUPERSET_SELECTORS,
   supersetDashboardTab,
   supersetNativeFilter,

@@ -118,6 +118,7 @@ measured, and issues are opened by hand from them.
 | `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
 | `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
 | `ASPECTS-008` | `openedx/tutor-contrib-aspects` (dashboard assets: "Clear all" empties the preselected course filter) | open, no `fixme` — TC-00544 clears only the learner filter, as the sheet asks
+| `ASPECTS-009` | `openedx/frontend-plugin-aspects` 3.0.1 on authoring `master`: the outline cards' Analytics buttons show the course | open, gated — TC-00314's card case needs `analytics-in-context-cards`, declared where it works
 
 ---
 
@@ -2230,6 +2231,28 @@ parent is Course Name, and Course Name's is Organization.
 
 **Coverage impact:** open, no `fixme`. TC-00544 asks to clear the learner
 filter, and the spec clears that one filter with its own control, which works.
+
+### `ASPECTS-009` — on `main`, an outline card's Analytics button shows the whole course
+
+**Where:** `frontend-plugin-aspects` 3.0.1 in `frontend-app-authoring` `master`
+(checked at `b98d86b`, 2026-09-29).
+
+**What happens:** the graded-subsection and unit cards' Analytics buttons call
+the outline sidebar context's `setSelectedContainerState({currentId})` and open
+the Analytics page. That page (`CourseOutlineAspectsPage`) decides what to show
+from the context's `currentItemData`. `release/verawood`'s
+`OutlineSidebarContext` still provides that field; `master`'s no longer does. So
+on `main` the page always shows the course's view: the course's dashboard, no
+subsection view, no unit list. Drilling into an element from the Analytics
+page's own lists still works. Measured on local `main`: clicking a graded
+subsection's button loads `superset_in_context_dashboard/<course key>` only,
+with no request for the subsection.
+
+**Coverage impact:** open, gated. TC-00314's check that the buttons are present
+on the right cards is ungated. Its "a card opens that element's analytics" case
+is tagged `@analytics-in-context-cards`, a capability declared where the plugin
+and the authoring MFE agree (Verawood). So the regression shows as an
+undeclared capability on `main` rather than as a permanently red case.
 
 ### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
 
