@@ -226,4 +226,24 @@ export const TIMEOUTS = {
    * after start, which warms its caches, on a shared CI runner.
    */
   supersetEmbed: 60_000,
+
+  /**
+   * Budget for a learner's action to show in an Aspects chart: the xAPI
+   * statement is logged, Vector ships it to ClickHouse, the materialized views
+   * update, and Superset answers the replayed query with its cache bypassed.
+   * Measured 2026-09-27 on Tutor `main`: about 2 s to ClickHouse and 3–10 s to
+   * the chart. A new course's name reaches the dashboards' course filter on a
+   * dictionary refresh up to 120 s later (32 s measured), which the first
+   * reading of a fresh course waits on too. The rest is headroom for a shared
+   * CI runner; every reading polls under it and reports its last value.
+   */
+  analyticsPipeline: 180_000,
+
+  /**
+   * Per-test budget for an Aspects pipeline case: build and publish a course
+   * (`contentPublish`), wait for Superset to know the new course and then for the
+   * learner's action to reach a chart (two `analyticsPipeline` waits at most),
+   * with the browser work of both actors on top.
+   */
+  analyticsTest: 600_000,
 } as const;

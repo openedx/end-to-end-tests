@@ -113,6 +113,7 @@ measured, and issues are opened by hand from them.
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
+| `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
 
 ---
 
@@ -2109,6 +2110,42 @@ in the table after a reload. Measured on local `main` (2026-09-24).
 
 **Coverage impact:** open. TC-00541's add and edit test passes; its delete test
 is a `test.fail` that lifts itself when the fix lands.
+
+### `ASPECTS-006` — with Vector, a watched video never shows in Aspects' video charts
+
+**Where:** `aspects-dbt` (as tutor-contrib-aspects 5.0.0 installs it), the
+`fact_video_segments` model, built as a ClickHouse materialized view, and every
+video chart downstream of it (`fact_video_engagement`, the Course Dashboard's
+Videos tab, Course Comparison's video engagement).
+
+**What happens:** `fact_video_segments_mv` pairs each `played` statement with
+the next playback statement of the same learner and video, using window
+functions over `openedx.video_playback_events`. A ClickHouse materialized view
+runs on **each insert block**, and only sees that block's rows. Vector, the
+default xAPI pipeline since Aspects v4, inserts into ClickHouse about once a
+second. So a watch is counted only when its `played` statement and the `paused`
+or `completed` that ends it land in the same insert. For any real watch longer
+than a second or so, they essentially never do.
+
+Measured on local `main` (2026-09-29, tutor-contrib-aspects 5.0.0, Vector),
+twice, with a learner watching the suite's one-second HTML5 clip to the end.
+Both times `initialized`, `played`, `completed` and `paused` reached
+`openedx.video_playback_events` within 2 s.
+- **First run:** the statements were split across inserts one second apart.
+  Neither `fact_video_segments` nor `fact_video_engagement` gained a row for the
+  course, and the Videos tab's charts stayed empty.
+- **Second run:** they happened to share an insert, a segment row appeared, and
+  the charts showed the watch.
+
+Apart from these, the only course on that stack with segment rows is the demo
+course, most likely from a bulk load.
+
+**Coverage impact:** open. TC-00548 is written against the intended behaviour
+(learners who viewed a video = 1, full views = 1, a watched segment). With a
+one-second clip the outcome is a matter of timing, so a `test.fail` would pass
+at random. It is a declaration-form `test.fixme` with a `knownGap` instead, to
+lift once the marts pair statements across inserts. TC-00554's watched and
+rewatched percentages depend on the same mart.
 
 ### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
 
