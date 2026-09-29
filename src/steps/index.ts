@@ -102,9 +102,13 @@ export {
 } from './chrome';
 export {
   chartRows,
+  dashboardLocaleSuffix,
   findChart,
+  openCourseComparison,
   openCourseDashboard,
+  signInToSuperset,
   waitForAnalytics,
   type AnalyticsWait,
+  type CourseComparison,
   type CourseDashboard,
 } from './analytics';

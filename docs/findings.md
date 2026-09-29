@@ -115,6 +115,7 @@ measured, and issues are opened by hand from them.
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 | `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
+| `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
 
 ---
 
@@ -2164,6 +2165,24 @@ one-second clip the outcome is a matter of timing, so a `test.fail` would pass
 at random. It is a declaration-form `test.fixme` with a `knownGap` instead, to
 lift once the marts pair statements across inserts. TC-00554's watched and
 rewatched percentages depend on the same mart.
+
+### `ASPECTS-A11Y-001` — Superset's dashboard pages fail two serious axe rules
+
+**Where:** Apache Superset 6.1.0, as `edunext/aspects-superset:5.0.0` serves
+it. Found on the Course Comparison dashboard, which Aspects' users reach from
+the Reports tab's "View dashboards in Superset".
+
+**What happens:** axe (WCAG 2.2 AA) reports two serious rules:
+- `html-has-lang`: the page's `<html>` carries no `lang`;
+- `nested-interactive`: three chart-header controls nest one interactive
+  element inside another.
+
+Both are Superset's own markup, not Aspects' dashboards.
+
+**Coverage impact:** open, no `fixme`. TC-00549's scan of the Superset page
+baselines the two rules (`SUPERSET_A11Y_BASELINE`, Superset-page scans only).
+The Reports tab's own scan excludes the embed, so the Open edX surface keeps the
+full gate.
 
 ### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
 

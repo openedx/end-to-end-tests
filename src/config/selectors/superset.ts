@@ -8,6 +8,17 @@
 export const SUPERSET_SELECTORS = {
   /** A rendered chart; the attribute's value is Superset's numeric chart id on this install. */
   chartHolder: '[data-test-chart-id]',
+  /**
+   * The login page's "Sign in with Open edX" provider link: Aspects registers
+   * the LMS as Superset's OAuth provider `openedxsso`.
+   */
+  ssoProviderLink: 'a[href*="/login/openedxsso"]',
+  /**
+   * The LMS's OAuth consent form ("Authorize"), shown on a user's first sign-in
+   * because the `superset-sso` application does not skip authorization: the
+   * django-oauth-toolkit form and its `allow` submit.
+   */
+  lmsOAuthAllow: 'form#authorizationForm button[name="allow"]',
 } as const;
 
 /**

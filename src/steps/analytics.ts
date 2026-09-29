@@ -1,6 +1,7 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 import {
+  COURSE_COMPARISON_SLUG,
   COURSE_DASHBOARD_SLUG,
   COURSE_DASHBOARD_TAB_PARENTS,
   TIMEOUTS,
@@ -10,15 +11,17 @@ import {
 import {
   ApiError,
   fetchGuestToken,
+  fetchSupersetUser,
   replayChartData,
   supersetOrigin,
   type ChartResult,
+  type InstructorReports,
+  type SupersetUser,
 } from '../api';
+import { SupersetDashboardPage } from '../pages/superset/dashboard.page';
+import { SupersetSignInPage } from '../pages/superset/sign-in.page';
 import type { ReportsPage } from '../pages/lms/instructor/reports.page';
-import type {
-  CapturedChart,
-  EmbeddedDashboardBlock,
-} from '../pages/superset/embedded-dashboard.block';
+import type { CapturedChart, SupersetDashboardBlock } from '../pages/superset/dashboard.block';
 import { pollUntil } from './poll';
 
 /**
@@ -90,7 +93,7 @@ export function chartRows(
 
 /** A course's Aspects Course Dashboard, opened in the Reports tab, ready to be read. */
 export interface CourseDashboard {
-  readonly block: EmbeddedDashboardBlock;
+  readonly block: SupersetDashboardBlock;
   /** Shows the key's tab (and its parent) and returns the charts on it, answered. */
   chartsOn(tab: string): Promise<readonly CapturedChart[]>;
   /** Replays one captured chart with the cache bypassed and returns its rows. */
@@ -178,6 +181,55 @@ export async function openCourseDashboard(
     },
     async read(chart) {
       return chartRows(await replay(chart));
+    },
+  };
+}
+
+/**
+ * Signs `page`'s user in to Superset through the LMS, from wherever the page is
+ * (Superset's URL, the tab the Reports link opened), and returns who Superset
+ * then says the user is. A refused user comes back as an anonymous visitor.
+ */
+export async function signInToSuperset(page: Page, origin: string): Promise<SupersetUser> {
+  await new SupersetSignInPage(page, origin).signIn();
+  return fetchSupersetUser(page.request, origin);
+}
+
+/**
+ * The locale suffix Aspects gives its dashboards for this viewer (`-en`), read
+ * from the Course Dashboard's slug in the Reports config.
+ */
+export function dashboardLocaleSuffix(reports: InstructorReports): string {
+  const slug = reports.dashboards.find((d) => d.slug.startsWith(COURSE_DASHBOARD_SLUG))?.slug;
+  return slug === undefined ? '' : slug.slice(COURSE_DASHBOARD_SLUG.length);
+}
+
+/** Course Comparison, opened on a signed-in Superset session. */
+export interface CourseComparison {
+  readonly dashboardPage: SupersetDashboardPage;
+  /** The course names its Course Name filter offers this user (row-level security applied). */
+  courseNames(): Promise<readonly string[]>;
+}
+
+/**
+ * Opens Course Comparison on `page`'s Superset session (sign in first) and hands
+ * back a reader of the courses it shows this user. The reading replays the
+ * dashboard's own Course Name filter query on the session, with the cache
+ * bypassed, so it lists exactly what row-level security lets the user see.
+ */
+export async function openCourseComparison(
+  page: Page,
+  origin: string,
+  localeSuffix: string,
+): Promise<CourseComparison> {
+  const dashboardPage = new SupersetDashboardPage(page, origin);
+  await dashboardPage.goto(`${COURSE_COMPARISON_SLUG}${localeSuffix}`);
+  const filter = await dashboardPage.dashboard().filterQuery('course_name', TIMEOUTS.supersetEmbed);
+  return {
+    dashboardPage,
+    async courseNames() {
+      const rows = chartRows(await replayChartData(page.request, origin, filter.query, 'session'));
+      return rows.map((row) => row.course_name).filter((n): n is string => typeof n === 'string');
     },
   };
 }

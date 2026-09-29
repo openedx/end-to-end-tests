@@ -7,16 +7,12 @@ import {
   reportsDashboardTab,
   type AppConfig,
 } from '../../../config';
+import { narrowInstructorReports, type InstructorReports } from '../../../api';
 import {
-  narrowChartData,
-  narrowInstructorReports,
-  parseChartQuery,
-  type InstructorReports,
-} from '../../../api';
-import {
-  EmbeddedDashboardBlock,
+  SupersetDashboardBlock,
+  captureChartData,
   type CapturedChart,
-} from '../../superset/embedded-dashboard.block';
+} from '../../superset/dashboard.block';
 import { InstructorDashboardPage } from './dashboard.page';
 
 /** What an embedded dashboard's first load looked like. */
@@ -77,22 +73,16 @@ export class ReportsPage extends InstructorDashboardPage {
 
   /** Records one chart-data request of the embed of `uuid` and its answer. */
   private async capture(uuid: string, response: Response): Promise<void> {
-    const postData = response.request().postData();
-    if (postData === null) return;
-    let result: CapturedChart['result'] = [];
-    try {
-      result = narrowChartData(await response.json());
-    } catch {
-      // An error answer carries no rows; its status says what happened.
-    }
+    const captured = await captureChartData(response);
+    if (captured === undefined) return;
     const list = this.charts.get(uuid) ?? [];
-    list.push({ query: parseChartQuery(postData), status: response.status(), result });
+    list.push(captured);
     this.charts.set(uuid, list);
   }
 
   /** The embedded dashboard of `uuid`, with the chart queries its embed has sent. */
-  dashboard(uuid: string): EmbeddedDashboardBlock {
-    return new EmbeddedDashboardBlock(
+  dashboard(uuid: string): SupersetDashboardBlock {
+    return new SupersetDashboardBlock(
       this.page,
       this.embed(uuid),
       () => this.charts.get(uuid) ?? [],
@@ -141,6 +131,19 @@ export class ReportsPage extends InstructorDashboardPage {
     this.firstChartData.clear();
     this.charts.clear();
     return this.openReports(courseKey);
+  }
+
+  /**
+   * Follows "View dashboards in Superset", which opens Superset in a new tab,
+   * and returns that tab.
+   */
+  async openSupersetLink(): Promise<Page> {
+    const [popup] = await Promise.all([
+      this.page.context().waitForEvent('page', { timeout: TIMEOUTS.navigation }),
+      this.supersetLink.click(),
+    ]);
+    await popup.waitForLoadState('domcontentloaded');
+    return popup;
   }
 
   /** The dashboard uuids the rendered tabs are keyed by, in order. */
