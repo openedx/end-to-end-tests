@@ -172,6 +172,10 @@ Rules:
   revoked at teardown), and `adminReportsPage` is the superuser's. A
   `ReportsPage` records the embed traffic from the moment the tab opens and is
   detached when the test ends, because a cast member's page outlives it.
+- **An Aspects pipeline case starts from an empty course.** `analyticsCourse`
+  is an `authoringCourse` with a graded subsection (a multiple-choice and a
+  numerical problem, then an HTML5 video) and an ungraded HTML-only one,
+  published; nobody has acted in it, so its charts read only what the test does.
 - **Special exams need a timed exam.** `timedExam` turns timed exams on in an
   `authoringCourse`, publishes one time-limited subsection and waits for the
   CMS worker to register it (`special-exams` capability).

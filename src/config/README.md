@@ -30,6 +30,9 @@ Contains:
 - Centralized timeout budgets (`timeouts.ts`), each one justified — including
   `sharedLockWait`, which the named-lock fixtures add to a waiting case's own
   budget.
+- The Aspects chart keys (`aspects-charts.ts`): the Course Dashboard's tabs by
+  asset layout id and, per reading the sheet names, the tab, viz type and metric
+  labels that identify its chart without its translated title.
 - The one viewport table (`viewports.ts`): phone, tablet, small desktop and
   desktop, each on one side of a breakpoint the frontends switch on, and the
   subsets the responsive and accessibility cases walk (`viewportUse` applies

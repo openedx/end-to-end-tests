@@ -7,7 +7,16 @@ import {
   reportsDashboardTab,
   type AppConfig,
 } from '../../../config';
-import { narrowInstructorReports, type InstructorReports } from '../../../api';
+import {
+  narrowChartData,
+  narrowInstructorReports,
+  parseChartQuery,
+  type InstructorReports,
+} from '../../../api';
+import {
+  EmbeddedDashboardBlock,
+  type CapturedChart,
+} from '../../superset/embedded-dashboard.block';
 import { InstructorDashboardPage } from './dashboard.page';
 
 /** What an embedded dashboard's first load looked like. */
@@ -40,6 +49,7 @@ export class ReportsPage extends InstructorDashboardPage {
   readonly embedFrame: Locator;
   private readonly guestTokens: Response[] = [];
   private readonly firstChartData = new Map<string, { response: Response; tokens: number }>();
+  private readonly charts = new Map<string, CapturedChart[]>();
   private readonly record: (response: Response) => void;
 
   constructor(page: Page, config: AppConfig) {
@@ -56,11 +66,37 @@ export class ReportsPage extends InstructorDashboardPage {
       }
       if (!url.includes('/api/v1/chart/data')) return;
       const uuid = /\/embedded\/([0-9a-f-]{36})/.exec(response.request().frame().url())?.[1];
-      if (uuid !== undefined && !this.firstChartData.has(uuid)) {
+      if (uuid === undefined) return;
+      if (!this.firstChartData.has(uuid)) {
         this.firstChartData.set(uuid, { response, tokens: this.guestTokens.length });
       }
+      void this.capture(uuid, response);
     };
     page.on('response', this.record);
+  }
+
+  /** Records one chart-data request of the embed of `uuid` and its answer. */
+  private async capture(uuid: string, response: Response): Promise<void> {
+    const postData = response.request().postData();
+    if (postData === null) return;
+    let result: CapturedChart['result'] = [];
+    try {
+      result = narrowChartData(await response.json());
+    } catch {
+      // An error answer carries no rows; its status says what happened.
+    }
+    const list = this.charts.get(uuid) ?? [];
+    list.push({ query: parseChartQuery(postData), status: response.status(), result });
+    this.charts.set(uuid, list);
+  }
+
+  /** The embedded dashboard of `uuid`, with the chart queries its embed has sent. */
+  dashboard(uuid: string): EmbeddedDashboardBlock {
+    return new EmbeddedDashboardBlock(
+      this.page,
+      this.embed(uuid),
+      () => this.charts.get(uuid) ?? [],
+    );
   }
 
   /**
@@ -93,6 +129,18 @@ export class ReportsPage extends InstructorDashboardPage {
   async supersetLinkHref(): Promise<string | undefined> {
     if ((await this.supersetLink.count()) === 0) return undefined;
     return (await this.supersetLink.getAttribute('href')) ?? undefined;
+  }
+
+  /**
+   * Opens the Reports tab afresh, forgetting what the previous load captured: a
+   * dashboard's filters are fetched once per load, so a new reading of them needs
+   * a new load.
+   */
+  async reopenReports(courseKey: string): Promise<InstructorReports> {
+    this.guestTokens.length = 0;
+    this.firstChartData.clear();
+    this.charts.clear();
+    return this.openReports(courseKey);
   }
 
   /** The dashboard uuids the rendered tabs are keyed by, in order. */

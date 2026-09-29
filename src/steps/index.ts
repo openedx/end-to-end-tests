@@ -100,3 +100,11 @@ export {
   type KnownChromeDefect,
   type PageChrome,
 } from './chrome';
+export {
+  chartRows,
+  findChart,
+  openCourseDashboard,
+  waitForAnalytics,
+  type AnalyticsWait,
+  type CourseDashboard,
+} from './analytics';

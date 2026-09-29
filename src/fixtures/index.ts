@@ -748,6 +748,15 @@ export interface TestFixtures {
    * slower MFE. One course per test that asks.
    */
   authoringCourse: AuthoredCourse;
+  /**
+   * An `authoringCourse` shaped for Aspects' Course Dashboard: one section with
+   * a graded (`Homework`) subsection of two units (a multiple-choice and a
+   * numerical problem; an HTML5 video, whose source the learner's browser is
+   * served by `stubVideoSources`), and an ungraded subsection with an HTML-only
+   * unit. Published. Every chart the pipeline cases read starts empty on it,
+   * because nobody has acted in the course yet.
+   */
+  analyticsCourse: AnalyticsCourse;
   /** A {@link roundTripLearner} enrolled in this test's {@link authoringCourse}. */
   authoringCourseLearner: RoundTripLearner;
   /**
@@ -1066,6 +1075,21 @@ export type ForumCastPart = 'poster' | 'moderator';
  * `discussionAdmin`, or a `teamMember` whose roles the Course Team tab changes.
  */
 export type InstructorCastPart = 'staff' | 'limitedStaff' | 'discussionAdmin' | 'teamMember';
+
+/** What {@link TestFixtures.analyticsCourse} hands a spec. */
+export interface AnalyticsCourse extends AuthoredCourse {
+  readonly section: AuthoredSection;
+  /** The graded subsection holding the problem and video units. */
+  readonly gradedSubsectionKey: string;
+  readonly problemUnitKey: string;
+  readonly videoUnitKey: string;
+  /** The multiple-choice problem (with the answers that score and do not). */
+  readonly problem: AuthoredProblem;
+  readonly problemDisplayName: string;
+  readonly videoKey: string;
+  /** The video's one HTML5 source URL (answered by the suite's clip in the learner's browser). */
+  readonly videoSource: string;
+}
 
 /** What {@link TestFixtures.reportsViewer} hands a spec. */
 export interface ReportsViewer {
@@ -3744,6 +3768,44 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await disposeRoundTripLearner(learner);
     }
+  },
+
+  analyticsCourse: async ({ page, config, authoringCourse, studioAuthorSession }, use) => {
+    void studioAuthorSession;
+    const request = page.request;
+    const { courseKey } = authoringCourse;
+    const section = await buildSection(request, config, courseKey, `E2E analytics ${getRunId()}`, {
+      subsections: [
+        {
+          gradedAs: 'Homework',
+          units: [
+            { blocks: ['multiplechoiceresponse', 'numericalresponse'] },
+            { blocks: ['video'] },
+          ],
+        },
+        { units: [{ blocks: ['html'] }] },
+      ],
+    });
+    const graded = section.subsections[0]!;
+    const [problemUnit, videoUnit] = graded.units;
+    const problem = problemUnit!.blocks.find((b) => b.type === 'problem')!;
+    const video = videoUnit!.blocks.find((b) => b.type === 'video')!;
+    const videoSource = `${config.baseUrls.lms}/static/e2e-analytics-clip.webm`;
+    await updateXBlock(request, config, video.usageKey, {
+      metadata: { html5_sources: [videoSource], youtube_id_1_0: '' },
+    });
+    await publishXBlock(request, config, section.usageKey);
+    await use({
+      ...authoringCourse,
+      section,
+      gradedSubsectionKey: graded.usageKey,
+      problemUnitKey: problemUnit!.usageKey,
+      videoUnitKey: videoUnit!.usageKey,
+      problem: { usageKey: problem.usageKey, type: 'multiplechoiceresponse', ...problem.answers! },
+      problemDisplayName: problem.displayName,
+      videoKey: video.usageKey,
+      videoSource,
+    });
   },
 
   timedExam: async ({ page, config, authoringCourse, studioAuthorSession }, use) => {

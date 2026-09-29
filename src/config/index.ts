@@ -27,6 +27,13 @@ export { importPluginModule, instantiatePluginExport } from './plugin-module';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
 export {
+  COURSE_DASHBOARD_CHARTS,
+  COURSE_DASHBOARD_SLUG,
+  COURSE_DASHBOARD_TAB_PARENTS,
+  COURSE_DASHBOARD_TABS,
+  type AspectsChartKey,
+} from './aspects-charts';
+export {
   A11Y_VIEWPORTS,
   RESPONSIVE_VIEWPORTS,
   VIEWPORTS,
@@ -126,6 +133,8 @@ export {
   instructorTabLink,
   instructorTabPath,
   reportsDashboardTab,
+  SUPERSET_SELECTORS,
+  supersetDashboardTab,
   type InstructorReportType,
   type InstructorTabId,
 } from './selectors';
