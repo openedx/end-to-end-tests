@@ -1,12 +1,10 @@
 import type { Locator, Page, Response } from '@playwright/test';
 
-import {
-  STUDIO_ANALYTICS_SELECTORS,
-  TIMEOUTS,
-  outlineCardHeader,
-  type AppConfig,
-} from '../../../config';
+import { STUDIO_ANALYTICS_SELECTORS, TIMEOUTS, outlineCardHeader } from '../../../config';
 import { narrowInContextDashboard, type InContextDashboard } from '../../../api';
+
+/** How many elements a list shows before its "Show more". */
+export const ANALYTICS_LIST_PAGE_SIZE = 5;
 
 /** What opening an element's analytics made the sidebar ask the LMS for. */
 export interface InContextLoad {
@@ -36,11 +34,7 @@ export class AnalyticsSidebar {
   readonly lists: Locator;
   readonly emptyState: Locator;
 
-  constructor(
-    private readonly page: Page,
-    config: AppConfig,
-  ) {
-    void config;
+  constructor(private readonly page: Page) {
     this.panel = page.locator(this.s.panel);
     this.title = page.locator(this.s.title);
     this.backButton = page.locator(this.s.backButton);
@@ -97,17 +91,21 @@ export class AnalyticsSidebar {
     return this.lists.nth(index).locator(this.s.listItem).allTextContents();
   }
 
-  /** Expands a list past its first five elements. */
+  /** Expands a list past its first {@link ANALYTICS_LIST_PAGE_SIZE} elements. */
   async showMore(index: number): Promise<void> {
     const before = await this.lists.nth(index).locator(this.s.listItem).count();
     await this.lists.nth(index).locator(this.s.showMore).click();
     await this.lists.nth(index).locator(this.s.listItem).nth(before).waitFor();
   }
 
-  /** Collapses an expanded list back to its first five elements. */
+  /** Collapses an expanded list back to its first {@link ANALYTICS_LIST_PAGE_SIZE} elements. */
   async showLess(index: number): Promise<void> {
     await this.lists.nth(index).locator(this.s.showMore).click();
-    await this.lists.nth(index).locator(this.s.listItem).nth(5).waitFor({ state: 'detached' });
+    await this.lists
+      .nth(index)
+      .locator(this.s.listItem)
+      .nth(ANALYTICS_LIST_PAGE_SIZE)
+      .waitFor({ state: 'detached' });
   }
 
   /** Whether a list offers "Show more" / "Show less". */

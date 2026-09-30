@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Reads `.ci/profiles.json` for `run_tests_tutor.yml`. Runs natively on Node 24
- * (type stripping); no build step.
+ * Reads `.ci/profiles.json` for `run_tests_tutor.yml` (`matrix`) and
+ * `build_tutor_main_images.yml` (`build`). Runs natively on Node 24 (type
+ * stripping); no build step.
  *
  *   node scripts/ci-profiles.mts matrix --profiles "default extended" --release main \
  *       [--release-capabilities="<list>"]
@@ -38,6 +39,10 @@ function main(): void {
       'release-capabilities': { type: 'string' },
     },
   });
+  const command = positionals[0];
+  if (command !== 'build' && command !== 'matrix') {
+    throw new ProfileError('Usage: ci-profiles.mts matrix|build (see the header).');
+  }
   const profiles = parseProfiles(JSON.parse(readFileSync(PROFILES_FILE, 'utf8')), existsSync);
 
   const name = values.release ?? '';
@@ -49,7 +54,7 @@ function main(): void {
   if (release === undefined) {
     throw new ProfileError(`Unknown release "${name}"; add it to ${RELEASES_FILE}.`);
   }
-  switch (positionals[0]) {
+  switch (command) {
     case 'build': {
       const [entry] = shardMatrix(profiles, [values.profile ?? ''], {
         name,
@@ -75,8 +80,6 @@ function main(): void {
       );
       return;
     }
-    default:
-      throw new ProfileError('Usage: ci-profiles.mts matrix|build (see the header).');
   }
 }
 

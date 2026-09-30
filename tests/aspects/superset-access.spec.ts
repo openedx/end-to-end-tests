@@ -1,21 +1,16 @@
 import { expect, test } from '../../src/fixtures';
-import { TIMEOUTS, type AppConfig } from '../../src/config';
+import { TIMEOUTS } from '../../src/config';
 import {
   ApiError,
   enrollInCourseViaApi,
   fetchInstructorCourse,
-  fetchInstructorReports,
   makeGlobalStaff,
   supersetOrigin,
 } from '../../src/api';
-import type { APIRequestContext, Page } from '@playwright/test';
-import {
-  dashboardLocaleSuffix,
-  openCourseComparison,
-  signInToSuperset,
-  waitForAnalytics,
-} from '../../src/steps';
+import type { Page } from '@playwright/test';
+import { dashboardLocaleSuffix, openCourseComparison, signInToSuperset } from '../../src/steps';
 import { testId } from '../../src/reporting';
+import { supersetFor } from './helpers';
 
 /**
  * Who may use Superset, and which courses it shows them (TC-00550–00552).
@@ -36,12 +31,6 @@ import { testId } from '../../src/reporting';
 
 const TAGS = ['@regression', '@studio', '@author', '@analytics', '@instructor-dashboard'];
 
-/** Superset's origin and the viewer's dashboard locale, as the platform advertises them. */
-async function supersetFor(reader: APIRequestContext, config: AppConfig, courseKey: string) {
-  const reports = await fetchInstructorReports(reader, config, courseKey);
-  return { origin: supersetOrigin(config, reports), localeSuffix: dashboardLocaleSuffix(reports) };
-}
-
 /**
  * The courses Course Comparison shows `page`'s signed-in user, once it lists
  * every name in `mustList`: a course reaches Superset's course names on a
@@ -53,16 +42,8 @@ async function visibleCourses(
   localeSuffix: string,
   mustList: readonly string[],
 ) {
-  const comparison = await openCourseComparison(page, origin, localeSuffix);
-  const listed = await waitForAnalytics(
-    () => comparison.courseNames(),
-    (names) => mustList.every((name) => names.includes(name)),
-  );
-  expect(
-    mustList.filter((name) => !listed.last.includes(name)),
-    'courses Course Comparison should list',
-  ).toEqual([]);
-  return listed.last;
+  const comparison = await openCourseComparison(page, origin, localeSuffix, mustList);
+  return comparison.courseNames();
 }
 
 test.describe('Superset access', { tag: [...TAGS] }, () => {

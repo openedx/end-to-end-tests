@@ -223,7 +223,10 @@ export const TIMEOUTS = {
    * Superset to mint it, and the iframe fetches its first chart data (its filter
    * options). Measured 2026-09-27 on Tutor `main` with Aspects 5.0.0: a few
    * seconds from selecting the tab. The headroom is for Superset's first request
-   * after start, which warms its caches, on a shared CI runner.
+   * after start, which warms its caches, on a shared CI runner. It is also the
+   * budget for any one Superset exchange a page waits on: a dashboard's filter or
+   * chart queries after a tab or filter change, a Superset page load, and Studio's
+   * in-context dashboard request.
    */
   supersetEmbed: 60_000,
 

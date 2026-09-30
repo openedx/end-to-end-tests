@@ -1,6 +1,8 @@
 /**
- * Where the Aspects Course Dashboard keeps each reading the sheet names, and how
- * to recognise the chart that shows it without its (translated) title.
+ * Where Aspects' dashboards (Course Dashboard, Course Comparison, Individual
+ * Learner) keep each reading the sheet names, and how to recognise the chart
+ * that shows it without its (translated) title: each dashboard's slug, its tabs
+ * and native filters by asset id, and its chart keys.
  *
  * Superset's chart and dashboard ids are numeric and differ per install, but a
  * dashboard's tab ids come from its asset file and are the same everywhere, and

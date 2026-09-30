@@ -5,8 +5,7 @@ import type { ReportsPage } from '../../../src/pages/lms/instructor/reports.page
 import { checkA11y } from '../../../src/a11y';
 import { dashboardLocaleSuffix, openCourseComparison, signInToSuperset } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { SUPERSET_A11Y_BASELINE } from '../../aspects/helpers';
-import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS } from './helpers';
+import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS, SUPERSET_A11Y_BASELINE } from './helpers';
 
 /**
  * Aspects' Reports tab in the instructor dashboard (TC-00542, TC-00543): the

@@ -1,7 +1,7 @@
 import type { Page, Response } from '@playwright/test';
 
 import { TIMEOUTS } from '../../config';
-import { SupersetDashboardBlock, captureChartData, type CapturedChart } from './dashboard.block';
+import { ChartDataRecorder, SupersetDashboardBlock } from './dashboard.block';
 
 /**
  * A Superset dashboard on Superset's own pages (`/superset/dashboard/<slug>/`),
@@ -10,7 +10,7 @@ import { SupersetDashboardBlock, captureChartData, type CapturedChart } from './
  * recorded from construction and read through {@link dashboard}.
  */
 export class SupersetDashboardPage {
-  private readonly charts: CapturedChart[] = [];
+  private readonly charts = new ChartDataRecorder();
   private readonly record: (response: Response) => void;
 
   constructor(
@@ -20,9 +20,7 @@ export class SupersetDashboardPage {
     this.record = (response) => {
       if (!response.url().startsWith(`${origin}/api/v1/chart/data`)) return;
       if (response.request().frame() !== page.mainFrame()) return;
-      void captureChartData(response).then((captured) => {
-        if (captured !== undefined) this.charts.push(captured);
-      });
+      this.charts.record(response);
     };
     page.on('response', this.record);
   }
@@ -38,7 +36,7 @@ export class SupersetDashboardPage {
    * for its first chart-data answer.
    */
   async goto(slug: string): Promise<void> {
-    this.charts.length = 0;
+    this.charts.clear();
     const firstChartData = this.page.waitForResponse(
       (response) => response.url().startsWith(`${this.origin}/api/v1/chart/data`),
       { timeout: TIMEOUTS.supersetEmbed },
@@ -49,6 +47,6 @@ export class SupersetDashboardPage {
 
   /** The dashboard, with the chart queries this load has sent. */
   dashboard(): SupersetDashboardBlock {
-    return new SupersetDashboardBlock(this.page, this.page, () => this.charts);
+    return new SupersetDashboardBlock(this.page, this.page, this.charts);
   }
 }

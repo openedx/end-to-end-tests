@@ -13,7 +13,8 @@ name: Tutor E2E Test
 # Docker-based check against the "main" and last-released environments on
 # every PR/push, without duplicating the Tutor provisioning steps.
 #
-# For the "main" release the Docker images come prebuilt from
+# For the "main" release, and for a profile with an image variant (`images` in
+# .ci/profiles.json) on any release, the Docker images come prebuilt from
 # build_tutor_main_images.yml (nightly, pushed to ghcr.io); see that workflow.
 #
 # Jobs: `plan` expands the selected CI profiles (.ci/profiles.json: a Tutor
@@ -111,7 +112,8 @@ on:
 
 permissions:
   contents: read
-  # Pull the prebuilt "main" images from this repo's ghcr.io namespace.
+  # Pull the prebuilt images (main, image variants) from this repo's ghcr.io
+  # namespace.
   packages: read
 
 env:
@@ -271,7 +273,8 @@ jobs:
 
       # Published Tutor plugins the profile uses on this release
       # (`tutorExtensions` in .ci/profiles.json, e.g. tutor-contrib-codejail),
-      # each pinned to the release's Tutor line by the plan job.
+      # each at the profile's `version` pin, or else pinned to the release's
+      # Tutor line, by the plan job.
       - name: Install the profile's Tutor extensions
         if: join(matrix.tutorPip, '') != ''
         env:
@@ -369,8 +372,21 @@ jobs:
         if: env.OPENEDX_RELEASE == 'main' || matrix.images != ''
         run: |
           set -uo pipefail
-          # shellcheck disable=SC2086  # deliberate word lists of image names
-          if tutor images pull ${TUTOR_MAIN_IMAGES:-} ${TUTOR_VARIANT_IMAGES:-}; then
+          # The stock images the variant does not replace, through Tutor; the
+          # variant's by reference, because Tutor knows a plugin's images only
+          # once the plugin is enabled, which happens after launch.
+          STOCK=""
+          for image in ${TUTOR_MAIN_IMAGES:-}; do
+            case " ${TUTOR_VARIANT_IMAGES:-} " in
+              *" ${image} "*) ;;
+              *) STOCK="${STOCK:+${STOCK} }${image}" ;;
+            esac
+          done
+          ok=true
+          # shellcheck disable=SC2086  # a deliberate word list of image names
+          if [ -n "$STOCK" ]; then tutor images pull $STOCK || ok=false; fi
+          for ref in ${TUTOR_VARIANT_REFS:-}; do docker pull "$ref" || ok=false; done
+          if $ok; then
             echo "pulled=true" >> "$GITHUB_OUTPUT"
           elif [ -n "${TUTOR_VARIANT_IMAGES:-}" ]; then
             # A variant is built with the profile's plugins enabled, which this
@@ -463,29 +479,22 @@ jobs:
           key: tutor-mysql-${{ env.OPENEDX_RELEASE }}-${{ steps.tutor_version.outputs.version }}
 
       # The profile's Tutor plugins (.ci/profiles.json): each file is copied into
-      # Tutor's plugin root and enabled by its file name. .ci/tutor/e2e_base.py
-      # documents the settings every profile starts from.
+      # Tutor's plugin root and enabled by its file name, with the profile's
+      # extensions. .ci/tutor/e2e_base.py documents the settings every profile
+      # starts from.
       # Extensions with an init task (codejail loads its AppArmor profile onto
       # the host) run it before the restart, so their services start confined.
+      - name: Enable the profile's Tutor plugins
+        uses: ./.github/actions/enable-profile-plugins
+        with:
+          plugin-files: ${{ join(matrix.tutorPlugins, ' ') }}
+          extensions: ${{ join(matrix.tutorEnable, ' ') }}
+
       - name: Configure Tutor
         env:
-          TUTOR_PLUGIN_FILES: ${{ join(matrix.tutorPlugins, ' ') }}
-          TUTOR_EXTENSION_PLUGINS: ${{ join(matrix.tutorEnable, ' ') }}
           TUTOR_INIT_PLUGINS: ${{ join(matrix.tutorInit, ' ') }}
         run: |
           set -euo pipefail
-          PLUGINS_ROOT="$(tutor plugins printroot)"
-          mkdir -p "$PLUGINS_ROOT"
-          for file in $TUTOR_PLUGIN_FILES; do
-            name="$(basename "$file" .py)"
-            cp "$file" "${PLUGINS_ROOT}/${name}.py"
-            tutor plugins enable "$name"
-            echo "Enabled Tutor plugin '${name}' from ${file}"
-          done
-          for name in $TUTOR_EXTENSION_PLUGINS; do
-            tutor plugins enable "$name"
-            echo "Enabled Tutor extension '${name}'"
-          done
           tutor config save
           for name in $TUTOR_INIT_PLUGINS; do
             tutor local do init --limit "$name"
@@ -562,8 +571,8 @@ jobs:
       - name: Collect Tutor container logs
         if: always()
         env:
-          # The Aspects services, where the profile runs them.
-          EXTRA_LOG_SERVICES: ${{ matrix.images == 'aspects' && 'superset superset-worker clickhouse vector' || '' }}
+          # The Aspects services, where the profile enables tutor-contrib-aspects.
+          EXTRA_LOG_SERVICES: ${{ contains(matrix.tutorEnable, 'aspects') && 'superset superset-worker superset-worker-beat clickhouse vector' || '' }}
         run: |
           set -uo pipefail
           mkdir -p tutor-logs

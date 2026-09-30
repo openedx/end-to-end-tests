@@ -9,9 +9,8 @@ import { ApiError } from './errors';
  * Superset's result cache (`force`, the dashboard's "Force refresh"). The reading
  * is exactly what the chart would draw, with no chart text or pixels involved.
  *
- * Superset does not refuse a modified query from a guest (measured on 6.1.0), so
- * {@link replayBody} is the guard: it copies the captured body and sets `force`,
- * and nothing else may change it.
+ * Every replay body comes from {@link replayBody}: it copies the captured body
+ * and sets `force`, and nothing else may change it.
  */
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -68,7 +67,7 @@ export function isFilterQuery(query: ChartQuery): boolean {
 
 /** The body a replay sends: the captured one, with only `force` set. */
 export function replayBody(query: ChartQuery): Record<string, unknown> {
-  return { ...(structuredClone(query.body) as Record<string, unknown>), force: true };
+  return { ...structuredClone(query.body), force: true };
 }
 
 /** One query's result rows. */

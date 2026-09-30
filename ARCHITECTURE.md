@@ -216,6 +216,19 @@ role on its own course. Course e-mail is sent by a mailbox learner granted
 course staff, on its own context, because the communications MFE needs an LMS
 session the author's browser does not hold.
 
+The **analytics** personas (Epic 16) read Aspects on sessions of their own,
+because Aspects' LMS views accept only a session. The worker author builds the
+course (`analyticsCourse`) and its learners act in it. Course staff read the
+Reports tab as the `instructorCast` `staff` member, granted the course for the
+test (`reportsViewer`), or as the admin (`adminReportsPage`). A Studio
+colleague granted course staff reads the in-context sidebar
+(`inContextViewer`). Superset-role cases take a throwaway account
+(`supersetColleague`), because Superset caches a user's access at sign-in.
+**Superset is one more origin** in the multi-origin session. The suite discovers
+it from the LMS (`superset_url`) rather than configuring it, holds it to the
+same-site rule like every configured origin, and signs in to it only through the
+LMS's OAuth sign-on.
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the

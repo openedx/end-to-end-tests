@@ -494,6 +494,66 @@ frontend-base conversion moves apps between frontends.
   preference on `page.request`; a separate context holding the old cookie would
   reset it.
 
+## Analytics (Aspects)
+
+The `tests/aspects/` tree, `tests/lms/instructor/reports.spec.ts` and the
+in-context specs under `tests/studio/` cover Aspects: the instructor
+dashboard's Reports tab, the Superset dashboards it embeds or links to, and
+Studio's in-context metrics. They are gated on `analytics` (plus
+`analytics-pii` for the Individual Learner dashboard and `analytics-in-context`
+for Studio). A few rules keep a reading honest.
+
+- **The viewer has its own LMS session.** Aspects' LMS views (`/aspects/…`)
+  accept only a session, which the worker author's JWT-first browser lacks. So
+  the Reports tab is read by `reportsViewer(courseKey)` (the instructor cast's
+  `staff` member, granted course staff for the test), the in-context sidebar by
+  `inContextViewer` (a Studio colleague), and a Superset-role case by
+  `supersetColleague`. The worker author only builds the course.
+- **The chart-data replay is the oracle.** The embed or Superset page sends
+  its own `POST /api/v1/chart/data`. The page object records that request
+  passively, and `replayChartData` sends it again, changing nothing but
+  `force: true`, on the same guest token or Superset session. Its rows are the
+  reading. This is not interception (ADR-0003): nothing is routed or
+  fulfilled, and the query is the dashboard's own. Every replay body comes
+  from `replayBody`, which copies the captured body and sets `force` and
+  nothing else.
+- **Readings come from an empty course.** A pipeline case builds
+  `analyticsCourse`, where nobody has acted, so the reading after the test's
+  action is exactly what the action produced, and is asserted as a number.
+  Where the staff viewer's own visits put a figure in first (an active count,
+  a performance row), the case reads it before the action and asserts the
+  exact change, never just "went up".
+- **Poll with `waitForAnalytics`, with the cache bypassed.** An event takes
+  Vector, ClickHouse's materialized views and a dictionary refresh to reach a
+  chart. `waitForAnalytics` re-reads under `analyticsPipeline` and returns the
+  last reading instead of throwing, so the failure names what the chart said.
+  A cached chart answer can hide a new event, which is why every replay forces.
+- **Wait for Superset to learn the course.** The dashboards filter by the
+  course's **name**, which reaches Superset on a dictionary refresh after the
+  course is created. `openReportsDashboard` and `openCourseComparison` replay
+  the filter until it lists the course, then load again, because a dashboard
+  loaded before that sends no chart queries.
+- **Superset access cases take throwaway accounts.** Superset caches which
+  courses a user may see when the user signs in. So a case that asserts a
+  user's roles or row-level security takes a fresh `supersetColleague`,
+  granted its course role before its first sign-in. A cast member who signed
+  in for an earlier test would still see that test's courses.
+- **Superset is reached only through the LMS.** Its URL is the `superset_url`
+  the LMS reports, held to the same-site rule at runtime. The suite has no
+  Superset or ClickHouse credentials; a user signs in through the LMS's OAuth
+  sign-on (`signInToSuperset`) like an instructor would.
+- **No chart titles.** A chart is found by its tab's asset layout id, its viz
+  type and its metric labels (`src/config/aspects-charts.ts`), and a dashboard
+  by its slug before the locale suffix. Titles are translated, and chart and
+  dashboard ids differ per install. A key that no longer matches fails and
+  lists the charts that were there. A chart's row is found by the test's own
+  key where the row carries one (a problem's usage key in its link), since
+  Aspects can store a row before it knows the name (`ASPECTS-010`).
+- **In-context metrics follow the LMS's answer.** Which dashboard Studio embeds
+  for an element is the `superset_in_context_dashboard` response for that
+  element's key, which `AnalyticsSidebar` returns from every open. Element lists
+  are asserted by the test's own display names and usage keys.
+
 ## Tags
 
 Domain decides the folder; everything else is a tag. Tags drive Playwright

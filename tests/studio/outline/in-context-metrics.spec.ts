@@ -2,6 +2,7 @@ import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import { buildSection, publishXBlock } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { ANALYTICS_LIST_PAGE_SIZE } from '../../../src/pages/studio/sidebar/analytics.block';
 
 /**
  * Aspects' in-context metrics on the course outline (TC-00312–00314).
@@ -83,14 +84,14 @@ test.describe('Aspects in-context metrics on the outline', { tag: [...TAGS] }, (
       const width = (await analytics.panel.boundingBox())?.width ?? Infinity;
       expect(width).toBeLessThan((page.viewportSize()?.width ?? 0) / 2);
 
-      // Graded subsections, problems (five, then all six), videos.
+      // Graded subsections, problems (a page of them, then all six), videos.
       await expect(analytics.lists).toHaveCount(3);
       expect([...(await analytics.listNames(0))].sort()).toEqual([...graded].sort());
-      expect(await analytics.listNames(1)).toHaveLength(5);
+      expect(await analytics.listNames(1)).toHaveLength(ANALYTICS_LIST_PAGE_SIZE);
       await analytics.showMore(1);
       expect([...(await analytics.listNames(1))].sort()).toEqual([...problems].sort());
       await analytics.showLess(1);
-      expect(await analytics.listNames(1)).toHaveLength(5);
+      expect(await analytics.listNames(1)).toHaveLength(ANALYTICS_LIST_PAGE_SIZE);
       expect(await analytics.listNames(2)).toEqual(videos);
       await expect(analytics.showMoreToggle(2)).toHaveCount(0);
     },

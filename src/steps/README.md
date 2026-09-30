@@ -20,7 +20,7 @@ can reuse — e.g.:
   `chartsOn(tab)` / `read(chart)`, which replays a chart's own query with the
   cache bypassed on a guest token it re-mints when it expires, plus `filter` /
   `clearFilter` for its filter bar. `findChart`
-  picks a chart by `COURSE_DASHBOARD_CHARTS` key, and `waitForAnalytics` is the
+  picks a chart by its `AspectsChartKey` (`src/config/aspects-charts.ts`), and `waitForAnalytics` is the
   pipeline poll that returns its readings rather than throwing.
   `signInToSuperset` runs Superset's LMS sign-in from wherever a page is and
   returns who Superset says the user is (a refused user comes back anonymous),

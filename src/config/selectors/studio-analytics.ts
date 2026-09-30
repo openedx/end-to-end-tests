@@ -4,7 +4,10 @@
  * the unit page, and an Analytics button on the outline's graded-subsection and
  * unit cards. Section headings ("Graded Subsection Analytics", "Problem
  * Analytics", "Video Analytics"), the empty-state message and every button label
- * are localized; list items show the elements' own display names.
+ * are localized; list items show the elements' own display names. The plugin
+ * marks only the panel and its title with test ids (`ASPECTS-001`), so the
+ * lists, their items and toggles and the card button are anchored on Paragon's
+ * classes inside the panel, and a restyle of the plugin would break them.
  *
  * Measured on Tutor `main` with tutor-contrib-aspects 5.0.0 (2026-09-29).
  */

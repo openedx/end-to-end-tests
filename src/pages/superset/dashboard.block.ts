@@ -44,18 +44,75 @@ export async function captureChartData(response: Response): Promise<CapturedChar
 }
 
 /**
+ * The chart-data exchanges of one dashboard, as the page object watching it
+ * records them. An answer's body is read after its response event, so a wait for
+ * more ({@link next}) wakes when the next exchange is **stored**, and never
+ * misses one whose body was still being read. A request whose body cannot be
+ * parsed fails the next read of {@link charts}.
+ */
+export class ChartDataRecorder {
+  private readonly list: CapturedChart[] = [];
+  private waiters: (() => void)[] = [];
+  private failure: Error | undefined;
+
+  /** Records one chart-data response, once its answer has been read. */
+  record(response: Response): void {
+    void captureChartData(response)
+      .then(
+        (captured) => {
+          if (captured !== undefined) this.list.push(captured);
+        },
+        (error: unknown) => {
+          this.failure ??= error instanceof Error ? error : new Error(String(error));
+        },
+      )
+      .finally(() => {
+        const waiters = this.waiters;
+        this.waiters = [];
+        for (const wake of waiters) wake();
+      });
+  }
+
+  /** The exchanges stored so far, oldest first. */
+  get charts(): readonly CapturedChart[] {
+    if (this.failure !== undefined) throw this.failure;
+    return this.list;
+  }
+
+  /** Forgets what an earlier load recorded. */
+  clear(): void {
+    this.list.length = 0;
+    this.failure = undefined;
+  }
+
+  /** Resolves once the next exchange is stored, or when `timeout` runs out. */
+  next(timeout: number): Promise<void> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(resolve, timeout);
+      this.waiters.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
+}
+
+/**
  * One Superset dashboard as a page renders it: embedded in the Reports tab, or on
  * Superset's own dashboard page. Its chart-data traffic is recorded by the page
- * object that owns the page and read here through `captured`, so the block only
- * drives the dashboard and says which of the captured queries belong to the
- * charts on screen.
+ * object that owns the page, so the block only drives the dashboard and says
+ * which of the recorded queries belong to the charts on screen.
  */
 export class SupersetDashboardBlock {
   constructor(
     private readonly page: Page,
     readonly root: DashboardRoot,
-    private readonly captured: () => readonly CapturedChart[],
+    private readonly recorder: ChartDataRecorder,
   ) {}
+
+  private captured(): readonly CapturedChart[] {
+    return this.recorder.charts;
+  }
 
   /** Shows a dashboard tab by its asset layout id, and waits for it to be selected. */
   async selectTab(tabId: string): Promise<void> {
@@ -134,15 +191,16 @@ export class SupersetDashboardBlock {
   /** Opens the filter bar where it starts collapsed (an embedded dashboard's does). */
   private async expandFilterBar(): Promise<void> {
     const expand = this.root.locator(`${SUPERSET_SELECTORS.filterBarExpand}:visible`);
+    const apply = this.root.locator(`${SUPERSET_SELECTORS.filterApply}:visible`);
+    // The bar renders collapsed (an expand control) or open (its Apply button).
+    await expand.or(apply).first().waitFor();
     if (await expand.count()) await expand.first().click();
-    await this.root.locator(SUPERSET_SELECTORS.filterApply).waitFor();
+    await apply.first().waitFor();
   }
 
-  /** Waits for the page's next chart-data answer, or for the budget to run out. */
-  private async nextChartData(timeout: number): Promise<void> {
-    await this.page
-      .waitForResponse((r) => r.url().includes('/api/v1/chart/data'), { timeout })
-      .catch(() => undefined);
+  /** Waits for the dashboard's next recorded chart-data answer, or for the budget to run out. */
+  private nextChartData(timeout: number): Promise<void> {
+    return this.recorder.next(timeout);
   }
 
   /**

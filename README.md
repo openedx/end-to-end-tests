@@ -96,7 +96,8 @@ names `teams`.
   with a `-` prefix (`CAPABILITIES=-mfe-authn`), so a missing declaration never
   silently drops coverage an install has.
 - **Required partners:** `analytics-in-context` and `analytics-pii` describe
-  parts of an Aspects deployment and need `analytics` declared too.
+  parts of an Aspects deployment and need `analytics` declared too;
+  `analytics-in-context-cards` needs `analytics-in-context`.
 - **Mutually exclusive pairs:** two implementations or configurations of one
   surface. Declaring both halves fails validation.
 - **Declared but missing:** a declared capability the target lacks fails its

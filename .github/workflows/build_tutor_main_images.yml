@@ -1,7 +1,8 @@
 name: Build Tutor main images
 
-# Build the Docker images for the unreleased "main" Open edX release once a
-# day and push them to this repository's GitHub Container Registry namespace
+# Build the Docker images for the unreleased "main" Open edX release, and every
+# CI profile's image variant (below), once a day and push them to this
+# repository's GitHub Container Registry namespace
 # (ghcr.io/<owner>/<repo>/openedx:main, openedx-permissions:main, openedx-mfe:main,
 # openedx-notes:main).
 #
@@ -14,11 +15,14 @@ name: Build Tutor main images
 # Dispatch this workflow manually to refresh them sooner.
 #
 # One-time setup on the GitHub side (not doable from this repo):
-#   - After the first push, make the four ghcr.io packages public (or, if they
+#   - After the first push, make the ghcr.io packages public (or, if they
 #     stay private, make sure the repository has read access to them) so that
-#     pull-request runs from forks can pull them.
+#     pull-request runs from forks can pull them: openedx, openedx-permissions,
+#     openedx-mfe and openedx-notes, and the variants' openedx-aspects and
+#     openedx-aspects-superset. A variant has no build fallback in the test
+#     job, so a run that cannot pull it fails.
 #
-# The BuildKit layer cache is also pushed to the registry (<image>:main-cache)
+# The BuildKit layer cache is also pushed to the registry (<image>:<tag>-cache)
 # so subsequent nightly builds only rebuild layers whose inputs changed.
 #
 # Image variants: a CI profile that needs images of its own (`images` in
@@ -27,7 +31,13 @@ name: Build Tutor main images
 # pulls never see them. The `aspects` variant installs tutor-contrib-aspects at
 # the profile's pin, with the profile's Tutor plugins enabled (in-context
 # metrics change what the MFE image installs), and builds the Open edX, MFE,
-# Aspects and Superset images for `main` and `verawood`.
+# Aspects and Superset images for `main` and `verawood`. The matrix below lists
+# each profile's releases by hand; tests/config/ci-profiles.spec.ts checks it
+# against .ci/profiles.json.
+#
+# A dispatch from a branch pushes the same tags as the nightly build, so a
+# branch that changes a variant's inputs (its pin, its plugin files) tests
+# against its own build until the next nightly run replaces it.
 
 on:
   schedule:
@@ -39,10 +49,10 @@ permissions:
   contents: read
   packages: write
 
-# Never build the same tag twice at once; a manual run supersedes a running one.
+# Never build the same tag twice at once; a manual run waits for a running one.
 concurrency:
   group: build-tutor-main-images
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   TUTOR_ROOT: ./.ci/
@@ -103,18 +113,21 @@ jobs:
           set -euo pipefail
           BUILD=$(node scripts/ci-profiles.mts build --profile "$PROFILE" --release "$RELEASE")
           echo "$BUILD" | jq .
-          # shellcheck disable=SC2046  # a deliberate word list of requirements
-          pip install $(echo "$BUILD" | jq -r '.tutorPip[]')
-          PLUGINS_ROOT="$(tutor plugins printroot)"
-          mkdir -p "$PLUGINS_ROOT"
-          for file in $(echo "$BUILD" | jq -r '.tutorPlugins[]'); do
-            cp "$file" "${PLUGINS_ROOT}/$(basename "$file")"
-            tutor plugins enable "$(basename "$file" .py)"
-          done
-          for name in $(echo "$BUILD" | jq -r '.tutorEnable[]'); do
-            tutor plugins enable "$name"
-          done
+          PIP=$(echo "$BUILD" | jq -r '.tutorPip | join(" ")')
+          # shellcheck disable=SC2086  # a deliberate word list of requirements
+          if [ -n "$PIP" ]; then pip install $PIP; fi
+          {
+            echo "VARIANT_PLUGIN_FILES=$(echo "$BUILD" | jq -r '.tutorPlugins | join(" ")')"
+            echo "VARIANT_EXTENSIONS=$(echo "$BUILD" | jq -r '.tutorEnable | join(" ")')"
+          } >> "$GITHUB_ENV"
           echo "VARIANT=$(echo "$BUILD" | jq -r '.images')" >> "$GITHUB_ENV"
+
+      - name: Enable the profile's Tutor plugins (variants)
+        if: matrix.profile != ''
+        uses: ./.github/actions/enable-profile-plugins
+        with:
+          plugin-files: ${{ env.VARIANT_PLUGIN_FILES }}
+          extensions: ${{ env.VARIANT_EXTENSIONS }}
 
       - name: Point Tutor at the ghcr.io image names
         env:
@@ -162,7 +175,7 @@ jobs:
               max-parallelism = 2
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

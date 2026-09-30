@@ -1,11 +1,11 @@
 import { expect, test } from '../../src/fixtures';
-import { stubVideoSources } from '../../src/fixtures/video-sources';
 import { COURSE_DASHBOARD_CHARTS as C, COURSE_DASHBOARD_TABS, TIMEOUTS } from '../../src/config';
 import { enrollInCourseViaApi, fetchCourseOutline } from '../../src/api';
 import { ProblemBlock } from '../../src/pages/lms/courseware/problem.block';
 import { VideoBlock } from '../../src/pages/lms/courseware/video.block';
 import { findChart, openCourseDashboard, waitForAnalytics } from '../../src/steps';
 import { knownGap, testId } from '../../src/reporting';
+import { cellText, choiceIndex } from './helpers';
 
 /**
  * Aspects' Course Dashboard reflects what a learner does (TC-00545–00548).
@@ -32,18 +32,13 @@ const TAGS = [
   '@mfe-learning',
 ];
 
-/** A chart cell as text (the charts' name columns are strings). */
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
 /** A row of a table whose `column` names the test's own section or subsection. */
 function rowNamed(
   rows: readonly Readonly<Record<string, unknown>>[],
   column: string,
   name: string,
 ) {
-  return rows.find((row) => text(row[column]).endsWith(name));
+  return rows.find((row) => cellText(row[column]).endsWith(name));
 }
 
 test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
@@ -156,11 +151,15 @@ test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
       );
       const charts = await dashboard.chartsOn(COURSE_DASHBOARD_TABS.problems);
       const attempts = findChart(charts, C.problemAttempts);
+      const problemLink = `/xblock/${analyticsCourse.problem.usageKey}"`;
       const engagement = findChart(charts, C.problemEngagement);
 
       const read = async () => {
+        // By the problem's usage key in its link, not its name: a response that
+        // lands before Aspects' block names refresh keeps an empty name
+        // (`ASPECTS-010`).
         const row = (await dashboard.read(attempts)).find((r) =>
-          text(r.display_name_with_location).includes(analyticsCourse.problemDisplayName),
+          cellText(r.problem_link).includes(problemLink),
         );
         const bar = rowNamed(
           await dashboard.read(engagement),
@@ -193,7 +192,7 @@ test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
         learner.unitPage.contentFrame,
         analyticsCourse.problem.usageKey,
       );
-      await problem.selectChoice(1); // the template's correct choice
+      await problem.selectChoice(choiceIndex(analyticsCourse.problem.correct));
       await problem.submit();
 
       const expected = { learners: 1, correct: 1, incorrect: 0, attemptedAtLeastOne: 1 };
@@ -220,7 +219,13 @@ test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
         ),
       ],
     },
-    async ({ config, analyticsCourse, reportsViewer, authoringCourseLearner }) => {
+    async ({
+      config,
+      analyticsCourse,
+      reportsViewer,
+      authoringCourseLearner,
+      stubVideoSources,
+    }) => {
       const subsection = analyticsCourse.section.subsections[0]!.displayName;
       const { member, reportsPage } = await reportsViewer(analyticsCourse.courseKey);
       const dashboard = await openCourseDashboard(
@@ -268,7 +273,7 @@ test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
         'the video has its HTML5 source',
       ).toEqual([analyticsCourse.videoSource]);
       // The clip is the suite's own: a runner reaching a video host says nothing about Aspects.
-      await stubVideoSources(learner.page, [unit!]);
+      await stubVideoSources([unit!], learner.page);
       await learner.prime(analyticsCourse.gradedSubsectionKey);
       await learner.unitPage.goto(
         analyticsCourse.courseKey,

@@ -22,8 +22,9 @@ import {
 
 /**
  * The CI profile rules (`.ci/profiles.json`, read by `scripts/ci-profiles.mts`
- * for `run_tests_tutor.yml`), and the real file checked against the capability
- * vocabulary the script itself cannot load.
+ * for `run_tests_tutor.yml` and `build_tutor_main_images.yml`), and the real file
+ * checked against the capability vocabulary the script itself cannot load and
+ * the image-build matrix it cannot generate.
  */
 
 const PLUGIN = '.ci/tutor/e2e_base.py';
@@ -78,6 +79,27 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
       );
       expect(matrix.length, name).toBeGreaterThan(0);
     }
+  });
+
+  test('the image build covers every image variant on every release its profile runs on', () => {
+    // A variant job pulls its images and cannot build them, so a release missing
+    // from build_tutor_main_images.yml's hand-written matrix would fail every run.
+    const profiles = parseProfiles(
+      JSON.parse(readFileSync('.ci/profiles.json', 'utf8')),
+      existsSync,
+      isCapability,
+    );
+    const releases = Object.keys(
+      JSON.parse(readFileSync('.ci/openedx-releases.json', 'utf8')) as Record<string, unknown>,
+    );
+    const wanted = profiles
+      .filter((p) => p.images !== '')
+      .flatMap((p) => releases.filter((r) => runsOn(p, r)).map((r) => `${r} ${p.name}`));
+    const workflow = readFileSync('.github/workflows/build_tutor_main_images.yml', 'utf8');
+    const built = [...workflow.matchAll(/- release: (\S+)\n\s+profile: (\S+)/g)]
+      .map(([, r, p]) => `${r} ${p}`)
+      .filter((entry) => !entry.endsWith(" ''"));
+    expect(built.sort()).toEqual(wanted.sort());
   });
 
   test('every job declares a valid capability list, and a delta profile selects all it gains', () => {

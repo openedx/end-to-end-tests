@@ -1,42 +1,30 @@
-import type { Page } from '@playwright/test';
-
 import { expect, test } from '../../src/fixtures';
 import {
   COURSE_COMPARISON_CHARTS as C,
   COURSE_COMPARISON_FILTERS,
   COURSE_COMPARISON_TABS,
+  COURSE_DASHBOARD_SLUG,
   TIMEOUTS,
-  type AppConfig,
 } from '../../src/config';
 import {
   authorVideo,
   courseKeyFor,
   enrollInCourseViaApi,
   grantCourseTeamRole,
+  makeGlobalStaff,
   rerunCourse,
   setObjectTags,
   waitForRerun,
   fetchCourseOutline,
   fetchCourseProgress,
-  fetchInstructorReports,
   publishXBlock,
-  supersetOrigin,
   updateGradingPolicy,
 } from '../../src/api';
-import type { APIRequestContext } from '@playwright/test';
-import { stubVideoSources } from '../../src/fixtures/video-sources';
 import { ProblemBlock } from '../../src/pages/lms/courseware/problem.block';
 import { VideoBlock } from '../../src/pages/lms/courseware/video.block';
-import {
-  TAG,
-  dashboardLocaleSuffix,
-  findChart,
-  openCourseComparison,
-  signInToSuperset,
-  waitForAnalytics,
-  type CourseComparison,
-} from '../../src/steps';
+import { TAG, findChart, waitForAnalytics } from '../../src/steps';
 import { knownGap, testId } from '../../src/reporting';
+import { cellText, choiceIndex, comparisonFor, rowFor, sumFor, supersetFor } from './helpers';
 
 /**
  * Aspects' Course Comparison dashboard (TC-00553–00559), in Superset, read the
@@ -50,29 +38,6 @@ import { knownGap, testId } from '../../src/reporting';
  */
 
 const TAGS = ['@regression', '@studio', '@author', '@analytics', '@instructor-dashboard'];
-
-type Rows = readonly Readonly<Record<string, unknown>>[];
-
-/** The row of a chart that belongs to the test's course (or run): any cell naming it. */
-function rowFor(rows: Rows, text: string) {
-  return rows.find((row) =>
-    Object.values(row).some((cell) => typeof cell === 'string' && cell.includes(text)),
-  );
-}
-
-/** The sum of `metric` over the rows that belong to the test's course. */
-function sumFor(rows: Rows, text: string, metric: string): number {
-  return rows
-    .filter((row) =>
-      Object.values(row).some((cell) => typeof cell === 'string' && cell.includes(text)),
-    )
-    .reduce((n, row) => n + Number(row[metric] ?? 0), 0);
-}
-
-/** A chart cell as text (tag lists and links are strings; anything else reads as empty). */
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
 
 /** Every enrollee count equals `enrollees`, and every chart's active count agrees. */
 function consistent(
@@ -93,25 +58,11 @@ function countsMatch(r: {
 
 /** The link in a Course Info row's "More details" cell (HTML), with its rison filter state. */
 function moreDetailsLink(row: Readonly<Record<string, unknown>> | undefined): URL | undefined {
-  const href = /href="([^"]+)"/.exec(text(row?.['More details']))?.[1];
+  const href = /href="([^"]+)"/.exec(cellText(row?.['More details']))?.[1];
   return href === undefined ? undefined : new URL(href);
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-
-/** Signs `page`'s user in to Superset and opens Course Comparison once it lists `courses`. */
-async function comparisonFor(
-  reader: APIRequestContext,
-  page: Page,
-  config: AppConfig,
-  courseKey: string,
-  courses: readonly string[],
-): Promise<CourseComparison> {
-  const reports = await fetchInstructorReports(reader, config, courseKey);
-  const origin = supersetOrigin(config, reports);
-  await signInToSuperset(page, origin);
-  return openCourseComparison(page, origin, dashboardLocaleSuffix(reports), courses);
-}
 
 test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.analyticsTest });
@@ -120,8 +71,7 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
     'a new enrollment raises the enrollee counts alike in every chart',
     { annotation: testId('TC-00553') },
     async ({ config, analyticsCourse, supersetColleague, authoringCourseLearnerLater }) => {
-      const { courseKey, displayName } = analyticsCourse;
-      const run = courseKey.split('+').at(-1)!;
+      const { courseKey, displayName, run } = analyticsCourse;
       const staff = await supersetColleague({ courseKey, role: 'staff' });
       const cc = await comparisonFor(staff.request, staff.page, config, courseKey, [displayName]);
       const courseCharts = await cc.chartsOn(COURSE_COMPARISON_TABS.courseMetrics);
@@ -189,8 +139,7 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
     "the course's video count follows its published videos",
     { annotation: testId('TC-00554') },
     async ({ page, config, analyticsCourse, supersetColleague }) => {
-      const { courseKey, displayName } = analyticsCourse;
-      const run = courseKey.split('+').at(-1)!;
+      const { courseKey, displayName, run } = analyticsCourse;
       const staff = await supersetColleague({ courseKey, role: 'staff' });
       const cc = await comparisonFor(staff.request, staff.page, config, courseKey, [displayName]);
       const video = findChart(
@@ -250,7 +199,13 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
         ),
       ],
     },
-    async ({ config, analyticsCourse, supersetColleague, authoringCourseLearner }) => {
+    async ({
+      config,
+      analyticsCourse,
+      supersetColleague,
+      authoringCourseLearner,
+      stubVideoSources,
+    }) => {
       const { courseKey, displayName } = analyticsCourse;
       const staff = await supersetColleague({ courseKey, role: 'staff' });
       const cc = await comparisonFor(staff.request, staff.page, config, courseKey, [displayName]);
@@ -268,7 +223,7 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
         learner.identity.username,
       );
       const unit = outline.units.find((u) => u.id === analyticsCourse.videoUnitKey);
-      await stubVideoSources(learner.page, [unit!]);
+      await stubVideoSources([unit!], learner.page);
       await learner.prime(analyticsCourse.gradedSubsectionKey);
       for (let watch = 0; watch < 2; watch++) {
         await learner.unitPage.goto(
@@ -305,8 +260,7 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
     'a graded attempt updates the learner performance figures',
     { annotation: testId('TC-00555') },
     async ({ page, config, analyticsCourse, supersetColleague, authoringCourseLearner }) => {
-      const { courseKey, displayName } = analyticsCourse;
-      const run = courseKey.split('+').at(-1)!;
+      const { courseKey, displayName, run } = analyticsCourse;
       // One assignment type worth the whole grade, so answering one of the
       // subsection's two problems is a passing 50 %.
       await updateGradingPolicy(page.request, config, courseKey, {
@@ -352,7 +306,7 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
         learner.unitPage.contentFrame,
         analyticsCourse.problem.usageKey,
       );
-      await problem.selectChoice(1); // the template's correct choice
+      await problem.selectChoice(choiceIndex(analyticsCourse.problem.correct));
       await problem.submit();
 
       const after = await waitForAnalytics(
@@ -381,20 +335,24 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
       config,
       analyticsCourse,
       contentCourse,
-      adminPage,
-      adminReportsPage,
+      supersetColleague,
+      adminLms,
       authoringCourseLearner,
     }) => {
       // Course Comparison lists a course once it has enrollees.
       void authoringCourseLearner;
-      const reports = await adminReportsPage.openReports(analyticsCourse.courseKey);
-      const origin = supersetOrigin(config, reports);
-      await signInToSuperset(adminPage, origin);
-      const cc = await openCourseComparison(adminPage, origin, dashboardLocaleSuffix(reports), [
-        analyticsCourse.displayName,
-        contentCourse.displayName,
-      ]);
-      // Before the filter the superuser sees more than one course (Course Info is
+      // Global staff see every course, so the filter has more than one to narrow;
+      // a throwaway, because Superset fixes what a user sees at its first sign-in.
+      const viewer = await supersetColleague();
+      await adminLms((session) => makeGlobalStaff(session, config, viewer.identity.username));
+      const cc = await comparisonFor(
+        viewer.request,
+        viewer.page,
+        config,
+        analyticsCourse.courseKey,
+        [analyticsCourse.displayName, contentCourse.displayName],
+      );
+      // Before the filter the viewer sees more than one course (Course Info is
       // row-limited on a large install, so its first page is not a full list).
       const infoBefore = findChart(
         await cc.chartsOn(COURSE_COMPARISON_TABS.courseMetrics),
@@ -464,8 +422,8 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
       const info = findChart(await cc.chartsOn(COURSE_COMPARISON_TABS.courseMetrics), C.courseInfo);
       const runInfo = findChart(await cc.chartsOn(COURSE_COMPARISON_TABS.runMetrics), C.runInfo);
       const tagsOf = async () => ({
-        course: text(rowFor(await cc.read(info), displayName)?.tag_list),
-        run: text(rowFor(await cc.read(runInfo), displayName)?.tag_list),
+        course: cellText(rowFor(await cc.read(info), displayName)?.tag_list),
+        run: cellText(rowFor(await cc.read(runInfo), displayName)?.tag_list),
       });
       const shown = await waitForAnalytics(
         tagsOf,
@@ -515,7 +473,7 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
       const cc = await comparisonFor(staff.request, staff.page, config, courseKey, [displayName]);
       const info = findChart(await cc.chartsOn(COURSE_COMPARISON_TABS.courseMetrics), C.courseInfo);
       const shown = await waitForAnalytics(
-        async () => text(rowFor(await cc.read(info), displayName)?.tag_list),
+        async () => cellText(rowFor(await cc.read(info), displayName)?.tag_list),
         (tags) => tags.includes(tag),
       );
       expect(shown.last, `readings: ${JSON.stringify(shown.readings)}`).toContain(tag);
@@ -526,8 +484,7 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
     'a rerun is one course with two runs, and the run filter picks one',
     { annotation: testId('TC-00557') },
     async ({ page, config, analyticsCourse, supersetColleague, newLearner }) => {
-      const { courseKey, displayName, org, number } = analyticsCourse;
-      const run = courseKey.split('+').at(-1)!;
+      const { courseKey, displayName, org, number, run } = analyticsCourse;
       // The sheet makes the run by export and import; a rerun gives the same
       // grouping: same org and number, same name, a new run.
       const rerunRun = `${run}r`;
@@ -576,18 +533,27 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
     "More details leads to the course's Course Dashboard, filtered to it",
     { annotation: testId('TC-00559') },
     async ({ config, analyticsCourse, supersetColleague }) => {
-      const { courseKey, displayName } = analyticsCourse;
-      const run = courseKey.split('+').at(-1)!;
+      const { courseKey, displayName, run } = analyticsCourse;
       const staff = await supersetColleague({ courseKey, role: 'staff' });
-      const reports = await fetchInstructorReports(staff.request, config, courseKey);
-      const courseDashboard = `/superset/dashboard/course-dashboard${dashboardLocaleSuffix(reports)}/`;
+      const { localeSuffix } = await supersetFor(staff.request, config, courseKey);
+      const courseDashboard = `/superset/dashboard/${COURSE_DASHBOARD_SLUG}${localeSuffix}/`;
       const cc = await comparisonFor(staff.request, staff.page, config, courseKey, [displayName]);
       const info = findChart(await cc.chartsOn(COURSE_COMPARISON_TABS.courseMetrics), C.courseInfo);
       const runInfo = findChart(await cc.chartsOn(COURSE_COMPARISON_TABS.runMetrics), C.runInfo);
 
-      const courseLink = moreDetailsLink(rowFor(await cc.read(info), displayName));
-      const runLink = moreDetailsLink(rowFor(await cc.read(runInfo), displayName));
-      expect(courseLink?.pathname).toBe(courseDashboard);
+      // The course filter can list the course before the info tables have its
+      // row, so read them until both rows carry their link.
+      const links = await waitForAnalytics(
+        async () => ({
+          course: moreDetailsLink(rowFor(await cc.read(info), displayName)),
+          run: moreDetailsLink(rowFor(await cc.read(runInfo), displayName)),
+        }),
+        (r) => r.course !== undefined && r.run !== undefined,
+      );
+      const { course: courseLink, run: runLink } = links.last;
+      expect(courseLink?.pathname, `readings: ${JSON.stringify(links.readings)}`).toBe(
+        courseDashboard,
+      );
       expect(courseLink?.searchParams.get('native_filters')).toContain(`'${displayName}'`);
       expect(runLink?.pathname).toBe(courseDashboard);
       const runFilters = runLink?.searchParams.get('native_filters') ?? '';

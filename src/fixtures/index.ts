@@ -437,10 +437,11 @@ export interface TestFixtures {
   videoUnit: CourseUnit;
   /**
    * Serves the bundled clip in place of the HTML5 sources of the given units'
-   * videos, on this test's `page`. Call it before opening a unit whose video is to
-   * be watched; see `stubVideoSources` for why the real bytes are never fetched.
+   * videos, on this test's `page` or on `target` (a learner's own page). Call it
+   * before opening a unit whose video is to be watched; see `stubVideoSources` for
+   * why the real bytes are never fetched.
    */
-  stubVideoSources: (units: readonly CourseUnit[]) => Promise<void>;
+  stubVideoSources: (units: readonly CourseUnit[], target?: Page) => Promise<void>;
   /**
    * Gate for Studio coverage: skips unless the installation declares the `studio`
    * capability, and hands the spec the Studio origin as a plain string.
@@ -1104,7 +1105,6 @@ export interface AnalyticsCourse extends AuthoredCourse {
   readonly videoUnitKey: string;
   /** The multiple-choice problem (with the answers that score and do not). */
   readonly problem: AuthoredProblem;
-  readonly problemDisplayName: string;
   readonly videoKey: string;
   /** The video's one HTML5 source URL (answered by the suite's clip in the learner's browser). */
   readonly videoSource: string;
@@ -2197,9 +2197,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   supersetColleague: async ({ playwright, browser, page, config, studioAuthorSession }, use) => {
     void studioAuthorSession;
-    const made: SupersetColleague[] = [];
+    const requests: APIRequestContext[] = [];
+    const contexts: BrowserContext[] = [];
     await use(async (options) => {
       const request = await playwright.request.newContext();
+      requests.push(request);
       const identity = await provisionLearnerSession(request, config);
       if (options !== undefined) {
         await grantCourseTeamRole(
@@ -2211,15 +2213,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         );
       }
       const context = await browser.newContext();
+      contexts.push(context);
       await context.addCookies((await request.storageState()).cookies);
-      const colleague = { identity, request, context, page: await context.newPage() };
-      made.push(colleague);
-      return colleague;
+      return { identity, request, context, page: await context.newPage() };
     });
-    for (const colleague of made) {
-      await colleague.context.close();
-      await colleague.request.dispose();
-    }
+    for (const context of contexts) await context.close();
+    for (const request of requests) await request.dispose();
   },
 
   inContextViewer: async ({ page, config, studioAuthorSession, studioColleague }, use) => {
@@ -2237,7 +2236,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         colleague,
         outlinePage: new StudioCourseOutlinePage(colleague.page, config),
         unitPage: colleague.unitPage,
-        analytics: new AnalyticsSidebar(colleague.page, config),
+        analytics: new AnalyticsSidebar(colleague.page),
         sidebar: new AuthoringSidebar(colleague.page, config),
       };
     });
@@ -3886,7 +3885,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     const [problemUnit, videoUnit] = graded.units;
     const problem = problemUnit!.blocks.find((b) => b.type === 'problem')!;
     const video = videoUnit!.blocks.find((b) => b.type === 'video')!;
-    const videoSource = `${config.baseUrls.lms}/static/e2e-analytics-clip.webm`;
+    // Third-party media, as a course's would be, never a platform URL: the
+    // specs that watch it serve the suite's clip there (`stubVideoSources`).
+    const videoSource = 'https://media.invalid/e2e-analytics-clip.webm';
     await updateXBlock(request, config, video.usageKey, {
       metadata: { html5_sources: [videoSource], youtube_id_1_0: '' },
     });
@@ -3898,7 +3899,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       problemUnitKey: problemUnit!.usageKey,
       videoUnitKey: videoUnit!.usageKey,
       problem: { usageKey: problem.usageKey, type: 'multiplechoiceresponse', ...problem.answers! },
-      problemDisplayName: problem.displayName,
       videoKey: video.usageKey,
       videoSource,
     });
@@ -4251,7 +4251,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   stubVideoSources: async ({ page }, use) => {
-    await use((units) => stubVideoSources(page, units));
+    await use((units, target) => stubVideoSources(target ?? page, units));
   },
 });
 

@@ -114,7 +114,10 @@ measured, and issues are opened by hand from them.
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
+| `ASPECTS-001` | `openedx/frontend-app-aspects`, `openedx/frontend-plugin-aspects` (no test ids on the Reports tab; a few on the in-context sidebar) | open, shapes every anchor in `selectors/instructor-reports.ts` and `selectors/studio-analytics.ts`
+| `ASPECTS-005` | `openedx/tutor-contrib-aspects` (Course Comparison assets: Run Metrics "More details" files the org under the Course Run filter's id) | open, no `fixme` — TC-00559 asserts the link names the course and run
 | `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
+| `ASPECTS-010` | `openedx/aspects-dbt` (`dim_learner_last_response` joins block names at insert time) | open, no `fixme` — TC-00547 finds its row by the problem's usage key
 | `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
 | `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
 | `ASPECTS-008` | `openedx/tutor-contrib-aspects` (dashboard assets: "Clear all" empties the preselected course filter) | open, no `fixme` — TC-00544 clears only the learner filter, as the sheet asks
@@ -2133,6 +2136,62 @@ in the table after a reload. Measured on local `main` (2026-09-24).
 **Coverage impact:** open. TC-00541's add and edit test passes; its delete test
 is a `test.fail` that lifts itself when the fix lands.
 
+### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
+
+**Where:** `recommender-xblock` 5.0.0, pinned by `release/verawood.1`. Fixed in
+5.1.0 (RecommenderXBlock#137, "render current config in studio template and
+prevent auto-save crash"), which `master` pins.
+
+**What happens:** the recommender's Studio editor is a static template that
+always selects its defaults (five entries per page, and so on). An author's
+"Set configurations" is posted (`set_client_configuration`, 200), but reopening
+the editor shows the defaults again, so the change looks lost. This is the
+sheet's note on TC-00132, "can't change settings". 5.1.0 renders the saved
+configuration. Measured in CI (2026-09-24): `main` passes, `verawood` reopens on
+`5`.
+
+**Coverage impact:** fixed on `main`. TC-00132 is gated on the
+`recommender-studio-settings` capability, declared for `main` only, so the
+`verawood` gap is an undeclared capability. A `verawood.2` that picks up 5.1.0
+can declare it.
+
+## Epic 16 — Aspects findings (2026-09-29)
+
+### `ASPECTS-001` — the Reports tab ships no test ids, and the in-context sidebar only a few
+
+**Where:** `frontend-app-aspects` (the instructor dashboard's Reports tab, as
+tutor-contrib-aspects 5.0.0 installs it) and `frontend-plugin-aspects` 3.0.1
+(Studio's in-context Analytics page and card buttons).
+
+**What happens:** the Reports tab renders no `data-testid` at all, and its
+heading, link text and dashboard names are translated. The in-context plugin
+marks its sidebar (`sidebar`, `sidebar-title`, through the authoring sidebar it
+plugs into), but not its element lists, its "Show more" toggle, its empty state
+or the outline cards' Analytics button.
+
+**Coverage impact:** open. The suite anchors on the Reports tab's own classes
+(`aspects-wrapper`, `aspects-superset-link`) and on the dashboard uuids the
+platform hands out, and in Studio on the sidebar's test ids plus Paragon's
+button classes. The card button is "the one medium icon button without a test
+id". Any restyle breaks these, which stable test ids would prevent (the
+`INSTR-001` pattern).
+
+### `ASPECTS-005` — Course Comparison's Run Metrics "More details" link files the organization under the Course Run filter
+
+**Where:** the Course Comparison dashboard's Run Metrics tab (tutor-contrib-aspects
+5.0.0 assets), in Superset 6.1.0.
+
+**What happens:** each row's "More details" link opens the Course Dashboard with a
+`native_filters` state that names `NATIVE_FILTER-w863AfFgi` twice: once carrying
+the organization and once the course run. So the organization is filed under
+the Course Run filter's id. The
+area is the one `openedx/wg-build-test-release#607` fixed, and this looks like
+a leftover of it. Measured on local `main` (2026-09-27).
+
+**Coverage impact:** open, no `fixme`. TC-00559 asserts that the link leads to
+the Course Dashboard with filter values naming the test's course and run, so it
+would catch a regression in the link itself, not this malformation.
+
 ### `ASPECTS-006` — with Vector, a watched video never shows in Aspects' video charts
 
 **Where:** `aspects-dbt` (as tutor-contrib-aspects 5.0.0 installs it), the
@@ -2254,24 +2313,30 @@ is tagged `@analytics-in-context-cards`, a capability declared where the plugin
 and the authoring MFE agree (Verawood). So the regression shows as an
 undeclared capability on `main` rather than as a permanently red case.
 
-### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
+### `ASPECTS-010` — a problem answered soon after a publish shows with no name, for good
 
-**Where:** `recommender-xblock` 5.0.0, pinned by `release/verawood.1`. Fixed in
-5.1.0 (RecommenderXBlock#137, "render current config in studio template and
-prevent auto-save crash"), which `master` pins.
+**Where:** `aspects-dbt`'s `dim_learner_last_response` model (as tutor-contrib-aspects
+5.0.0 installs it), built as a ClickHouse materialized view, and the Course
+Dashboard's "Problem Attempts and Results" table that reads it.
 
-**What happens:** the recommender's Studio editor is a static template that
-always selects its defaults (five entries per page, and so on). An author's
-"Set configurations" is posted (`set_client_configuration`, 200), but reopening
-the editor shows the defaults again, so the change looks lost. This is the
-sheet's note on TC-00132, "can't change settings". 5.1.0 renders the saved
-configuration. Measured in CI (2026-09-24): `main` passes, `verawood` reopens on
-`5`.
+**What happens:** the view takes each problem's name from
+`reporting.dim_course_blocks` **when a learner's response is inserted**. That
+view is built on the `dim_course_block_names` dictionary, which refreshes at a
+random point within 120 s. A response inserted before the refresh has picked up
+the course's blocks gets an empty `display_name_with_location`, and a
+materialized view never revisits a row. So the table shows that learner's
+attempts on a problem with no name, however long you wait.
 
-**Coverage impact:** fixed on `main`. TC-00132 is gated on the
-`recommender-studio-settings` capability, declared for `main` only, so the
-`verawood` gap is an undeclared capability. A `verawood.2` that picks up 5.1.0
-can declare it.
+Measured on local `main` (2026-09-29): a course's blocks were dumped at
+20:19:21–26, a learner answered its problem at 20:20:12, and the row was stored
+with an empty name. The dictionary refreshed later, and the row stayed nameless.
+The row's `problem_link` still carries the problem's URL, and its counts are
+right.
+
+**Coverage impact:** open, no `fixme`. TC-00547 finds its row by the problem's
+usage key in `problem_link` rather than by its name, so it reads the counts
+either way. Before that change, a run that answered inside the refresh window
+failed, with "attempted at least one" at 1 and the problem's counts at 0.
 
 ## CI split — sharded runs and profiles (2026-09-24/25, suite-side)
 

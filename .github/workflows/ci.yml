@@ -14,7 +14,7 @@ on:
 permissions:
   contents: read
   # Required by the reusable run_tests_tutor.yml, which pulls the prebuilt
-  # "main" Open edX images from this repo's ghcr.io namespace.
+  # images (main, and profile image variants) from this repo's ghcr.io namespace.
   packages: read
 
 concurrency:
@@ -110,5 +110,9 @@ jobs:
     uses: ./.github/workflows/run_tests_tutor.yml
     with:
       # Keep in sync with the newest non-"main" entry in .ci/openedx-releases.json.
+      # A profile limited to named releases (`releases` in .ci/profiles.json:
+      # `aspects`, its extension's `releases` and `releaseCapabilities`) and the
+      # build matrix of build_tutor_main_images.yml name it too; the plan job
+      # refuses a profile on a release it does not list.
       openedx_release: verawood
       profiles: default extended aspects

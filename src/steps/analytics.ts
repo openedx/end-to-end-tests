@@ -25,10 +25,11 @@ import type { CapturedChart, SupersetDashboardBlock } from '../pages/superset/da
 import { pollUntil } from './poll';
 
 /**
- * Aspects' analytics as a course's staff read them in the Reports tab. Every
- * number comes from replaying a chart-data query the dashboard itself sent,
- * with Superset's cache bypassed (`src/api/superset.ts`); nothing reads chart
- * text or pixels.
+ * Aspects' analytics as their users read them: a course's dashboards in the
+ * Reports tab, Superset's sign-in through the LMS, and Course Comparison on the
+ * user's own Superset session. Every number comes from replaying a chart-data
+ * query the dashboard itself sent, with Superset's cache bypassed
+ * (`src/api/superset.ts`); nothing reads chart text or pixels.
  */
 
 /** A pipeline wait's outcome: whether it was met, the last reading, and the distinct readings seen. */
@@ -85,9 +86,7 @@ export function findChart(charts: readonly CapturedChart[], key: AspectsChartKey
 }
 
 /** The first query's rows of a chart-data answer. */
-export function chartRows(
-  result: readonly ChartResult[],
-): readonly Readonly<Record<string, unknown>>[] {
+function chartRows(result: readonly ChartResult[]): readonly Readonly<Record<string, unknown>>[] {
   return result[0]?.data ?? [];
 }
 
@@ -107,9 +106,6 @@ export interface ReportsDashboard {
   /** Clears one select filter and applies; returns the marker for `chartsOn`. */
   clearFilter(filterId: string): Promise<number>;
 }
-
-/** The Course Dashboard (`openCourseDashboard`) is one of them. */
-export type CourseDashboard = ReportsDashboard;
 
 /**
  * Opens one of a course's dashboards in the Reports tab, by slug (before its
@@ -209,7 +205,7 @@ export function openCourseDashboard(
   viewer: APIRequestContext,
   config: AppConfig,
   course: { readonly courseKey: string; readonly displayName: string },
-): Promise<CourseDashboard> {
+): Promise<ReportsDashboard> {
   return openReportsDashboard(reportsPage, viewer, config, course, COURSE_DASHBOARD_SLUG);
 }
 

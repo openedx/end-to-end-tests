@@ -101,7 +101,6 @@ export {
   type PageChrome,
 } from './chrome';
 export {
-  chartRows,
   dashboardLocaleSuffix,
   findChart,
   openCourseComparison,
@@ -111,6 +110,5 @@ export {
   waitForAnalytics,
   type AnalyticsWait,
   type CourseComparison,
-  type CourseDashboard,
   type ReportsDashboard,
 } from './analytics';

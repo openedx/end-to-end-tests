@@ -40,7 +40,7 @@ Page objects live in the same platform-domain folder as the specs that use them,
   of the authoring sidebar (outline and unit page) and the outline cards'
   Analytics buttons; every open or drill-in returns the
   `superset_in_context_dashboard` request it caused
-  is the notifications tray in any MFE's
+- `pages/lms/notifications/tray.page.ts` is the notifications tray in any MFE's
   header (no `goto`: navigate first, then `open()`); it opens tabs, reads rows by
   notification id, and returns the new tab a row opens (`openRow`, since the
   row is a `target="_blank"` link). `preferences.page.ts` is the account MFE's

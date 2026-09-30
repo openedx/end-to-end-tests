@@ -15,8 +15,13 @@
 #                     with tutor-contrib-aspects enabled: Open edX (with
 #                     platform-plugin-aspects), the MFEs (with the Aspects apps),
 #                     and Aspects' own two. Tag `<release>-aspects`; sets
-#                     TUTOR_VARIANT_IMAGES. On main, run the stock call first:
-#                     the variant only replaces the images it builds.
+#                     TUTOR_VARIANT_IMAGES to their names and TUTOR_VARIANT_REFS
+#                     to their full references. On main, run the stock call
+#                     first: the variant only replaces the images it builds.
+#
+# Tutor resolves a plugin's image names only while the plugin is enabled, and a
+# test job enables the profile's plugins after launch, so it pulls a variant by
+# TUTOR_VARIANT_REFS with `docker pull`, not `tutor images pull`.
 #
 # Shared by build_tutor_main_images.yml (which builds and pushes these tags
 # nightly) and run_tests_tutor.yml (which pulls them instead of building).
@@ -57,11 +62,17 @@ emit() {
 # Mirror Tutor's own naming: overhangio/openedx, overhangio/openedx-permissions,
 # overhangio/openedx-mfe, overhangio/openedx-notes (and openedx-aspects,
 # openedx-aspects-superset for Aspects' images).
+REFS=""
 for image in $IMAGES; do
   name="openedx"
   [ "$image" != "openedx" ] && name="openedx-${image}"
-  emit "TUTOR_${IMAGE_KEYS[$image]}=${REGISTRY_PREFIX}/${name}:${TAG}"
+  ref="${REGISTRY_PREFIX}/${name}:${TAG}"
+  emit "TUTOR_${IMAGE_KEYS[$image]}=${ref}"
+  REFS="${REFS:+${REFS} }${ref}"
 done
 # Space-separated list of the Tutor image names above, for
 # `tutor images build|pull|push`.
 emit "${LIST_VAR}=${IMAGES}"
+if [ -n "$VARIANT" ]; then
+  emit "TUTOR_VARIANT_REFS=${REFS}"
+fi

@@ -8,11 +8,7 @@ import {
   type AppConfig,
 } from '../../../config';
 import { narrowInstructorReports, type InstructorReports } from '../../../api';
-import {
-  SupersetDashboardBlock,
-  captureChartData,
-  type CapturedChart,
-} from '../../superset/dashboard.block';
+import { ChartDataRecorder, SupersetDashboardBlock } from '../../superset/dashboard.block';
 import { InstructorDashboardPage } from './dashboard.page';
 
 /** What an embedded dashboard's first load looked like. */
@@ -45,7 +41,7 @@ export class ReportsPage extends InstructorDashboardPage {
   readonly embedFrame: Locator;
   private readonly guestTokens: Response[] = [];
   private readonly firstChartData = new Map<string, { response: Response; tokens: number }>();
-  private readonly charts = new Map<string, CapturedChart[]>();
+  private readonly charts = new Map<string, ChartDataRecorder>();
   private readonly record: (response: Response) => void;
 
   constructor(page: Page, config: AppConfig) {
@@ -66,27 +62,24 @@ export class ReportsPage extends InstructorDashboardPage {
       if (!this.firstChartData.has(uuid)) {
         this.firstChartData.set(uuid, { response, tokens: this.guestTokens.length });
       }
-      void this.capture(uuid, response);
+      this.recorder(uuid).record(response);
     };
     page.on('response', this.record);
   }
 
-  /** Records one chart-data request of the embed of `uuid` and its answer. */
-  private async capture(uuid: string, response: Response): Promise<void> {
-    const captured = await captureChartData(response);
-    if (captured === undefined) return;
-    const list = this.charts.get(uuid) ?? [];
-    list.push(captured);
-    this.charts.set(uuid, list);
+  /** The recorder of the embed of `uuid`'s chart-data exchanges. */
+  private recorder(uuid: string): ChartDataRecorder {
+    let recorder = this.charts.get(uuid);
+    if (recorder === undefined) {
+      recorder = new ChartDataRecorder();
+      this.charts.set(uuid, recorder);
+    }
+    return recorder;
   }
 
   /** The embedded dashboard of `uuid`, with the chart queries its embed has sent. */
   dashboard(uuid: string): SupersetDashboardBlock {
-    return new SupersetDashboardBlock(
-      this.page,
-      this.embed(uuid),
-      () => this.charts.get(uuid) ?? [],
-    );
+    return new SupersetDashboardBlock(this.page, this.embed(uuid), this.recorder(uuid));
   }
 
   /**
@@ -129,7 +122,8 @@ export class ReportsPage extends InstructorDashboardPage {
   async reopenReports(courseKey: string): Promise<InstructorReports> {
     this.guestTokens.length = 0;
     this.firstChartData.clear();
-    this.charts.clear();
+    // Cleared, not dropped: a dashboard block taken before the reload reads on.
+    for (const recorder of this.charts.values()) recorder.clear();
     return this.openReports(courseKey);
   }
 
@@ -175,9 +169,11 @@ export class ReportsPage extends InstructorDashboardPage {
     const deadline = Date.now() + TIMEOUTS.supersetEmbed;
     let seen = this.firstChartData.get(uuid);
     while (seen === undefined && Date.now() < deadline) {
-      await this.page.waitForResponse((response) => response.url().includes('/api/v1/chart/data'), {
-        timeout: Math.max(1, deadline - Date.now()),
-      });
+      await this.page
+        .waitForResponse((response) => response.url().includes('/api/v1/chart/data'), {
+          timeout: Math.max(1, deadline - Date.now()),
+        })
+        .catch(() => undefined);
       seen = this.firstChartData.get(uuid);
     }
     if (seen === undefined) {
