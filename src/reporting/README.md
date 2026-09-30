@@ -162,7 +162,11 @@ can be redone from the artifact once the secret exists.
 `openedx_release` input is set. Both accept a `btr_sheet_url` input as a manual
 override. Filtered runs (`domains`/`features`/`exclude_features`) and runs of a
 `test_ref` other than the default branch still get a run tab and a `Runs` row
-but do **not** overwrite `Latest`. The workflow's job summary links the new tab.
+but do **not** overwrite `Latest`. Nor does an incomplete sharded run: when a
+Tutor shard dies before its suite runs, it uploads no blob report, and the
+merge job, finding fewer blobs than the matrix has shards, publishes the
+shards that did run to their own tab, leaves `Latest` alone and fails. The
+workflow's job summary links the new tab.
 
 **Re-publishing from an artifact** (a failed publish, or a sheet rebuilt later):
 download `btr-run.json` from the run's `suite-reports-*` artifact, then

@@ -11,6 +11,14 @@ inputs:
   blob_dir:
     description: 'Directory holding the blob report .zip files to merge.'
     required: true
+  expected_blobs:
+    description: >
+      How many blob reports the run should have produced (one per shard). When
+      fewer arrive, the rest are still merged and reported, but the BTR publish
+      leaves the sheet's "Latest" tab unchanged and the action fails at the end.
+      Empty = no check.
+    required: false
+    default: ''
   lms_base_url:
     description: 'LMS origin the run targeted; recorded in btr-run.json and the timings CSVs.'
     required: true
@@ -65,10 +73,14 @@ runs:
     # BTR_RELEASE / BTR_TEST_REF / DOMAINS / LMS_BASE_URL feed the reporters'
     # run metadata (src/reporting/btr-run-reporter.ts, timing-reporter.ts), as
     # they do in a run. The run's own test-results/ report files are replaced.
+    # A shard that dies before its suite runs uploads no blob, so the count of
+    # blobs is the count of shards whose results are in the report.
     - name: Merge blob reports
+      id: merge
       shell: bash
       env:
         BLOB_DIR: ${{ inputs.blob_dir }}
+        EXPECTED_BLOBS: ${{ inputs.expected_blobs }}
         LMS_BASE_URL: ${{ inputs.lms_base_url }}
         DOMAINS: ${{ inputs.domains }}
         BTR_RELEASE: ${{ inputs.btr_release }}
@@ -81,6 +93,16 @@ runs:
           echo "::error::No blob reports in ${BLOB_DIR}: no shard got as far as running the suite."
           exit 1
         fi
+        complete=true
+        if [ -n "$EXPECTED_BLOBS" ] && [ "${#blobs[@]}" -lt "$EXPECTED_BLOBS" ]; then
+          complete=false
+          missing="Only ${#blobs[@]} of ${EXPECTED_BLOBS} shards produced a blob report: the tests of the other shards have no result in this report."
+          echo "::error::${missing}"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            printf '### Incomplete run\n\n%s\n\n' "$missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        fi
+        echo "complete=${complete}" >> "$GITHUB_OUTPUT"
         echo "Merging ${#blobs[@]} blob report(s): ${blobs[*]}"
         rm -rf playwright-report test-results/btr-coverage.json test-results/btr-run.json \
           test-results/a11y-violations.json test-results/timings-tests.csv test-results/timings-steps.csv
@@ -94,7 +116,8 @@ runs:
     # Opt-in: only when the caller resolved a sheet for this release (see the
     # "Resolve BTR results sheet" step in the workflows). Its failure is visible
     # on this step alone; the test outcome is unaffected. A failed publish can
-    # be redone from the suite-reports artifact's btr-run.json.
+    # be redone from the suite-reports artifact's btr-run.json. An incomplete
+    # run still gets its own tab but never replaces "Latest".
     #
     # Credentials are never an input: the publisher reads BTR_SHEET_CREDENTIALS
     # from the environment, which the calling workflow sets from the repository
@@ -105,7 +128,7 @@ runs:
       env:
         BTR_SHEET_URL: ${{ inputs.btr_sheet_url }}
         BTR_RELEASE: ${{ inputs.btr_release }}
-        BTR_UPDATE_LATEST: ${{ inputs.btr_update_latest }}
+        BTR_UPDATE_LATEST: ${{ steps.merge.outputs.complete == 'false' && 'false' || inputs.btr_update_latest }}
         BTR_ENVIRONMENT: ${{ inputs.btr_environment }}
       run: |
         set -euo pipefail
@@ -150,3 +173,13 @@ runs:
           test-results/timings-steps.csv
         retention-days: 30
         if-no-files-found: warn
+
+    # Last, so the partial report is still uploaded and published first.
+    - name: Fail on missing blob reports
+      if: ${{ !cancelled() && steps.merge.outputs.complete == 'false' }}
+      shell: bash
+      env:
+        EXPECTED_BLOBS: ${{ inputs.expected_blobs }}
+      run: |
+        echo "::error::Fewer than ${EXPECTED_BLOBS} blob reports were merged; see the \"Merge blob reports\" step."
+        exit 1

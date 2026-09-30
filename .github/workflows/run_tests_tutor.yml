@@ -135,6 +135,7 @@ jobs:
       release: ${{ steps.release.outputs.release }}
       tutor_constraint: ${{ steps.release.outputs.tutor_constraint }}
       matrix: ${{ steps.matrix.outputs.matrix }}
+      shard_count: ${{ steps.matrix.outputs.shard_count }}
       sheet_url: ${{ steps.btr.outputs.sheet_url }}
       update_latest: ${{ steps.btr.outputs.update_latest }}
     steps:
@@ -185,7 +186,10 @@ jobs:
             --release "$OPENEDX_RELEASE" \
             --release-capabilities="${OVERRIDE_CAPABILITIES:-$RELEASE_CAPABILITIES}")
           echo "$MATRIX" | jq .
-          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+          {
+            echo "matrix=${MATRIX}"
+            echo "shard_count=$(jq length <<< "$MATRIX")"
+          } >> "$GITHUB_OUTPUT"
 
       # Which sheet (if any) this run publishes to, and whether it may replace the
       # sheet's "Latest" tab. `vars` is dumped as JSON because expressions have no
@@ -565,7 +569,9 @@ jobs:
   # Combines every shard's blob report into the release's single HTML report
   # and suite reports, under the artifact names a one-job run used, then
   # writes the job summary and publishes BTR results. Runs whether or not
-  # shards failed, so failures are reported.
+  # shards failed, so failures are reported. A shard that died before running
+  # the suite uploads no blob: report-suite checks the count against the
+  # matrix, leaves the sheet's "Latest" tab alone and fails this job.
   merge:
     name: Merge reports
     needs: [plan, run]
@@ -593,6 +599,7 @@ jobs:
         uses: ./.github/actions/report-suite
         with:
           blob_dir: all-blob-reports
+          expected_blobs: ${{ needs.plan.outputs.shard_count }}
           lms_base_url: http://local.openedx.io
           domains: ${{ inputs.domains }}
           artifact_suffix: ${{ needs.plan.outputs.release }}
