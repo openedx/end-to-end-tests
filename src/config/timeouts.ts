@@ -154,4 +154,13 @@ export const TIMEOUTS = {
    * passed at 4.8 min worst case.
    */
   libraryReviewIndex: 120_000,
+
+  /**
+   * Budget for a taxonomy import to reach a usable state — `POST
+   * taxonomies/import/` returns the created taxonomy synchronously (measured
+   * well under a second for an 8-tag file on an idle Studio), so this is headroom
+   * for a busy CMS and the follow-up org assignment. Sized like `studioSetup`
+   * because it runs once per worker at fixture setup.
+   */
+  taxonomyImport: 60_000,
 } as const;

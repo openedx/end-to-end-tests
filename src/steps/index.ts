@@ -38,3 +38,11 @@ export {
   type LibraryShape,
 } from './library';
 export { pollUntil, type PollOutcome } from './poll';
+export {
+  TAG,
+  IMPORT_EXTRA_TAG,
+  seedTaxonomy,
+  taxonomyImportFile,
+  taxonomyImportFileCsv,
+  taxonomyImportFileExtended,
+} from './tagging';

@@ -6,9 +6,12 @@ import { expect, test } from '../../../src/fixtures';
  * Update learner profile on the account settings page (`frontend-app-account`),
  * BTR TC-00001.
  *
- * Runs in the `lms-learner` project (`@authenticated`), reusing the signed-in
- * learner session captured by `setup` — so it needs no fresh account and never
- * prompts under the manual backend. The profile edit persists directly via the
+ * Runs in the `lms-learner` project (`@authenticated`). The name change is made
+ * by a learner of the test's own (`newLearner`, installed in the page), not the
+ * learner captured by `setup`: it changes the account, and the frontend-base
+ * Account app then refreshes the session (`POST /login_refresh`), which the
+ * shared session may no longer hold — a `courseLearner` registering on the
+ * shared request context ends it. The profile edit persists directly via the
  * account API. The password half of TC-00001 is the same reset flow covered
  * text-free by `password-reset.spec.ts` (TC-00004); the account page's reset
  * button has no language-independent locator, so it is not driven here.
@@ -17,7 +20,10 @@ test.describe('Account settings (profile)', () => {
   test(
     'updates the full name',
     { tag: ['@regression', '@authenticated', '@mfe-account'], annotation: testId('TC-00001') },
-    async ({ page, accountSettingsPage, learnerIdentity }) => {
+    async ({ page, accountSettingsPage, learnerIdentity, newLearner }) => {
+      const learner = await newLearner();
+      await page.context().clearCookies();
+      await page.context().addCookies((await learner.request.storageState()).cookies);
       await accountSettingsPage.goto();
 
       // `learnerIdentity.name` is just a fresh, unique display name to save; we

@@ -141,7 +141,13 @@ test.describe(
       void studioAuthorSession;
       // The smoke path's surface, checked without spending a course: the form
       // opens with its fields, and the list carries the course this worker owns.
+      //
+      // Searched for rather than looked for on the landing page: Studio Home
+      // pages the list at ten and orders it by display name, so on a target that
+      // has accumulated courses (every run adds several per worker) this worker's
+      // course is usually not on page one.
       await studioHomePage.goto();
+      await studioHomePage.search(authoredCourse.number);
       await expect(studioHomePage.courseCardLink(authoredCourse.courseKey)).toBeVisible();
 
       await studioHomePage.openNewCourseForm();

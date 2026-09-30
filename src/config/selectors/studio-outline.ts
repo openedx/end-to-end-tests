@@ -27,6 +27,19 @@ export const STUDIO_OUTLINE_PAGE_SELECTORS = {
   subsectionExpandButton: '[data-testid="subsection-card-header__expanded-btn"]',
   unitExpandButton: '[data-testid="unit-card-header__expanded-btn"]',
 
+  /**
+   * A card's own content row (`<level>-card__content`) — the header area, as
+   * opposed to the child-cards container (`<level>-card__subsections` /
+   * `…__units`). Clicking it selects the card in the Verawood sidebar; measured
+   * as the reliable target at every level (the section header alone also selects,
+   * but a subsection/unit header does not). Scope inside the card locator; the
+   * level-named test id excludes nested child cards' content rows.
+   */
+  cardContent: (level: 'section' | 'subsection' | 'unit') =>
+    `[data-testid="${level}-card__content"]`,
+  /** The class a selected card carries while the sidebar shows its Info. */
+  selectedCardClass: 'outline-card-selected',
+
   /** The "Rename" pencil on a card header; opens the inline edit field. */
   sectionEditButton: '[data-testid="section-edit-button"]',
   subsectionEditButton: '[data-testid="subsection-edit-button"]',

@@ -148,7 +148,10 @@ role, and the instructor-dashboard MFE's `/api/instructor/v2/` accepts the JWT, 
 `roundTripLearner` as the second actor. The global `instructor` role stays
 installation-supplied. The one session-only write in that tree — enabling
 platform-wide certificate generation in the LMS Django admin — runs on a fresh
-admin `loginSession` context under the admin lock.
+admin `loginSession` context under the admin lock. The **taxonomy admin** is the
+same admin account: managing taxonomies and seeding upload-agreement rows are
+staff-only, so they run under that lock too (`taxonomyAdmin` in a Studio browser,
+`uploadAgreements` on an LMS Django session).
 
 The **library admin** persona is the same worker author too: creating a content
 library (v2) makes its creator the library's `admin`, and the

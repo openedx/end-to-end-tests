@@ -25,3 +25,19 @@ export async function authoringCourseBaseUrl(
   await page.waitForURL((url) => url.origin === appsOrigin && url.pathname.includes('/course/'));
   return page.url().replace(/#.*$/, '').replace(/\/+$/, '');
 }
+
+/**
+ * The authoring MFE's mount base derived from the Studio-home redirect rather
+ * than a course — for the taxonomy pages, whose only actor is the admin (who owns
+ * no course). Studio `/home` redirects to the MFE home on the apps origin; this
+ * returns everything up to that mount (e.g. `${APPS}/authoring`).
+ */
+export async function authoringMfeBaseFromHome(page: Page, config: AppConfig): Promise<string> {
+  const appsOrigin = new URL(config.baseUrls.apps).origin;
+  await page.goto(`${studioOrigin(config)}/home`, { waitUntil: 'commit' });
+  await page.waitForURL((url) => url.origin === appsOrigin && url.pathname.endsWith('/home'));
+  return page
+    .url()
+    .replace(/#.*$/, '')
+    .replace(/\/home\/?$/, '');
+}

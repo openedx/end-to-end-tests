@@ -5,8 +5,10 @@ import { TIMEOUTS } from '../../../src/config';
 import {
   CSRF_HEADER,
   buildSection,
+  fetchAdvancedSettings,
   fetchCsrfToken,
   fetchXBlockOutline,
+  updateAdvancedSettings,
   type AuthoredSection,
 } from '../../../src/api';
 import { satisfyPrerequisiteByScore } from '../../../src/steps';
@@ -38,6 +40,9 @@ test.describe(
       {
         annotation: [
           testId('TC-00159'),
+          // TC-00127 is the Studio half of this case: marking the prerequisite and
+          // requiring it in the Configure dialog (asserted here on `xblock/outline`).
+          testId('TC-00127'),
           issue('https://github.com/openedx/end-to-end-tests/issues/39'),
         ],
       },
@@ -218,6 +223,65 @@ test.describe(
             timeout: TIMEOUTS.contentPublish,
           })
           .toBe(false);
+      },
+    );
+
+    test(
+      'shows the subsection prerequisite control per the gating advanced setting',
+      { annotation: testId('TC-00270') },
+      async ({
+        page,
+        config,
+        authoringCourse,
+        studioCourseOutlinePage,
+        outlineConfigureDialog,
+        studioAuthorSession,
+      }) => {
+        void studioAuthorSession;
+        const key = authoringCourse.courseKey;
+        const built = await buildSection(
+          page.request,
+          config,
+          key,
+          `E2E adv ${test.info().testId.slice(-6)}`,
+        );
+        const unitKey = firstUnitKey(built);
+
+        // Enable subsection gating and confirm the setting round-trips.
+        await updateAdvancedSettings(page.request, config, key, { enable_subsection_gating: true });
+        expect(
+          (await fetchAdvancedSettings(page.request, config, key)).enable_subsection_gating?.value,
+        ).toBe(true);
+
+        await studioCourseOutlinePage.goto(key);
+        await studioCourseOutlinePage.setAllExpanded(true);
+
+        // A section has Basic + Visibility only; a subsection adds the Advanced tab
+        // whose prerequisite checkbox is present while gating is on.
+        await outlineConfigureDialog.open(studioCourseOutlinePage.section(unitKey), 'section');
+        expect(await outlineConfigureDialog.tabCount()).toBe(2);
+        await outlineConfigureDialog.close();
+
+        await outlineConfigureDialog.open(
+          studioCourseOutlinePage.subsection(unitKey),
+          'subsection',
+        );
+        expect(await outlineConfigureDialog.tabCount()).toBe(3);
+        expect(await outlineConfigureDialog.prerequisiteCheckboxVisible()).toBe(true);
+        await outlineConfigureDialog.close();
+
+        // Turn gating off: the prerequisite checkbox is gone from the Advanced tab.
+        await updateAdvancedSettings(page.request, config, key, {
+          enable_subsection_gating: false,
+        });
+        await studioCourseOutlinePage.goto(key);
+        await studioCourseOutlinePage.setAllExpanded(true);
+        await outlineConfigureDialog.open(
+          studioCourseOutlinePage.subsection(unitKey),
+          'subsection',
+        );
+        expect(await outlineConfigureDialog.prerequisiteCheckboxVisible()).toBe(false);
+        await outlineConfigureDialog.close();
       },
     );
   },

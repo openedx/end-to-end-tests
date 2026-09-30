@@ -33,6 +33,13 @@ import { StudioGroupConfigurationsPage } from '../pages/studio/settings/group-co
 import { StudioScheduleDetailsPage } from '../pages/studio/settings/schedule-details.page';
 import { StudioPagesResourcesPage } from '../pages/studio/pages-resources/pages-resources.page';
 import { StudioCustomPagesPage } from '../pages/studio/custom-pages/custom-pages.page';
+import { AuthoringSidebar } from '../pages/studio/sidebar/authoring-sidebar.page';
+import { TagDrawer } from '../pages/studio/sidebar/tag-drawer.page';
+import { TaxonomyListPage } from '../pages/studio/taxonomies/taxonomy-list.page';
+import { TaxonomyDetailPage } from '../pages/studio/taxonomies/taxonomy-detail.page';
+import { FilesPage } from '../pages/studio/files/files.page';
+import { TextbooksPage } from '../pages/studio/textbooks/textbooks.page';
+import { UpdatesPage } from '../pages/studio/updates/updates.page';
 import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
@@ -43,7 +50,14 @@ import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
 import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
-import { authorLibrary, ensureDataResearcher, submitProblem, type AuthoredLibrary } from '../steps';
+import {
+  authorLibrary,
+  ensureDataResearcher,
+  seedTaxonomy,
+  submitProblem,
+  taxonomyImportFile,
+  type AuthoredLibrary,
+} from '../steps';
 import {
   CourseLibrariesPage,
   CreateLibraryPage,
@@ -93,6 +107,11 @@ import {
   updateGradingPolicy,
   updateXBlock,
   loginSession,
+  fetchAuthoringMfeConfig,
+  agreementTypesIn,
+  acceptAgreement,
+  ensureAgreement,
+  type AgreementGating,
   type AuthoredProblem,
   courseKeySkipReason,
   enrollInCourseViaApi,
@@ -120,11 +139,15 @@ import {
   libraryKeyFor,
   listCollections,
   listLibraryBlocks,
+  deleteTaxonomy,
+  importTaxonomy,
+  setTaxonomyOrgs,
   type ContentLibrary,
   type LibraryAccessLevel,
   type LibraryBlock,
   type LibraryCollection,
   type LibraryContainer,
+  type Taxonomy,
 } from '../api';
 import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
@@ -269,6 +292,16 @@ export interface TestFixtures {
   outlineConfigureDialog: StudioOutlineConfigureDialog;
   /** The unit (container) page object. */
   studioUnitPage: StudioUnitPage;
+  /** The Verawood authoring sidebar (outline and unit page). */
+  authoringSidebar: AuthoringSidebar;
+  /** The content tag drawer (embedded in the Align sidebar). */
+  tagDrawer: TagDrawer;
+  /** The Studio Files page (course assets). */
+  filesPage: FilesPage;
+  /** The Studio Textbooks page. */
+  textbooksPage: TextbooksPage;
+  /** The Course Updates page. */
+  updatesPage: UpdatesPage;
   /** The video component editor page object. */
   studioVideoEditor: StudioVideoEditor;
   /** The text (TinyMCE) component editor page object. */
@@ -509,6 +542,73 @@ export interface TestFixtures {
    * install with `ENABLE_CREATOR_GROUP`, one course-creator grant per call.
    */
   studioColleague: (options?: StudioColleagueOptions) => Promise<StudioColleague>;
+  /**
+   * A taxonomy seeded once per worker (idempotent by a worker-unique name),
+   * imported and assigned to the worker's org by the **admin** under the admin
+   * lock. Its tags are the {@link TAG} tree. Shared by the drawer and Align
+   * specs, which scope to it by name so other workers' taxonomies in the same
+   * org do not confuse them. Skips when `taxonomies` is undeclared or no admin
+   * account is configured (managing a taxonomy is staff-only) — like
+   * {@link TestFixtures.certificateGenerationEnabled}. Not torn down: it is
+   * shared across the worker's tests and reused by a later run through its name.
+   */
+  workerTaxonomy: WorkerTaxonomy;
+  /**
+   * A per-test taxonomy of the test's own, for the cases that re-import or
+   * delete one (TC-00262/00264). Imported and org-assigned by the admin under
+   * the lock; deleted best-effort at test end. Skips like {@link workerTaxonomy}.
+   */
+  authoringTaxonomy: WorkerTaxonomy;
+  /**
+   * The taxonomy admin pages (list and detail) driven by the configured admin,
+   * signed into Studio in a fresh browser context and held under the admin lock
+   * for the whole test. Skips without a configured admin or the `taxonomies`
+   * capability. The bundled `request` is that same admin browser's API context
+   * (shared session), for the content-tagging API oracles and cleanup.
+   */
+  taxonomyAdmin: TaxonomyAdmin;
+  /**
+   * The upload-agreement gating declared for this installation, with its
+   * `UserAgreement` rows seeded (see {@link WorkerFixtures.seededUploadAgreements},
+   * which does the work once per worker). Skips without a configured admin, the
+   * `upload-agreements` capability or an empty gating map — so only the specs
+   * whose subject *is* the gating should take it.
+   */
+  uploadAgreements: UploadAgreements;
+  /**
+   * Accepts every configured upload-agreement type for the test's author (its own
+   * session, `POST agreement_record`), so a gated install never blocks the
+   * author's uploads. A no-op — never a skip — where nothing is gated. The
+   * `filesPage` fixture takes it for every Files spec; a spec only needs it
+   * directly when it reaches the gated UI without that page object.
+   */
+  acceptedUploadAgreements: void;
+}
+
+/** What {@link TestFixtures.uploadAgreements} hands a spec: the gating map and its types. */
+export interface UploadAgreements {
+  readonly gating: AgreementGating;
+  readonly types: readonly string[];
+}
+
+/** What {@link TestFixtures.taxonomyAdmin} hands a spec: the admin's taxonomy pages and API session. */
+export interface TaxonomyAdmin {
+  readonly list: TaxonomyListPage;
+  readonly detail: TaxonomyDetailPage;
+  /** The admin's own browser page — what an accessibility scan of these screens runs on. */
+  readonly page: Page;
+  /** The admin browser's own API context (same session as the pages). */
+  readonly request: APIRequestContext;
+  /** The content org taxonomies are assigned to (whose courses' drawers list them). */
+  readonly org: string;
+}
+
+/** What {@link TestFixtures.workerTaxonomy} / {@link TestFixtures.authoringTaxonomy} hand a spec. */
+export interface WorkerTaxonomy {
+  /** The seeded taxonomy (id, name, tag values live under `TAG`). */
+  readonly taxonomy: Taxonomy;
+  /** The org it is assigned to — the org whose courses' drawers list it. */
+  readonly org: string;
 }
 
 /** What {@link TestFixtures.seededLibrary} hands a spec: the seeded library and its items by role. */
@@ -636,6 +736,19 @@ export interface WorkerFixtures {
    * configuration (no admin to grant with), like the `setup` project does.
    */
   workerAuthor: WorkerAuthor | undefined;
+  /**
+   * The upload-agreement gating this installation declares, with a `UserAgreement`
+   * row seeded per gated type through the LMS admin (idempotent, under the admin
+   * lock). Seeded once per worker because the rows are global and an admin
+   * sign-in per test would trip the LMS login rate limit.
+   *
+   * Never skips: an installation without the `upload-agreements` capability, an
+   * administrator or an `AGREEMENT_GATING` map yields an empty `types`, which
+   * makes {@link TestFixtures.acceptedUploadAgreements} a no-op. The specs whose
+   * subject *is* the gating take {@link TestFixtures.uploadAgreements}, which
+   * skips instead.
+   */
+  seededUploadAgreements: UploadAgreements;
   /**
    * The course the Studio settings specs act on — one per worker, created on
    * first use through the Studio API by the `author` session the project loaded,
@@ -943,6 +1056,25 @@ async function buildWithAuthorWriteSession<T>(
 /** A library slug unique to this run and `scope` (a worker slot or a test id): lowercase, `[a-z0-9-]`. */
 function librarySlug(scope: string): string {
   return `e2e-${getRunId()}-${scope}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
+
+/**
+ * Gate for the taxonomy fixtures: managing a taxonomy (import, assign org,
+ * delete) is staff-only, so the coverage skips without a declared `taxonomies`
+ * capability or a configured admin account — the `certificateGenerationEnabled`
+ * shape. Returns the org the taxonomy is assigned to (the worker's content org).
+ */
+function requireTaxonomyAdmin(config: AppConfig): string {
+  base.skip(
+    !config.capabilities.has('taxonomies'),
+    'Content tagging is not declared for this installation (taxonomies).',
+  );
+  base.skip(
+    config.credentials.admin === undefined || !isUsableStateFile(authStateFile('staff')),
+    'Taxonomy management needs the administrator: importing and assigning a taxonomy is ' +
+      'staff-only. Set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
+  );
+  return config.org ?? DEFAULT_COURSE_ORG;
 }
 
 /**
@@ -1498,6 +1630,55 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
 
+  seededUploadAgreements: [
+    async ({ playwright }, use) => {
+      const config = getConfig();
+      const admin = config.credentials.admin;
+      if (!config.capabilities.has('upload-agreements') || admin === undefined) {
+        await use({ gating: {}, types: [] });
+        return;
+      }
+      const probe = await playwright.request.newContext();
+      let gating;
+      try {
+        gating = (await fetchAuthoringMfeConfig(probe, config)).agreementGating;
+      } finally {
+        await probe.dispose();
+      }
+      const types = agreementTypesIn(gating);
+      if (types.length === 0) {
+        await use({ gating, types });
+        return;
+      }
+
+      // Seed a UserAgreement row per type through the LMS admin (idempotent), on a
+      // fresh LMS session under the admin lock (PREVENT_CONCURRENT_LOGINS). Once
+      // per worker rather than per test: the rows are global, and an admin
+      // sign-in per test would trip the LMS login rate limit (30 / 5 min).
+      await withAdminSession(async () => {
+        const session = await playwright.request.newContext();
+        try {
+          await loginSession(session, config, {
+            emailOrUsername: admin.username,
+            password: admin.password,
+          });
+          for (const type of types) {
+            await ensureAgreement(session, config, {
+              type,
+              name: `E2E ${type}`,
+              summary: `E2E agreement ${type}`,
+              url: `${config.baseUrls.lms}/e2e-agreement/${type}`,
+            });
+          }
+        } finally {
+          await session.dispose();
+        }
+      });
+      await use({ gating, types });
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
   studioAuthorSession: async ({ page, request, config, studio, workerAuthor }, use) => {
     void studio;
     // The page already carries the worker author's browser-usable LMS session
@@ -1537,6 +1718,21 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   outlineConfigureDialog: pageObjectFixture(StudioOutlineConfigureDialog),
 
   studioUnitPage: pageObjectFixture(StudioUnitPage),
+
+  authoringSidebar: pageObjectFixture(AuthoringSidebar),
+
+  tagDrawer: pageObjectFixture(TagDrawer),
+  // Not a bare `pageObjectFixture`: on a gated installation the authoring MFE
+  // disables the whole Files page — toolbar, view toggle, table and every row —
+  // until the author has accepted the outstanding upload agreements, which shows
+  // up as an unactionable click rather than anything agreement-shaped. Taking the
+  // acceptance here means no Files spec can forget it.
+  filesPage: async ({ page, config, acceptedUploadAgreements }, use) => {
+    void acceptedUploadAgreements;
+    await use(new FilesPage(page, config));
+  },
+  textbooksPage: pageObjectFixture(TextbooksPage),
+  updatesPage: pageObjectFixture(UpdatesPage),
 
   studioVideoEditor: pageObjectFixture(StudioVideoEditor),
 
@@ -2038,6 +2234,116 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       await use(library);
     } finally {
       await deleteLibraryBestEffort(request, config, library.id, testInfo);
+    }
+  },
+
+  workerTaxonomy: async ({ playwright, config }, use, testInfo) => {
+    const org = requireTaxonomyAdmin(config);
+    const seeded = await withAdminSession(async () => {
+      const admin = await playwright.request.newContext({ storageState: authStateFile('staff') });
+      try {
+        await establishStudioSession(admin, config);
+        return await seedTaxonomy(admin, config, {
+          name: `E2E ${getRunId()} W${testInfo.workerIndex}`,
+          org,
+        });
+      } finally {
+        await admin.dispose();
+      }
+    });
+    await use({ taxonomy: seeded, org });
+  },
+
+  taxonomyAdmin: async ({ browser, config }, use) => {
+    const org = requireTaxonomyAdmin(config);
+    const admin = config.credentials.admin as NonNullable<typeof config.credentials.admin>;
+    // A fresh browser signed in through the UI, held under the admin lock for the
+    // whole test (like `adminPage`): another worker's admin sign-in would end this
+    // session (PREVENT_CONCURRENT_LOGINS). The page's own API context shares the
+    // session, so the content-tagging oracles and cleanup run on `page.request`.
+    await withAdminSession(async () => {
+      const context = await browser.newContext();
+      try {
+        const page = await context.newPage();
+        await signInToStudioThroughUi(page, config, {
+          emailOrUsername: admin.username,
+          password: admin.password,
+        });
+        await use({
+          list: new TaxonomyListPage(page, config),
+          detail: new TaxonomyDetailPage(page, config),
+          page,
+          request: page.request,
+          org,
+        });
+      } finally {
+        await context.close();
+      }
+    });
+  },
+
+  uploadAgreements: async ({ config, seededUploadAgreements }, use) => {
+    base.skip(
+      !config.capabilities.has('upload-agreements') || config.credentials.admin === undefined,
+      'Upload agreements are not declared for this installation, or no administrator is ' +
+        'configured (the agreement rows are seeded through the LMS Django admin).',
+    );
+    base.skip(
+      seededUploadAgreements.types.length === 0,
+      'No AGREEMENT_GATING is configured on this installation.',
+    );
+    await use(seededUploadAgreements);
+  },
+
+  acceptedUploadAgreements: async ({ page, config, seededUploadAgreements }, use) => {
+    // Every gated type, accepted for this test's author with its own session. The
+    // rows already exist (the worker seeded them), so an acceptance that fails is
+    // a real failure and is left to throw: swallowing it only resurfaces later as
+    // an inexplicably disabled Files page.
+    for (const type of seededUploadAgreements.types) {
+      await acceptAgreement(page.request, config, type);
+    }
+    await use();
+  },
+
+  authoringTaxonomy: async ({ playwright, config }, use, testInfo) => {
+    const org = requireTaxonomyAdmin(config);
+    const name = `E2E ${getRunId()} ${testInfo.testId.slice(-6)}R${testInfo.retry}`;
+    let taxonomy: Taxonomy | undefined;
+    await withAdminSession(async () => {
+      const admin = await playwright.request.newContext({ storageState: authStateFile('staff') });
+      try {
+        await establishStudioSession(admin, config);
+        taxonomy = await importTaxonomy(admin, config, {
+          name,
+          description: 'E2E suite taxonomy',
+          file: taxonomyImportFile(),
+        });
+        await setTaxonomyOrgs(admin, config, taxonomy.id, [org]);
+      } finally {
+        await admin.dispose();
+      }
+    });
+    try {
+      await use({ taxonomy: taxonomy as Taxonomy, org });
+    } finally {
+      const created = taxonomy;
+      if (created !== undefined) {
+        await withAdminSession(async () => {
+          const admin = await playwright.request.newContext({
+            storageState: authStateFile('staff'),
+          });
+          try {
+            await establishStudioSession(admin, config);
+            await deleteTaxonomy(admin, config, created.id);
+          } catch {
+            // Best-effort teardown: a run-unique name means a leftover never
+            // collides, and a later run reuses it by name.
+          } finally {
+            await admin.dispose();
+          }
+        });
+      }
     }
   },
 

@@ -21,6 +21,11 @@ export {
   subsectionCardContaining,
   unitCardFor,
 } from './studio-outline';
+export { STUDIO_SIDEBAR_SELECTORS, type SidebarPageKey } from './studio-sidebar';
+export { TAG_DRAWER_SELECTORS, encodedTagValue } from './tag-drawer';
+export { TAXONOMY_SELECTORS } from './taxonomies';
+export { STUDIO_FILES_SELECTORS, FILES_ROW_MENU } from './studio-files';
+export { STUDIO_TEXTBOOKS_SELECTORS } from './studio-textbooks';
 export {
   STUDIO_GRADING_SELECTORS,
   STUDIO_SCHEDULE_DETAILS_SELECTORS,
@@ -73,3 +78,4 @@ export {
   type LibraryContainerType,
   type LibraryTab,
 } from './library';
+export * from './studio-updates';
