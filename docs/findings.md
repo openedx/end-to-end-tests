@@ -88,7 +88,7 @@ measured, and issues are opened by hand from them.
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
 | `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
 | `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | open, `test.fail` on TC-00038's take-a-note test
-| `FOOTER-001` | `openedx/frontend-component-footer` (no legal / copyright line) | open, no `fixme` — TC-00064 runs only where the shell renders the footer (`@frontend-base`)
+| `FOOTER-001` | `openedx/frontend-component-footer` (no legal / copyright line) | open, no `fixme` — TC-00063 and TC-00064 run only where the shell renders the footer (`@frontend-base`)
 | `DEMO-003`  | `openedx/openedx-demo-course` (no effort estimates)             | open, no `fixme` — TC-00027 runs on a video-free course of the suite's own
 | `CERT-002`  | `openedx/edx-platform` (certificate web view 500 without a marketing site; regression on `master`) | open, TC-00033's render test gated on `certificate-web-view` (undeclared on `main`)
 | `PROF-002`  | `openedx/frontend-app-profile` (no certificate-visibility control, wg#582) | **filed** — [wg#582](https://github.com/openedx/wg-build-test-release/issues/582), declarative `fixme` + `knownGap` on TC-00067's UI test
@@ -2018,15 +2018,19 @@ passes; "sets certificate visibility from the profile page" is a declarative
 **Where:** `frontend-component-footer` (every MFE on `verawood`; the learning,
 profile and account MFEs on `main`).
 
-**What happens:** the footer renders only the "Powered by Open edX" logo linking
-to the LMS home. The frontend-base shell's footer renders "© {year}
-{siteName}." and a trademark line; the legacy one renders neither. This is why
-TC-00064 ("the copyright is mentioned") is Failed on `verawood` in the manual
-run.
+**What happens:** the footer renders one image link to the LMS home, `<img
+src={logo || config.LOGO_TRADEMARK_URL}>`, and Tutor sets `LOGO_TRADEMARK_URL`
+to the site's `logo.png`, so that image is the site logo, not the "Powered by
+Open edX" logo. The frontend-base shell's footer renders "© {year}
+{siteName}.", a trademark line and the Powered by Open edX logo; the legacy one
+renders none of them. This is why TC-00064 ("the copyright is mentioned") is
+Failed on `verawood` in the manual run.
 
-**Coverage impact:** open, no `fixme`. TC-00064 asserts the legal line under
-`@frontend-base`, the only footer that renders one, so it does not run on
-`verawood`.
+**Coverage impact:** open, no `fixme`. TC-00063 (the Powered by Open edX logo)
+and TC-00064 (the legal line) are tagged `@frontend-base`, the only footer that
+renders either, so neither runs on `verawood`. Without the tag TC-00063 passed
+there off the site logo, since `poweredByLink` is the footer's last image
+link.
 
 ### `DEMO-003` — the demo course shows no effort estimates
 

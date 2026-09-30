@@ -10,12 +10,14 @@ import { partitionSiteLinks } from '../../../src/steps';
  * Open edX footers carry none (the legacy footer) or four empty link columns
  * (the frontend-base shell). So TC-00063 asserts that every link the footer
  * renders works and that the "Powered by Open edX" logo is there, and never
- * the set of links.
+ * the set of links. The legacy footer's one image is the site logo (Tutor points
+ * `LOGO_TRADEMARK_URL` at it), not the Powered by Open edX logo, so TC-00063
+ * too runs only where the shell renders the footer (`FOOTER-001`).
  */
 test.describe('Site footer', () => {
   test(
     'renders working links and the Powered by Open edX logo',
-    { tag: ['@regression', '@mfe-catalog'], annotation: testId('TC-00063') },
+    { tag: ['@regression', '@frontend-base', '@mfe-catalog'], annotation: testId('TC-00063') },
     async ({ request, config, siteFooter, publicChrome }) => {
       void publicChrome;
       await expect(siteFooter.poweredByLink).toBeVisible();
