@@ -284,6 +284,18 @@ export function parseProfiles(
         throw new ProfileError(`${at} must list the releases it supports.`);
       return { pip, version, plugin, init, capability, releases };
     });
+    // One plugin, one install per release: a plugin may take a different
+    // version line per release (tutor-contrib-aspects 4.x on verawood).
+    tutorExtensions.forEach((ext, i) => {
+      const clash = tutorExtensions
+        .slice(0, i)
+        .find((o) => o.plugin === ext.plugin && o.releases.some((r) => ext.releases.includes(r)));
+      if (clash !== undefined) {
+        throw new ProfileError(
+          `${where}: two tutorExtensions enable "${ext.plugin}" on the same release.`,
+        );
+      }
+    });
 
     const releases = stringList(entry.releases ?? [], `${where}: releases`);
     const rawByRelease: unknown = entry.releaseCapabilities ?? {};

@@ -171,6 +171,30 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
     ).toThrow(/unknown key\(s\): branch/);
   });
 
+  test('takes one plugin at a different version per release, never twice on one release', () => {
+    const line = (version: string, releases: string[]) => ({ ...CODEJAIL, version, releases });
+    const [profile4] = parseProfiles(
+      {
+        default: profile({
+          tutorExtensions: [line('==2.0.0', ['main']), line('>=1.0.0,<2', ['verawood'])],
+        }),
+      },
+      always,
+    );
+    const [entry] = shardMatrix([profile4!], ['default'], release(''));
+    expect(entry!.tutorPip).toEqual(['tutor-contrib-codejail>=1.0.0,<2']);
+    expect(() =>
+      parseProfiles(
+        {
+          default: profile({
+            tutorExtensions: [line('==2.0.0', ['main', 'verawood']), line('<2', ['verawood'])],
+          }),
+        },
+        always,
+      ),
+    ).toThrow(/two tutorExtensions enable "codejail" on the same release/);
+  });
+
   test('pins an extension to its own version instead of the Tutor constraint', () => {
     const profiles = parseProfiles(
       {

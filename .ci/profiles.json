@@ -64,10 +64,15 @@
         "plugin": "aspects",
         "init": true,
         "capability": "analytics",
-        "releases": [
-          "main",
-          "verawood"
-        ]
+        "releases": ["main"]
+      },
+      {
+        "pip": "tutor-contrib-aspects",
+        "version": ">=4.0.0,<5",
+        "plugin": "aspects",
+        "init": true,
+        "capability": "analytics",
+        "releases": ["verawood"]
       }
     ],
     "capabilities": {

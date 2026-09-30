@@ -84,8 +84,12 @@ function enabledBy(list: string): Set<Capability> {
  * capabilities), those releases.
  */
 function profileCell(profile: (typeof profiles)[number][1], capability: Capability): string {
-  const extension = (profile.tutorExtensions ?? []).find((e) => e.capability === capability);
-  if (extension) return `+ ${extension.releases.join(', ')}`;
+  // One extension may be installed at a different version per release, so a
+  // capability can come from several entries.
+  const extensionReleases = (profile.tutorExtensions ?? [])
+    .filter((e) => e.capability === capability)
+    .flatMap((e) => e.releases);
+  if (extensionReleases.length > 0) return `+ ${extensionReleases.join(', ')}`;
   const onReleases = Object.entries(profile.releaseCapabilities ?? {})
     .filter(([, list]) => list.includes(capability))
     .map(([release]) => release);
