@@ -253,14 +253,27 @@ test.describe.serial(
         // A real edit of the agreement row that leaves `updated` where it was: the
         // summary changes, the stamp does not. `is_current` compares an
         // acceptance against `updated` alone, so the acceptance has to hold.
+        // The row may be the target's own agreement (the types come from its
+        // `AGREEMENT_GATING`), whose summary its users read in the banner, so
+        // the original is put back, the same way (`updated` untouched).
+        const original = (await listAgreements(page.request, config)).find(
+          (a) => a.type === t,
+        )?.summary;
+        expect(original, `agreement ${t} exists`).toBeDefined();
         const summary = `E2E edited ${test.info().testId.slice(-6)}`;
-        await withAdmin(config, async (session) => {
-          await editAgreement(session, config, t, { summary });
-        });
-        expect(
-          (await listAgreements(page.request, config)).find((a) => a.type === t)?.summary,
-        ).toBe(summary);
-        expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(true);
+        try {
+          await withAdmin(config, async (session) => {
+            await editAgreement(session, config, t, { summary });
+          });
+          expect(
+            (await listAgreements(page.request, config)).find((a) => a.type === t)?.summary,
+          ).toBe(summary);
+          expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(true);
+        } finally {
+          await withAdmin(config, async (session) => {
+            await editAgreement(session, config, t, { summary: original! });
+          });
+        }
       },
     );
 

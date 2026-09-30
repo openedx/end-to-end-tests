@@ -86,6 +86,12 @@ test.describe(
           expect(before.taxonomies.map((t) => t.id)).not.toContain(id);
 
           await taxonomyAdmin.detail.goto(id);
+          // `TAG-004`: the page's breadcrumb (`ol.list-inline`) holds non-`<li>`
+          // children. Baselined on this scan only, like `TAG-003`.
+          await checkA11y(taxonomyAdmin.page, {
+            label: 'studio-taxonomy-detail',
+            additionalBaseline: ['list'],
+          });
           await taxonomyAdmin.detail.assignAllOrgs();
 
           await expect

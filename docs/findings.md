@@ -68,6 +68,7 @@ measured, and issues are opened by hand from them.
 | `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; copy asserted by URL resolution
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
+| `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy detail breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` scan only |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
 
@@ -1313,6 +1314,19 @@ page on both releases. It comes out when the oldest supported release ships the
 labelled card actions. This is the answer to the
 review question on PR #79 about whether these gates should wait: adding them cost
 three lines per page and found four rules across three pages.
+
+### `TAG-004` — the taxonomy detail page's breadcrumb is not a valid list
+
+**Where:** the authoring MFE's taxonomy detail page (`/taxonomy/<id>`), measured
+on local `main` on 2026-09-30.
+
+**What happens:** the page gained an accessibility gate on the second PR #79
+review, and axe reports `list` (serious, 1 node): the breadcrumb's
+`<ol class="list-inline">` directly contains elements other than `<li>`.
+
+**Coverage impact:** open, no `fixme`. `list` is baselined on the
+`studio-taxonomy-detail` scan only, as the rules above are, so the page is gated
+against everything else.
 
 ### The upload-agreement bump raced its own acceptance (suite-side)
 
