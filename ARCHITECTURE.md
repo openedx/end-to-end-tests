@@ -168,6 +168,20 @@ provision their learner last, and the `request`-context fixtures handshake only
 after a write has 302'd (see [`CONVENTIONS.md`](CONVENTIONS.md) "Library round
 trips").
 
+The **roles-and-permissions** personas (`tests/rbac/`) are a worker-scoped
+**cast**: `rbacCast(part)` provisions one account per part it plays —
+`instructor`, `staff`, `courseAdmin`, `libraryUser`, `outsider`, … — on first
+use, and every spec in the worker shares them. An account only ever plays the
+part it is named for, so reuse cannot hand a case a role it did not expect, and
+a full run of the tree stays inside the platform's registration and sign-in
+limits. A case that needs an account with no history of its own still takes
+`studioColleague`. Their surfaces live in `src/pages/admin-console/` (the
+console shell, Team Members, the user audit view, the Assign Role wizard and the
+permission matrix), and everything that moves a waffle override or reads a
+migration run goes through the LMS Django admin under the same admin lock as the
+taxonomy personas (see [`CONVENTIONS.md`](CONVENTIONS.md) "Roles and permissions
+(RBAC)").
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the

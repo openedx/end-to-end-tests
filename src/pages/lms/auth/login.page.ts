@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import type { AppConfig } from '../../../config';
+import { TIMEOUTS, type AppConfig } from '../../../config';
 
 /**
  * The authn MFE `/login` screen (`frontend-app-authn`). Locators and single-
@@ -33,7 +33,10 @@ export class LoginPage {
   /** Navigates to the login screen. `${LMS}/login` redirects to the authn MFE. */
   async goto(): Promise<void> {
     await this.page.goto(`${this.config.baseUrls.lms}/login`);
-    await this.emailOrUsername.waitFor();
+    // The authn MFE is a separate bundle and this is its first render; under a
+    // loaded target it can take longer than an action budget, and a sign-in that
+    // times out here is reported as a dead session rather than a slow one.
+    await this.emailOrUsername.waitFor({ timeout: TIMEOUTS.navigation });
   }
 
   /** Fills and submits the sign-in form (no navigation wait — see the step). */

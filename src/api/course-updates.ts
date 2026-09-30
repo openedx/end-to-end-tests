@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
-import { studioJson, studioOrigin, STUDIO_JSON_ACCEPT } from './studio-origin';
+import { studioJson, studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from './studio-origin';
 
 /**
  * Course updates and handouts — the Course Updates page's Studio endpoints
@@ -44,4 +44,21 @@ export async function fetchHandouts(
     `Reading handouts of ${courseKey}`,
   );
   return body.data;
+}
+
+/**
+ * Posts a course update (the Updates page's "New Update"). Studio takes the
+ * whole announcement as one JSON body and answers with the stored row.
+ */
+export async function createCourseUpdate(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  update: { readonly date: string; readonly content: string },
+): Promise<CourseUpdate> {
+  const response = await request.post(updatesUrl(config, courseKey), {
+    headers: { ...(await studioWriteHeaders(request, config)), ...STUDIO_JSON_ACCEPT },
+    data: { date: update.date, content: update.content },
+  });
+  return studioJson<CourseUpdate>(response, `Posting an update to ${courseKey}`);
 }

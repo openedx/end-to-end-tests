@@ -44,6 +44,13 @@ import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
+import {
+  AdminConsolePage,
+  AssignRoleWizard,
+  PermissionsMatrix,
+  TeamMembersTable,
+  UserAuditPage,
+} from '../pages/admin-console';
 import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.page';
 import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
 import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
@@ -52,11 +59,16 @@ import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downlo
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
 import {
   authorLibrary,
+  disableAuthzForCourse,
+  enableAuthzForCourse,
   ensureDataResearcher,
+  probeMigrationMode,
   seedTaxonomy,
   submitProblem,
   taxonomyImportFile,
   type AuthoredLibrary,
+  type MigrationMode,
+  type MigrationModeProbe,
 } from '../steps';
 import {
   CourseLibrariesPage,
@@ -76,6 +88,7 @@ import {
 } from '../auth';
 import {
   ApiError,
+  assignRole,
   buildSection,
   DEFAULT_SECTION_SHAPE,
   ensureCourse,
@@ -96,6 +109,7 @@ import {
   DEFAULT_PASSWORD,
   fetchStudioHome,
   fetchCourseSettingsFlags,
+  fetchWaffleFlagStates,
   ensureCertificateBearingMode,
   fetchCertificateConfiguration,
   fetchCertificateGenerationEnabled,
@@ -119,6 +133,7 @@ import {
   fetchCourseOutline,
   primeCoursewareForLearner,
   fetchCourseProgress,
+  learnerIdentityFor,
   newLearnerIdentity,
   unitsWithHtml5Video,
   type CourseDetail,
@@ -334,6 +349,46 @@ export interface TestFixtures {
    * configured", as `courseKey` distinguishes it from "misconfigured".
    */
   certificateGenerationEnabled: void;
+  /**
+   * Runs one piece of work on a fresh **LMS Django session** for the admin —
+   * what the Django admin needs for a write, since it refuses the captured
+   * staff API state. Skips with a reason where no admin account is configured.
+   *
+   * The lock is held for the call, not the test. Holding it across a whole test
+   * is what broke first: the lock goes stale after three minutes, another actor
+   * takes it, and provisioning any account in the meantime signs the admin in
+   * again — which ends this session (`PREVENT_CONCURRENT_LOGINS`) and turns the
+   * next admin form into a login page. Group a test's admin work into as few
+   * calls as it allows: each call costs an admin sign-in.
+   */
+  adminLms: AdminLmsRunner;
+  /**
+   * The worker's AuthZ-enabled course, or a skip with the reason it is missing
+   * (no admin account, or the `rbac` capability undeclared).
+   */
+  authzTarget: AuthzCourse;
+  /**
+   * The Roles and Permissions console, addressed at the `ADMIN_CONSOLE_URL` this
+   * installation advertises in its authoring MFE config. Where `rbac` is
+   * declared but no console is configured this **fails** rather than skipping:
+   * that is a misconfigured target, not absent coverage.
+   */
+  adminConsole: AdminConsoleFixture;
+  /**
+   * Skips unless this target leaves AuthZ migration to an operator — the stock
+   * default, where saving a waffle override migrates nothing. The cases that
+   * describe that default take it; the ones that describe a migrating target
+   * take {@link TestFixtures.authzTarget} and read its `mode`.
+   */
+  manualMigrationTarget: void;
+  /**
+   * Skips unless this target migrates AuthZ roles **itself** when a waffle
+   * override is saved — the setting CI turns on
+   * (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`). The transition cases
+   * describe that path: without it there is no migration run to read and no
+   * roles move, so the coverage has no subject rather than a failure.
+   */
+  automaticMigrationTarget: void;
   /**
    * A learner of the test's own in {@link WorkerFixtures.certificateCourse},
    * enrolled in the **honor** track on its first enrollment (the platform does
@@ -641,6 +696,39 @@ export interface StudioColleagueOptions {
   readonly libraryAccess?: { readonly libraryKey: string; readonly level: LibraryAccessLevel };
 }
 
+/**
+ * The parts {@link WorkerFixtures.rbacCast} casts. Each name is a role the BTR
+ * plan's own cast list uses (`user_instructor_a`, `user_staff_a`, …), so an
+ * account only ever plays one of them.
+ */
+export const RBAC_CAST_PARTS = [
+  'instructor',
+  'staff',
+  'limitedStaff',
+  'dataResearcher',
+  'beta',
+  'learner',
+  'outsider',
+  'multiRole',
+  'orgInstructor',
+  'orgStaff',
+  'courseAdmin',
+  'courseStaff',
+  'newcomer',
+  'creator',
+  'libraryAuthor',
+  'libraryContributor',
+  'libraryUser',
+  // Three accounts that only ever hold **every** library role at once: the
+  // console's pagination case needs twelve assignments, and giving the parts
+  // above a role they do not play would change what the library specs measure.
+  'teamPagerA',
+  'teamPagerB',
+  'teamPagerC',
+] as const;
+
+export type RbacCastPart = (typeof RBAC_CAST_PARTS)[number];
+
 /** What one {@link TestFixtures.studioColleague} call hands a spec. */
 export interface StudioColleague {
   readonly identity: LearnerIdentity;
@@ -653,6 +741,8 @@ export interface StudioColleague {
   readonly libraryPage: LibraryPage;
   readonly unitPage: StudioUnitPage;
   readonly libraryPicker: LibraryPickerDialog;
+  /** Studio Home as this colleague sees it — which courses and libraries are listed to them. */
+  readonly studioHomePage: StudioHomePage;
 }
 
 /** What {@link TestFixtures.roundTripLearner} hands a spec. */
@@ -750,6 +840,41 @@ export interface WorkerFixtures {
    */
   seededUploadAgreements: UploadAgreements;
   /**
+   * Which of the two migration models this target follows, probed once per
+   * worker with **no blast radius**: a waffle override is saved for an
+   * organization that has no courses, and a target that migrates by itself
+   * records a run even for that empty scope. `undefined` where no admin account
+   * is configured, because the probe is a Django-admin write.
+   */
+  authzMigrationMode: MigrationModeProbe | undefined;
+  /**
+   * A course of this worker's own with `authz.enable_course_authoring` forced
+   * **on**, and its roles in authz — migrated by the target where it does that
+   * itself, assigned here where it does not, because a flag-on course with no
+   * authz roles locks its own team out of Studio. `undefined` without an admin.
+   */
+  /**
+   * A cast of Studio accounts **shared by the worker's RBAC specs**, one per
+   * part they play (`instructor`, `course_staff`, `library_user`, …).
+   *
+   * Every account in `tests/rbac/` used to be provisioned per test, which put a
+   * full run of the tree past the platform's sign-in and registration limits —
+   * the failures it produced looked like slow renders and dead sessions rather
+   * than what they were. The cast fixes the arithmetic: a worker provisions each
+   * part **once, on first use**, and the specs take the part they need.
+   *
+   * It is keyed by part rather than by number on purpose. An account reused
+   * across tests keeps whatever roles those tests gave it, so reuse is only safe
+   * when the part is the same every time: `cast('staff')` may end up `staff` in
+   * several courses, which changes nothing about what `staff` may do in the
+   * course under test. A case that needs an account with **no** history — one it
+   * deactivates, or one whose emptiness is the assertion on a shared scope —
+   * still takes {@link TestFixtures.studioColleague}.
+   */
+  rbacCast: (part: RbacCastPart) => Promise<StudioColleague>;
+
+  authzCourse: AuthzCourse | undefined;
+  /**
    * The course the Studio settings specs act on — one per worker, created on
    * first use through the Studio API by the `author` session the project loaded,
    * and idempotent per (run, worker) so a retried worker lands on the same
@@ -799,6 +924,41 @@ export interface WorkerAuthor {
   readonly identity: LearnerIdentity;
   /** Storage state (LMS + Studio session) the worker's contexts load. */
   readonly stateFile: string;
+}
+
+/** What {@link TestFixtures.adminConsole} hands a spec. */
+export interface AdminConsoleFixture {
+  /** The console's origin, as the installation advertises it. */
+  readonly origin: string;
+  /** The console shell: tabs, the Assign Role button, the scope preset. */
+  readonly console: AdminConsolePage;
+  /** The Team Members tab's table, search and filters. */
+  readonly teamMembers: TeamMembersTable;
+  /** One account's audit view: its roles, their permissions, and removal. */
+  readonly userAudit: UserAuditPage;
+  /** The two-step Assign Role wizard. */
+  readonly assignRole: AssignRoleWizard;
+  /** The Roles and Permissions tab: the static matrix of role against permission. */
+  readonly matrix: PermissionsMatrix;
+  /**
+   * The same audit view bound to another browser — a second actor looking at
+   * **its own** roles, which is the only way to see how the console treats the
+   * viewer's own admin row.
+   */
+  readonly auditFor: (page: Page) => UserAuditPage;
+  /** The console shell bound to another browser, for a second actor's view of it. */
+  readonly consoleFor: (page: Page) => AdminConsolePage;
+}
+
+/** Runs one unit of admin work on a fresh LMS Django session, under the admin lock. */
+export type AdminLmsRunner = <T>(work: (session: APIRequestContext) => Promise<T>) => Promise<T>;
+
+/** What {@link WorkerFixtures.authzCourse} hands a spec: a course under AuthZ. */
+export interface AuthzCourse extends AuthoredCourse {
+  /** How this target migrates roles when a waffle override is saved. */
+  readonly mode: MigrationMode;
+  /** The probe's evidence, for a failure message that explains itself. */
+  readonly modeEvidence: string;
 }
 
 /** What {@link WorkerFixtures.authoredCourse} hands a spec. */
@@ -894,6 +1054,61 @@ export const CERTIFICATE_COURSE_END = '2100-01-01T00:00:00Z';
  * `seed` runs after the course exists, on the same authenticated context, for
  * the one-time settings a fixture needs on its course; it must be idempotent.
  */
+/**
+ * Runs `work` on an **LMS Django session** for the admin, under the cross-worker
+ * admin lock.
+ *
+ * It reuses **the run's one admin session**, `.auth/staff.json`, the same state
+ * the `setup` project captured and the account-creator grant reads. That
+ * matters: the Django admin needs a session cookie, a sign-in per call exhausts
+ * the login rate limit, and every sign-in ends the admin's other sessions
+ * (`PREVENT_CONCURRENT_LOGINS`) — so a second admin state file would have this
+ * path and the grant path evicting each other, paying a login each time. A
+ * caller that finds the session dead signs in once and republishes it here, so
+ * the cost is one login per eviction for the whole suite.
+ */
+async function withAdminLmsSession<T>(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  config: AppConfig,
+  credentials: { emailOrUsername: string; password: string },
+  work: (session: APIRequestContext) => Promise<T>,
+): Promise<T> {
+  const stateFile = authStateFile('staff');
+  const isDeadSession = (error: unknown): boolean =>
+    error instanceof ApiError &&
+    // "did not render" is an admin page that came back as the login redirect;
+    // "redirected to sign-in" is the Studio half of the same session having
+    // decayed, which a `StudioSessionExpiredError` reports.
+    /did not render|redirected to sign-in|HTTP 40[13]/.test(error.message);
+
+  return withAdminSession(async () => {
+    const run = async (signIn: boolean): Promise<T> => {
+      const reuse = !signIn && isUsableStateFile(stateFile);
+      const session = await playwright.request.newContext(reuse ? { storageState: stateFile } : {});
+      try {
+        if (!reuse) {
+          await loginSession(session, config, credentials);
+          // Both halves, like `setup` writes them: the account-creator grant
+          // reads this same state and drives a **Studio** admin form, so
+          // publishing an LMS-only session would send that path back to a fresh
+          // sign-in — and every sign-in evicts the other's session.
+          await establishStudioSession(session, config);
+          persistStorageState(await session.storageState(), stateFile);
+        }
+        return await work(session);
+      } finally {
+        await session.dispose();
+      }
+    };
+    try {
+      return await run(false);
+    } catch (error) {
+      if (!isDeadSession(error)) throw error;
+      return await run(true);
+    }
+  });
+}
+
 async function provisionWorkerCourse(
   playwright: PlaywrightWorkerArgs['playwright'],
   workerAuthor: WorkerAuthor | undefined,
@@ -1399,7 +1614,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           const resumed = await playwright.request.newContext({ storageState: stateFile });
           try {
             const username = await fetchStudioUsername(resumed, config);
-            await use({ identity: newLearnerIdentity({ username }), stateFile });
+            await use({ identity: learnerIdentityFor(username), stateFile });
             return;
           } finally {
             await resumed.dispose();
@@ -1679,6 +1894,167 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
 
+  authzMigrationMode: [
+    async ({ playwright }, use, workerInfo) => {
+      const config = getConfig();
+      const admin = config.credentials.admin;
+      if (!config.capabilities.has('rbac') || admin === undefined) {
+        await use(undefined);
+        return;
+      }
+      // The probe organization holds no courses, so forcing the flag on for it
+      // changes nobody's access; a target that migrates by itself still records
+      // a run (with nothing in it), which is the whole signal.
+      const org = `E2EAUTHZ${getRunId()}W${workerInfo.parallelIndex}`.toUpperCase();
+      const probe = await withAdminLmsSession(
+        playwright,
+        config,
+        { emailOrUsername: admin.username, password: admin.password },
+        (session) => probeMigrationMode(session, config, org),
+      );
+      await use(probe);
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
+  rbacCast: [
+    async ({ playwright, browser }, use) => {
+      const config = getConfig();
+      const cast = new Map<RbacCastPart, StudioColleague>();
+      const made: StudioColleague[] = [];
+
+      await use(async (part) => {
+        const existing = cast.get(part);
+        if (existing !== undefined) return existing;
+
+        const request = await playwright.request.newContext();
+        const staffState = authStateFile('staff');
+        let identity: LearnerIdentity;
+        try {
+          identity = await provisionAuthorSession(request, config, {
+            adminStorageState: isUsableStateFile(staffState) ? staffState : undefined,
+          });
+        } catch (error) {
+          if (error instanceof AccountNotConfiguredError) {
+            base.skip(true, error.message);
+          }
+          throw error;
+        }
+        const context = await browser.newContext();
+        await context.addCookies((await request.storageState()).cookies);
+        const castPage = await context.newPage();
+        const member: StudioColleague = {
+          identity,
+          request,
+          context,
+          page: castPage,
+          libraryPage: new LibraryPage(castPage, config),
+          unitPage: new StudioUnitPage(castPage, config),
+          libraryPicker: new LibraryPickerDialog(castPage, config),
+          studioHomePage: new StudioHomePage(castPage, config),
+        };
+        cast.set(part, member);
+        made.push(member);
+        return member;
+      });
+
+      for (const member of made) {
+        await member.context.close();
+        await member.request.dispose();
+      }
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
+  authzCourse: [
+    async ({ playwright, workerAuthor, authzMigrationMode }, use, workerInfo) => {
+      const config = getConfig();
+      const admin = config.credentials.admin;
+      if (workerAuthor === undefined || authzMigrationMode === undefined || admin === undefined) {
+        await use(undefined);
+        return;
+      }
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}Z`,
+        'authz',
+      );
+      const course = await provisionWorkerCourse(playwright, workerAuthor, identity);
+      const note = `e2e ${getRunId()} authz course`;
+
+      const withAdminLms = async (work: (session: APIRequestContext) => Promise<void>) =>
+        withAdminLmsSession(
+          playwright,
+          config,
+          { emailOrUsername: admin.username, password: admin.password },
+          work,
+        );
+
+      await withAdminLms(async (session) => {
+        // Clear first **only if there is something to clear**: a previous attempt
+        // in this slot may have left the override on, because worker teardown
+        // does not always run. Writing a neutralizing row unconditionally would
+        // land it in the same second as the enabling row, and the platform picks
+        // the previous record by timestamp — with both in the same second it can
+        // conclude nothing changed and skip the migration.
+        const states = await fetchWaffleFlagStates(session, config);
+        const stale = [...states.courseOverrides.on, ...states.courseOverrides.off].includes(
+          course.courseKey,
+        );
+        if (stale) {
+          await disableAuthzForCourse(session, config, course.courseKey, {
+            mode: authzMigrationMode.mode,
+            note: `${note} preflight`,
+          });
+        }
+        await enableAuthzForCourse(session, config, course.courseKey, {
+          mode: authzMigrationMode.mode,
+          note,
+        });
+        if (authzMigrationMode.mode === 'manual') {
+          // Nothing migrated the legacy team, and a flag-on course with no authz
+          // roles refuses everyone — including the author who created it. Grant
+          // the role the author's legacy `instructor` row would have become.
+          await assignRole(session, config, {
+            role: 'course_admin',
+            scopes: [course.courseKey],
+            users: [workerAuthor.identity.username],
+          });
+        }
+      });
+
+      await use({
+        ...course,
+        mode: authzMigrationMode.mode,
+        modeEvidence: authzMigrationMode.evidence,
+      });
+
+      // Neutralize the override. Where the target migrates by itself this is
+      // also the rollback, so the course goes back to legacy roles.
+      //
+      // Best-effort, and it says so when it fails: the course is unique to this
+      // run, so a leftover override strands only a course nothing else uses, and
+      // failing the worker here would report a teardown problem as a test
+      // failure. Playwright also does not always reach worker teardown, which is
+      // why setup clears the override before enabling it.
+      try {
+        await withAdminLms(async (session) => {
+          await disableAuthzForCourse(session, config, course.courseKey, {
+            mode: authzMigrationMode.mode,
+            note: `${note} teardown`,
+          });
+        });
+      } catch (error) {
+        console.warn(
+          `[authzCourse] could not turn AuthZ off again for ${course.courseKey}: ` +
+            `${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
+  ],
+
   studioAuthorSession: async ({ page, request, config, studio, workerAuthor }, use) => {
     void studio;
     // The page already carries the worker author's browser-usable LMS session
@@ -1883,6 +2259,71 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 
+  adminLms: async ({ playwright, config }, use) => {
+    const admin = config.credentials.admin;
+    base.skip(
+      admin === undefined,
+      'This coverage writes through the Django admin, which needs a superuser session. Set ' +
+        'ADMIN_USERNAME and ADMIN_PASSWORD.',
+    );
+    const credentials = {
+      emailOrUsername: (admin as NonNullable<typeof admin>).username,
+      password: (admin as NonNullable<typeof admin>).password,
+    };
+    await use(async (work) => withAdminLmsSession(playwright, config, credentials, work));
+  },
+
+  adminConsole: async ({ page, config, request }, use) => {
+    const mfe = await fetchAuthoringMfeConfig(request, config);
+    if (mfe.adminConsoleUrl === undefined) {
+      throw new Error(
+        'The `rbac` capability is declared but this installation advertises no ADMIN_CONSOLE_URL ' +
+          'in its authoring MFE config, so the Roles and Permissions console is not served. ' +
+          'Deploy the admin-console MFE or stop declaring `rbac`.',
+      );
+    }
+    const origin = mfe.adminConsoleUrl;
+    await use({
+      origin,
+      console: new AdminConsolePage(page, config, origin),
+      teamMembers: new TeamMembersTable(page),
+      userAudit: new UserAuditPage(page, origin),
+      assignRole: new AssignRoleWizard(page, origin),
+      matrix: new PermissionsMatrix(page),
+      auditFor: (other: Page) => new UserAuditPage(other, origin),
+      consoleFor: (other: Page) => new AdminConsolePage(other, config, origin),
+    });
+  },
+
+  automaticMigrationTarget: async ({ authzTarget }, use) => {
+    base.skip(
+      authzTarget.mode !== 'automatic',
+      'These cases describe a target that migrates AuthZ roles when a waffle override is saved ' +
+        `(${authzTarget.modeEvidence}). This one leaves migration to an operator, so there is no ` +
+        'migration run to read; set ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION to cover it.',
+    );
+    await use();
+  },
+
+  manualMigrationTarget: async ({ authzTarget }, use) => {
+    base.skip(
+      authzTarget.mode === 'automatic',
+      'This target migrates AuthZ roles by itself when a waffle override is saved ' +
+        `(${authzTarget.modeEvidence}), so the stock default these cases describe does not ` +
+        'apply here; the migrating path has its own coverage.',
+    );
+    await use();
+  },
+
+  authzTarget: async ({ authzCourse }, use) => {
+    base.skip(
+      authzCourse === undefined,
+      'AuthZ coverage needs the `rbac` capability and an admin account: the waffle override that ' +
+        'puts a course under openedx-authz is a Django-admin write.',
+    );
+    await use(authzCourse as AuthzCourse);
+  },
+
   courseCreatorAdminPage: async ({ adminPage, config }, use) => {
     await use(new CourseCreatorAdminPage(adminPage, config));
   },
@@ -1968,6 +2409,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   resyncStudioAuthor: async ({ page, config, workerAuthor }, use) => {
     const resync = async (): Promise<void> => {
+      // No cheap pre-check here, deliberately: a Studio **read** can answer on a
+      // session whose **write** path then 302s to sign-in (measured — a
+      // `fetchStudioHome` probe passed and the next `POST /course/` was
+      // redirected), so "the API answered" does not mean "the session this
+      // fixture repairs is live". The navigation below is the check.
       // A real navigation to Studio Home re-completes the cms-sso handshake on
       // the browser's (and so `page.request`'s) shared cookie jar, healing the
       // session the library's v2 writes rotated — without the API `/login/`
@@ -2416,6 +2862,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         libraryPage: new LibraryPage(colleaguePage, config),
         unitPage: new StudioUnitPage(colleaguePage, config),
         libraryPicker: new LibraryPickerDialog(colleaguePage, config),
+        studioHomePage: new StudioHomePage(colleaguePage, config),
       };
       made.push(colleague);
       return colleague;

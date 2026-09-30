@@ -1,6 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
+import { ApiError } from './errors';
 import { studioJson, studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from './studio-origin';
 
 /**
@@ -109,4 +110,51 @@ export function assetStudioUrl(config: AppConfig, asset: CourseAsset): string {
   return asset.external_url.startsWith('http')
     ? asset.external_url
     : `${studioOrigin(config)}${asset.url}`;
+}
+
+/**
+ * Locks or unlocks an asset (the Files page's "Lock this file"), returning the
+ * asset as the platform stores it afterwards.
+ */
+export async function setAssetLock(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  asset: CourseAsset,
+  locked: boolean,
+): Promise<CourseAsset> {
+  const response = await request.put(`${assetsBase(config, courseKey)}${asset.id}`, {
+    headers: { ...(await studioWriteHeaders(request, config)), 'Content-Type': 'application/json' },
+    data: { locked },
+  });
+  // Studio answers this one with the updated asset on some releases and with a
+  // bare `{"locked": …}` on others; both are accepted, and the caller's own read
+  // of the store is what a spec asserts on.
+  const body = await studioJson<{ readonly asset?: CourseAsset; readonly locked?: boolean }>(
+    response,
+    `${locked ? 'Locking' : 'Unlocking'} ${asset.display_name} in ${courseKey}`,
+  );
+  return body.asset ?? { ...asset, locked: body.locked ?? locked };
+}
+
+/** Deletes an asset (the Files page's delete action). */
+export async function deleteAsset(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  asset: CourseAsset,
+): Promise<void> {
+  const response = await request.delete(`${assetsBase(config, courseKey)}${asset.id}`, {
+    headers: await studioWriteHeaders(request, config),
+  });
+  if (!response.ok()) {
+    throw new ApiError(
+      `Deleting ${asset.display_name} from ${courseKey} failed (HTTP ${response.status()}).`,
+      {
+        status: response.status(),
+        url: response.url(),
+        body: (await response.text()).slice(0, 200),
+      },
+    );
+  }
 }

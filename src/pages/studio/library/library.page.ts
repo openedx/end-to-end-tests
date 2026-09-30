@@ -97,7 +97,11 @@ export class LibraryPage {
     // moment before deciding whether the toggle needs a click.
     await this.sidebar.root.waitFor({ timeout: TIMEOUTS.optionalOverlay }).catch(() => undefined);
     if (!(await this.sidebar.publicReadSwitch.isVisible())) {
-      await this.page.locator(this.s.headerActionButton).nth(this.s.headerAction.info).click();
+      // The header renders after the library's own fetch, and later still on a
+      // loaded target, so the toggle is waited for rather than clicked blind.
+      const info = this.page.locator(this.s.headerActionButton).nth(this.s.headerAction.info);
+      await info.waitFor({ timeout: TIMEOUTS.navigation });
+      await info.click();
     }
     await this.sidebar.root.waitFor();
   }

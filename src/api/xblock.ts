@@ -261,6 +261,63 @@ export interface UpdateXBlockOptions {
   readonly publish?: 'make_public' | 'republish' | 'discard_changes';
 }
 
+/**
+ * Duplicates a block into a parent — the outline card's "Duplicate", as the API.
+ * Returns the new block's usage key.
+ */
+export async function duplicateXBlock(
+  request: APIRequestContext,
+  config: AppConfig,
+  options: { readonly parentLocator: string; readonly sourceLocator: string },
+): Promise<string> {
+  const body = await studioWrite<CreateXBlockResponse>(
+    request,
+    config,
+    'POST',
+    XBLOCK_PATH,
+    `Duplicating ${options.sourceLocator}`,
+    {
+      parent_locator: options.parentLocator,
+      duplicate_source_locator: options.sourceLocator,
+    },
+  );
+  if (typeof body?.locator !== 'string') {
+    throw new ApiError(`Studio duplicated ${options.sourceLocator} but returned no locator.`, {
+      status: 200,
+      url: XBLOCK_PATH,
+      body: JSON.stringify(body).slice(0, 200),
+    });
+  }
+  return body.locator;
+}
+
+/**
+ * Moves a block under a new parent — the outline's "Move", as the API. A
+ * `targetIndex` of `undefined` appends.
+ */
+export async function moveXBlock(
+  request: APIRequestContext,
+  config: AppConfig,
+  options: {
+    readonly sourceLocator: string;
+    readonly parentLocator: string;
+    readonly targetIndex?: number;
+  },
+): Promise<void> {
+  await studioWrite<unknown>(
+    request,
+    config,
+    'PATCH',
+    XBLOCK_PATH,
+    `Moving ${options.sourceLocator} under ${options.parentLocator}`,
+    {
+      move_source_locator: options.sourceLocator,
+      parent_locator: options.parentLocator,
+      ...(options.targetIndex === undefined ? {} : { target_index: options.targetIndex }),
+    },
+  );
+}
+
 /** Writes metadata and/or content to a block, optionally publishing in the same request. */
 export async function updateXBlock(
   request: APIRequestContext,
