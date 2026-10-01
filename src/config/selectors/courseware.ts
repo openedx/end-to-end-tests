@@ -12,6 +12,30 @@ export const COURSEWARE_SELECTORS = {
   sidebar: '.outline-sidebar',
 
   /**
+   * The outline tray's own collapse/expand control — "Toggle course outline
+   * tray".
+   */
+  outlineToggle: '.outline-sidebar-toggle-btn',
+
+  /**
+   * A right-hand sidebar trigger beside the unit — "Show discussions tray" (and,
+   * for an upgradeable enrollment, "Show upgrade panel"). A free enrollment on a
+   * unit with an in-context discussion topic shows exactly one: the discussions
+   * trigger. The learning MFE keeps one sidebar open at a time (a single
+   * `currentSidebar` state), which is TC-00053's premise.
+   */
+  rightSidebarTrigger: '.sidebar-trigger-btn',
+
+  /** A right-hand trigger whose sidebar is open (its wrapper gains `sidebar-active`). */
+  activeRightSidebarTrigger: '.sidebar-active .sidebar-trigger-btn',
+
+  /**
+   * The open discussions sidebar: an iframe of the discussions MFE's in-context
+   * view (`/discussions/<course>/category/<unit>?inContextSidebar`).
+   */
+  discussionsSidebar: '.discussions-sidebar-frame',
+
+  /**
    * Subsection completion markers in the outline tray. The three states are
    * **different test IDs**, not one element with a changed class:
    *

@@ -1,10 +1,5 @@
-import { createRequire } from 'node:module';
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
-
+import { importPluginModule, instantiatePluginExport } from '../config';
 import type { AccountBackend } from './types';
-
-const requireFrom = createRequire(__filename);
 
 /**
  * What a custom plugin file may export: the backend itself, a class, or a
@@ -38,38 +33,6 @@ function isAccountBackend(value: unknown): value is AccountBackend {
 }
 
 /**
- * Loads a plugin module. Playwright registers a `require` hook that transpiles
- * TypeScript, so `require` is tried first and works for both `.ts` and `.js`
- * plugins inside the runner; `import()` is the fallback for contexts (plain
- * Node, ESM-only plugins) where it does not.
- */
-async function importPluginModule(absolutePath: string): Promise<Record<string, unknown>> {
-  try {
-    return requireFrom(absolutePath) as Record<string, unknown>;
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException | undefined)?.code;
-    if (code !== 'ERR_REQUIRE_ESM' && code !== 'ERR_REQUIRE_ASYNC_MODULE') {
-      throw error;
-    }
-    return (await import(pathToFileURL(absolutePath).href)) as Record<string, unknown>;
-  }
-}
-
-async function instantiate(exported: PluginExport): Promise<unknown> {
-  if (typeof exported !== 'function') {
-    return exported;
-  }
-  try {
-    return await (exported as () => unknown)();
-  } catch (error) {
-    if (error instanceof TypeError && /without 'new'|cannot be invoked/i.test(error.message)) {
-      return new (exported as new () => AccountBackend)();
-    }
-    throw error;
-  }
-}
-
-/**
  * Loads a custom account backend from a plugin file path (relative paths resolve
  * against the current working directory).
  *
@@ -77,11 +40,9 @@ async function instantiate(exported: PluginExport): Promise<unknown> {
  * satisfies {@link AccountBackend}.
  */
 export async function loadAccountBackendPlugin(pluginPath: string): Promise<AccountBackend> {
-  const absolutePath = path.resolve(pluginPath);
-
   let module: Record<string, unknown>;
   try {
-    module = await importPluginModule(absolutePath);
+    module = await importPluginModule(pluginPath);
   } catch (error) {
     throw new Error(
       `Failed to load account backend plugin "${pluginPath}": ${(error as Error).message}`,
@@ -98,7 +59,7 @@ export async function loadAccountBackendPlugin(pluginPath: string): Promise<Acco
     );
   }
 
-  const backend = await instantiate(exported);
+  const backend = await instantiatePluginExport(exported);
   if (!isAccountBackend(backend)) {
     throw new Error(
       `Account backend plugin "${pluginPath}" does not export a valid AccountBackend: ` +

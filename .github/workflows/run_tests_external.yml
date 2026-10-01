@@ -66,6 +66,13 @@ on:
         description: 'Set true when LMS/Studio/MFE origins are not same-site.'
         type: boolean
         default: false
+      mail_provider:
+        description: 'Mailbox the target''s notification e-mail can be read from. "openinbox" needs an OPENINBOX_API_KEY secret in the Environment and a target that sends real mail; declare email-inbox in capabilities to run the e-mail specs.'
+        type: choice
+        default: none
+        options:
+          - none
+          - openinbox
       domains:
         description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
         type: string
@@ -242,6 +249,9 @@ jobs:
           admin_username: ${{ secrets.ADMIN_USERNAME }}
           admin_password: ${{ secrets.ADMIN_PASSWORD }}
           account_backend: ${{ inputs.account_backend }}
+          mail_provider: ${{ inputs.mail_provider != 'none' && inputs.mail_provider || '' }}
+          mail_provider_plugins: ${{ inputs.mail_provider == 'openinbox' && './plugins/openinbox.plugin.ts' || '' }}
+          openinbox_api_key: ${{ secrets.OPENINBOX_API_KEY }}
           allow_cross_site_origins: ${{ inputs.allow_cross_site_origins }}
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}

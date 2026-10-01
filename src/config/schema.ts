@@ -45,6 +45,12 @@ const envShape = z.object({
   // Name of the actual backend to use (built-in or plugin), defaults to 'automatic'.
   ACCOUNT_BACKEND: z.string().optional(),
 
+  // Mailbox providers (see src/mail/). Comma-separated file paths of mailbox
+  // provider plugin modules to load, defaults to none; and the name of the one
+  // to use. Required together when the `email-inbox` capability is declared.
+  CUSTOM_MAIL_PROVIDER_PLUGINS: z.string().optional(),
+  MAIL_PROVIDER: z.string().optional(),
+
   // Escape hatch for providers whose origins are not same-site.
   ALLOW_CROSS_SITE_ORIGINS: booleanFromEnv.optional(),
 });

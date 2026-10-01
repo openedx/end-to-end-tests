@@ -44,6 +44,22 @@ inputs:
     description: 'Set true when LMS/Studio/MFE origins are not same-site.'
     required: false
     default: ''
+  mail_provider:
+    description: 'MAIL_PROVIDER: the mailbox the suite reads e-mail from (mailpit, openinbox). Empty = none; the email-inbox capability then cannot be declared.'
+    required: false
+    default: ''
+  mail_provider_plugins:
+    description: 'CUSTOM_MAIL_PROVIDER_PLUGINS: comma-separated plugin paths providing mail_provider (e.g. ./plugins/mailpit.plugin.ts).'
+    required: false
+    default: ''
+  mailpit_base_url:
+    description: 'MAILPIT_BASE_URL for the mailpit provider: the Mailpit API origin as the runner reaches it.'
+    required: false
+    default: ''
+  openinbox_api_key:
+    description: 'OPENINBOX_API_KEY for the openinbox provider. Pass via secrets in the caller.'
+    required: false
+    default: ''
   domains:
     description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
     required: false
@@ -148,6 +164,9 @@ runs:
         CAPABILITIES: ${{ inputs.capabilities }}
         ACCOUNT_BACKEND: ${{ inputs.account_backend }}
         ALLOW_CROSS_SITE_ORIGINS: ${{ inputs.allow_cross_site_origins }}
+        MAIL_PROVIDER: ${{ inputs.mail_provider }}
+        CUSTOM_MAIL_PROVIDER_PLUGINS: ${{ inputs.mail_provider_plugins }}
+        MAILPIT_BASE_URL: ${{ inputs.mailpit_base_url }}
       run: |
         set -euo pipefail
         : > .env
@@ -159,6 +178,9 @@ runs:
         [ -n "$CAPABILITIES" ] && echo "CAPABILITIES=${CAPABILITIES}" >> .env
         [ -n "$ACCOUNT_BACKEND" ] && echo "ACCOUNT_BACKEND=${ACCOUNT_BACKEND}" >> .env
         [ -n "$ALLOW_CROSS_SITE_ORIGINS" ] && echo "ALLOW_CROSS_SITE_ORIGINS=${ALLOW_CROSS_SITE_ORIGINS}" >> .env
+        [ -n "$MAIL_PROVIDER" ] && echo "MAIL_PROVIDER=${MAIL_PROVIDER}" >> .env
+        [ -n "$CUSTOM_MAIL_PROVIDER_PLUGINS" ] && echo "CUSTOM_MAIL_PROVIDER_PLUGINS=${CUSTOM_MAIL_PROVIDER_PLUGINS}" >> .env
+        [ -n "$MAILPIT_BASE_URL" ] && echo "MAILPIT_BASE_URL=${MAILPIT_BASE_URL}" >> .env
         echo "Wrote .env:"
         cat .env
 
@@ -177,6 +199,8 @@ runs:
         EXCLUDE_FEATURES: ${{ inputs.exclude_features }}
         ADMIN_USERNAME: ${{ inputs.admin_username }}
         ADMIN_PASSWORD: ${{ inputs.admin_password }}
+        # A secret, so a process env var rather than a .env line (see above).
+        OPENINBOX_API_KEY: ${{ inputs.openinbox_api_key }}
         BTR_RELEASE: ${{ inputs.btr_release }}
         BTR_TEST_REF: ${{ inputs.btr_test_ref }}
       run: |

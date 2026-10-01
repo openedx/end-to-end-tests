@@ -19,6 +19,7 @@ graph TD
     fixtures[fixtures: composition root]
     tests[tests: specs own the assertions]
     accounts[accounts: user-choosable account backends]
+    mail[mail: pluggable mailbox providers]
     auth[auth: provider-swappable contract]
 
     config --> api
@@ -31,6 +32,8 @@ graph TD
     accounts --> auth
     accounts --> steps
     auth --> fixtures
+    config --> mail
+    mail --> fixtures
 ```
 
 A layer may depend only on the layers above it in the list below — never sideways
@@ -41,6 +44,7 @@ into a sibling or downward into a consumer.
 | Configuration     | `src/config/`   | Turn env vars into a validated, typed, immutable config; fail fast on bad input.             | —                                    |
 | Auth contract     | `src/auth/`     | Provider-swappable sign-in → one multi-origin storage state per role.                        | `config`, `accounts`                 |
 | Account backends  | `src/accounts/` | User-choosable account creation/activation and the default sign-in/sign-out flows.           | `config`, `api`, `pages`             |
+| Mailbox providers | `src/mail/`     | Pluggable inboxes the suite reads e-mail from (`MAIL_PROVIDER`); the `email-inbox` oracle.   | `config`                             |
 | API client / data | `src/api/`      | Typed HTTP clients and deterministic, unique-per-run data factories.                         | `config`                             |
 | Page objects      | `src/pages/`    | Locators and single-surface actions for one screen. One per surface, in its domain folder.   | `config`, `api`                      |
 | Steps             | `src/steps/`    | Compose page objects into reusable business flows (actions/navigation, not assertions).      | `pages`, `api`, `accounts`, `config` |
@@ -181,6 +185,17 @@ permission matrix), and everything that moves a waffle override or reads a
 migration run goes through the LMS Django admin under the same admin lock as the
 taxonomy personas (see [`CONVENTIONS.md`](CONVENTIONS.md) "Roles and permissions
 (RBAC)").
+
+The **notification and forum** personas (`tests/lms/notifications/`,
+`tests/lms/discussions/`) reuse the worker author as the course's instructor
+and staff (notify-all posts, course updates, ORA grades, and the recipient of
+staff-only notifications). Everyone else is a learner on their own context:
+the **recipient** is fresh for every case (`notificationRecipient`), because
+what it received is the assertion, and the learners who post and moderate are
+a worker-scoped `forumCast`. E-mail cases register their recipient at an inbox
+of the configured mailbox provider (`mailboxLearner`, `src/mail/`), and the
+suite reads the mail through that provider's API — a Mailpit catcher on the CI
+Tutor stack.
 
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
