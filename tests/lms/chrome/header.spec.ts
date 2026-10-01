@@ -1,7 +1,7 @@
 import { expect, test } from '../../../src/fixtures';
 import { fetchLearnerHome, type LearnerHome } from '../../../src/api';
 import { testId } from '../../../src/reporting';
-import { anonymousHeaderExpectation, expectedUserMenu } from '../../../src/steps';
+import { anonymousHeaderExpectation, expectedUserMenu, linkTargets } from '../../../src/steps';
 
 /**
  * The page header (TC-00019, TC-00020, TC-00021, TC-00023).
@@ -60,7 +60,7 @@ test.describe('Site header', () => {
         );
 
         const menu = expectedUserMenu(generation, chrome, username, { onDashboard: true });
-        expect(await siteHeader.openUserMenu()).toEqual(menu);
+        expect(linkTargets(await siteHeader.openUserMenu())).toEqual(menu);
 
         // The profile item opens this learner's profile.
         await siteHeader.followUserMenuItem(menu.find((url) => url.includes(`/u/${username}`))!);
@@ -82,7 +82,7 @@ test.describe('Site header', () => {
         const { generation, chrome } = await chromeCase.read();
 
         const menu = expectedUserMenu(generation, chrome, identity.username);
-        expect(await siteHeader.openUserMenu()).toEqual(menu);
+        expect(linkTargets(await siteHeader.openUserMenu())).toEqual(menu);
 
         // Sign out is the menu's last item; it ends the session.
         await siteHeader.followUserMenuItem(menu.at(-1)!);
@@ -112,7 +112,7 @@ test.describe('Site header', () => {
         await expect(siteHeader.courseLockup).toContainText(courseDetail.number);
         await expect(siteHeader.courseLockup).toContainText(courseDetail.name);
 
-        expect(await siteHeader.openUserMenu()).toEqual(
+        expect(linkTargets(await siteHeader.openUserMenu())).toEqual(
           expectedUserMenu(generation, chrome, identity.username),
         );
         await siteHeader.userMenuTrigger.press('Escape');

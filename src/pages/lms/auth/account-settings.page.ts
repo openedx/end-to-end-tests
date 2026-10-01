@@ -66,8 +66,10 @@ export class AccountSettingsPage {
   }
 
   /**
-   * Saves a new site language. The MFE stores the preference and then switches
-   * the session's language (`POST /i18n/setlang/`); both are waited for.
+   * Saves a new site language. The app stores the preference and then switches
+   * the session's language — the frontend-platform MFE through
+   * `POST /i18n/setlang/`, the frontend-base app through
+   * `PATCH /lang_pref/update_language`; both writes are waited for.
    */
   async saveSiteLanguage(code: string): Promise<void> {
     const lms = this.config.baseUrls.lms;
@@ -75,7 +77,11 @@ export class AccountSettingsPage {
       (r) =>
         r.url().startsWith(`${lms}/api/user/v1/preferences/`) && r.request().method() === 'PATCH',
     );
-    const switched = this.page.waitForResponse((r) => r.url().startsWith(`${lms}/i18n/setlang/`));
+    const switched = this.page.waitForResponse(
+      (r) =>
+        r.url().startsWith(`${lms}/i18n/setlang/`) ||
+        r.url().startsWith(`${lms}/lang_pref/update_language`),
+    );
     await this.siteLanguageSelect.selectOption(code);
     await this.sitePreferences.locator('button[type="submit"]').click();
     await Promise.all([stored, switched]);

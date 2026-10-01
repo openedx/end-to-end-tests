@@ -148,11 +148,25 @@ export function knownChromeDefects(
 }
 
 /**
- * The account-menu items a signed-in header offers, as the URLs they point at,
- * in the order the header renders them. The shell and the legacy headers
- * differ: the legacy ones lead with the dashboard — except on the dashboard
- * itself, whose own header leaves it out — and the shell reaches it through
- * its logo and "Courses" link instead.
+ * Link targets as compared across frontends: absolute, and without a trailing
+ * slash on the path. The configuration names an app by its mount point
+ * (`/account/`) while the frontend-base shell links an app of its own site by
+ * route (`/account`); both land on the same page.
+ */
+export function linkTargets(urls: readonly string[]): readonly string[] {
+  return urls.map((url) => {
+    const target = new URL(url);
+    if (target.pathname !== '/') target.pathname = target.pathname.replace(/\/$/, '');
+    return target.toString();
+  });
+}
+
+/**
+ * The account-menu items a signed-in header offers, as the URLs they point at
+ * ({@link linkTargets}), in the order the header renders them. The shell and
+ * the legacy headers differ: the legacy ones lead with the dashboard — except
+ * on the dashboard itself, whose own header leaves it out — and the shell
+ * reaches it through its logo and "Courses" link instead.
  */
 export function expectedUserMenu(
   generation: ChromeGeneration,
@@ -171,9 +185,7 @@ export function expectedUserMenu(
     chrome.orderHistoryUrl,
     chrome.logoutUrl,
   ];
-  return items
-    .filter((item): item is string => item !== undefined)
-    .map((item) => new URL(item).toString());
+  return linkTargets(items.filter((item): item is string => item !== undefined));
 }
 
 /**

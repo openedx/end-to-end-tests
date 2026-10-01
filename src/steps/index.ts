@@ -86,6 +86,7 @@ export {
   expectedUserMenu,
   horizontalOverflow,
   knownChromeDefects,
+  linkTargets,
   partitionSiteLinks,
   readPageChrome,
   type AnonymousHeaderExpectation,

@@ -125,9 +125,13 @@ export class HeaderBlock {
     return this.hrefs(this.userMenuItems);
   }
 
-  /** Opens the account menu and follows the item pointing at `url`. */
+  /**
+   * Opens the account menu and follows the item pointing at `url` (a trailing
+   * slash on either side aside).
+   */
   async followUserMenuItem(url: string): Promise<void> {
-    const index = (await this.openUserMenu()).indexOf(url);
+    const bare = (href: string) => href.replace(/\/$/, '');
+    const index = (await this.openUserMenu()).map(bare).indexOf(bare(url));
     if (index < 0) throw new Error(`The account menu has no item pointing at ${url}.`);
     await this.follow(this.userMenuItems.nth(index));
   }
