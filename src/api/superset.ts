@@ -148,7 +148,11 @@ export function narrowSupersetUser(body: unknown): SupersetUser {
   };
 }
 
-/** The Superset identity `request` carries (signed in or not). */
+/**
+ * The Superset identity `request` carries (signed in or not). Superset 6.1
+ * answers a visitor with its `Public` role; 6.0 refuses it (401), which is read
+ * as the same visitor holding no role.
+ */
 export async function fetchSupersetUser(
   request: APIRequestContext,
   supersetOrigin: string,
@@ -156,6 +160,7 @@ export async function fetchSupersetUser(
   const url = `${supersetOrigin}/api/v1/me/roles/`;
   const response = await request.get(url);
   const text = await response.text();
+  if (response.status() === 401) return { anonymous: true, roles: [] };
   if (response.status() !== 200) {
     throw new ApiError(`Reading the Superset user failed (HTTP ${response.status()}).`, {
       status: response.status(),

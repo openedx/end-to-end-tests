@@ -128,7 +128,9 @@ test.describe('Superset access', { tag: [...TAGS] }, () => {
       });
 
       const user = await signInToSuperset(researcher.page, origin);
-      expect(user, 'Superset refused the sign-in').toEqual({ anonymous: true, roles: ['Public'] });
+      // A refused sign-in leaves a visitor: `Public` on Superset 6.1, no role on 6.0.
+      expect(user.anonymous, 'Superset refused the sign-in').toBe(true);
+      expect(user.roles.filter((role) => role !== 'Public')).toEqual([]);
     },
   );
 
@@ -142,7 +144,9 @@ test.describe('Superset access', { tag: [...TAGS] }, () => {
       await enrollInCourseViaApi(learner.request, config, authoringCourse.courseKey);
 
       const user = await signInToSuperset(learner.page, origin);
-      expect(user, 'Superset refused the sign-in').toEqual({ anonymous: true, roles: ['Public'] });
+      // A refused sign-in leaves a visitor: `Public` on Superset 6.1, no role on 6.0.
+      expect(user.anonymous, 'Superset refused the sign-in').toBe(true);
+      expect(user.roles.filter((role) => role !== 'Public')).toEqual([]);
 
       // No instructor dashboard, so no Reports tab: the dashboard model refuses the learner.
       const dashboard = await fetchInstructorCourse(

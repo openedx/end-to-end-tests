@@ -272,8 +272,9 @@ outcome").
   course's `CourseAuthorization`, which the dashboard's "Email settings" needs.
 - `django-admin.ts` — the admin-form mechanics the clients above share:
   `openAdminForm` / `postAdminForm` / `readAdminForm` (a whole change form,
-  inline formsets included, read back for re-posting), `findAdminRowPk`,
-  `countAdminResultRows`, and `assertAdminPage` — which is what stops an
+  inline formsets included, read back for re-posting), `findAdminRowPk`
+  (the first row of `#result_list` only — a queued "was changed" message above
+  it links the last row saved), `countAdminResultRows`, and `assertAdminPage` — which is what stops an
   **evicted** Django session from reading as an empty list, since `/admin/…`
   answers a logged-out caller with a 302 the request context follows to a 200.
 

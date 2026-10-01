@@ -466,6 +466,7 @@ export {
   adminSaveSucceeded,
   decodeAdminEntities,
   findAdminRowPk,
+  firstAdminResultPk,
   openAdminForm,
   postAdminForm,
   readAdminForm,

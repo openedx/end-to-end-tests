@@ -1,9 +1,11 @@
 /**
- * Apache Superset's dashboard markup (6.1.0, as Aspects 5.0.0 ships it), inside
- * the Reports tab's embed or on Superset's own dashboard pages. Superset marks
- * its components with `data-test` attributes and its layout with the ids of the
- * dashboard's asset file; chart titles and tab labels are translated, so neither
- * is an anchor.
+ * Apache Superset's dashboard markup (6.1.0 as Aspects 5.0.0 ships it, 6.0.0 as
+ * Aspects 4.0.0 does), inside the Reports tab's embed or on Superset's own
+ * dashboard pages. Superset 6.1 marks its components with `data-test`
+ * attributes; 6.0's production build carries none, so a control both builds
+ * share is reached by what they have in common (a class, the filter id in
+ * `aria-label`). The layout is anchored on the ids of the dashboard's asset
+ * file; chart titles and tab labels are translated, so neither is an anchor.
  */
 export const SUPERSET_SELECTORS = {
   /** A rendered chart; the attribute's value is Superset's numeric chart id on this install. */
@@ -19,19 +21,27 @@ export const SUPERSET_SELECTORS = {
    * django-oauth-toolkit form and its `allow` submit.
    */
   lmsOAuthAllow: 'form#authorizationForm button[name="allow"]',
-  /** The filter bar's "Apply filters". */
-  filterApply: '[data-test="filter-bar__apply-button"]',
+  /** The filter bar's "Apply filters" (6.1's `data-test`, 6.0's class). */
+  filterApply: ':is([data-test="filter-bar__apply-button"], button.filter-apply-button)',
   /** A select filter's own clear control (shown on hover once it holds a value). */
   selectClear: '.ant-select-clear',
-  /** The collapsed filter bar's expand control (embedded dashboards start collapsed). */
+  /**
+   * The collapsed filter bar's expand control (6.1's embedded dashboards start
+   * collapsed; 6.0's render the bar open). No 6.0 fallback: the only shared hook
+   * is the icon, which is also the open bar's collapse control.
+   */
   filterBarExpand: '[data-test="filter-bar__expand-button"]',
   /** The open dropdown of a select filter (antd renders it apart from the control). */
   openSelectDropdown: '.ant-select-dropdown:not(.ant-select-dropdown-hidden)',
 } as const;
 
-/** A native filter's control, by filter id (`NATIVE_FILTER-…`). */
+/**
+ * A native filter's control, by filter id (`NATIVE_FILTER-…`): the select that
+ * both builds label with the id (6.1 also puts it in `data-test`, on the same
+ * element).
+ */
 export function supersetNativeFilter(filterId: string): string {
-  return `[data-test="${filterId}"]`;
+  return `.ant-select[aria-label="${filterId}"]`;
 }
 
 /** An option of an open select filter, by its value (the test's own data, like a course name). */

@@ -81,6 +81,18 @@ export function countAdminResultRows(html: string): number {
   return Math.max(0, (table.match(/<tr\b/g) ?? []).length - 1);
 }
 
+/**
+ * The primary key of a change list's first result row, or undefined when it
+ * has none. Only the `#result_list` table counts: the page above it can carry
+ * change links too — the "was changed successfully" message a previous save
+ * queued links the row that save changed.
+ */
+export function firstAdminResultPk(html: string, adminPath: string): string | undefined {
+  const table = /id="result_list"[\s\S]*?<\/table>/.exec(html)?.[0];
+  if (table === undefined) return undefined;
+  return new RegExp(`${adminPath}/(\\d+)/change/`).exec(table)?.[1];
+}
+
 export function adminFormValue(html: string, name: string): string {
   const input = new RegExp(`<input[^>]*\\bname="${name}"[^>]*>`, 'i').exec(html)?.[0];
   if (input !== undefined) return decodeAdminEntities(/\bvalue="([^"]*)"/.exec(input)?.[1] ?? '');
@@ -243,6 +255,5 @@ export async function findAdminRowPk(
       },
     );
   }
-  const html = await response.text();
-  return new RegExp(`${adminPath}/(\\d+)/change/`).exec(html)?.[1];
+  return firstAdminResultPk(await response.text(), adminPath);
 }
