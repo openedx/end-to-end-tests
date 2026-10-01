@@ -126,7 +126,9 @@ export async function openReportsDashboard(
   slug: string,
 ): Promise<ReportsDashboard> {
   const { courseKey, displayName } = course;
-  let reports = await reportsPage.openReports(courseKey);
+  // Afresh, so a second call (a reload, to refresh the filter bar) reads only
+  // its own load's queries.
+  let reports = await reportsPage.reopenReports(courseKey);
   const origin = supersetOrigin(config, reports);
   const dashboardUuid = () => {
     const dashboard = reports.dashboards.find(
