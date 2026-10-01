@@ -80,10 +80,13 @@ export const ADMIN_CONSOLE_SELECTORS = {
   /** The subject's username, which is our own data in a test. */
   auditSubjectHeading: 'h2',
   /**
-   * The permissions expander — a link-styled `role="button"`, not a `<button>`,
-   * which matters because the row's only real `<button>` is the delete control.
+   * The permissions expander: the Paragon `Hyperlink` (an `<a>`) inside the
+   * cell's `<div role="button">`. The wrapper has no handler of its own, so a
+   * click on it toggles the row only when its centre happens to fall on the link
+   * (an intermittent no-op in CI). Not a `<button>`: the row's only real
+   * `<button>` is the delete control.
    */
-  auditExpandPermissions: '[role="button"]',
+  auditExpandPermissions: '[role="button"] a',
   /**
    * The expanded permission list, inserted as an extra single-cell row after the
    * row it belongs to. The console keeps **one** open at a time, so counting
