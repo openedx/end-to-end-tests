@@ -26,8 +26,9 @@ it, and `tests/config/capabilities-doc.spec.ts` keeps the two in step.
   (`CAPABILITIES=-mfe-authn`). Opting out of a capability that is not default-on
   is a configuration error.
 - **Required partners.** A few capabilities describe part of another's
-  deployment (`analytics-in-context` and `analytics-pii` are parts of
-  `analytics`, and `analytics-in-context-cards` of `analytics-in-context`).
+  deployment (`analytics-in-context`, `analytics-pii` and
+  `analytics-staff-video-counts` are parts of `analytics`, and
+  `analytics-in-context-cards` of `analytics-in-context`).
   Declaring one without its partner fails validation.
 - **Mutually exclusive pairs.** Some capabilities are two implementations or two
   configurations of one surface; declaring both fails validation. Where one half
@@ -117,6 +118,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `analytics-in-context` | — | — | — | — | — | — | | + |
 | `analytics-pii` | — | — | — | — | — | — | | + |
 | `analytics-in-context-cards` | — | — | — | — | — | — | | + verawood |
+| `analytics-staff-video-counts` | — | — | — | — | — | — | | + main |
 | `rbac` | declared | declared | — | — | — | — | |  |
 | `rbac-global` | — | — | — | — | — | — | |  |
 | `rbac-matrix-parity` | declared | — | — | — | — | — | |  |
@@ -232,6 +234,7 @@ permanently red case. Declare one where the behaviour is right.
 | `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood`, `ulmo`, `teak`, `sumac`, `redwood` |
 | `recommender-studio-settings` | The recommender's Studio editor shows the settings it saved (recommender-xblock ≥ 5.1.0). `verawood` pins 5.0.0 (`XBLOCK-002`). | TC-00132. | `main` |
 | `analytics-in-context-cards` | The outline cards' Analytics buttons open the element's own in-context analytics. frontend-plugin-aspects 3.0.1 reads the selection from the authoring MFE's `currentItemData`, which `master` removed, so on `main` they show the course's view (`ASPECTS-009`). Requires `analytics-in-context`. | TC-00314's card-opens-element case. | `verawood` (not yet run there) |
+| `analytics-staff-video-counts` | Course Comparison's video-count charts answer course staff. Superset 6.0.0 (tutor-contrib-aspects 4.x) aliases each table its row-level security filters as `schema.table`, so the charts' `dim_course_blocks.<column>` references fail for every RLS-limited user (`ASPECTS-011`); 6.1.0 (5.0.0) does not. Requires `analytics`. | TC-00554's video-count case. | `main` (tutor-contrib-aspects 5.0.0) |
 
 ### Content
 

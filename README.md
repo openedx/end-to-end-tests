@@ -95,8 +95,9 @@ names `teams`.
 - **Default-on:** stock surfaces and stock settings are on unless turned off
   with a `-` prefix (`CAPABILITIES=-mfe-authn`), so a missing declaration never
   silently drops coverage an install has.
-- **Required partners:** `analytics-in-context` and `analytics-pii` describe
-  parts of an Aspects deployment and need `analytics` declared too;
+- **Required partners:** `analytics-in-context`, `analytics-pii` and
+  `analytics-staff-video-counts` describe parts of an Aspects deployment and
+  need `analytics` declared too;
   `analytics-in-context-cards` needs `analytics-in-context`.
 - **Mutually exclusive pairs:** two implementations or configurations of one
   surface. Declaring both halves fails validation.

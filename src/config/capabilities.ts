@@ -191,6 +191,13 @@ export const CAPABILITIES = [
   // every card button shows the course's view (`ASPECTS-009`). Declared where it
   // works, like `rbac-error-view-action`. Requires `analytics-in-context`.
   'analytics-in-context-cards',
+  // **Course Comparison's video counts answer course staff.** Superset 6.1.0
+  // (tutor-contrib-aspects 5.0.0) aliases each table its row-level security
+  // filters under the table's own name; 6.0.0 (the 4.x line, `verawood`) aliases
+  // it as `schema.table`, so the video-count charts' `dim_course_blocks.<column>`
+  // references fail for every RLS-limited user (`ASPECTS-011`). Declared where
+  // it works. Requires `analytics`.
+  'analytics-staff-video-counts',
   // Roles and permissions under **openedx-authz**: the `/api/authz/v1/` API and
   // the Roles and Permissions console (the admin-console MFE, reached through
   // the `ADMIN_CONSOLE_URL` the authoring MFE config advertises). Both ship on
@@ -380,6 +387,7 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   'analytics-in-context': 'analytics',
   'analytics-pii': 'analytics',
   'analytics-in-context-cards': 'analytics-in-context',
+  'analytics-staff-video-counts': 'analytics',
 };
 
 export function isCapability(value: string): value is Capability {

@@ -118,6 +118,7 @@ measured, and issues are opened by hand from them.
 | `ASPECTS-005` | `openedx/tutor-contrib-aspects` (Course Comparison assets: Run Metrics "More details" files the org under the Course Run filter's id) | open, no `fixme` — TC-00559 asserts the link names the course and run
 | `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
 | `ASPECTS-010` | `openedx/aspects-dbt` (`dim_learner_last_response` joins block names at insert time) | open, no `fixme` — TC-00547 finds its row by the problem's usage key
+| `ASPECTS-011` | `apache/superset` 6.0.0 (tutor-contrib-aspects 4.x, `verawood`): row-level security aliases a filtered table as `schema.table`, so Course Comparison's video counts fail for course staff | open, gated — TC-00554's video-count case needs `analytics-staff-video-counts`, declared where it works (`main`)
 | `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive`; 6.0.0 (Aspects 4.0.0) also `dlitem` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
 | `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
 | `ASPECTS-008` | `openedx/tutor-contrib-aspects` (dashboard assets: "Clear all" empties the preselected course filter) | open, no `fixme` — TC-00544 clears only the learner filter, as the sheet asks
@@ -2339,6 +2340,31 @@ right.
 usage key in `problem_link` rather than by its name, so it reads the counts
 either way. Before that change, a run that answered inside the refresh window
 failed, with "attempted at least one" at 1 and the problem's counts at 0.
+
+### `ASPECTS-011` — on Superset 6.0.0, Course Comparison's video counts fail for course staff
+
+**Where:** Apache Superset 6.0.0, as tutor-contrib-aspects 4.x (the Verawood
+line) ships it, with Aspects' `watched_video_duration` dataset behind Course
+Comparison's video-count charts.
+
+**What happens:** for a user under row-level security (course staff), Superset
+6.0.0 rewrites each filtered table into a subquery aliased with its
+**qualified** name:
+`` (SELECT * FROM reporting.dim_course_blocks WHERE course_key IN (…)) AS `reporting.dim_course_blocks` ``.
+The dataset qualifies its columns with the bare table name
+(`dim_course_blocks.org`), which no longer resolves. ClickHouse answers
+`Code: 47 … Unknown expression or function identifier dim_course_blocks.org`,
+and the chart shows an error. Superset 6.1.0 (tutor-contrib-aspects 5.0.0)
+aliases the subquery under the table's own name, and with the same dataset SQL
+and the same ClickHouse 25.8 the charts load.
+
+Measured in CI: run 36720301819 (2026-09-30) had 34 such errors on `verawood`
+and none on `main`. Run 36897236438 (2026-10-01) repeated it.
+
+**Coverage impact:** open, gated. TC-00554's video-count case is tagged
+`@analytics-staff-video-counts`, a capability declared where it works (`main`).
+So the defect shows as an undeclared capability on `verawood`, not as a
+permanently red case.
 
 ## CI split — sharded runs and profiles (2026-09-24/25, suite-side)
 

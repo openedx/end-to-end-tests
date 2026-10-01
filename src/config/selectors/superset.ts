@@ -26,11 +26,13 @@ export const SUPERSET_SELECTORS = {
   /** A select filter's own clear control (shown on hover once it holds a value). */
   selectClear: '.ant-select-clear',
   /**
-   * The collapsed filter bar's expand control (6.1's embedded dashboards start
-   * collapsed; 6.0's render the bar open). No 6.0 fallback: the only shared hook
-   * is the icon, which is also the open bar's collapse control.
+   * The collapsed filter bar's expand control (embedded dashboards can start
+   * collapsed on both builds). 6.0 keeps only its `collapse-icon` class, which in
+   * both builds is on the collapsed bar's expand icon alone (the open bar's
+   * collapse control has only a test id), and the collapsed bar is hidden while
+   * open, so `:visible` never meets it on an open bar.
    */
-  filterBarExpand: '[data-test="filter-bar__expand-button"]',
+  filterBarExpand: ':is([data-test="filter-bar__expand-button"], .collapse-icon)',
   /** The open dropdown of a select filter (antd renders it apart from the control). */
   openSelectDropdown: '.ant-select-dropdown:not(.ant-select-dropdown-hidden)',
 } as const;

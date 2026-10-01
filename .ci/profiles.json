@@ -83,6 +83,7 @@
       "remove": []
     },
     "releaseCapabilities": {
+      "main": ["analytics-staff-video-counts"],
       "verawood": [
         "analytics-in-context-cards"
       ]

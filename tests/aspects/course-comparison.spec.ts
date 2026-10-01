@@ -137,7 +137,8 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
 
   test(
     "the course's video count follows its published videos",
-    { annotation: testId('TC-00554') },
+    // ASPECTS-011: on Superset 6.0.0 the video-count charts fail under row-level security.
+    { tag: '@analytics-staff-video-counts', annotation: testId('TC-00554') },
     async ({ page, config, analyticsCourse, supersetColleague }) => {
       const { courseKey, displayName, run } = analyticsCourse;
       const staff = await supersetColleague({ courseKey, role: 'staff' });
