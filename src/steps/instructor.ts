@@ -1,8 +1,11 @@
 import type { APIRequestContext } from '@playwright/test';
 
+import type { ProgressPage } from '../pages/lms/course-home/progress.page';
+import { submitProblem } from './gating';
 import { pollUntil, type PollOutcome } from './poll';
 import { TIMEOUTS, type AppConfig } from '../config';
 import {
+  ApiError,
   fetchCourseProgress,
   fetchInstructorCourse,
   fetchInstructorTask,
@@ -11,6 +14,7 @@ import {
   listInstructorTasks,
   listReports,
   regenerateCertificates,
+  type AuthoredProblem,
   type CourseProgress,
   type InstructorTask,
   type LearnerListResult,
@@ -212,5 +216,127 @@ export async function mintCertificateByException(
     certStatus: progress.last.certificateStatus,
     downloadable: progress.satisfied,
     elapsedMs: Date.now() - started,
+  };
+}
+
+/**
+ * Makes a certificate-course learner pass: answers the course's one graded
+ * problem correctly, then waits until the progress API reports a passing grade.
+ * Returns the last progress reading.
+ */
+export async function passCertificateCourse(
+  learner: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  problem: AuthoredProblem,
+): Promise<PollOutcome<CourseProgress>> {
+  await submitProblem(learner, config, courseKey, problem, problem.correct);
+  return waitForLearnerProgress(learner, config, courseKey, (p) => p.courseGrade.isPassing);
+}
+
+/**
+ * Takes a certificate-course learner to an issued certificate the way a
+ * learner does: passes the course, requests the certificate from the Progress
+ * tab, and waits until the progress API reports it downloadable. Returns the
+ * last progress reading — its `certificateWebViewUrl` is the certificate — or,
+ * when the learner never reached a passing grade, the last grade reading.
+ */
+export async function earnCertificate(
+  learner: APIRequestContext,
+  progressPage: ProgressPage,
+  config: AppConfig,
+  courseKey: string,
+  problem: AuthoredProblem,
+): Promise<PollOutcome<CourseProgress>> {
+  const passed = await passCertificateCourse(learner, config, courseKey, problem);
+  // A learner who is not passing is offered no certificate to request.
+  if (!passed.satisfied) return passed;
+  await progressPage.goto(courseKey);
+  const requested = await progressPage.requestCertificate();
+  if (!requested.ok()) {
+    throw new ApiError(`Requesting the certificate failed (HTTP ${requested.status()}).`, {
+      status: requested.status(),
+      url: requested.url(),
+      body: await requested.text(),
+    });
+  }
+  return waitForLearnerProgress(
+    learner,
+    config,
+    courseKey,
+    (p) => p.certificateStatus === 'downloadable' && p.certificateWebViewUrl !== undefined,
+  );
+}
+
+/** Who reads the instructor dashboard, by course role. */
+export type InstructorViewer = 'instructor' | 'staff' | 'limitedStaff' | 'staffDiscussionAdmin';
+
+/** What a course offers that adds dashboard tabs, as the test set it up. */
+export interface InstructorTabConditions {
+  /** The viewer holds `data_researcher` on the course (Data Downloads). */
+  readonly dataResearcher: boolean;
+  /** The course holds an ORA (Open Responses). */
+  readonly hasOra: boolean;
+  /** Course e-mail is on for the course (Bulk Email, in the communications MFE). */
+  readonly emailEnabled: boolean;
+  /** Special exams are on for the platform and the course (Special Exams). */
+  readonly specialExams: boolean;
+  /** Aspects is installed (its Reports tab, `aspects`). */
+  readonly aspects: boolean;
+}
+
+/** The tab ids a viewer must be offered, and those the platform may add. */
+export interface ExpectedInstructorTabs {
+  readonly required: readonly string[];
+  /**
+   * Tabs no API or capability predicts for this viewer, each with its reason;
+   * offered or not, neither is a failure. Any tab outside `required` and these
+   * is.
+   */
+  readonly tolerated: Readonly<Record<string, string>>;
+}
+
+/**
+ * The instructor dashboard's tab rules (`lms/djangoapps/instructor/views/
+ * serializers_v2.py`, `get_tabs`, identical on `verawood` apart from settings
+ * reads), restated for one viewer and the conditions the test set up — what
+ * TC-00514 compares the dashboard's `tabs[]` and nav with:
+ *
+ * - course staff (limited staff included): Course Info, Enrollments, Grading,
+ *   Cohorts; Open Responses with an ORA, Bulk Email with course e-mail on,
+ *   Special Exams where they are enabled;
+ * - Course Team: the instructor, or staff who are also Discussion Admins;
+ * - Date Extensions: the instructor; Data Downloads: a data researcher;
+ * - Certificates: global staff, or the instructor where the platform setting
+ *   `ENABLE_CERTIFICATES_INSTRUCTOR_MANAGE` is on — which nothing exposes, so
+ *   it is tolerated for the instructor and never offered to staff;
+ * - plugin tabs: Aspects' Reports (`aspects`) where it is installed.
+ */
+export function expectedInstructorTabs(
+  viewer: InstructorViewer,
+  conditions: InstructorTabConditions,
+): ExpectedInstructorTabs {
+  const instructor = viewer === 'instructor';
+  const tabs: [string, boolean][] = [
+    ['course_info', true],
+    ['enrollments', true],
+    ['course_team', instructor || viewer === 'staffDiscussionAdmin'],
+    ['grading', true],
+    ['date_extensions', instructor],
+    ['data_downloads', conditions.dataResearcher],
+    ['open_responses', conditions.hasOra],
+    ['cohorts', true],
+    ['bulk_email', conditions.emailEnabled],
+    ['special_exams', conditions.specialExams],
+    ['aspects', conditions.aspects],
+  ];
+  return {
+    required: tabs.filter(([, offered]) => offered).map(([id]) => id),
+    tolerated: instructor
+      ? {
+          certificates:
+            'offered to a course instructor only where ENABLE_CERTIFICATES_INSTRUCTOR_MANAGE is on',
+        }
+      : {},
   };
 }

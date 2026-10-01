@@ -12,6 +12,12 @@ const PAGINATION_ARROWS = '[data-testid="table-footer"] nav.pagination-minimal u
  * `src/config/selectors/README.md`.
  */
 export const CATALOG_SELECTORS = {
+  /**
+   * The catalog home's banner — the landing page's "Welcome to {site}" hero,
+   * which holds the home search field. What a landing-page load waits on.
+   */
+  homeBanner: '[data-testid="home-banner"]',
+
   /** A single course result. Its `href` carries the course key and `/about`. */
   courseCard: '[data-testid="course-card"]',
 
@@ -71,6 +77,24 @@ export const CATALOG_SELECTORS = {
  * so the response is the only signal there is.
  */
 export const CATALOG_SEARCH_PATH = '/search/unstable/v0/course_list_search/';
+
+/**
+ * The checkboxes of one "Refine your search" filter — the sheet's "Modes",
+ * "Org" and "Language" headings. Paragon's `CheckboxFilter` labels each group
+ * by an element whose id carries the facet key (`checkbox-filter-label-header_org-9`);
+ * the heading itself and each option's `aria-label` are localized, while each
+ * checkbox's `value` is the facet value the search is filtered by.
+ */
+/** The catalog's refine filters, by the facet key the search is filtered on. */
+export type CatalogFacet = 'org' | 'modes' | 'language';
+
+export function catalogFilterGroup(facet: CatalogFacet): string {
+  return `[role="group"][aria-labelledby^="checkbox-filter-label-header_${facet}"]`;
+}
+
+export function catalogFilterOptions(facet: CatalogFacet): string {
+  return `${catalogFilterGroup(facet)} input[type="checkbox"]`;
+}
 
 /** The result card for one specific course, anchored by its key. */
 export function catalogCourseCard(courseKey: string): string {

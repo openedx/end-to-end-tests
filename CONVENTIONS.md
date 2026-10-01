@@ -172,6 +172,18 @@ these rules.
   worker), so a learner read taken right after a publish can precede it. Poll under
   `TIMEOUTS.contentPublish`, and give a round-trip spec the `TIMEOUTS.contentTest`
   describe-level budget so the wait cannot trip the per-test timeout.
+- **Advanced components (legacy XBlocks).** Eight modules are offered by the
+  Advanced tile with no Advanced Settings entry (`DEFAULT_ADVANCED_MODULES`), so
+  "listing it made it appear" can only be shown for the opt-in ones; a default
+  module's row shows listing it is accepted and the tile still offers it. The
+  tile's radios carry the category as their `value`
+  (`StudioUnitPage.addAdvancedComponent`). A block's learner result is read from
+  its own LMS handler (`src/api/xblock-handler.ts`: poll and survey
+  `get_results`, the word cloud's state, a conditional's content), never its
+  copy. Blocks that point at third parties (Google calendar and documents, LTI,
+  the recommender's CDN scripts) are configured and checked by attribute, never
+  waited on. `advanced_modules` is course-level, so the matrix has a worker
+  course of its own (`advancedModulesCourse`) and each case only adds to it.
 - **Copy/paste is a server-side clipboard.** The content-staging API
   (`src/api/clipboard.ts`) holds the clipboard per user with no browser grant, so
   a copy can be an API call and the paste the UI action under test.
@@ -219,6 +231,37 @@ tabId)` is the "this tab is offered" assertion.
   `certificateLearner` enrolled `honor` on its first enrollment (an existing
   audit enrollment is not moved). Specs are tagged `@certificates` and take
   `certificateGenerationEnabled`, which skips without an admin account.
+- **The auto-generation switch is shared state, so it is locked.**
+  `certificates.auto_certificate_generation` is a platform-wide waffle switch:
+  turned on, a passing learner's certificate is issued without a request, which
+  changes every other certificate case's premise. Every `certificateLearner`
+  holds the `certificate-auto-generation` lock shared, and `certificateSwitch`
+  holds it exclusively, starts from off, turns it on only when the test asks
+  and turns it off afterwards (`src/fixtures/named-lock.ts`). Never flip the
+  switch outside that fixture. The ORA team-submissions switch is held the
+  same way (`oraTeamSwitch`, its own lock); both share one `holdSwitch`.
+- **The tab set is the platform's rule table, not the sheet's list.** Which
+  tabs a role is offered follows `serializers_v2.py` (course staff do not get
+  Course Team unless they are Discussion Admins; Certificates, Special Exams and
+  Reports are deployment options). `expectedInstructorTabs` restates those
+  rules for one viewer and the preconditions the test itself set up (an ORA,
+  course e-mail, a Data Researcher grant, declared capabilities); a tab no API
+  predicts is listed as tolerated with its reason, never matched by a
+  wildcard. The dashboard's `tabs[]` and the nav's links are read together.
+- **Role readings come from a cast.** `instructorCast(part)` is one plain
+  account per role per worker, enrolled nowhere (a course-team grant enrolls
+  it), granted its one role on the course the test reads. Keep casts free of
+  worker-course dependencies: a cast that built `contentCourse` mid-worker made
+  the author's next Studio write redirect to sign-in.
+- **A 200 does not mean every row took.** The team, allowance and cohort writes
+  report a per-identifier `success` / `error` inside a 200, so a spec reads the
+  list back (`listCourseTeam`, `listAllowances`, `listCohortsV1`) rather than
+  trusting the status or a toast.
+- **Course e-mail is sent by course staff with their own LMS session.** The
+  communications MFE reads session-authed views the worker author's JWT-only
+  browser cannot, so the sender is a mailbox learner granted `staff`, which also
+  makes it the "staff" recipient. Target separation uses the sentinel rule: the
+  learner's copy proves the send ran before the staff inbox is read, once.
 
 ## Library round trips
 
@@ -400,6 +443,57 @@ grades. A few rules keep them honest.
   links to (`linkingTo`), never by its copy. Only a learner's first immediate
   mail is sent at once, so each case waits for exactly one mail per learner.
 
+## Site chrome and learner pages
+
+The header, footer, landing page and the learner's own pages (dashboard,
+profile, course home, courseware tools) are covered from `tests/lms/chrome/`,
+`tests/lms/catalog/`, `tests/lms/course-home/`, `tests/lms/courseware/`,
+`tests/lms/dashboard/`, `tests/lms/profile/`, `tests/lms/teams/` and
+`tests/lms/i18n/`. A few rules keep this coverage portable while the
+frontend-base conversion moves apps between frontends.
+
+- **Three chrome generations, one set of blocks.** A page's header and footer
+  come from the frontend-base shell, the legacy `frontend-component-header`, or
+  its learning header, and which apps use which is changing release by release.
+  `HeaderBlock` and `FooterBlock` read all three through union anchors
+  (`src/config/selectors/chrome.ts`), and `HeaderBlock.generation()` says which
+  one a page rendered. Nothing lists apps by generation.
+- **Configuration is the oracle for what the chrome offers.** A Help link exists
+  iff `SUPPORT_URL` is set, the catalog link iff discovery is on, Order History
+  iff `ORDER_HISTORY_URL`. `chromeCase.read()` reads the configuration from
+  where the rendered generation reads it (the app's `mfe_config`, or the shell's
+  site config), and specs compare the rendered links with it — never with a
+  sheet's list of labels, which describes one provider's theme.
+- **Known chrome defects are keyed to what rendered.** `KNOWN_CHROME_DEFECTS`
+  ties each defect to the generation, width and scenario that have it;
+  `chromeCase.expectKnownDefects` marks the test an expected failure only
+  there, so a marker lifts itself when the page moves to a frontend without the
+  defect. `@frontend-base` stays reserved for markup only the shell renders
+  (its legal line, its language menu).
+- **One viewport table.** Responsive cases take their sizes from
+  `src/config/viewports.ts`, each on one side of a breakpoint the frontends
+  switch on, and assert structure: nothing scrolls sideways, every promised
+  link is reachable (visible, or behind the menu toggle or the narrow legacy
+  header's account menu), cards fit. Logo sizing
+  compares the pages of one install with each other; there is no pixel
+  baseline (ADR-0002).
+- **Privacy is decided by someone else.** A profile or certificate visibility
+  case reads the account or certificates through a second learner
+  (`profileViewer`); the owner always sees everything. A profile stays private
+  until its account has an adult year of birth (`profileLearner` sets one).
+- **Session-only learner APIs take the learner's own context.** Bookmarks and
+  teams accept a session or Bearer token, not a JWT alone; the learner's
+  signed-in context has both. The dashboard's unenroll and the progress tab's
+  certificate request are Django form views that also need CSRF.
+- **Platform switches are scoped.** Course e-mail is turned on for the content
+  course alone (`courseEmailEnabled`: the flag with course authorization still
+  required, plus one authorization), and the certificate switch is locked (see
+  "Instructor-dashboard round trips").
+- **Read language back through the browser.** The LMS copies the language
+  cookie a request carries into `pref-lang`, so a language case reads the
+  preference on `page.request`; a separate context holding the old cookie would
+  reset it.
+
 ## Tags
 
 Domain decides the folder; everything else is a tag. Tags drive Playwright
@@ -408,15 +502,37 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 - **Stability tier:** `@smoke` (critical path), `@regression` (broader depth).
 - **Pure logic:** `@unit` (no browser/target; runs in the `unit` project).
 - **Capability:** `@discussions`, `@teams`, `@notes`, `@mfe-authn`, … —
-  gates coverage on what the installation has (see `CAPABILITIES` in
-  `.env.example`). `src/config/capabilities.ts` is the authoritative vocabulary; a
-  tag must match an entry there. A tag that names a capability is **enforced** —
+  gates coverage on what the installation has. `src/config/capabilities.ts` is
+  the authoritative vocabulary; a tag must match an entry there.
+  [`docs/capabilities.md`](docs/capabilities.md) describes each one: what it
+  means, which specs it gates, the releases known to support it, and where CI
+  turns it on. Add a new capability there too; `tests/config/capabilities-doc.spec.ts`
+  fails until you do. A tag that names a capability is **enforced** —
   the `capabilityGate` fixture in `src/fixtures/` reads each test's own tags and
   skips it where that capability is not enabled, so the tag is the whole of the
   contract — while any other tag is only a filter. Most capabilities are off until
-  declared; the `DEFAULT_ON_CAPABILITIES` (stock surfaces: `mfe-authn`,
-  `frontend-base`, `instructor-dashboard`, `discussions` and `notifications`) are
-  on unless turned off with a `-` prefix.
+  declared; the `DEFAULT_ON_CAPABILITIES` (the stock surfaces and stock settings
+  listed in `docs/capabilities.md`) are on unless turned off with a `-` prefix.
+
+  **An installation setting a case depends on is a capability, not a probe.**
+  Where a case describes one configuration of the target (the AuthZ migration
+  mode, whether `SUPPORT_URL` is set, `ENABLE_CREATOR_GROUP`) or content a
+  default install lacks (a second organization in the catalog, an intro video),
+  tag it with that capability. Do not have a fixture skip it after probing the
+  target. The fixture that reads the setting keeps the probe as a check: it
+  refuses a test without the tag (`requireCapabilityTag`) and fails one whose
+  target contradicts the declaration (`capabilityContradicted`). Where a case
+  needs the setting off, the two halves are a mutually exclusive pair whose
+  stock half is on by default. Declaring the other half replaces it. Tags, not
+  probes, then decide what a run covers, which is what lets a CI profile
+  (`.ci/profiles.json`) select exactly the cases its configuration enables.
+
+  Every remaining conditional skip carries a `// skip-kind:` label on the line
+  above: `capability`, `suite-config` (the suite's own configuration lacks an
+  admin account, an account, or `COURSE_KEY`) or `content` (the configured
+  course lacks content of the needed shape). There is deliberately no label for
+  "the target is configured differently": that case gets a capability instead.
+  `tests/conventions/skip-kinds.spec.ts` enforces the labels.
 
   `@frontend-base` marks coverage that only makes sense in the `frontend-base`
   shell (`main` onward): its chrome's a11y debt, markup only it renders. It is
@@ -435,7 +551,8 @@ project selection (`--grep`) and make failures legible to non-technical readers.
   declares a capability it does not have fails rather than passing vacuously.
 
 - **MFE / subsystem:** `@mfe-account`, `@mfe-learning`, `@mfe-authoring`,
-  `@mfe-instructor-dashboard`, … —
+  `@mfe-instructor-dashboard`, `@mfe-catalog`, `@mfe-learner-dashboard`,
+  `@mfe-profile`, … —
   filters the suite to one micro-frontend. `@mfe-authn` is also a capability, so
   apply it only to coverage that genuinely needs the authn MFE — not to specs
   that drive sign-in through the account backend's flows.
@@ -490,8 +607,8 @@ is described in `src/reporting/README.md`.
 
 Every run also writes `test-results/timings-tests.csv` (one row per test attempt)
 and `test-results/timings-steps.csv` (one row per recorded step), each row stamped
-with the run's start time and target URL for import into a spreadsheet or
-database and comparison across runs. Nothing to do in a spec: Playwright records
+with the run's start time, target URL and CI shard (empty locally) for import into
+a spreadsheet or database and comparison across runs. Nothing to do in a spec: Playwright records
 the durations; the reporter reshapes them. Wrapping a long flow in
 `test.step('…')` gives it a named row in the steps file.
 

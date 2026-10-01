@@ -22,6 +22,18 @@ Rules:
   `capabilityGate` fixture is `auto` and reads each test's own tags.
 - Skip for _optional_ coverage; fail for _misconfiguration_. `courseKey` skips
   when unset but fails when the target lacks the course.
+- **An installation setting is a capability, not a probe** (see
+  [`docs/capabilities.md`](../../docs/capabilities.md)). Where a case depends
+  on how the target is configured, or on content a default install lacks (the
+  AuthZ migration mode, `SUPPORT_URL`, `ENABLE_CREATOR_GROUP`, a multi-org
+  catalog, an intro video), the test carries that capability's tag and the gate
+  decides. The stock half of each setting is on by default, so an undeclared
+  target runs the stock case. The fixture that reads the setting keeps its probe
+  as a check: it refuses an untagged test (`requireCapabilityTag`) and fails when
+  the target contradicts the declaration (`capabilityContradicted`). A CI profile can then
+  select exactly the cases its configuration enables. Every remaining skip is
+  labelled with its kind (`// skip-kind:`), which `tests/conventions/skip-kinds.spec.ts`
+  checks.
 - Per-test identity where state is mutated: `courseLearner` provisions a fresh
   learner and installs its session over the project's shared storage state, so
   enrollment and completion tests are parallel-safe.
@@ -85,6 +97,9 @@ Rules:
   `certificateLearner` enrolls a fresh learner `honor` on its first enrollment;
   `certificateGenerationEnabled` flips the platform-wide switch through a fresh
   admin `loginSession` under the admin lock, and skips without an admin account.
+  A test on another course takes `platformCertificates` and calls
+  `ensureEnabled(courseKey)` itself. Never rely on an earlier test having
+  flipped the switch: each CI shard is a fresh installation.
 - **The library admin is the author, and libraries are seeded per test.**
   `seededLibrary` (a published text / problem / video / PDF block, a unit, a
   subsection, a section and a collection) and the empty `authoringLibrary` are
@@ -114,4 +129,54 @@ Rules:
   discussions MFE loaded before that offers no topic and cannot post.
   `forumUnit` adds a published unit and waits for its in-context topic;
   `oraUnit` adds a unit with a staff-graded ORA (`@ora`).
+- **Effort estimates need a course with no video.** The platform gives up on
+  estimating a whole course when any video lacks a duration, and the suite's
+  authored videos have none, so `videoFreeCourse` is a third worker course —
+  built lazily, only by workers that run a case asking for it — that never
+  holds a video. `videoFreeSection` builds on the author's browser session and
+  `videoFreeCourseLearner` reads it.
+- **The advanced-component matrix has a course of its own.**
+  `advancedModulesCourse` is another lazy worker course whose
+  `advanced_modules` only the matrix writes, and each case only adds its module
+  to it, so "not offered before, offered after" holds and no other spec's
+  picker changes. `advancedModulesLearnerLater` is provisioned after the case's
+  Studio writes.
+- **A profile needs an adult learner, and privacy needs a second one.**
+  `profileLearner` is `courseLearner` with an adult year of birth (without one
+  the platform keeps a profile private), and `profileViewer` is another fresh
+  learner on its own request context, whose reading of the account decides a
+  visibility case.
+- **Course e-mail is switched on for one course.** `courseEmailEnabled` turns on
+  the platform's `BulkEmailFlag` with course authorization still required and
+  authorizes the content course alone (Django admin, under the admin lock), so
+  no other course gains e-mail. The row is left in place: configuration rows
+  are history, and the content course is the suite's own. `courseEmailFor`
+  does the same for one course of the test's own (an `authoringCourse`).
+- **The certificate auto-generation switch is locked.** Every
+  `certificateLearner` holds the `certificate-auto-generation` lock shared;
+  `certificateSwitch` holds it exclusively, starts from the switch off, turns it
+  on only when the test asks, and turns it off afterwards.
+  `certificateAutoGeneration` adds a learner of its own, and
+  `certificateAvailableDateField` turns the switch on for Studio's certificate
+  date fields. `oraTeamSwitch` holds the ORA team-submissions switch the same
+  way, under its own lock; both are built on `holdSwitch`.
+- **Instructor-dashboard roles come from a cast.** `instructorCast(part)` is one
+  plain account per part per worker (`staff`, `limitedStaff`,
+  `discussionAdmin`, `teamMember`), enrolled nowhere and granted its role by
+  the test that reads it. It depends on no worker course on purpose: building
+  `contentCourse` mid-worker for it broke the author's next Studio write.
+- **Special exams need a timed exam.** `timedExam` turns timed exams on in an
+  `authoringCourse`, publishes one time-limited subsection and waits for the
+  CMS worker to register it (`special-exams` capability).
+- **A visitor's About page.** `signedOutVisitor.aboutPage` reads the catalog's
+  About page on a signed-out context, for what an author published.
+- **Teams live in the content course.** `teamsCourse` writes one open topic
+  (`e2e-teams`) into its `teams_configuration` when missing; learners create
+  teams in it, and teams accumulate, since a learner cannot delete one.
+- **Platform-wide state one case changes and others rely on takes a named
+  lock.** `named-lock.ts` is a cross-worker reader/writer lock with a
+  heartbeat (`withSharedLock` / `withExclusiveLock`): the cases that need the
+  state left alone hold it shared, the case that changes it holds it
+  exclusive. It is always taken _outside_ `withAdminSession`, which stays the
+  inner lock around the admin write itself.
 - This is the only layer that reaches across all the others.

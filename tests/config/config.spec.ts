@@ -46,10 +46,13 @@ test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
     expect(config.allowCrossSiteOrigins).toBe(false);
     // Default-on capabilities (stock surfaces) need no declaration.
     expect([...config.capabilities].sort()).toEqual([
+      'authz-manual-migration',
+      'course-creator-group',
       'discussions',
       'frontend-base',
       'instructor-dashboard',
       'mfe-authn',
+      'no-support-url',
       'notifications',
     ]);
   });
@@ -187,10 +190,13 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   test('parses a declared capability list', () => {
     const config = loadConfig(validEnv({ CAPABILITIES: 'teams, notes' }));
     expect([...config.capabilities].sort()).toEqual([
+      'authz-manual-migration',
+      'course-creator-group',
       'discussions',
       'frontend-base',
       'instructor-dashboard',
       'mfe-authn',
+      'no-support-url',
       'notes',
       'notifications',
       'teams',
@@ -201,9 +207,12 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
     const config = loadConfig(validEnv({ CAPABILITIES: 'teams,-mfe-authn' }));
 
     expect([...config.capabilities].sort()).toEqual([
+      'authz-manual-migration',
+      'course-creator-group',
       'discussions',
       'frontend-base',
       'instructor-dashboard',
+      'no-support-url',
       'notifications',
       'teams',
     ]);
@@ -213,9 +222,12 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
     const config = loadConfig(validEnv({ CAPABILITIES: '-frontend-base' }));
 
     expect([...config.capabilities].sort()).toEqual([
+      'authz-manual-migration',
+      'course-creator-group',
       'discussions',
       'instructor-dashboard',
       'mfe-authn',
+      'no-support-url',
       'notifications',
     ]);
   });
@@ -245,7 +257,35 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
   });
 
   test('rejects mutually-exclusive capabilities declared together', () => {
-    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'badges,credly-badges' })));
+    const issues = issuesFrom(() =>
+      loadConfig(
+        validEnv({
+          CAPABILITIES: 'courseware-navigation-sidebar,courseware-legacy-navigation',
+        }),
+      ),
+    );
+    expect(issues.join('\n')).toContain('mutually-exclusive');
+  });
+
+  test('enables the stock half of an installation-setting pair by default', () => {
+    const config = loadConfig(validEnv({}));
+    expect(config.capabilities.has('no-support-url')).toBe(true);
+    expect(config.capabilities.has('authz-manual-migration')).toBe(true);
+    expect(config.capabilities.has('course-creator-group')).toBe(true);
+  });
+
+  test('lets the other half of a pair replace its default-on partner', () => {
+    const config = loadConfig(validEnv({ CAPABILITIES: 'support-url,authz-auto-migration' }));
+    expect(config.capabilities.has('support-url')).toBe(true);
+    expect(config.capabilities.has('no-support-url')).toBe(false);
+    expect(config.capabilities.has('authz-auto-migration')).toBe(true);
+    expect(config.capabilities.has('authz-manual-migration')).toBe(false);
+  });
+
+  test('still rejects both halves of a pair declared together', () => {
+    const issues = issuesFrom(() =>
+      loadConfig(validEnv({ CAPABILITIES: 'support-url,no-support-url' })),
+    );
     expect(issues.join('\n')).toContain('mutually-exclusive');
   });
 

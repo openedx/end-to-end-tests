@@ -356,3 +356,43 @@ export async function fetchCourseNavigation(
   }
   return (await response.json()) as CourseNavigation;
 }
+
+/** A section of the navigation model with its subsections and their units, in order. */
+export interface NavigationSection {
+  readonly id: string;
+  readonly name: string;
+  readonly subsections: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly unitIds: readonly string[];
+  }[];
+}
+
+/**
+ * The navigation model folded into sections → subsections → units, in the
+ * order the course defines, leaving out blocks hidden from the table of
+ * contents — the shape the in-course sidebar renders.
+ */
+export function navigationSections(navigation: CourseNavigation): readonly NavigationSection[] {
+  const blocks = navigation.blocks;
+  const visible = (id: string) => {
+    const block = blocks[id];
+    return block !== undefined && !block.hide_from_toc;
+  };
+  const root = Object.values(blocks).find((block) => block.type === 'course');
+  return (root?.children ?? []).filter(visible).map((chapterId) => {
+    const chapter = blocks[chapterId]!;
+    return {
+      id: chapterId,
+      name: chapter.display_name,
+      subsections: chapter.children.filter(visible).map((sequentialId) => {
+        const sequential = blocks[sequentialId]!;
+        return {
+          id: sequentialId,
+          name: sequential.display_name,
+          unitIds: sequential.children.filter(visible),
+        };
+      }),
+    };
+  });
+}

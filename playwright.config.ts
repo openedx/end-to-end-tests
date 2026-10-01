@@ -1,7 +1,8 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
 
 import { authStateFile } from './src/auth';
-import { getConfigIfValid, resolveWorkerCount, TIMEOUTS } from './src/config';
+import { ciResultLabels, getConfigIfValid, resolveWorkerCount, TIMEOUTS } from './src/config';
+import { SUITE_REPORTERS } from './src/reporting/reporters';
 
 const isCI = Boolean(process.env.CI);
 
@@ -46,13 +47,18 @@ export default defineConfig({
   // the results-sheet publisher); the a11y and timing reporters likewise write
   // `a11y-violations.json` and `timings-*.csv` there.
   reporter: [
-    ['list'],
-    ['html', { open: 'never' }],
-    ['./src/reporting/coverage-reporter.ts'],
-    ['./src/reporting/btr-run-reporter.ts'],
-    ['./src/reporting/a11y-reporter.ts'],
-    ['./src/reporting/timing-reporter.ts'],
+    ...SUITE_REPORTERS,
+    // CI also writes a blob report, which `playwright merge-reports`
+    // (`merge.config.ts`) combines across shards into the files above.
+    ...(isCI ? ([['blob']] satisfies ReporterDescription[]) : []),
   ],
+
+  // Labels every result with the CI shard that ran it (its run-id suffix, e.g.
+  // `d2`) and the CI profile (`.ci/profiles.json`). Projects inherit config
+  // metadata, and a merged report keeps each blob's projects, with their
+  // metadata, apart, so the reporters can attribute results of a merged report
+  // (`src/reporting/project.ts`). Both are empty outside CI.
+  metadata: ciResultLabels(),
 
   use: {
     baseURL: resolveBaseURL(),

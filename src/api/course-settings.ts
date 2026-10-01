@@ -233,3 +233,56 @@ export async function updateAdvancedSettings(
   );
   return studioJson<AdvancedSettings>(response, `Updating Advanced Settings of ${courseKey}`);
 }
+
+/** One team set ("topic") in a course's `teams_configuration`. */
+export interface TeamsTopic {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly type: 'open' | 'public_managed' | 'private_managed' | 'open_managed';
+}
+
+/**
+ * Makes sure a course has teams on with `topic` among its team sets, through
+ * Advanced Settings' `teams_configuration`. Reads first and writes only when the
+ * topic is missing, so a re-seed is a no-op. Returns whether it wrote.
+ */
+export async function ensureTeamsTopic(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  topic: TeamsTopic,
+): Promise<boolean> {
+  const settings = await fetchAdvancedSettings(request, config, courseKey);
+  const current = settings.teams_configuration?.value as
+    | { readonly enabled?: boolean; readonly team_sets?: readonly { readonly id?: string }[] }
+    | undefined;
+  if (current?.enabled && current.team_sets?.some((set) => set.id === topic.id)) return false;
+  await updateAdvancedSettings(request, config, courseKey, {
+    teams_configuration: { enabled: true, team_sets: [topic] },
+  });
+  return true;
+}
+
+/**
+ * Adds XBlock types to a course's Advanced Settings `advanced_modules` — what an
+ * author types into the "Advanced Module List" — keeping the ones already
+ * listed. Returns the list the platform stored.
+ */
+export async function addAdvancedModules(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  modules: readonly string[],
+): Promise<readonly string[]> {
+  const listed = moduleList(await fetchAdvancedSettings(request, config, courseKey));
+  const stored = await updateAdvancedSettings(request, config, courseKey, {
+    advanced_modules: [...new Set([...listed, ...modules])],
+  });
+  return moduleList(stored);
+}
+
+function moduleList(settings: AdvancedSettings): readonly string[] {
+  const value = settings.advanced_modules?.value;
+  return Array.isArray(value) ? value.filter((m): m is string => typeof m === 'string') : [];
+}

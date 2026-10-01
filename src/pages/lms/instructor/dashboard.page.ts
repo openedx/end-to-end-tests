@@ -58,6 +58,18 @@ export class InstructorDashboardPage {
     await this.tabNav.waitFor();
   }
 
+  /**
+   * Every tab link the nav renders, as its `href` — a tab in another MFE (the
+   * communications MFE's Bulk Email) is an absolute URL, the dashboard's own
+   * tabs a path.
+   */
+  async navTabHrefs(): Promise<readonly string[]> {
+    await this.tabNav.locator('a.nav-link').first().waitFor();
+    return this.tabNav
+      .locator('a.nav-link')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+  }
+
   /** The nav link for a tab — present only when the user may see that tab. */
   tabLink(courseKey: string, tabId: InstructorTabId): Locator {
     return this.page.locator(instructorTabLink(courseKey, tabId));

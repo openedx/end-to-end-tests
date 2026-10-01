@@ -1,9 +1,12 @@
 name: Run E2E suite
 description: >
   Install dependencies, configure the suite for a target Open edX installation,
-  run the Playwright test suite, and upload the standard set of reports. Shared
-  by every workflow that runs the suite against a target — regardless of how
-  that target was provisioned (ephemeral Tutor, externally supplied URL, etc.).
+  run the Playwright test suite (or one shard of it), and upload the run's blob
+  report. Shared by every workflow that runs the suite against a target —
+  regardless of how that target was provisioned (ephemeral Tutor, externally
+  supplied URL, etc.). The `report-suite` action turns one or more blob reports
+  into the HTML report, the suite's report files, the job summary and the BTR
+  sheet publish.
 
 inputs:
   lms_base_url:
@@ -72,29 +75,25 @@ inputs:
     description: 'Feature/tags to exclude, space-separated (e.g. "@unit"). Mapped to --grep-invert. Empty = exclude nothing.'
     required: false
     default: ''
+  shard:
+    description: 'Playwright shard to run, as "<index>/<total>" (e.g. 2/4). Empty = the whole selection.'
+    required: false
+    default: ''
+  select_grep:
+    description: 'The profile''s test selection, as a --grep regex (a select: delta profile). Combined with `features` so a test must match both. Empty = no selection.'
+    required: false
+    default: ''
+  profile:
+    description: 'CI_PROFILE: the CI profile (a key of .ci/profiles.json) this job runs, recorded on every result so a merged report can tell profiles apart. Empty = none.'
+    required: false
+    default: ''
+  run_id_suffix:
+    description: 'RUN_ID_SUFFIX: up to three lowercase letters/digits appended to the run id, unique per shard of a run (e.g. d2).'
+    required: false
+    default: ''
   artifact_suffix:
-    description: 'Suffix distinguishing this run''s uploaded artifacts from other callers (e.g. release or environment name).'
+    description: 'Suffix distinguishing this run''s blob-report artifact from other callers and shards (e.g. verawood-default-2).'
     required: true
-  btr_release:
-    description: 'Open edX release the target runs (main, verawood, …). Recorded in the BTR run report; required when btr_sheet_url is set.'
-    required: false
-    default: ''
-  btr_test_ref:
-    description: 'Git ref of this repo that was checked out, when it differs from the workflow''s branch. Recorded in the BTR run report.'
-    required: false
-    default: ''
-  btr_sheet_url:
-    description: 'Google Sheets URL of the per-release BTR results spreadsheet. Empty = do not publish.'
-    required: false
-    default: ''
-  btr_update_latest:
-    description: 'Whether this run may overwrite the sheet''s "Latest" tab (true for an unfiltered run of the default branch).'
-    required: false
-    default: 'true'
-  btr_environment:
-    description: 'GitHub Environment name for external-target runs; shown as the sheet''s Target and in the run tab title.'
-    required: false
-    default: ''
 
 runs:
   using: composite
@@ -189,8 +188,9 @@ runs:
     # scheme is fully transparent for arbitrary secret bytes), so a password
     # containing "#" would be silently truncated. Passing them as real
     # process env vars below avoids any file-parsing/escaping concerns.
-    # BTR_RELEASE / BTR_TEST_REF feed the btr-run reporter's run metadata
-    # (src/reporting/btr-run-reporter.ts); DOMAINS doubles as its path filter.
+    # DOMAINS doubles as the btr-run reporter's path filter. The blob report
+    # gets a name unique to this shard, so the blobs of every shard can be
+    # downloaded into one directory for `report-suite` to merge.
     - name: Run tests
       shell: bash
       env:
@@ -201,8 +201,11 @@ runs:
         ADMIN_PASSWORD: ${{ inputs.admin_password }}
         # A secret, so a process env var rather than a .env line (see above).
         OPENINBOX_API_KEY: ${{ inputs.openinbox_api_key }}
-        BTR_RELEASE: ${{ inputs.btr_release }}
-        BTR_TEST_REF: ${{ inputs.btr_test_ref }}
+        SHARD: ${{ inputs.shard }}
+        SELECT_GREP: ${{ inputs.select_grep }}
+        RUN_ID_SUFFIX: ${{ inputs.run_id_suffix }}
+        CI_PROFILE: ${{ inputs.profile }}
+        PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.artifact_suffix }}.zip
       run: |
         set -euo pipefail
         args=()
@@ -213,6 +216,15 @@ runs:
         if [ -n "${FEATURES// /}" ]; then
           grep_expr="$(echo "$FEATURES" | xargs | tr ' ' '|')"
         fi
+        # A profile's selection and the features filter must both match: the
+        # two lookaheads express that as the one --grep Playwright takes.
+        if [ -n "$SELECT_GREP" ]; then
+          if [ -n "$grep_expr" ]; then
+            grep_expr="^(?=.*(?:${SELECT_GREP}))(?=.*(?:${grep_expr}))"
+          else
+            grep_expr="$SELECT_GREP"
+          fi
+        fi
         grep_invert_expr=""
         if [ -n "${EXCLUDE_FEATURES// /}" ]; then
           grep_invert_expr="$(echo "$EXCLUDE_FEATURES" | xargs | tr ' ' '|')"
@@ -221,66 +233,18 @@ runs:
         if [ ${#args[@]} -gt 0 ]; then cmd+=("${args[@]}"); fi
         if [ -n "$grep_expr" ]; then cmd+=(--grep "$grep_expr"); fi
         if [ -n "$grep_invert_expr" ]; then cmd+=(--grep-invert "$grep_invert_expr"); fi
+        if [ -n "$SHARD" ]; then cmd+=(--shard "$SHARD"); fi
         echo "Running: ${cmd[*]}"
         "${cmd[@]}"
 
-    - name: Suite reports to job summary
-      if: ${{ !cancelled() }}
-      shell: bash
-      run: node scripts/job-summary.mjs
-
-    # Opt-in: only when the caller resolved a sheet for this release (see the
-    # "Resolve BTR results sheet" step in the workflows). Its failure is visible
-    # on this step alone; the test outcome above is unaffected. A failed publish
-    # can be redone from the suite-reports artifact's btr-run.json.
-    #
-    # Credentials are never an input: the publisher reads BTR_SHEET_CREDENTIALS
-    # from the environment, which the calling workflow sets from the repository
-    # or Environment secret of that name. Unset = warn and skip the publish.
-    - name: Publish BTR results to Google Sheet
-      if: ${{ !cancelled() && inputs.btr_sheet_url != '' }}
-      shell: bash
-      env:
-        BTR_SHEET_URL: ${{ inputs.btr_sheet_url }}
-        BTR_RELEASE: ${{ inputs.btr_release }}
-        BTR_UPDATE_LATEST: ${{ inputs.btr_update_latest }}
-        BTR_ENVIRONMENT: ${{ inputs.btr_environment }}
-      run: |
-        set -euo pipefail
-        if [ -z "$BTR_RELEASE" ]; then
-          echo "::error::btr_sheet_url is set but btr_release is empty; the publisher needs the release to pick the sheet's identity."
-          exit 1
-        fi
-        node scripts/publish-btr-sheet.mts \
-          --release "$BTR_RELEASE" \
-          --sheet "$BTR_SHEET_URL" \
-          --update-latest "${BTR_UPDATE_LATEST:-true}" \
-          --environment "$BTR_ENVIRONMENT"
-
-    - name: Upload Playwright report
+    # Everything a report needs — results, attachments (a11y scans, traces,
+    # videos, screenshots) — is in the blob; `report-suite` builds the reports
+    # from it. Short retention: the merged reports are the durable artifacts.
+    - name: Upload blob report
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
-        name: playwright-report-${{ inputs.artifact_suffix }}
-        path: |
-          playwright-report/
-          test-results/
-        retention-days: 14
-        if-no-files-found: ignore
-
-    # Upload BTR and A11y artifacts. Uploaded even when tests fail. btr-run.json
-    # is the input to the results-sheet publisher, so a failed publish can be
-    # redone from the artifact.
-    - name: Upload suite reports (a11y backlog + BTR coverage + BTR run detail + timings)
-      if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      with:
-        name: suite-reports-${{ inputs.artifact_suffix }}
-        path: |
-          test-results/a11y-violations.json
-          test-results/btr-coverage.json
-          test-results/btr-run.json
-          test-results/timings-tests.csv
-          test-results/timings-steps.csv
-        retention-days: 30
+        name: blob-report-${{ inputs.artifact_suffix }}
+        path: blob-report/
+        retention-days: 3
         if-no-files-found: warn

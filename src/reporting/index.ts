@@ -5,8 +5,10 @@ export {
   type TestIdAnnotation,
 } from './test-id';
 export {
+  acrossProfiles,
   finalAttempts,
   normalizeStatus,
+  statusSeverity,
   summarizeCoverage,
   verdictFor,
   type CoverageSummary,

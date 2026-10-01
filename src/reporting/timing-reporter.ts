@@ -4,12 +4,12 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import type {
   FullConfig,
   Reporter,
-  Suite,
   TestCase,
   TestResult,
   TestStep,
 } from '@playwright/test/reporter';
 
+import { projectOf, shardOf } from './project';
 import { testIdsFromAnnotations } from './test-id';
 import {
   flattenSteps,
@@ -40,19 +40,6 @@ export interface TimingReporterOptions {
 const DEFAULT_TESTS_FILE = 'test-results/timings-tests.csv';
 const DEFAULT_STEPS_FILE = 'test-results/timings-steps.csv';
 const DEFAULT_SLOWEST = 5;
-
-/** Finds the enclosing project's name for a test, walking up the suite tree. */
-function projectNameOf(test: TestCase): string {
-  let suite: Suite | undefined = test.parent;
-  while (suite) {
-    const project = suite.project?.();
-    if (project) {
-      return project.name;
-    }
-    suite = suite.parent;
-  }
-  return '';
-}
 
 function toStepNode(step: TestStep): StepNode {
   return {
@@ -101,14 +88,20 @@ export default class TimingReporter implements Reporter {
 
   onBegin(config: FullConfig): void {
     this.configDir = dirname(config.configFile ?? process.cwd());
-    const baseUrl = config.projects.find((p) => p.use.baseURL)?.use.baseURL ?? '';
+    // A merged report (`playwright merge-reports`) carries no project `use`, so
+    // fall back to the LMS origin the environment names, as the BTR run
+    // reporter does.
+    const baseUrl =
+      config.projects.find((p) => p.use.baseURL)?.use.baseURL ?? process.env.LMS_BASE_URL ?? '';
     this.context = { runStartedAt: new Date().toISOString(), baseUrl };
   }
 
   /** Fires once per **attempt**; every attempt is kept and distinguished by `retry`. */
   onTestEnd(test: TestCase, result: TestResult): void {
+    const project = projectOf(test);
     const identity = {
-      project: projectNameOf(test),
+      project: project?.name ?? '',
+      shard: shardOf(project),
       file: relative(this.configDir, test.location.file),
       title: test.titlePath().slice(1).join(' › '),
       retry: result.retry,

@@ -21,11 +21,17 @@ export {
 export { satisfyPrerequisiteByScore, submitProblem } from './gating';
 export {
   ensureDataResearcher,
+  earnCertificate,
+  expectedInstructorTabs,
   mintCertificateByException,
+  passCertificateCourse,
   waitForInstructorTask,
   waitForLearnerProgress,
   waitForReport,
   type CertificateMintOutcome,
+  type ExpectedInstructorTabs,
+  type InstructorTabConditions,
+  type InstructorViewer,
   type TaskWaitOutcome,
 } from './instructor';
 export {
@@ -77,3 +83,20 @@ export {
 } from './notifications';
 export { linkIn, linkingTo, waitForMail } from './mail';
 export { waitForLearnerTopic } from './discussions';
+export {
+  KNOWN_CHROME_DEFECTS,
+  anonymousHeaderExpectation,
+  chromeConfigSourceFor,
+  expectedUserMenu,
+  horizontalOverflow,
+  knownChromeDefects,
+  linkTargets,
+  partitionSiteLinks,
+  readPageChrome,
+  switchableLanguage,
+  type AnonymousHeaderExpectation,
+  type ChromeDefectContext,
+  type ChromeScenario,
+  type KnownChromeDefect,
+  type PageChrome,
+} from './chrome';

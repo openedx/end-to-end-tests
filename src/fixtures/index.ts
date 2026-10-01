@@ -25,6 +25,7 @@ import { StudioOutlineConfigureDialog } from '../pages/studio/outline-configure.
 import { StudioUnitPage } from '../pages/studio/unit.page';
 import { StudioVideoEditor } from '../pages/studio/editors/video-editor';
 import { StudioTextEditor } from '../pages/studio/editors/text-editor';
+import { StudioPdfEditor } from '../pages/studio/editors/pdf-editor';
 import { StudioAdvancedSettingsPage } from '../pages/studio/settings/advanced-settings.page';
 import { StudioCertificatesPage } from '../pages/studio/settings/certificates.page';
 import { StudioCourseTeamPage } from '../pages/studio/settings/course-team.page';
@@ -55,6 +56,11 @@ import { InstructorCourseInfoPage } from '../pages/lms/instructor/course-info.pa
 import { InstructorEnrollmentsPage } from '../pages/lms/instructor/enrollments.page';
 import { InstructorGradingPage } from '../pages/lms/instructor/grading.page';
 import { InstructorDateExtensionsPage } from '../pages/lms/instructor/date-extensions.page';
+import { InstructorCohortsPage } from '../pages/lms/instructor/cohorts.page';
+import { InstructorCourseTeamPage } from '../pages/lms/instructor/course-team.page';
+import { InstructorSpecialExamsPage } from '../pages/lms/instructor/special-exams.page';
+import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
+import { BulkEmailPage } from '../pages/lms/communications/bulk-email.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
 import {
@@ -64,9 +70,13 @@ import {
   ensureDataResearcher,
   probeMigrationMode,
   seedTaxonomy,
+  knownChromeDefects,
+  readPageChrome,
   submitProblem,
   taxonomyImportFile,
   type AuthoredLibrary,
+  type ChromeDefectContext,
+  type PageChrome,
   type MigrationMode,
   type MigrationModeProbe,
 } from '../steps';
@@ -92,7 +102,12 @@ import {
   assignRole,
   authorStaffGradedOra,
   buildSection,
+  listSpecialExams,
+  publishXBlock,
+  courseUsageKey,
+  deleteXBlock,
   fetchDiscussionCourse,
+  fetchXBlockOutline,
   grantCourseTeamRole,
   listDiscussionTopics,
   setEmailCadence,
@@ -104,6 +119,7 @@ import {
   establishStudioSession,
   fetchCourseNavigation,
   fetchSequenceMetadata,
+  ensureTeamsTopic,
   updateAdvancedSettings,
   updateCourseDetails,
   type AuthoredSection,
@@ -172,12 +188,34 @@ import {
   type LibraryCollection,
   type LibraryContainer,
   type Taxonomy,
+  type ChromeConfig,
+  ADULT_YEAR_OF_BIRTH,
+  AUTO_CERTIFICATE_GENERATION_SWITCH,
+  ORA_TEAM_SUBMISSIONS_SWITCH,
+  enableCourseEmail,
+  setWaffleSwitch,
+  updateAccount,
 } from '../api';
-import { getConfig, getRunId, missingCapabilities, TIMEOUTS, type AppConfig } from '../config';
+import {
+  getConfig,
+  getRunId,
+  missingCapabilities,
+  TIMEOUTS,
+  type AppConfig,
+  type Capability,
+} from '../config';
 import { AccountSettingsPage } from '../pages/lms/auth/account-settings.page';
 import { CatalogPage } from '../pages/lms/catalog/catalog.page';
+import { CatalogHomePage } from '../pages/lms/catalog/catalog-home.page';
+import { FooterBlock } from '../pages/lms/chrome/footer.block';
+import { HeaderBlock } from '../pages/lms/chrome/header.block';
+import { testIdsFromAnnotations } from '../reporting/test-id';
+import { withExclusiveLock, withSharedLock } from './named-lock';
 import { CourseAboutPage } from '../pages/lms/catalog/course-about.page';
 import { CourseOutlinePage } from '../pages/lms/course-home/course-outline.page';
+import { CourseToolsPage } from '../pages/lms/course-home/course-tools.page';
+import { ProfilePage } from '../pages/lms/profile/profile.page';
+import { TeamsPage } from '../pages/lms/teams/teams.page';
 import { ProgressPage } from '../pages/lms/course-home/progress.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
@@ -220,6 +258,49 @@ export interface TestFixtures {
   capabilityGate: void;
   /** Catalog MFE page object (`frontend-app-catalog`). */
   catalogPage: CatalogPage;
+  /**
+   * The catalog opened, with the organizations its refine filter offers (the
+   * `value`s of the options, in the order offered). For cases tagged
+   * `@multi-org-catalog`: fails when it offers fewer than two, where an
+   * organization filter cannot narrow the list (TC-00017). Refuses an untagged test.
+   */
+  catalogOrganizations: readonly string[];
+  /** The catalog MFE's home — the public landing page. */
+  catalogHomePage: CatalogHomePage;
+  /** The page header, whichever frontend generation renders it. */
+  siteHeader: HeaderBlock;
+  /** The page footer, whichever frontend generation renders it. */
+  siteFooter: FooterBlock;
+  /**
+   * A signed-out visitor alongside the test's own (signed-in) page: a page in a
+   * fresh browser context with its header and footer, for cases that compare
+   * the public site with a learner's view (TC-00060), or read what an author published (TC-00301). Closed after the test.
+   */
+  signedOutVisitor: {
+    readonly page: Page;
+    readonly header: HeaderBlock;
+    readonly footer: FooterBlock;
+    /** The catalog's course About page, as the visitor sees it. */
+    readonly aboutPage: CourseAboutPage;
+  };
+  /**
+   * The landing page opened for a signed-out visitor, with the generation of
+   * frontend that rendered its chrome and the configuration behind it. A chrome
+   * defect known for that generation and layout (`KNOWN_CHROME_DEFECTS`) marks
+   * the test as an expected failure here, for the cases it breaks — so specs
+   * stay free of generation checks, and a marker lifts itself when the page
+   * moves to a frontend without the defect.
+   */
+  publicChrome: PageChrome;
+  /**
+   * Chrome readings for a page the test has opened itself: which generation
+   * rendered it and the configuration behind it (`read`), the known chrome
+   * defects to expect for what the test measured (`expectKnownDefects`, which
+   * marks the test an expected failure when one applies to its cases), and the
+   * check that a Help-link case's `support-url` / `no-support-url` declaration
+   * matches the target (`requireSupportUrl`).
+   */
+  chromeCase: ChromeCase;
   /** Course About page object. */
   courseAboutPage: CourseAboutPage;
   /** Courseware unit page object (`frontend-app-learning`). */
@@ -228,6 +309,43 @@ export interface TestFixtures {
   courseOutlinePage: CourseOutlinePage;
   /** Course Progress tab page object. */
   progressPage: ProgressPage;
+  /** Learner profile page object (`frontend-app-profile`). */
+  profilePage: ProfilePage;
+  /**
+   * A fresh learner whose profile can be shared: `courseLearner` with an adult
+   * year of birth, since the platform keeps the profile of an account without
+   * one private whatever its settings say. Not enrolled in anything.
+   */
+  profileLearner: CourseLearner;
+  /**
+   * A second fresh learner, signed in on a request context of its own — the
+   * "someone else" whose reading of the profile learner's account decides a
+   * privacy case. Disposed after the test.
+   */
+  profileViewer: { readonly request: APIRequestContext; readonly username: string };
+  /**
+   * The content course with teams on and one open topic of the suite's own
+   * (`teams_configuration`, written by the author when missing), so learners
+   * can create and join teams in it. Gated by the spec's `@teams` tag.
+   */
+  teamsCourse: AuthoredCourse & { readonly topicId: string };
+  /** The learner dashboard in the admin's browser (`adminPage`), for global staff's "View as". */
+  adminDashboardPage: DashboardPage;
+  /**
+   * Turns course e-mail on for the content course only (`enableCourseEmail`,
+   * through the Django admin under the admin lock), so its learners' dashboard
+   * cards offer "Email settings". Skips without an admin account.
+   */
+  courseEmailEnabled: void;
+  /**
+   * Turns course e-mail on for one course of the test's own (a per-test
+   * `authoringCourse`), the same scoped way as {@link courseEmailEnabled}: the
+   * flag with course authorization required, plus that course's authorization.
+   * Skips without an admin account.
+   */
+  courseEmailFor: (courseKey: string) => Promise<void>;
+  /** The LMS-hosted course tool pages the course home links to (Bookmarks). */
+  courseToolsPage: CourseToolsPage;
   /** Learner dashboard page object (`frontend-app-learner-dashboard`). */
   dashboardPage: DashboardPage;
   /**
@@ -241,6 +359,13 @@ export interface TestFixtures {
   courseKey: string;
   /** The course's own identifiers (number, org, title) from the platform. */
   courseDetail: CourseDetail;
+  /**
+   * The YouTube id of the configured course's About-page intro video, for
+   * cases tagged `@course-intro-video` (the sheet's "if the course about page has
+   * a video"). Fails when the course has none, or its video is not a YouTube URL
+   * the catalog can embed. Refuses an untagged test.
+   */
+  courseIntroVideoId: string;
   /**
    * A learner of this test's own, freshly provisioned and signed in, with the
    * browser context carrying their session — **not** enrolled in anything.
@@ -335,6 +460,8 @@ export interface TestFixtures {
   studioVideoEditor: StudioVideoEditor;
   /** The text (TinyMCE) component editor page object. */
   studioTextEditor: StudioTextEditor;
+  /** The PDF component's editor (TC-00508, TC-00509). */
+  studioPdfEditor: StudioPdfEditor;
   /** Schedule & Details settings page object (authoring MFE). */
   scheduleDetailsPage: StudioScheduleDetailsPage;
   /** Grading settings page object (authoring MFE). */
@@ -352,6 +479,14 @@ export interface TestFixtures {
   instructorEnrollments: InstructorEnrollmentsPage;
   instructorGrading: InstructorGradingPage;
   instructorDateExtensions: InstructorDateExtensionsPage;
+  /** The instructor dashboard's shell (its tab nav), on the author's page. */
+  instructorDashboard: InstructorDashboardPage;
+  /** The instructor dashboard's Cohorts tab (TC-00539). */
+  instructorCohorts: InstructorCohortsPage;
+  /** The instructor dashboard's Course Team tab (TC-00520). */
+  instructorCourseTeam: InstructorCourseTeamPage;
+  /** The instructor dashboard's Special Exams tab (TC-00541). */
+  instructorSpecialExams: InstructorSpecialExamsPage;
   instructorDataDownloads: InstructorDataDownloadsPage;
   instructorCertificates: InstructorCertificatesPage;
   /**
@@ -363,6 +498,15 @@ export interface TestFixtures {
    * configured", as `courseKey` distinguishes it from "misconfigured".
    */
   certificateGenerationEnabled: void;
+  /**
+   * The platform-wide certificate switch behind {@link certificateGenerationEnabled},
+   * for a test whose course is not `certificateCourse`. `ensureEnabled(courseKey)`
+   * reads the switch through that course's instructor API as the page's user, and
+   * signs the admin in only when it is off. Nothing turns the switch off again, but
+   * a test must not count on an earlier test having turned it on: under sharding,
+   * each shard is a fresh installation. Skips without an admin account.
+   */
+  platformCertificates: PlatformCertificates;
   /**
    * Runs one piece of work on a fresh **LMS Django session** for the admin —
    * what the Django admin needs for a write, since it refuses the captured
@@ -389,18 +533,18 @@ export interface TestFixtures {
    */
   adminConsole: AdminConsoleFixture;
   /**
-   * Skips unless this target leaves AuthZ migration to an operator — the stock
-   * default, where saving a waffle override migrates nothing. The cases that
-   * describe that default take it; the ones that describe a migrating target
-   * take {@link TestFixtures.authzTarget} and read its `mode`.
+   * For the cases tagged `@authz-manual-migration` (on by default): checks that
+   * this target leaves AuthZ migration to an operator (the stock default, where
+   * saving a waffle override migrates nothing) and fails where it migrates by
+   * itself. Refuses an untagged test.
    */
   manualMigrationTarget: void;
   /**
-   * Skips unless this target migrates AuthZ roles **itself** when a waffle
-   * override is saved — the setting CI turns on
-   * (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`). The transition cases
-   * describe that path: without it there is no migration run to read and no
-   * roles move, so the coverage has no subject rather than a failure.
+   * For the cases tagged `@authz-auto-migration`: checks that
+   * this target migrates AuthZ roles **itself** when a waffle override is saved
+   * (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`, which CI turns on) and
+   * fails where it does not. The transition cases describe that path. Refuses an
+   * untagged test.
    */
   automaticMigrationTarget: void;
   /**
@@ -410,6 +554,32 @@ export interface TestFixtures {
    * for it. Own browser and request contexts, disposed at test end.
    */
   certificateLearner: RoundTripLearner;
+  /**
+   * The platform's automatic certificate generation, held exclusively: a
+   * learner of its own in `certificateCourse` (honor), with the platform-wide
+   * `certificates.auto_certificate_generation` switch **off** until the test
+   * calls `turnOn()`, and switched off again afterwards. Every `certificateLearner`
+   * case holds the same lock shared, so none of them sees the switch on. Skips
+   * without an admin account.
+   */
+  certificateAutoGeneration: {
+    readonly learner: RoundTripLearner;
+    readonly turnOn: () => Promise<void>;
+  };
+  /**
+   * The platform-wide `certificates.auto_certificate_generation` switch, held
+   * exclusively: off until the test calls `turnOn()`, and off again afterwards.
+   * Every `certificateLearner` case holds the same lock shared. Skips without
+   * an admin account.
+   */
+  certificateSwitch: { readonly turnOn: () => Promise<void> };
+  /**
+   * The platform-wide `openresponseassessment.team_submissions` switch, held
+   * exclusively the same way: off until the test calls `turnOn()`, off again
+   * afterwards. Nothing else reads it: a team assignment also needs an ORA's
+   * own `teams_enabled`. Skips without an admin account.
+   */
+  oraTeamSwitch: { readonly turnOn: () => Promise<void> };
   /**
    * The arrangement the gradebook cases start from: a published graded section
    * with a single-choice problem in the content course, a due date on its
@@ -436,10 +606,12 @@ export interface TestFixtures {
    */
   newLearner: () => Promise<StudioLearner>;
   /**
-   * Gate for the "Certificates available date" fields: skips unless the target
-   * lets Schedule & Details show them (`can_show_certificate_available_date_field`,
-   * which needs the `certificates.auto_certificate_generation` switch — off on a
-   * default install). What TC-00297 needs before it can drive the fields.
+   * The "Certificates available date" fields, which Schedule & Details shows
+   * only while the `certificates.auto_certificate_generation` switch is on
+   * (`can_show_certificate_available_date_field`; off on a default install).
+   * Holds {@link certificateSwitch}, turns it on and waits for the course's
+   * settings to offer the fields — failing, not skipping, if they never do.
+   * What TC-00297 needs before it can drive the fields.
    */
   certificateAvailableDateField: void;
   /**
@@ -460,8 +632,10 @@ export interface TestFixtures {
    * A freshly registered account with a Studio session but **no** course-creator
    * status yet, installed in the browser context — the subject of TC-00310.
    *
-   * Skips where the installation grants course creation to every account
-   * (`ENABLE_CREATOR_GROUP` off): there is no request-and-grant flow to test.
+   * For cases tagged `@course-creator-group` (on by default): fails where the
+   * installation grants course creation to every account (`ENABLE_CREATOR_GROUP`
+   * off, which opts out with `-course-creator-group`), or disallows it. Refuses an
+   * untagged test.
    */
   studioNewcomer: StudioNewcomer;
   /**
@@ -541,6 +715,20 @@ export interface TestFixtures {
   /** A {@link roundTripLearner} enrolled in the not-yet-started {@link WorkerFixtures.futureCourse}. */
   futureCourseLearner: RoundTripLearner;
   /**
+   * Builds a section of this test's own in the worker's video-free course
+   * (`videoFreeCourse`), for the cases that need a course the platform can
+   * estimate effort for.
+   */
+  videoFreeSection: (shape: SectionShape) => Promise<AuthoredSection>;
+  /** A fresh learner enrolled in `videoFreeCourse`, on their own contexts. */
+  videoFreeCourseLearner: RoundTripLearner;
+  /**
+   * A deferred {@link roundTripLearnerLater} enrolled in the worker's
+   * {@link WorkerFixtures.advancedModulesCourse}, provisioned when first awaited
+   * so the case's Studio writes come first.
+   */
+  advancedModulesLearnerLater: () => Promise<RoundTripLearner>;
+  /**
    * A **fresh, empty** course of this test's own (seeded with a past start date),
    * for specs that build the outline through the UI. Unlike the shared
    * {@link WorkerFixtures.contentCourse}, its outline holds only what the test
@@ -551,6 +739,17 @@ export interface TestFixtures {
   authoringCourse: AuthoredCourse;
   /** A {@link roundTripLearner} enrolled in this test's {@link authoringCourse}. */
   authoringCourseLearner: RoundTripLearner;
+  /**
+   * A timed exam in this test's {@link authoringCourse}: timed exams on in its
+   * Advanced Settings, one published subsection made time-limited (30 minutes),
+   * and edx-proctoring's registration of it awaited. Needs `ENABLE_SPECIAL_EXAMS`
+   * (the `special-exams` capability).
+   */
+  timedExam: {
+    readonly courseKey: string;
+    readonly examId: number;
+    readonly sequentialKey: string;
+  };
   /**
    * A deferred {@link roundTripLearnerLater} enrolled in this test's
    * {@link authoringCourse} — provisioned only when first awaited, so a library
@@ -639,9 +838,10 @@ export interface TestFixtures {
   /**
    * The upload-agreement gating declared for this installation, with its
    * `UserAgreement` rows seeded (see {@link WorkerFixtures.seededUploadAgreements},
-   * which does the work once per worker). Skips without a configured admin, the
-   * `upload-agreements` capability or an empty gating map — so only the specs
-   * whose subject *is* the gating should take it.
+   * which does the work once per worker). Skips without a configured admin or
+   * the `upload-agreements` capability, and fails where it is declared but the
+   * gating map is empty, so only the specs whose subject *is* the gating should
+   * take it.
    */
   uploadAgreements: UploadAgreements;
   /**
@@ -671,6 +871,13 @@ export interface TestFixtures {
    * inboxes are disposed at test end.
    */
   mailboxLearner: (options?: NotificationRecipientOptions) => Promise<MailboxLearner>;
+  /**
+   * A fresh learner registered at an inbox of the configured mailbox provider
+   * and enrolled in nothing — for account mail (password reset) rather than
+   * course mail. Specs using it carry `@email-inbox`. The inbox and the
+   * learner's request context are disposed after the test.
+   */
+  inboxLearner: InboxLearner;
   /**
    * {@link WorkerFixtures.contentCourse} once its forum is ready for the UI: the
    * topic list is synced from the course structure by a task after the course is
@@ -721,6 +928,13 @@ export interface NotificationRecipientOptions {
 
 /** What {@link TestFixtures.mailboxLearner} hands a spec: the learner and its inbox. */
 export interface MailboxLearner extends RoundTripLearner {
+  readonly inbox: Inbox;
+}
+
+/** What {@link TestFixtures.inboxLearner} hands a spec. */
+export interface InboxLearner {
+  readonly identity: LearnerIdentity;
+  readonly request: APIRequestContext;
   readonly inbox: Inbox;
 }
 
@@ -835,6 +1049,23 @@ export type RbacCastPart = (typeof RBAC_CAST_PARTS)[number];
 /** The parts {@link WorkerFixtures.forumCast} casts. */
 export type ForumCastPart = 'poster' | 'moderator';
 
+/**
+ * The instructor-dashboard cast's parts: plain accounts a test grants one
+ * course-team role on its own course — `staff`, `limitedStaff`, a staff
+ * `discussionAdmin`, or a `teamMember` whose roles the Course Team tab changes.
+ */
+export type InstructorCastPart = 'staff' | 'limitedStaff' | 'discussionAdmin' | 'teamMember';
+
+/** A cast member: its identity, its API and browser sessions, and the pages it reads. */
+export interface InstructorCastMember {
+  readonly identity: LearnerIdentity;
+  readonly request: APIRequestContext;
+  readonly context: BrowserContext;
+  readonly page: Page;
+  readonly courseOutlinePage: CourseOutlinePage;
+  readonly instructorDashboardPage: InstructorDashboardPage;
+}
+
 /** What one {@link TestFixtures.studioColleague} call hands a spec. */
 export interface StudioColleague {
   readonly identity: LearnerIdentity;
@@ -864,6 +1095,16 @@ export interface RoundTripLearner {
   readonly unitPage: UnitPage;
   /** Course-home outline page object bound to this learner's page. */
   readonly courseOutlinePage: CourseOutlinePage;
+  /** The LMS-hosted course tool pages (Bookmarks, Updates) on this learner's page. */
+  readonly courseToolsPage: CourseToolsPage;
+  /** The learner dashboard on this learner's page. */
+  readonly dashboardPage: DashboardPage;
+  /** The course Progress tab on this learner's page. */
+  readonly progressPage: ProgressPage;
+  /** The course Teams page on this learner's page. */
+  readonly teamsPage: TeamsPage;
+  /** The communications MFE's bulk e-mail form, for a learner granted course staff. */
+  readonly bulkEmailPage: BulkEmailPage;
   /** The header's notifications tray, on whatever page this learner is on. */
   readonly notificationTray: NotificationTray;
   /** The account MFE's notification preference centre. */
@@ -998,6 +1239,15 @@ export interface WorkerFixtures {
    * {@link TestFixtures.notificationRecipient}.
    */
   forumCast: (part: ForumCastPart) => Promise<RoundTripLearner>;
+  /**
+   * The instructor-dashboard cast (the `rbacCast` / `forumCast` rule): one plain
+   * account per part per worker, provisioned on first use and enrolled nowhere
+   * (a course-team grant enrolls it). A part holds no role until a test grants
+   * it one, on the course the test reads, and it only ever holds the role it is
+   * named for — so the role readings of TC-00513/514/520 need no registration
+   * each.
+   */
+  instructorCast: (part: InstructorCastPart) => Promise<InstructorCastMember>;
 
   authzCourse: AuthzCourse | undefined;
   /**
@@ -1031,6 +1281,23 @@ export interface WorkerFixtures {
    * paste. One per worker.
    */
   futureCourse: AuthoredCourse;
+  /**
+   * A worker course that never holds a video, started in the past: the course
+   * home's effort estimates (TC-00027) are computed for a whole course only when
+   * every video in it has a duration, and the suite's authored videos have none,
+   * so estimates need a course with no video at all. Built lazily, only by
+   * workers that run a spec asking for it.
+   */
+  videoFreeCourse: AuthoredCourse;
+  /**
+   * A worker course whose Advanced Settings `advanced_modules` belongs to the
+   * advanced-component matrix alone, started in the past. Each case only
+   * **adds** its own module, so "not offered before, offered after" holds on it
+   * and no other spec's picker changes; `authoredCourse` and `contentCourse`
+   * are unsuitable because other specs write or read their module list. Built
+   * lazily, only by workers that run the matrix — one course per such worker.
+   */
+  advancedModulesCourse: AuthoredCourse;
   /**
    * One course per worker set up so certificates can be issued: start in the
    * past, end in the future, certificates shown as soon as earned
@@ -1115,6 +1382,12 @@ export interface CertificateCourse extends AuthoredCourse {
   readonly certificateBearingMode: boolean;
 }
 
+/** What {@link TestFixtures.platformCertificates} hands a spec. */
+export interface PlatformCertificates {
+  /** Turns platform certificate generation on, if it is off; `courseKey` is any course the user staffs. */
+  readonly ensureEnabled: (courseKey: string) => Promise<void>;
+}
+
 /** What {@link TestFixtures.courseLearner} hands a spec. */
 export interface CourseLearner {
   readonly courseKey: string;
@@ -1136,6 +1409,48 @@ export interface CompletionUnits {
     readonly sequentialId: string;
     readonly units: readonly CourseUnit[];
   };
+}
+
+/** The named lock serialising the certificate auto-generation switch (`named-lock.ts`). */
+const CERTIFICATE_SWITCH_LOCK = 'certificate-auto-generation';
+const ORA_TEAM_SWITCH_LOCK = 'ora-team-submissions';
+
+/**
+ * Holds a platform-wide waffle switch for one test: takes its named lock
+ * exclusively (the wait added to the test's budget, so a long one ends in the
+ * lock's error naming its holders), starts it off whatever an interrupted run
+ * left, hands the test `turnOn`, and turns it off again afterwards.
+ */
+async function holdSwitch(
+  config: AppConfig,
+  adminLms: AdminLmsRunner,
+  testInfo: TestInfo,
+  switchName: string,
+  lock: string,
+  use: (held: { readonly turnOn: () => Promise<void> }) => Promise<void>,
+): Promise<void> {
+  const setSwitch = (active: boolean) =>
+    adminLms((session) => setWaffleSwitch(session, config, switchName, active));
+  testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
+  await withExclusiveLock(lock, { waitMs: TIMEOUTS.sharedLockWait }, async () => {
+    await setSwitch(false);
+    try {
+      await use({ turnOn: () => setSwitch(true) });
+    } finally {
+      await setSwitch(false);
+    }
+  });
+}
+
+/** What {@link TestFixtures.chromeCase} hands a spec. */
+export interface ChromeCase {
+  read(): Promise<PageChrome>;
+  expectKnownDefects(context: Omit<ChromeDefectContext, 'viewportWidth'>): void;
+  /**
+   * Checks the Help-link case's `support-url` / `no-support-url` declaration
+   * against the configuration `read` measured, and fails the test on a mismatch.
+   */
+  requireSupportUrl(chrome: ChromeConfig, configured: boolean): void;
 }
 
 /** What {@link TestFixtures.enrolledCourse} hands a spec. */
@@ -1325,6 +1640,11 @@ async function provisionRoundTripLearner(
     page,
     unitPage,
     courseOutlinePage: new CourseOutlinePage(page, config),
+    courseToolsPage: new CourseToolsPage(page, config),
+    dashboardPage: new DashboardPage(page, config),
+    progressPage: new ProgressPage(page, config),
+    teamsPage: new TeamsPage(page, config),
+    bulkEmailPage: new BulkEmailPage(page, config),
     notificationTray: new NotificationTray(page, config),
     notificationPreferences: new NotificationPreferencesPage(page, config),
     discussions: new DiscussionsPage(page, config),
@@ -1419,16 +1739,44 @@ function librarySlug(scope: string): string {
 }
 
 /**
+ * For a fixture that reads an installation setting or content a capability
+ * describes (`src/config/capabilities.ts`, "Installation settings a test depends
+ * on"): refuses a test that does not carry the capability's tag, so which cases
+ * a CI profile runs is always decided by tags, never by a probe.
+ */
+function requireCapabilityTag(testInfo: TestInfo, capability: Capability): void {
+  if (!testInfo.tags.includes(`@${capability}`)) {
+    throw new Error(
+      `This test reads what the \`${capability}\` capability declares; tag it '@${capability}' ` +
+        'so the capability gate selects it.',
+    );
+  }
+}
+
+/**
+ * The failure for a declared capability the target contradicts: the probe that
+ * used to decide a skip now checks the declaration instead.
+ */
+function capabilityContradicted(capability: Capability, measured: string): Error {
+  return new Error(
+    `\`${capability}\` is declared in CAPABILITIES, but ${measured}. Declare what the target ` +
+      'has, or configure the target to match.',
+  );
+}
+
+/**
  * Gate for the taxonomy fixtures: managing a taxonomy (import, assign org,
  * delete) is staff-only, so the coverage skips without a declared `taxonomies`
  * capability or a configured admin account — the `certificateGenerationEnabled`
  * shape. Returns the org the taxonomy is assigned to (the worker's content org).
  */
 function requireTaxonomyAdmin(config: AppConfig): string {
+  // skip-kind: capability
   base.skip(
     !config.capabilities.has('taxonomies'),
     'Content tagging is not declared for this installation (taxonomies).',
   );
+  // skip-kind: suite-config
   base.skip(
     config.credentials.admin === undefined || !isUsableStateFile(authStateFile('staff')),
     'Taxonomy management needs the administrator: importing and assigning a taxonomy is ' +
@@ -1644,6 +1992,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   capabilityGate: [
     async ({ config }, use, testInfo) => {
       const missing = missingCapabilities(testInfo.tags, config.capabilities);
+      // skip-kind: capability
       testInfo.skip(
         missing.length > 0,
         `Installation does not have: ${missing.join(', ')}. Declare ${missing.length === 1 ? 'it' : 'them'} in CAPABILITIES to run this spec.`,
@@ -1654,6 +2003,77 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   ],
   catalogPage: pageObjectFixture(CatalogPage),
 
+  catalogOrganizations: async ({ catalogPage }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'multi-org-catalog');
+    await catalogPage.goto();
+    const organizations = await catalogPage.filterValues('org');
+    if (organizations.length < 2) {
+      throw capabilityContradicted(
+        'multi-org-catalog',
+        `the catalog lists courses of ${organizations.length} organization(s)`,
+      );
+    }
+    await use(organizations);
+  },
+
+  catalogHomePage: pageObjectFixture(CatalogHomePage),
+
+  siteHeader: async ({ page }, use) => {
+    await use(new HeaderBlock(page));
+  },
+
+  siteFooter: async ({ page }, use) => {
+    await use(new FooterBlock(page));
+  },
+
+  signedOutVisitor: async ({ browser, config }, use) => {
+    const context = await browser.newContext();
+    const visitorPage = await context.newPage();
+    await use({
+      page: visitorPage,
+      header: new HeaderBlock(visitorPage),
+      footer: new FooterBlock(visitorPage),
+      aboutPage: new CourseAboutPage(visitorPage, config),
+    });
+    await context.close();
+  },
+
+  chromeCase: async ({ page, request, config, siteHeader }, use, testInfo) => {
+    await use({
+      read: () => readPageChrome(page, siteHeader, request, config),
+      expectKnownDefects: (context) => {
+        const defects = knownChromeDefects(
+          { ...context, viewportWidth: page.viewportSize()?.width ?? 0 },
+          testIdsFromAnnotations(testInfo.annotations),
+        );
+        for (const defect of defects) testInfo.fail(true, defect.reason);
+      },
+      requireSupportUrl: (chrome, configured) => {
+        const capability = configured ? 'support-url' : 'no-support-url';
+        requireCapabilityTag(testInfo, capability);
+        if ((chrome.supportUrl !== undefined) !== configured) {
+          throw capabilityContradicted(
+            capability,
+            configured
+              ? 'the target configures no SUPPORT_URL'
+              : `the target configures SUPPORT_URL ${chrome.supportUrl ?? ''}`,
+          );
+        }
+      },
+    });
+  },
+
+  publicChrome: async ({ catalogHomePage, chromeCase }, use) => {
+    await catalogHomePage.goto();
+    const pageChrome = await chromeCase.read();
+    chromeCase.expectKnownDefects({
+      generations: [pageChrome.generation],
+      signedIn: false,
+      scenario: 'navigation',
+    });
+    await use(pageChrome);
+  },
+
   courseAboutPage: pageObjectFixture(CourseAboutPage),
 
   unitPage: pageObjectFixture(UnitPage),
@@ -1662,10 +2082,58 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   progressPage: pageObjectFixture(ProgressPage),
 
+  courseToolsPage: pageObjectFixture(CourseToolsPage),
+
+  profilePage: pageObjectFixture(ProfilePage),
+
+  profileLearner: async ({ request, config, courseLearner }, use) => {
+    await updateAccount(request, config, courseLearner.identity.username, {
+      year_of_birth: ADULT_YEAR_OF_BIRTH,
+    });
+    await use(courseLearner);
+  },
+
+  teamsCourse: async ({ request, config, contentCourse }, use) => {
+    const topicId = 'e2e-teams';
+    await buildWithAuthorWriteSession(request, config, () =>
+      ensureTeamsTopic(request, config, contentCourse.courseKey, {
+        id: topicId,
+        name: 'E2E teams',
+        description: 'Teams the end-to-end suite creates',
+        type: 'open',
+      }),
+    );
+    await use({ ...contentCourse, topicId });
+  },
+
+  adminDashboardPage: async ({ adminPage, config }, use) => {
+    await use(new DashboardPage(adminPage, config));
+  },
+
+  courseEmailEnabled: async ({ config, adminLms, contentCourse }, use) => {
+    await adminLms((session) => enableCourseEmail(session, config, contentCourse.courseKey));
+    await use();
+  },
+
+  courseEmailFor: async ({ config, adminLms }, use) => {
+    await use((courseKey) => adminLms((session) => enableCourseEmail(session, config, courseKey)));
+  },
+
+  profileViewer: async ({ playwright, config }, use) => {
+    const viewer = await playwright.request.newContext();
+    try {
+      const identity = await provisionLearnerSession(viewer, config);
+      await use({ request: viewer, username: identity.username });
+    } finally {
+      await viewer.dispose();
+    }
+  },
+
   dashboardPage: pageObjectFixture(DashboardPage),
 
   courseKey: async ({ request, config }, use) => {
     const skipReason = courseKeySkipReason(config);
+    // skip-kind: suite-config
     base.skip(skipReason !== undefined, skipReason);
     // Narrowing: courseKeySkipReason returns undefined only when courseKey is set.
     const courseKey = config.courseKey as string;
@@ -1676,6 +2144,19 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   courseDetail: async ({ request, config, courseKey }, use) => {
     await use(await fetchCourseDetail(request, config, courseKey));
+  },
+
+  courseIntroVideoId: async ({ courseDetail }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'course-intro-video');
+    const uri = courseDetail.courseVideoUri ?? '';
+    const id = /(?:youtu\.be\/|[?&]v=|\/embed\/)([\w-]{6,})/.exec(uri)?.[1];
+    if (id === undefined) {
+      throw capabilityContradicted(
+        'course-intro-video',
+        `the configured course has no YouTube intro video ("${uri}")`,
+      );
+    }
+    await use(id);
   },
 
   courseLearner: async ({ page, request, config, courseKey }, use) => {
@@ -1730,6 +2211,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   studio: async ({ config }, use) => {
+    // skip-kind: capability
     base.skip(
       !config.capabilities.has('studio'),
       'Studio coverage needs the "studio" capability (and CMS_BASE_URL). Declare it in ' +
@@ -1775,6 +2257,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           });
         } catch (error) {
           if (error instanceof AccountNotConfiguredError) {
+            // skip-kind: suite-config
             base.skip(true, error.message);
           }
           throw error;
@@ -1908,7 +2391,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         workerAuthor,
         identity,
         async (request, courseKey) => {
-          // Every write is idempotent, so a restarted worker re-seeds harmlessly.
+          // A restarted worker re-seeds this course, so every write is idempotent.
           await updateCourseDetails(request, config, courseKey, {
             start_date: CONTENT_COURSE_START,
             end_date: CERTIFICATE_COURSE_END,
@@ -1953,18 +2436,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           }
           await setCertificateActive(request, config, courseKey, true);
           await setCourseCertificateGeneration(request, config, courseKey, true);
-          const section = await buildSection(
-            request,
-            config,
-            courseKey,
-            `E2E certificate ${getRunId()} W${workerInfo.parallelIndex}`,
-            {
-              subsections: [
-                { gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] },
-              ],
-              publish: true,
-            },
-          );
+          // The section is the one write that is not idempotent: a re-seed would
+          // add a second graded subsection and halve every learner's grade, so
+          // it replaces the section an earlier seed of this worker built.
+          const sectionName = `E2E certificate ${getRunId()} W${workerInfo.parallelIndex}`;
+          const outline = await fetchXBlockOutline(request, config, courseUsageKey(courseKey));
+          for (const stale of outline.child_info?.children ?? []) {
+            if (stale.display_name === sectionName) {
+              await deleteXBlock(request, config, stale.id);
+            }
+          }
+          const section = await buildSection(request, config, courseKey, sectionName, {
+            subsections: [
+              { gradedAs: 'Homework', units: [{ blocks: ['multiplechoiceresponse'] }] },
+            ],
+            publish: true,
+          });
           seeded = { ...firstProblem(section), certificateBearingMode };
         },
       );
@@ -1975,6 +2462,56 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     },
     // Around ten Studio/LMS writes on top of the create.
     { scope: 'worker', timeout: TIMEOUTS.studioSetup * 3 },
+  ],
+
+  videoFreeCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}E`,
+        'video-free',
+      );
+      await use(
+        await provisionWorkerCourse(
+          playwright,
+          workerAuthor,
+          identity,
+          async (request, courseKey) => {
+            await updateCourseDetails(request, config, courseKey, {
+              start_date: CONTENT_COURSE_START,
+            });
+          },
+        ),
+      );
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
+  ],
+
+  advancedModulesCourse: [
+    async ({ playwright, workerAuthor }, use, workerInfo) => {
+      const config = getConfig();
+      const identity = newCourseIdentity(
+        config,
+        getRunId(),
+        `W${workerInfo.parallelIndex}M`,
+        'advanced-modules',
+      );
+      await use(
+        await provisionWorkerCourse(
+          playwright,
+          workerAuthor,
+          identity,
+          async (request, courseKey) => {
+            await updateCourseDetails(request, config, courseKey, {
+              start_date: CONTENT_COURSE_START,
+            });
+          },
+        ),
+      );
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
   ],
 
   futureCourse: [
@@ -2081,6 +2618,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           });
         } catch (error) {
           if (error instanceof AccountNotConfiguredError) {
+            // skip-kind: suite-config
             base.skip(true, error.message);
           }
           throw error;
@@ -2169,6 +2707,44 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
       for (const member of made) {
         await disposeRoundTripLearner(member);
+      }
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
+  instructorCast: [
+    async ({ playwright, browser }, use) => {
+      const config = getConfig();
+      const cast = new Map<InstructorCastPart, Promise<InstructorCastMember>>();
+      const made: InstructorCastMember[] = [];
+      const provision = async (): Promise<InstructorCastMember> => {
+        const request = await playwright.request.newContext();
+        const identity = await provisionLearnerSession(request, config);
+        const context = await browser.newContext();
+        await context.addCookies((await request.storageState()).cookies);
+        const page = await context.newPage();
+        const member = {
+          identity,
+          request,
+          context,
+          page,
+          courseOutlinePage: new CourseOutlinePage(page, config),
+          instructorDashboardPage: new InstructorDashboardPage(page, config),
+        };
+        made.push(member);
+        return member;
+      };
+      await use((part) => {
+        let member = cast.get(part);
+        if (member === undefined) {
+          member = provision();
+          cast.set(part, member);
+        }
+        return member;
+      });
+      for (const member of made) {
+        await member.context.close();
+        await member.request.dispose();
       }
     },
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
@@ -2322,6 +2898,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   studioTextEditor: pageObjectFixture(StudioTextEditor),
 
+  studioPdfEditor: pageObjectFixture(StudioPdfEditor),
+
   scheduleDetailsPage: pageObjectFixture(StudioScheduleDetailsPage),
 
   gradingPage: pageObjectFixture(StudioGradingPage),
@@ -2355,19 +2933,32 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await Promise.all(contexts.map((context) => context.dispose()));
   },
 
-  certificateAvailableDateField: async ({ request, config, authoredCourse }, use) => {
-    const flags = await fetchCourseSettingsFlags(request, config, authoredCourse.courseKey);
-    base.skip(
-      !flags.canShowCertificateAvailableDateField,
-      'Schedule & Details does not offer the "Certificates available date" fields on this ' +
-        'installation (can_show_certificate_available_date_field is false; enable the ' +
-        'certificates.auto_certificate_generation switch to cover TC-00297).',
+  certificateAvailableDateField: async (
+    { request, config, authoredCourse, certificateSwitch },
+    use,
+  ) => {
+    // Studio offers the fields for an instructor-paced course only while
+    // automatic certificate generation is on, which the switch fixture holds.
+    await certificateSwitch.turnOn();
+    const offered = await pollUntil(
+      async () =>
+        (await fetchCourseSettingsFlags(request, config, authoredCourse.courseKey))
+          .canShowCertificateAvailableDateField,
+      (shown) => shown,
+      TIMEOUTS.contentPublish,
     );
+    if (!offered.satisfied) {
+      throw new Error(
+        'Schedule & Details still does not offer the "Certificates available date" fields with ' +
+          'certificates.auto_certificate_generation on (can_show_certificate_available_date_field).',
+      );
+    }
     await use();
   },
 
   certificateCourseMode: async ({ playwright, config, authoredCourse }, use) => {
     const staffState = authStateFile('staff');
+    // skip-kind: suite-config
     base.skip(
       config.credentials.admin === undefined || !isUsableStateFile(staffState),
       'Certificates need a certificate-bearing course mode, which only a staff/superuser ' +
@@ -2395,8 +2986,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(identity);
   },
 
-  studioNewcomer: async ({ page, playwright, config, studio }, use) => {
+  studioNewcomer: async ({ page, playwright, config, studio }, use, testInfo) => {
     void studio;
+    requireCapabilityTag(testInfo, 'course-creator-group');
     const request = await playwright.request.newContext();
     try {
       const identity = await provisionLearnerSession(request, config);
@@ -2406,15 +2998,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         credentials: { emailOrUsername: identity.email, password: identity.password },
       });
       const home = await fetchStudioHome(request, config);
-      base.skip(
-        home.courseCreatorStatus === 'granted',
-        'This installation grants course creation to every account (ENABLE_CREATOR_GROUP ' +
-          'off), so there is no course-creator request to make or grant.',
-      );
-      base.skip(
-        home.courseCreatorStatus === 'disallowed_for_this_site',
-        'Course creation is disallowed for this site, so no request can be made.',
-      );
+      if (home.courseCreatorStatus === 'granted') {
+        throw capabilityContradicted(
+          'course-creator-group',
+          'Studio grants course creation to every new account (ENABLE_CREATOR_GROUP is off)',
+        );
+      }
+      if (home.courseCreatorStatus === 'disallowed_for_this_site') {
+        throw capabilityContradicted(
+          'course-creator-group',
+          'course creation is disallowed for this site, so no request can be made',
+        );
+      }
       await page.context().clearCookies();
       await page.context().addCookies((await request.storageState()).cookies);
       await use({ identity, request });
@@ -2425,6 +3020,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   adminPage: async ({ browser, config }, use) => {
     const admin = config.credentials.admin;
+    // skip-kind: suite-config
     base.skip(
       admin === undefined,
       'This case needs the administrator: set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
@@ -2450,6 +3046,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   adminApi: async ({ playwright, config }, use) => {
     const staffState = authStateFile('staff');
+    // skip-kind: suite-config
     base.skip(
       config.credentials.admin === undefined || !isUsableStateFile(staffState),
       'This case needs the administrator: set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
@@ -2469,6 +3066,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   adminLms: async ({ playwright, config }, use) => {
     const admin = config.credentials.admin;
+    // skip-kind: suite-config
     base.skip(
       admin === undefined,
       'This coverage writes through the Django admin, which needs a superuser session. Set ' +
@@ -2503,27 +3101,32 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 
-  automaticMigrationTarget: async ({ authzTarget }, use) => {
-    base.skip(
-      authzTarget.mode !== 'automatic',
-      'These cases describe a target that migrates AuthZ roles when a waffle override is saved ' +
-        `(${authzTarget.modeEvidence}). This one leaves migration to an operator, so there is no ` +
-        'migration run to read; set ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION to cover it.',
-    );
+  automaticMigrationTarget: async ({ authzTarget }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'authz-auto-migration');
+    if (authzTarget.mode !== 'automatic') {
+      throw capabilityContradicted(
+        'authz-auto-migration',
+        `the target leaves AuthZ migration to an operator (${authzTarget.modeEvidence}); ` +
+          'ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION turns migration on save on',
+      );
+    }
     await use();
   },
 
-  manualMigrationTarget: async ({ authzTarget }, use) => {
-    base.skip(
-      authzTarget.mode === 'automatic',
-      'This target migrates AuthZ roles by itself when a waffle override is saved ' +
-        `(${authzTarget.modeEvidence}), so the stock default these cases describe does not ` +
-        'apply here; the migrating path has its own coverage.',
-    );
+  manualMigrationTarget: async ({ authzTarget }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'authz-manual-migration');
+    if (authzTarget.mode === 'automatic') {
+      throw capabilityContradicted(
+        'authz-manual-migration',
+        `the target migrates AuthZ roles by itself when a waffle override is saved ` +
+          `(${authzTarget.modeEvidence})`,
+      );
+    }
     await use();
   },
 
   authzTarget: async ({ authzCourse }, use) => {
+    // skip-kind: suite-config
     base.skip(
       authzCourse === undefined,
       'AuthZ coverage needs the `rbac` capability and an admin account: the waffle override that ' +
@@ -2550,6 +3153,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     // the browser), and hand the spec an admin API context for its assertions.
     const admin = config.credentials.admin;
     const state = authStateFile('staff');
+    // skip-kind: suite-config
     base.skip(
       admin === undefined || !isUsableStateFile(state),
       'Authors may not create organizations on this installation (allow_to_create_new_org ' +
@@ -2688,6 +3292,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
+  inboxLearner: async ({ playwright, config }, use) => {
+    const provider = await resolveMailProvider(config);
+    const request = await playwright.request.newContext();
+    try {
+      const inbox = await provider.createInbox({ config, request });
+      try {
+        const identity = await provisionLearnerSession(request, config, { email: inbox.address });
+        await use({ identity, request, inbox });
+      } finally {
+        await inbox.dispose(request);
+      }
+    } finally {
+      await request.dispose();
+    }
+  },
+
   mailboxLearner: async ({ playwright, browser, config, contentCourse }, use) => {
     const provider = await resolveMailProvider(config);
     const made: MailboxLearner[] = [];
@@ -2805,6 +3425,51 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 
+  videoFreeSection: async (
+    { page, config, videoFreeCourse, studioAuthorSession },
+    use,
+    testInfo,
+  ) => {
+    void studioAuthorSession;
+    // Built on the author's browser session: creating the worker course can
+    // leave a separate request context without a live Studio session, and the
+    // browser session is the one `studioAuthorSession` keeps alive.
+    let ordinal = 0;
+    await use(async (shape) => {
+      ordinal += 1;
+      return buildWithAuthorWriteSession(page.request, config, () =>
+        buildSection(
+          page.request,
+          config,
+          videoFreeCourse.courseKey,
+          sectionLabel(testInfo, ordinal),
+          shape,
+        ),
+      );
+    });
+  },
+
+  videoFreeCourseLearner: async ({ playwright, browser, config, videoFreeCourse }, use) => {
+    const learner = await provisionRoundTripLearner(
+      playwright,
+      browser,
+      config,
+      videoFreeCourse.courseKey,
+    );
+    try {
+      await use(learner);
+    } finally {
+      await disposeRoundTripLearner(learner);
+    }
+  },
+
+  advancedModulesLearnerLater: async (
+    { playwright, browser, config, advancedModulesCourse },
+    use,
+  ) => {
+    await deferredLearner(playwright, browser, config, advancedModulesCourse.courseKey, use);
+  },
+
   futureCourseLearner: async ({ playwright, browser, config, futureCourse }, use) => {
     const learner = await provisionRoundTripLearner(
       playwright,
@@ -2823,48 +3488,124 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   instructorEnrollments: pageObjectFixture(InstructorEnrollmentsPage),
   instructorGrading: pageObjectFixture(InstructorGradingPage),
   instructorDateExtensions: pageObjectFixture(InstructorDateExtensionsPage),
+
+  instructorDashboard: pageObjectFixture(InstructorDashboardPage),
+
+  instructorCohorts: pageObjectFixture(InstructorCohortsPage),
+
+  instructorCourseTeam: pageObjectFixture(InstructorCourseTeamPage),
+
+  instructorSpecialExams: pageObjectFixture(InstructorSpecialExamsPage),
   instructorDataDownloads: pageObjectFixture(InstructorDataDownloadsPage),
   instructorCertificates: pageObjectFixture(InstructorCertificatesPage),
 
-  certificateGenerationEnabled: async ({ page, playwright, config, certificateCourse }, use) => {
+  platformCertificates: async ({ page, playwright, config }, use) => {
     const admin = config.credentials.admin;
+    // skip-kind: suite-config
     base.skip(
-      admin === undefined || !certificateCourse.certificateBearingMode,
+      admin === undefined,
       'Certificates need the administrator: the platform-wide certificate switch lives in ' +
-        'the Django admin and the honor course mode needs a staff session. Set ' +
+        'the Django admin. Set ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
+    );
+    const credentials = {
+      emailOrUsername: (admin as NonNullable<typeof admin>).username,
+      password: (admin as NonNullable<typeof admin>).password,
+    };
+    await use({
+      ensureEnabled: async (courseKey) => {
+        // The switch is platform-wide and usually already on after the first test of
+        // a run: read it as the page's user first (a JWT read), and only when it is
+        // off pay for an admin sign-in — every credential login counts against the
+        // per-account rate limit and evicts the admin's other LMS session.
+        if (await fetchCertificateGenerationEnabled(page.request, config, courseKey)) return;
+        // A Django-admin write needs the admin's *session* cookie: sign in afresh on
+        // a throwaway context, under the admin lock (PREVENT_CONCURRENT_LOGINS).
+        await withAdminSession(async () => {
+          const session = await playwright.request.newContext();
+          try {
+            await loginSession(session, config, credentials);
+            await ensureCertificateGenerationEnabled(session, config, courseKey);
+          } finally {
+            await session.dispose();
+          }
+        });
+      },
+    });
+  },
+
+  certificateGenerationEnabled: async ({ certificateCourse, platformCertificates }, use) => {
+    // skip-kind: suite-config
+    base.skip(
+      !certificateCourse.certificateBearingMode,
+      'Certificates need the administrator: the honor course mode needs a staff session. Set ' +
         'ADMIN_USERNAME and ADMIN_PASSWORD (a superuser).',
     );
-    // The switch is platform-wide and usually already on after the first test of a
-    // run: read it as the author first (a JWT read), and only when it is off pay
-    // for an admin sign-in — every credential login counts against the per-account
-    // rate limit and evicts the admin's other LMS session.
-    if (
-      !(await fetchCertificateGenerationEnabled(page.request, config, certificateCourse.courseKey))
-    ) {
-      // A Django-admin write needs the admin's *session* cookie: sign in afresh on a
-      // throwaway context, under the admin lock (PREVENT_CONCURRENT_LOGINS).
-      await withAdminSession(async () => {
-        const session = await playwright.request.newContext();
-        try {
-          await loginSession(session, config, {
-            emailOrUsername: (admin as NonNullable<typeof admin>).username,
-            password: (admin as NonNullable<typeof admin>).password,
-          });
-          await ensureCertificateGenerationEnabled(session, config, certificateCourse.courseKey);
-        } finally {
-          await session.dispose();
-        }
-      });
-    }
+    await platformCertificates.ensureEnabled(certificateCourse.courseKey);
     await use();
   },
 
   certificateLearner: async (
     { playwright, browser, config, certificateCourse, certificateGenerationEnabled },
     use,
+    testInfo,
   ) => {
     // Depends on the skip above: without an admin there is no honor mode to
     // enroll into, and the spec must skip rather than fail here.
+    void certificateGenerationEnabled;
+    // As in `certificateSwitch`: a wait for the writer comes on top of the budget.
+    testInfo.setTimeout(testInfo.timeout + TIMEOUTS.sharedLockWait);
+    // Held shared for the whole test: the auto-generation switch is global, and
+    // a case that turns it on (`certificateAutoGeneration`) must not do so while
+    // this learner's certificate is expected to wait for a request.
+    await withSharedLock(CERTIFICATE_SWITCH_LOCK, { waitMs: TIMEOUTS.sharedLockWait }, async () => {
+      const learner = await provisionRoundTripLearner(
+        playwright,
+        browser,
+        config,
+        certificateCourse.courseKey,
+        { mode: 'honor' },
+      );
+      try {
+        await use(learner);
+      } finally {
+        await disposeRoundTripLearner(learner);
+      }
+    });
+  },
+
+  certificateSwitch: async ({ config, adminLms }, use, testInfo) => {
+    await holdSwitch(
+      config,
+      adminLms,
+      testInfo,
+      AUTO_CERTIFICATE_GENERATION_SWITCH,
+      CERTIFICATE_SWITCH_LOCK,
+      use,
+    );
+  },
+
+  oraTeamSwitch: async ({ config, adminLms }, use, testInfo) => {
+    await holdSwitch(
+      config,
+      adminLms,
+      testInfo,
+      ORA_TEAM_SUBMISSIONS_SWITCH,
+      ORA_TEAM_SWITCH_LOCK,
+      use,
+    );
+  },
+
+  certificateAutoGeneration: async (
+    {
+      playwright,
+      browser,
+      config,
+      certificateCourse,
+      certificateGenerationEnabled,
+      certificateSwitch,
+    },
+    use,
+  ) => {
     void certificateGenerationEnabled;
     const learner = await provisionRoundTripLearner(
       playwright,
@@ -2874,7 +3615,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       { mode: 'honor' },
     );
     try {
-      await use(learner);
+      await use({ learner, turnOn: certificateSwitch.turnOn });
     } finally {
       await disposeRoundTripLearner(learner);
     }
@@ -2951,6 +3692,38 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await disposeRoundTripLearner(learner);
     }
+  },
+
+  timedExam: async ({ page, config, authoringCourse, studioAuthorSession }, use) => {
+    void studioAuthorSession;
+    const request = page.request;
+    const { courseKey } = authoringCourse;
+    await updateAdvancedSettings(request, config, courseKey, { enable_timed_exams: true });
+    const section = await buildSection(request, config, courseKey, 'E2E timed exam', {
+      subsections: [{ units: [{ blocks: ['html'] }] }],
+    });
+    const sequentialKey = section.subsections[0]!.usageKey;
+    await updateXBlock(request, config, sequentialKey, {
+      metadata: {
+        is_time_limited: true,
+        default_time_limit_minutes: 30,
+        is_proctored_enabled: false,
+      },
+    });
+    await publishXBlock(request, config, section.usageKey);
+    // The CMS worker registers the exam after the publish.
+    let examId: number | undefined;
+    await expect
+      .poll(
+        async () => {
+          const exams = await listSpecialExams(request, config, courseKey, 'timed');
+          examId = exams.find((exam) => exam.content_id === sequentialKey)?.id;
+          return examId;
+        },
+        { timeout: TIMEOUTS.contentPublish },
+      )
+      .toBeDefined();
+    await use({ courseKey, examId: examId!, sequentialKey });
   },
 
   authoringCourseLearnerLater: async ({ playwright, browser, config, authoringCourse }, use) => {
@@ -3075,15 +3848,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   uploadAgreements: async ({ config, seededUploadAgreements }, use) => {
+    // skip-kind: suite-config
     base.skip(
       !config.capabilities.has('upload-agreements') || config.credentials.admin === undefined,
       'Upload agreements are not declared for this installation, or no administrator is ' +
         'configured (the agreement rows are seeded through the LMS Django admin).',
     );
-    base.skip(
-      seededUploadAgreements.types.length === 0,
-      'No AGREEMENT_GATING is configured on this installation.',
-    );
+    if (seededUploadAgreements.types.length === 0) {
+      throw capabilityContradicted(
+        'upload-agreements',
+        'the MFE config sets no AGREEMENT_GATING map',
+      );
+    }
     await use(seededUploadAgreements);
   },
 
@@ -3145,6 +3921,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     testInfo,
   ) => {
     void studioAuthorSession;
+    // skip-kind: capability
     base.skip(
       !config.capabilities.has('content-libraries-v1'),
       'Legacy (v1) content libraries are not declared for this installation (content-libraries-v1).',
@@ -3182,6 +3959,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         });
       } catch (error) {
         if (error instanceof AccountNotConfiguredError) {
+          // skip-kind: suite-config
           base.skip(true, error.message);
         }
         throw error;
@@ -3235,6 +4013,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       .sort((left, right) => left[1].length - right[1].length)
       .map(([sequentialId, units]) => ({ sequentialId, units }))[0];
 
+    // skip-kind: content
     base.skip(
       viewOnly === undefined || withProblem === undefined || drivableSubsection === undefined,
       `The configured course offers no unit for every completion mechanism ` +
@@ -3252,6 +4031,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   videoUnit: async ({ courseOutline }, use) => {
     const unit = unitsWithHtml5Video(courseOutline)[0];
+    // skip-kind: content
     base.skip(
       unit === undefined,
       'The configured course has no video with an HTML5 source: a YouTube-only video ' +

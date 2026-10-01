@@ -79,6 +79,21 @@ measured, and issues are opened by hand from them.
 | `NOTIF-004` | `openedx/edx-platform` (`send_email_digest` is a no-op)       | open, `fixme` + `knownGap` on TC-00478 / TC-00480
 | `DISC-001`  | `openedx/frontend-app-discussions` (post list ARIA)           | open, no `fixme` — two axe rules baselined on the discussions scans only
 | `DISC-002`  | `openedx/forum` (DELETE of a missing thread)                  | open, no `fixme` — suite deletes each thread once
+| `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing and course About scans only (`SHELL_CHROME_A11Y_BASELINE`)
+| `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | open, `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
+| `CATALOG-001` | `openedx/frontend-app-catalog` (filter facet values camel-cased) | open, no `fixme` — TC-00017 compares organizations case-insensitively
+| `LEARN-002` | `openedx/frontend-component-header` (learning header Help link `href="null"`) | open, `test.fail` on the no-Help-link tests of TC-00020 / TC-00021 where the learning header renders (`KNOWN_CHROME_DEFECTS`)
+| `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages mix the shell with a legacy header (`KNOWN_CHROME_DEFECTS`)
+| `FP-001`    | `openedx/frontend-platform` (`<html lang>` never follows the chosen language) | open, `test.fail` on TC-00066's page-language test wherever a legacy header renders one of its pages (`KNOWN_CHROME_DEFECTS`)
+| `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
+| `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
+| `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | open, `test.fail` on TC-00038's take-a-note test
+| `FOOTER-001` | `openedx/frontend-component-footer` (no legal / copyright line) | open, no `fixme` — TC-00063 and TC-00064 run only where the shell renders the footer (`@frontend-base`)
+| `DEMO-003`  | `openedx/openedx-demo-course` (no effort estimates)             | open, no `fixme` — TC-00027 runs on a video-free course of the suite's own
+| `CERT-002`  | `openedx/edx-platform` (certificate web view 500 without a marketing site; regression on `master`) | open, TC-00033's render test gated on `certificate-web-view` (undeclared on `main`)
+| `PROF-002`  | `openedx/frontend-app-profile` (no certificate-visibility control, wg#582) | **filed** — [wg#582](https://github.com/openedx/wg-build-test-release/issues/582), declarative `fixme` + `knownGap` on TC-00067's UI test
+| `PROF-003`  | `openedx/frontend-app-profile` (empty country list, wg#575)   | **filed** — [wg#575](https://github.com/openedx/wg-build-test-release/issues/575), `test.fail` on TC-00068's add-a-location test
+| `PROF-004`  | `openedx/frontend-app-profile` (unnamed icon buttons at phone width) | open, no `fixme` — `button-name` baselined on the profile scans only (`PROFILE_A11Y_BASELINE`)
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
 | `INSTR-007` | `openedx/edx-platform` (problem-responses report fails silently) | **filed** - [#39119](https://github.com/openedx/openedx-platform/issues/39119), no `fixme` — the spec waits for the Blocks API before generating
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
@@ -94,7 +109,11 @@ measured, and issues are opened by hand from them.
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy detail breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` scan only |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
-| `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — surfaces as a retried flake in `clipboard.spec.ts`
+| `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
+| `INSTR-009` | `openedx/frontend-app-instructor-dashboard` (allowance Delete sends a numeric user id) | open, `test.fail` on TC-00541's delete test
+| `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
+| `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
+| `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 
 ---
 
@@ -402,6 +421,12 @@ FEATURES['SKIP_EMAIL_VALIDATION']   = True     # same story
 2. **`SKIP_EMAIL_VALIDATION` not applied**, so registered accounts stayed
    inactive — which sent us looking for an account-provisioning bug that was not
    there.
+
+A third symptom, found in Epic 14: `tutor-notes` sets `ENABLE_EDXNOTES` only
+in `FEATURES`, so on `main` the Notes tool stays off with the plugin enabled
+and its service running (`settings.ENABLE_EDXNOTES` is `False`, and the
+platform's notes checks read that). CI now sets it flat in the workflow's
+settings patch, as it does for course discovery.
 
 The pattern to watch for: a toggle that reads as enabled in
 `env/apps/openedx/config/lms.env.yml` but `False` in the running settings. Check
@@ -1148,7 +1173,7 @@ which is the API-side oracle the spec asserts.
 console, which is admin-only here (see `LIB-005` and the Epic 12 plan), so the
 sheet may be recording a UI failure this suite reaches by a different route.
 
-### `PLAT-010` — the user clipboard save deadlocks under parallel authoring load
+### `PLAT-010` — the user clipboard save deadlocks with its own cleanup task
 
 **Where:** `POST /api/content-staging/v1/clipboard/`
 (`openedx/core/djangoapps/content_staging/views.py:136` →
@@ -1165,12 +1190,33 @@ save. Each worker copies as its own author, so the contention is not two workers
 writing one clipboard row; it is the surrounding transaction taking locks in an
 order that another concurrent CMS write can cross.
 
+**Cause (measured 2026-09-24, run 36052847274, `verawood.1` source):** Studio
+requests run in one transaction (`ATOMIC_REQUESTS`). A copy first marks the
+user's previous `StagedContent` rows `EXPIRED`, then enqueues
+`delete_expired_clipboards.delay(expired_ids)` from inside that transaction
+(`content_staging/api.py`), not from `transaction.on_commit`. An idle CMS worker
+starts at once. It deletes the expired row and, by cascade, the user's
+`UserClipboard` row that still points at it. Meanwhile the request goes on to
+`update_or_create` that same clipboard row. The two take the locks in opposite
+orders and MySQL kills the request. In the CMS logs the worker reports
+`Successfully deleted StagedContent entries` about 30 ms before the request's
+`Internal Server Error`. So the race needs a *quiet* worker, not a busy CMS. The
+original "under parallel authoring load" reading was backwards: in one
+long run the worker's queue delayed the deletion past the commit. After the
+suite split into shards, each on its own Tutor install, a shard's worker was idle
+enough to lose the race on all three attempts of the `clipboard.spec.ts`
+paste case (verawood shard 3).
+
 **Coverage impact:** TC-00334/00335
-(`tests/studio/library/clipboard.spec.ts`) fail the first attempt and pass on
-retry, so they report as flaky rather than failed. Not worked around — a retry
-inside the API client would hide a genuine platform race that an author hits too.
-Upstream ask: retry the deadlock (`transaction.atomic` plus a bounded retry) or
-narrow the transaction, as the platform does elsewhere for 1213.
+(`tests/studio/library/clipboard.spec.ts`). They used to report as flaky; once
+CI was sharded, they failed. Worked around since 2026-09-24:
+`copyToClipboard` (`src/api/clipboard.ts`) re-issues a copy that answers 500,
+up to twice. The failed request rolls back, but the worker's deletion stands,
+so the retry finds nothing left to cross and succeeds. The UI "Copy to
+clipboard" path is not retried; an author who hits the race sees the error.
+Upstream ask: enqueue the cleanup with `transaction.on_commit`, or retry the
+deadlock (`transaction.atomic` plus a bounded retry), as the platform does
+elsewhere for 1213.
 
 ## Epic 11 — Authoring sidebar / tagging findings (2026-09-16)
 
@@ -1732,3 +1778,404 @@ backend), `main`.
 **Coverage impact:** open, no `fixme`. `deleteThread` is not idempotent and says
 so; specs delete each thread exactly once, and TC-00029, whose last step deletes
 its own post through the UI, has no teardown delete.
+
+## Epic 14 — LMS learner completion findings (2026-09-23)
+
+### `BASE-003` — the shell header's narrow-layout menu toggle has no accessible name
+
+**Where:** `frontend-base` shell header, narrow layout (768 px and below),
+catalog MFE home on a Tutor `main` install.
+
+**What happens:** the toggle that opens the narrow layout's menu is
+`<button type="button" class="btn btn-outline"></button>`: no text, no
+`aria-label`, and its icon carries no title. axe reports `button-name`
+(critical, WCAG 4.1.2). A screen reader announces an unnamed button as the
+first control of the page.
+
+**Coverage impact:** open, no `fixme`. `button-name` is baselined for the
+landing and course About scans only (`SHELL_CHROME_A11Y_BASELINE` in
+`tests/lms/chrome/helpers.ts`).
+
+### `BASE-005` — the shell header's narrow-layout menu is empty for a signed-out visitor
+
+**Where:** `frontend-base` shell header on the catalog MFE home, signed out, at
+768 px and below. Tutor `main`.
+
+**What happens:** below the header's `maxWidth: 768` breakpoint the wide layout
+(the "Explore courses" link, Login and Sign Up) is hidden and the narrow layout
+shows the menu toggle, the logo, Login and Sign Up. Opening the toggle renders
+its focus-locked panel with an empty `<div class="flex-column nav"></div>`: the
+primary links are not moved into it, so "Explore courses" — the only route from
+the landing page to the catalog for a visitor who has not searched — cannot be
+reached at phone or tablet width.
+
+**Coverage impact:** open. TC-00061 (public-site responsiveness) runs at phone,
+tablet and desktop widths; its phone and tablet tests are marked `test.fail` by
+the `publicChrome` fixture wherever the shell renders the header
+(`KNOWN_CHROME_DEFECTS` in `src/steps/chrome.ts`). The marker is keyed to the
+rendered generation and the width, not to a release, so it stops applying
+wherever the page moves to a header without the defect.
+
+### `CATALOG-001` — the catalog's refine filters camel-case facet values
+
+**Where:** `frontend-app-catalog`, the catalog page's "Refine your search"
+filters, Tutor `main`.
+
+**What happens:** the facet values the search API answers under `aggs`
+(`org: {"E2E": …, "E2EAUTHZMUCNHJIJO0": …}`) reach the page camel-cased, the
+way the MFE's API layer converts object keys: the organization `E2E` is offered
+as a checkbox with `value="e2E"` and the label "E2e", and `E2EAUTHZMUCNHJIJO0`
+as `e2Eauthzmucnhjijo0`. The filter still works on the local Meilisearch
+backend, which matched the mangled value, but the labels misname every
+organization whose code is not already camel case, and a case-sensitive search
+backend would find nothing.
+
+**Coverage impact:** open, no `fixme`. TC-00017 asserts that every course
+shown under an organization filter belongs to it, comparing organization codes
+case-insensitively, so the case passes on the mangled values.
+
+### `LEARN-002` — the learning header renders its Help link as `href="null"` when no support URL is configured
+
+**Where:** `frontend-component-header`'s learning header (`LearningHeaderHelpLink`),
+on the learning MFE's course home and in-course pages, Tutor `main` (the
+learning MFE is still on the legacy header there).
+
+**What happens:** the header renders `<a class="text-gray-700" href="null">`
+whenever `SUPPORT_URL` is absent from the MFE config — which is the default,
+since neither the platform nor Tutor sets it for the learning MFE. Following it
+navigates to a relative `null` path. The header should leave the link out when
+there is nowhere to send it, as the shell's Help widget does. This is the
+"Help link does not redirect" half of wg-build-test-release#579 (TC-00021).
+
+**Coverage impact:** open. The Help-link tests of TC-00020, TC-00021 and TC-00023
+are split. "is absent without `SUPPORT_URL`" runs where `no-support-url` holds,
+which is the stock default and so on by default. "points at `SUPPORT_URL`" runs
+where a target declares `support-url`: in CI, that is the `extended` profile,
+which sets one. The absent test is marked `test.fail` by `chromeCase` wherever
+the learning header renders (`KNOWN_CHROME_DEFECTS` in `src/steps/chrome.ts`);
+on the dashboard, which the shell renders on `main`, it passes. With a
+`SUPPORT_URL` set, every header generation offers the right link on both
+`main` and `verawood` (CI run 36124418941, 2026-09-25), so the defect is only
+the unset case.
+
+### `BASE-004` — logo sizes differ between pages rendered by different frontend generations
+
+**Where:** Tutor `main`, where the catalog and the learner dashboard are
+frontend-base shell apps and the learning MFE still uses the legacy header and
+footer.
+
+**What happens (measured):** the header logo is 32 px tall on the landing page
+and the dashboard (the shell's `max-height: 2rem`) and 28 px on the course home
+and in-course pages (the legacy header's `height: 1.75rem`). The footers
+differ as well: the shell's "Powered by Open edX" logo is 48 px and the legacy
+footer's 45 px, and only the shell footer carries the site logo. TC-00060 asks
+for one logo size across these four pages. On `verawood` every page is legacy
+chrome, where wg-build-test-release#584 reports a position difference but not a
+size difference.
+
+**Coverage impact:** open. TC-00060 reads the logo heights on all four pages and
+is marked `test.fail` by `chromeCase` whenever the pages it read mix the shell
+with a legacy header. Where every page is legacy (verawood, whose legacy and
+learning headers agree) the case runs unmarked and passes. The marker therefore
+lifts itself once the learning MFE moves to the shell.
+
+### `FP-001` — frontend-platform MFEs never set `<html lang>` to the learner's language
+
+**Where:** every MFE built on `@edx/frontend-platform`: on Tutor `main`,
+Account Settings and the learner profile (and the learning MFE); on
+`verawood`, every MFE. Measured on the local `main` sandbox, and on verawood CI
+through TC-00066's dashboard reading.
+
+**What happens (measured):** after a learner switches the site language to
+Arabic, the LMS serves Arabic (`Content-Language: ar`) and the
+frontend-base shell's dashboard renders `<html lang="ar">`. The Account
+Settings and profile pages render `<html dir="rtl" lang="en-us">`: the text
+and the direction follow the choice, but the declared language stays the
+`lang` the MFE's `index.html` was built with. frontend-platform's `handleRtl()`
+(`src/i18n/lib.js`) sets `dir` from the locale and nothing in the package sets
+`lang`. Screen readers therefore read Arabic text with English pronunciation
+rules, and axe cannot flag it because the attribute is present and valid (WCAG
+3.1.1 Language of Page).
+
+**Coverage impact:** open. TC-00066's "every page served after the switch
+declares the language" test reads `<html lang>` on the dashboard, Account
+Settings and the profile. `chromeCase` marks it `test.fail` whenever one of
+them is rendered by a legacy header (`KNOWN_CHROME_DEFECTS` in
+`src/steps/chrome.ts`), so the marker lifts itself once those apps move to the
+frontend-base shell. The Account Settings switch case itself asserts the served
+language through `Content-Language` and passes on every release.
+
+### `LMS-001` — the course Bookmarks page's breadcrumb link is distinguished by colour only
+
+**Where:** the LMS-rendered course Bookmarks page (`/courses/<key>/bookmarks/`),
+which the learning MFE's course-home Bookmarks tool links to. Measured on the
+local Tutor `main` sandbox, whose legacy LMS pages still serve the `indigo`
+theme's assets; a default-theme reading on CI is owed.
+
+**What happens:** axe reports `link-in-text-block` (serious, WCAG 1.4.1) on the
+page's `<a href=".../learning/course/<key>/home">Course</a>` breadcrumb: it
+sits in running text and differs from it only by colour.
+
+**Coverage impact:** open, no `fixme`. The rule is baselined on the
+`course-bookmarks` scan only; TC-00036 passes.
+
+### `LEARN-003` — the course tabs make the courseware page wider than a phone screen
+
+**Where:** `frontend-app-learning`, the course tabs strip
+(`nav.nav-underline-tabs` in `#courseTabsNavigation`) on the course home and
+the unit pages, 375 px wide. Tutor `main`.
+
+**What happens:** at phone width the tabs strip keeps several tabs inline
+instead of folding them into its overflow menu, and measures 477 px. The page
+then scrolls sideways (`scrollWidth` 489 against a 375 px viewport). With
+mobile emulation the browser lays the page out 489 px wide to fit it, and the
+opened outline tray's heading is then hit-tested over its own collapse
+button, so a tap on the button does not reach it under Playwright.
+
+**Coverage impact:** open. TC-00056's "fits the unit to the screen" test is
+marked an expected failure at phone width (`test.fail` with the reason).
+`UnitPage.collapseSidebar` falls back to invoking the button's click handler
+when a real click cannot land, with a comment naming this finding, so the
+tray's open → collapse → navigate behaviour stays covered at phone width.
+
+### `NOTES-001` — HTML components cannot be annotated: the extracted HTML block has no notes support
+
+**Where:** `openedx/edx-platform` (`xmodule/html_block.py`) with
+`xblocks-contrib` 1.0.6, on `master` and `release/verawood.1`, where
+`USE_EXTRACTED_HTML_BLOCK` defaults to `True`. Measured on the local Tutor
+`main` sandbox with the notes plugin running and `ENABLE_EDXNOTES` on.
+
+**What happens:** the platform makes components annotatable with its
+`@edxnotes` decorator, which wraps `get_html` in the `edx-notes-wrapper` the
+annotator attaches to. The decorator is applied to the built-in HTML block
+(`_BuiltInHtmlBlock`) only. With the extracted-block setting on — the default —
+HTML components are `xblocks_contrib.html.HtmlBlock`, which carries no notes
+support, so a unit renders the notes tool's show/hide control and loads its
+scripts but no component is wrapped. There is no text a learner can select to
+take a note on, and the Notes page stays empty.
+
+**Coverage impact:** open. TC-00038 is split: the Notes tab, the "Show Notes"
+switch and the visibility round trip pass; "takes a note on a unit's text and
+lists it on the Notes page" is written to the intended behaviour and marked
+`test.fail`. The marker is unconditional: an install with
+`USE_EXTRACTED_HTML_BLOCK` off annotates the built-in HTML block, and the test
+then reports an unexpected pass there.
+
+### `PROF-003` — the profile offers no country to choose
+
+**Where:** `frontend-app-profile`, "Add country" on the profile page, Tutor
+`main`. Reported for `verawood` as wg-build-test-release#575 (TC-00068).
+
+**What happens (measured):** the country select opens with a single empty
+option. The profile MFE builds its country list from the registration form
+description (`GET /user_api/v1/account/registration/`), and under the
+platform's default `REGISTRATION_EXTRA_FIELDS` that form has no `country`
+field at all — it lists `year_of_birth` and `level_of_education`, but no
+country — so there is nothing to choose. A learner cannot add a location from
+the profile page.
+
+**Coverage impact:** open. TC-00068's "adds a location from the profile" test
+is marked `test.fail` with `issue(wg#575)`. Its sibling, "shares the location
+with other learners only while it is visible to them", sets the country
+through the accounts API and passes. The marker is unconditional: an install
+whose `REGISTRATION_EXTRA_FIELDS` includes `country` offers a list, and the test
+then reports an unexpected pass there.
+
+### `PROF-004` — the profile's icon buttons have no accessible name at phone width
+
+**Where:** `frontend-app-profile`, profile page at 375 px, Tutor `main`.
+
+**What happens:** axe reports `button-name` (critical) on the photo menu's icon
+button (`pgn__dropdown-toggle-iconbutton`) and on each filled section's edit
+button (`p-1.5 btn btn-link btn-sm`), which carry only an icon. At desktop width
+the scan passes.
+
+**Coverage impact:** open, no `fixme`. `button-name` is baselined on the profile
+scans only (`PROFILE_A11Y_BASELINE`).
+
+### `CERT-002` — the certificate web view answers 500 on an install with no marketing site (a regression on `master`)
+
+**Where:** `openedx/edx-platform`, `/certificates/<uuid>` (`render_cert_by_uuid`
+→ `certificates/valid.html`), `master`. Measured on the local Tutor `main`
+sandbox, whose `MKTG_URLS` is empty (the default).
+
+**What happens:** `valid.html` includes `certificates/_about-edx.html`, which
+renders `${company_about_url}` unconditionally. The view's context only defines
+it from `get_certificate_footer_context()`, and that adds `company_about_url` only
+when the marketing About link is not empty (`branding_api.get_about_url()`),
+while the `CertificateHtmlViewConfiguration` that could supply it ships
+disabled. So on a default install the template raises `NameError: Undefined`
+and the learner's "View my certificate" link answers **500**. The certificate
+itself is issued, listed and linked correctly.
+
+**Why only `master`:** the template and the view are unchanged since verawood.
+What changed is `marketing_link()` (`common/djangoapps/edxmako/shortcuts.py`):
+on `release/verawood` an install without a marketing site
+(`ENABLE_MKTG_SITE` off) falls back to the LMS's own page through
+`MKTG_URL_LINK_MAP` (`ABOUT` → `about`), so `get_about_url()` is set and the
+footer context defines `company_about_url`. `master` dropped that fallback —
+an unconfigured link is now `'#'` and `is_marketing_link_set('ABOUT')` is
+false — so the name is never defined. Verawood CI renders the certificate.
+
+**Coverage impact:** open. TC-00033 is split: "links View my certificate to the
+issued certificate" passes everywhere; "renders the certificate for the learner
+and the course" is gated on the `certificate-web-view` capability, declared for
+every release but `main` (like `rbac-error-view-action` for `RBAC-008`), so it
+passes on verawood and the regression shows on `main` as the undeclared
+capability.
+
+### `PROF-002` — the profile has no certificate-visibility control
+
+**Where:** `frontend-app-profile` (`master` and `release/verawood`, identical
+source). Reported as wg-build-test-release#582 (TC-00067).
+
+**What happens:** the profile's Certificates section says the learner's
+certificates are "only visible to you" and renders the learner's certificates,
+but offers no "Everyone on {site}" / "Just me" control. The preference that
+decides it, `visibility.course_certificates`, is written only by the page's
+load-time bulk visibility update. The platform does honour it: another learner
+reads the certificates while it is `all_users` and is refused (403) while it is
+`private`.
+
+**Coverage impact:** open. TC-00067's "shows the certificate to other learners
+only while it is visible to everyone" sets the preference through the API and
+passes; "sets certificate visibility from the profile page" is a declarative
+`fixme` with `knownGap` and `issue(wg#582)`.
+
+### `FOOTER-001` — the legacy footer has no legal or copyright line
+
+**Where:** `frontend-component-footer` (every MFE on `verawood`; the learning,
+profile and account MFEs on `main`).
+
+**What happens:** the footer renders one image link to the LMS home, `<img
+src={logo || config.LOGO_TRADEMARK_URL}>`, and Tutor sets `LOGO_TRADEMARK_URL`
+to the site's `logo.png`, so that image is the site logo, not the "Powered by
+Open edX" logo. The frontend-base shell's footer renders "© {year}
+{siteName}.", a trademark line and the Powered by Open edX logo; the legacy one
+renders none of them. This is why TC-00064 ("the copyright is mentioned") is
+Failed on `verawood` in the manual run.
+
+**Coverage impact:** open, no `fixme`. TC-00063 (the Powered by Open edX logo)
+and TC-00064 (the legal line) are tagged `@frontend-base`, the only footer that
+renders either, so neither runs on `verawood`. Without the tag TC-00063 passed
+there off the site logo, since `poweredByLink` is the footer's last image
+link.
+
+### `DEMO-003` — the demo course shows no effort estimates
+
+**Where:** `openedx/openedx-demo-course` on any install; the platform's
+`openedx/features/effort_estimation` transformer.
+
+**What happens:** the platform estimates a course's effort only when every
+video in it has a duration in edx-val; one video without one disables the
+estimates for the **whole course** (`MissingEstimationData`). The demo course's
+YouTube videos have no edx-val duration, so the outline API reports
+`effort_time: null` for all 17 subsections and the course home shows none.
+Suite-authored HTML5 videos have none either.
+
+**Coverage impact:** open, no `fixme`. TC-00027 runs on `videoFreeCourse`, a
+worker course that never holds a video, where a 530-word text unit is estimated
+at two minutes.
+
+## Epic 15 — Studio content long tail findings (2026-09-24)
+
+### `XBLOCK-001` — the recommender loads its scripts from public CDNs
+
+**Where:** `recommender-xblock` 5.1.0 (an edx-platform requirement on `master`;
+5.0.0 on `verawood`), `RecommenderXBlock.student_view`
+(`src/recommender/recommender.py:995-997`).
+
+**What happens:** the learner view adds jQuery UI from `ajax.googleapis.com`
+and intro.js from `cdnjs.cloudflare.com` rather than from the platform's own
+static files, and opens an intro tour on first view. An install that is
+air-gapped, or whose Content Security Policy allows only its own origins,
+cannot run the block for learners, and every install sends its learners to
+two third parties.
+
+**Coverage impact:** open, no `fixme`. TC-00131 lists the module, adds it from
+the Advanced tile and asserts its server-rendered markup in the Studio preview,
+never in the learner's courseware, so the suite never depends on the CDNs.
+
+### `COMMS-001` — the bulk e-mail editor's TinyMCE markup fails two ARIA rules
+
+**Where:** `frontend-app-communications` (`master`), the bulk e-mail form's
+message editor, which is TinyMCE.
+
+**What happens:** axe reports two violations on the form, both inside the
+editor:
+- critical `aria-allowed-attr`: the status bar's element-path item is a
+  `div[role="button"]` carrying `aria-level`;
+- serious `aria-prohibited-attr`: the editable `body#tinymce` carries an
+  `aria-label` ("Rich Text Area…") that its role does not permit.
+
+**Coverage impact:** open, no `fixme`. TC-00540's scan of the form baselines
+both rules there only (`COMMUNICATIONS_A11Y_BASELINE`); the send itself is
+asserted through the mail.
+
+### `INSTR-009` — deleting a special-exam allowance does nothing
+
+**Where:** `frontend-app-instructor-dashboard` (`DeleteAllowanceModal.tsx`; the
+same in v1.2.0, v2.0.0-alpha.5 and `master`) against the platform's v2
+`DELETE …/special_exams/<exam>/allowance`.
+
+**What happens:** the Delete confirmation sends the learner's numeric user id
+(`user_ids: [10219]`). The server resolves each identifier as a username or
+e-mail, finds none, and answers **200** with
+`results: [{identifier: 10219, success: false, error: "User not found"}]`. The
+MFE treats the 200 as done, and the allowance stays, both in the API's list and
+in the table after a reload. Measured on local `main` (2026-09-24).
+
+**Coverage impact:** open. TC-00541's add and edit test passes; its delete test
+is a `test.fail` that lifts itself when the fix lands.
+
+### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
+
+**Where:** `recommender-xblock` 5.0.0, pinned by `release/verawood.1`. Fixed in
+5.1.0 (RecommenderXBlock#137, "render current config in studio template and
+prevent auto-save crash"), which `master` pins.
+
+**What happens:** the recommender's Studio editor is a static template that
+always selects its defaults (five entries per page, and so on). An author's
+"Set configurations" is posted (`set_client_configuration`, 200), but reopening
+the editor shows the defaults again, so the change looks lost. This is the
+sheet's note on TC-00132, "can't change settings". 5.1.0 renders the saved
+configuration. Measured in CI (2026-09-24): `main` passes, `verawood` reopens on
+`5`.
+
+**Coverage impact:** fixed on `main`. TC-00132 is gated on the
+`recommender-studio-settings` capability, declared for `main` only, so the
+`verawood` gap is an undeclared capability. A `verawood.2` that picks up 5.1.0
+can declare it.
+
+## CI split — sharded runs and profiles (2026-09-24/25, suite-side)
+
+Splitting CI into shards, each against its own fresh Tutor install, and adding
+an `extended` profile (`.ci/profiles.json`) surfaced one platform race and three
+suite-side defects. The platform race is `PLAT-010`, whose cause is now
+measured (see its entry). The three suite-side defects are recorded here so they
+are not mistaken for platform ones.
+
+- **A spec relied on a site-wide switch an earlier test had flipped (TC-00530).**
+  The instructor dashboard's Certificates report tab renders only while
+  platform certificate generation is on. The issued-certificates case never
+  turned it on; in one long run an earlier certificate test always had. In a
+  fresh shard it failed on every attempt. It now turns the switch on itself
+  (`platformCertificates`). Rule since: never depend on state another test left
+  behind; each shard is a clean installation.
+- **A same-tab link was read before the router had moved (TC-00524, `main`).**
+  On `main` the gradebook and the instructor dashboard are one frontend-base app,
+  so "View Gradebook" is a client-side route change with no document load. The
+  page object waited for `domcontentloaded`, which had already fired, and read
+  the old URL. It now waits for the URL to change (`grading.page.ts`).
+- **The intro-video reader had never run (TC-00013).** The demo course has no
+  intro video, so the case always skipped. Once the extended profile seeded one,
+  the reader failed at once: it resolved the player's scheme-relative `src`
+  (`//www.youtube.com/embed/<id>`, from `CourseDetails.recompose_video_tag`)
+  against `https:`, which is not a valid base URL. It now resolves against the
+  page.
+
+Also measured, and not a defect: a stock Tutor install has codejail configured
+but no sandbox that can start, so a Python-graded problem (TC-00203) answers with
+no grade. Scoring one needs a working sandbox, which the extended profile gets
+from `tutor-contrib-codejail` on `verawood`. That plugin stops at the Tutor 22
+line, so `main` has no build of it yet.

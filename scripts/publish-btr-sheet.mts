@@ -169,7 +169,7 @@ async function main(): Promise<void> {
     `added tab '${plan.runTab.title}'`,
     plan.updateLatest
       ? `updated '${LATEST_TAB}'`
-      : `left '${LATEST_TAB}' unchanged (filtered or off-branch run)`,
+      : `left '${LATEST_TAB}' unchanged (filtered, off-branch or incomplete run)`,
   ]
     .filter(Boolean)
     .join(', ');

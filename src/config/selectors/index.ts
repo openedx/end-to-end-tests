@@ -1,7 +1,15 @@
 // Barrel for structural anchors, one module per surface. See ./README.md.
 export { ACCOUNT_MENU_SELECTORS } from './account-menu';
 export { ADMIN_CONSOLE_SELECTORS } from './admin-console';
-export { CATALOG_SEARCH_PATH, CATALOG_SELECTORS, catalogCourseCard } from './catalog';
+export { CHROME_SELECTORS, languageMenuOtherItems } from './chrome';
+export {
+  CATALOG_SEARCH_PATH,
+  CATALOG_SELECTORS,
+  catalogCourseCard,
+  catalogFilterGroup,
+  catalogFilterOptions,
+  type CatalogFacet,
+} from './catalog';
 export { COURSE_ABOUT_SELECTORS, courseAboutCoursewareLink } from './course-about';
 export {
   COURSEWARE_SELECTORS,
@@ -10,11 +18,21 @@ export {
   sidebarUnitLink,
 } from './courseware';
 export { CAPA_SELECTORS } from './capa';
+export { COMMUNICATIONS_SELECTORS } from './communications';
 export { PROGRESS_SELECTORS, progressTabLink } from './progress';
+export { PROFILE_SELECTORS, profileControl, profileEditor } from './profile';
+export { TEAMS_SELECTORS, teamThread, teamsTopicLink } from './teams';
 export { DASHBOARD_SELECTORS } from './dashboard';
 export { DISCUSSIONS_SELECTORS } from './discussions';
 export { NOTIFICATION_PREFERENCES_SELECTORS, NOTIFICATION_TRAY_SELECTORS } from './notifications';
-export { COURSE_HOME_SELECTORS } from './course-home';
+export {
+  COURSE_HOME_SELECTORS,
+  COURSE_TOOLS_SELECTORS,
+  bookmarkRowFor,
+  courseHomeFragmentHolding,
+  courseToolLink,
+  subsectionEffort,
+} from './course-home';
 export { STUDIO_HOME_SELECTORS } from './studio-home';
 export { STUDIO_OUTLINE_SELECTORS, STUDIO_SHELL_SELECTORS } from './studio-shell';
 export {
@@ -49,8 +67,13 @@ export {
 } from './studio-tools';
 export { STUDIO_PAGES_RESOURCES_SELECTORS } from './studio-pages-resources';
 export { STUDIO_CUSTOM_PAGES_SELECTORS } from './studio-custom-pages';
-export { STUDIO_UNIT_PAGE_SELECTORS } from './studio-unit';
-export { STUDIO_EDITOR_SELECTORS } from './studio-editors';
+export { STUDIO_UNIT_PAGE_SELECTORS, advancedComponentOption } from './studio-unit';
+export { ADVANCED_BLOCK_SELECTORS, advancedBlockRoot } from './advanced-blocks';
+export {
+  LEGACY_EDITOR_SELECTORS,
+  PDF_EDITOR_SELECTORS,
+  STUDIO_EDITOR_SELECTORS,
+} from './studio-editors';
 export {
   CERTIFICATE_GENERATION_ADMIN_SELECTORS,
   COURSE_CREATOR_ADMIN_SELECTORS,

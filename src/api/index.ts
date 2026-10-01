@@ -18,6 +18,7 @@ export {
   fetchCourseNavigation,
   fetchCourseOutline,
   fetchSequenceMetadata,
+  navigationSections,
   hasHtml5Source,
   primeCoursewareForLearner,
   unitsContaining,
@@ -27,6 +28,7 @@ export {
   type CourseOutline,
   type CourseUnit,
   type NavigationBlock,
+  type NavigationSection,
   type SequenceMetadata,
   type VideoStudentViewData,
 } from './course-outline';
@@ -65,6 +67,7 @@ export {
   availableComponentTypes,
   courseUsageKey,
   createXBlock,
+  deleteXBlock,
   duplicateXBlock,
   moveXBlock,
   fetchContainer,
@@ -90,8 +93,11 @@ export {
 export {
   addToCohort,
   createCohort,
+  createCohortV1,
   enableCohorts,
+  enableCohortsV1,
   linkCohortToGroup,
+  listCohortsV1,
   type Cohort,
 } from './cohorts';
 export { CLIPBOARD_PATH, copyToClipboard, type Clipboard } from './clipboard';
@@ -161,6 +167,8 @@ export {
   COURSE_DETAILS_PATH,
   COURSE_GRADING_PATH,
   COURSE_SETTINGS_PATH,
+  addAdvancedModules,
+  ensureTeamsTopic,
   fetchAdvancedSettings,
   fetchCourseDetails,
   fetchCourseSettingsFlags,
@@ -169,6 +177,7 @@ export {
   updateCourseDetails,
   updateGradingPolicy,
   type AdvancedSetting,
+  type TeamsTopic,
   type AdvancedSettings,
   type CourseDetails,
   type CourseSettingsFlags,
@@ -267,6 +276,10 @@ export {
   fetchLearnerProblem,
   grantCertificateException,
   grantCourseTeamRole,
+  listAllowances,
+  listCourseTeam,
+  listSpecialExams,
+  sendCourseEmail,
   instructorApiBase,
   listCertificateGenerationHistory,
   listEnrollments,
@@ -281,6 +294,9 @@ export {
   setCourseCertificateGeneration,
   type BetaTesterModifyResult,
   type CertificateGenerationHistoryRow,
+  type ExamAllowance,
+  type InstructorTeamMember,
+  type SpecialExam,
   type CourseTeamRoleV2,
   type EnrollmentModifyResult,
   type EnrollmentRow,
@@ -402,11 +418,17 @@ export {
   type TaxonomyTag,
 } from './tagging';
 export {
+  FRONTEND_SITE_CONFIG_PATH,
   MFE_CONFIG_PATH,
   agreementTypesIn,
+  chromeConfigFromMfeConfig,
+  chromeConfigFromSiteConfig,
   fetchAuthoringMfeConfig,
+  fetchChromeConfig,
   type AgreementGating,
   type AuthoringMfeConfig,
+  type ChromeConfig,
+  type ChromeConfigSource,
 } from './mfe-config';
 export {
   AGREEMENTS_BASE,
@@ -429,6 +451,7 @@ export {
 export { createTextbook, fetchTextbooks, type Textbook, type TextbookChapter } from './textbooks';
 export {
   createCourseUpdate,
+  updateHandouts,
   fetchCourseUpdates,
   fetchHandouts,
   type CourseUpdate,
@@ -518,6 +541,24 @@ export {
 } from './waffle';
 export { lmsGet, lmsWrite } from './lms-json';
 export {
+  fetchConditionalContent,
+  fetchPdfFields,
+  fetchPollResults,
+  fetchSurveyResults,
+  fetchWordCloudState,
+  narrowConditionalContent,
+  narrowPdfFields,
+  narrowPollResults,
+  narrowSurveyResults,
+  narrowWordCloudState,
+  type ConditionalContent,
+  type PdfFields,
+  type PollResults,
+  type PollTally,
+  type SurveyQuestionTally,
+  type WordCloudState,
+} from './xblock-handler';
+export {
   NOTIFICATION_APPS,
   fetchNotificationCount,
   fetchNotificationPreferences,
@@ -540,6 +581,7 @@ export {
   createComment,
   createThread,
   deleteThread,
+  divideDiscussionsByCohort,
   fetchDiscussionCourse,
   listDiscussionTopics,
   listThreads,
@@ -559,3 +601,65 @@ export {
   submitOraResponse,
   type OraSubmission,
 } from './ora';
+
+// Learner-side APIs (Epic 14) — see `src/api/README.md`.
+export {
+  ADULT_YEAR_OF_BIRTH,
+  fetchAccount,
+  fetchPreferences,
+  lmsServesLanguage,
+  listLearnerCertificates,
+  updateAccount,
+  updatePreferences,
+  type Account,
+  type AccountPatch,
+  type EducationLevel,
+  type LearnerCertificate,
+  type Preferences,
+  type SocialLink,
+  type SocialPlatform,
+} from './accounts';
+export {
+  BOOKMARKS_PATH,
+  addBookmark,
+  listBookmarks,
+  removeBookmark,
+  type Bookmark,
+} from './bookmarks';
+export { fetchResumePoint, recordCompletion, type ResumePoint } from './completion';
+export {
+  CHANGE_EMAIL_SETTINGS_PATH,
+  LEARNER_HOME_INIT_PATH,
+  fetchLearnerHome,
+  learnerHomeCourse,
+  setCourseEmailOptIn,
+  type LearnerHome,
+  type LearnerHomeCourse,
+  type LearnerHomeEnrollment,
+} from './learner-home';
+export { fetchUserTours, type CourseHomeTourStatus, type UserTours } from './user-tours';
+export {
+  courseTool,
+  fetchCourseHomeOutline,
+  fetchCoursewareCourse,
+  type CourseHomeBlock,
+  type CourseHomeOutline,
+  type CourseTool,
+  type CoursewareCourse,
+} from './course-home';
+export { listCourseNotes, type CourseNote } from './notes';
+export { enableCourseEmail } from './bulk-email-admin';
+export {
+  AUTO_CERTIFICATE_GENERATION_SWITCH,
+  ORA_TEAM_SUBMISSIONS_SWITCH,
+  fetchWaffleSwitch,
+  setWaffleSwitch,
+} from './waffle-switch';
+export {
+  createTeam,
+  fetchTeam,
+  joinTeam,
+  listTeamThreadIds,
+  listTeamsOf,
+  type Team,
+} from './teams';

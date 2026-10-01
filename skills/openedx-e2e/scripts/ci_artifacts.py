@@ -7,10 +7,11 @@ Zero dependencies beyond Python 3.9+ and an authenticated `gh` CLI.
     ci_artifacts.py summary <DIR>
     ci_artifacts.py test    <DIR> <title-or-file-substring>
     ci_artifacts.py logs    <DIR> [--service lms|cms|...] [--grep REGEX] [-C N]
+    ci_artifacts.py shards  <DIR>
 
 `fetch` writes `<DIR>/run.json` plus one directory per artifact
 (`playwright-report-<release>/`, `suite-reports-<release>/`,
-`tutor-logs-<release>/`) and the full runner log of every failed job
+`tutor-logs-<release>-<profile>-<shard>/`) and the full runner log of every failed job
 (`job-<id>.log`, ANSI stripped). Re-run attempts re-upload artifacts under the same name;
 by default only the newest copy of each name is kept.
 
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import csv
 import io
 import json
 import os
@@ -31,7 +33,8 @@ import re
 import subprocess
 import sys
 import zipfile
-from collections import Counter
+from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
 
 DEFAULT_REPO = 'openedx/end-to-end-tests'
@@ -98,12 +101,26 @@ def fetch(args: argparse.Namespace) -> None:
         'attempt': run['run_attempt'],
         'conclusion': run['conclusion'],
         'pull_requests': [p['number'] for p in run.get('pull_requests', [])],
-        'jobs': [{'id': j['id'], 'name': j['name'], 'conclusion': j['conclusion'], 'url': j['html_url']} for j in jobs],
+        'jobs': [
+            {
+                'id': j['id'],
+                'name': j['name'],
+                'conclusion': j['conclusion'],
+                'url': j['html_url'],
+                'started_at': j.get('started_at'),
+                'completed_at': j.get('completed_at'),
+                'steps': [
+                    {'name': st['name'], 'started_at': st.get('started_at'), 'completed_at': st.get('completed_at')}
+                    for st in j.get('steps', [])
+                ],
+            }
+            for j in jobs
+        ],
         'artifacts': [],
     }
     print(f'{meta["title"]}\n{meta["url"]}  attempt {meta["attempt"]}  conclusion={meta["conclusion"]}')
     for j in meta['jobs']:
-        print(f'  job {j["id"]}  {j["conclusion"]:<8} {j["name"]}')
+        print(f'  job {j["id"]}  {j["conclusion"] or "running":<8} {j["name"]}')
 
     # Newest copy per artifact name unless --all-attempts.
     chosen: list[dict] = []
@@ -116,9 +133,13 @@ def fetch(args: argparse.Namespace) -> None:
                 by_name[a['name']] = a
         chosen = list(by_name.values())
     kinds = set(args.only.split(',')) if args.only else None
-    kind_of = lambda name: name.split('-')[0] if name.split('-')[0] in ('tutor', 'suite', 'playwright') else name
+    kind_of = lambda name: name.split('-')[0] if name.split('-')[0] in ('tutor', 'suite', 'playwright', 'blob') else name
 
     for a in sorted(chosen, key=lambda a: a['name']):
+        # Per-shard blob reports are what the merged playwright-report/suite-reports
+        # were built from; fetched only on request (--only blob).
+        if kind_of(a['name']) == 'blob' and not (kinds and 'blob' in kinds):
+            continue
         if kinds and kind_of(a['name']) not in kinds:
             continue
         if a['expired']:
@@ -190,7 +211,7 @@ def summary(args: argparse.Namespace) -> None:
         meta = json.loads(meta_path.read_text())
         print(f'{meta["title"]}\n{meta["url"]}  (attempt {meta["attempt"]}, {meta["conclusion"]})')
         for j in meta['jobs']:
-            print(f'  {j["conclusion"]:<8} {j["name"]}')
+            print(f'  {j["conclusion"] or "running":<8} {j["name"]}')
 
     for art in playwright_artifacts(root):
         report_dir = extract_report(art)
@@ -358,6 +379,84 @@ def logs(args: argparse.Namespace) -> None:
                     print(f'      last app frame: {g["where"]}')
 
 
+# ------------------------------------------------------------------------ shards
+
+
+def iso_seconds(value: str | None) -> float | None:
+    if not value:
+        return None
+    return datetime.fromisoformat(value.replace('Z', '+00:00')).timestamp()
+
+
+def minutes(seconds: float) -> str:
+    return f'{seconds / 60:5.1f}m'
+
+
+def shards(args: argparse.Namespace) -> None:
+    """Per-shard cost of a sharded run, to weigh shard count against fixed cost.
+
+    From run.json: each shard job's provisioning time (job start → the suite
+    step) and suite step time. From each release's merged timings CSVs (the
+    `shard` column): per shard, test attempts, summed test time, the wall span
+    of its tests, and the setup project plus top-level fixture time — the part a
+    shard pays again (sign-ins, worker authors and courses). Fixture totals are
+    summed across shards so a 1-shard and an N-shard run can be compared.
+    """
+    root = Path(args.dir)
+    meta_path = root / 'run.json'
+    if meta_path.exists():
+        meta = json.loads(meta_path.read_text())
+        print(f'{meta["title"]}\n{meta["url"]}\n\njob                                              provision   suite   total')
+        for j in meta['jobs']:
+            suite = next((st for st in j.get('steps', []) if st['name'] == 'Run E2E suite'), None)
+            start, end = iso_seconds(j.get('started_at')), iso_seconds(j.get('completed_at'))
+            if not suite or start is None or end is None:
+                continue
+            s0, s1 = iso_seconds(suite['started_at']), iso_seconds(suite['completed_at'])
+            if s0 is None or s1 is None:
+                continue
+            print(f'  {j["name"][:46]:<46} {minutes(s0 - start)}  {minutes(s1 - s0)}  {minutes(end - start)}')
+
+    for art in sorted(root.glob('suite-reports*')):
+        tests_csv, steps_csv = art / 'timings-tests.csv', art / 'timings-steps.csv'
+        if not tests_csv.exists():
+            continue
+        print(f'\n== {art.name}')
+        per = defaultdict(lambda: {'n': 0, 'ms': 0.0, 'start': None, 'end': None, 'setup_ms': 0.0})
+        for r in csv.DictReader(tests_csv.open()):
+            d = per[r.get('shard') or '(none)']
+            d['n'] += 1
+            ms = float(r['duration_ms'])
+            if r['project'] == 'setup':
+                d['setup_ms'] += ms
+            else:
+                d['ms'] += ms
+            t0 = iso_seconds(r['started_at'])
+            if t0 is not None:
+                d['start'] = t0 if d['start'] is None else min(d['start'], t0)
+                d['end'] = t0 + ms / 1000 if d['end'] is None else max(d['end'], t0 + ms / 1000)
+        fixtures: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+        if steps_csv.exists():
+            for r in csv.DictReader(steps_csv.open()):
+                if r['category'] == 'fixture' and r['depth'] == '1':
+                    m = re.search(r'Fixture "([^"]+)"', r['step_title'])
+                    fixtures[r.get('shard') or '(none)'][m.group(1) if m else r['step_title']] += float(r['duration_ms'])
+        print('  shard  attempts  test time   wall span  setup   fixtures')
+        for shard in sorted(per):
+            d = per[shard]
+            span = (d['end'] - d['start']) if d['start'] is not None and d['end'] is not None else 0
+            fx = sum(fixtures[shard].values()) / 1000
+            print(f'  {shard:<6} {d["n"]:>8}  {minutes(d["ms"] / 1000)}    {minutes(span)}   {minutes(d["setup_ms"] / 1000)} {minutes(fx)}')
+        totals: dict[str, float] = defaultdict(float)
+        for per_shard in fixtures.values():
+            for name, ms in per_shard.items():
+                totals[name] += ms
+        if totals:
+            print('  top-level fixture time summed across shards (compare against a 1-shard run):')
+            for name, ms in sorted(totals.items(), key=lambda kv: -kv[1])[:12]:
+                print(f'    {minutes(ms / 1000)}  {name}')
+
+
 # ------------------------------------------------------------------------- main
 
 
@@ -369,7 +468,7 @@ def main() -> None:
     f.add_argument('ref', help='run URL, run id, PR URL or PR number')
     f.add_argument('--dest', help='directory to write into (default $TMPDIR/ci-run-<id>)')
     f.add_argument('--repo', default=DEFAULT_REPO)
-    f.add_argument('--only', help='comma list of kinds: playwright,suite,tutor')
+    f.add_argument('--only', help='comma list of kinds: playwright,suite,tutor,blob (blob only when named)')
     f.add_argument('--all-attempts', action='store_true', help='keep every attempt\'s copy of each artifact')
     f.set_defaults(fn=fetch)
 
@@ -389,6 +488,10 @@ def main() -> None:
     lg.add_argument('--grep', help='regex; prints matches with context instead of the traceback digest')
     lg.add_argument('-C', '--context', type=int, default=3)
     lg.set_defaults(fn=logs)
+
+    sh_ = sub.add_parser('shards', help='per-shard provisioning, test time and repeated fixture cost')
+    sh_.add_argument('dir')
+    sh_.set_defaults(fn=shards)
 
     args = p.parse_args()
     args.fn(args)

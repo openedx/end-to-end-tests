@@ -8,8 +8,71 @@ export const COURSEWARE_SELECTORS = {
   /** The one iframe a unit renders its blocks into. */
   unitIframe: 'iframe#unit-iframe',
 
+  /**
+   * "Bookmark this page" / "Bookmarked" under the unit title — a Paragon
+   * stateful button whose state class, not its label, says which it is.
+   */
+  bookmarkButton: '.unit button.pgn__stateful-btn',
+  bookmarkedState: 'pgn__stateful-btn-state-bookmarked',
+
+  /**
+   * The unit page's calculator — the "Calculator" tool the course can switch
+   * on. Its toggle, expression field, "=" submit and result field are located
+   * by structure: every label is localized.
+   */
+  calculatorToggle: '.calculator > .text-right a.trigger',
+  calculatorInput: '.calculator form input[type="text"]:not([aria-live])',
+  calculatorSubmit: '.calculator form button[type="submit"]',
+  calculatorResult: '.calculator form input[aria-live]',
+
+  /**
+   * The unit page's "Show Notes" / "Hide Notes" switch (learning MFE), whose
+   * state is its `aria-checked`.
+   */
+  notesToggle: '.content-tools button.trigger[role="switch"]',
+
+  /**
+   * Inside the unit iframe: a component the notes tool has made annotatable,
+   * the annotator's "add a note" button that appears over selected text, and
+   * its editor's text field and Save.
+   */
+  notesWrapper: '.edx-notes-wrapper',
+  notesAdder: '.annotator-adder button',
+  notesEditorText: '.annotator-editor textarea',
+  notesEditorSave: '.annotator-editor .annotator-save',
+
   /** The course outline tray beside the unit. */
   sidebar: '.outline-sidebar',
+
+  /**
+   * The tray's back button in its section view — the current section's name
+   * with a left chevron; it switches the tray to the course outline view.
+   */
+  sidebarBackButton: '.outline-sidebar button.outline-sidebar-heading',
+
+  /** The course outline view's heading — "Course outline". */
+  sidebarOutlineHeading: '.outline-sidebar span.outline-sidebar-heading',
+
+  /** A section in the course outline view (a button that opens its section view). */
+  sidebarSectionRow: '#outline-sidebar-outline > li.course-sidebar-section > button',
+
+  /** A subsection in the section view: a collapsible whose trigger carries `aria-expanded`. */
+  sidebarSubsectionItem: '#outline-sidebar-outline > li:not(.course-sidebar-section)',
+
+  /** The tray's collapse control, inside the open tray. */
+  sidebarCollapse: '.outline-sidebar .outline-sidebar-toggle-btn',
+
+  /**
+   * The control that re-opens a collapsed tray: beside the unit on a desktop,
+   * in the breadcrumb row on a phone. Both carry "Toggle course outline tray".
+   */
+  sidebarExpand: '.outline-sidebar-heading-wrapper.collapsed .outline-sidebar-toggle-btn',
+
+  /** The tray in its full-screen form, below the `xl` breakpoint. */
+  sidebarFullScreen: '.outline-sidebar-wrapper.fixed-top',
+
+  /** The unit navigation's "Next" control (a button above the unit, a link below). */
+  nextUnit: '.next-button',
 
   /**
    * The outline tray's own collapse/expand control — "Toggle course outline

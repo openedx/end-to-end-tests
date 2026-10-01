@@ -4,7 +4,7 @@ import { ConfigError } from './errors';
 import { loadConfig, type AppConfig } from './load';
 
 export type { AppConfig, AdminCredentials, BaseUrls, Env, Scheme } from './load';
-export { loadConfig } from './load';
+export { loadConfig, parseCapabilities } from './load';
 export { ConfigError };
 export {
   CAPABILITIES,
@@ -25,14 +25,33 @@ export { registrableDomain } from './domain';
 export { importPluginModule, instantiatePluginExport } from './plugin-module';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
-export { RUN_ID_ENV, getRunId } from './run-id';
+export {
+  A11Y_VIEWPORTS,
+  RESPONSIVE_VIEWPORTS,
+  VIEWPORTS,
+  viewportUse,
+  type ViewportSpec,
+} from './viewports';
+export {
+  CI_PROFILE_ENV,
+  RUN_ID_ENV,
+  RUN_ID_SUFFIX_ENV,
+  ciResultLabels,
+  getRunId,
+  parseRunIdSuffix,
+} from './run-id';
 export {
   ACCOUNT_MENU_SELECTORS,
   ADMIN_CONSOLE_SELECTORS,
+  CHROME_SELECTORS,
+  languageMenuOtherItems,
   CATALOG_SEARCH_PATH,
   CATALOG_SELECTORS,
   COURSE_ABOUT_SELECTORS,
   catalogCourseCard,
+  catalogFilterGroup,
+  catalogFilterOptions,
+  type CatalogFacet,
   courseAboutCoursewareLink,
   CAPA_SELECTORS,
   COURSEWARE_SELECTORS,
@@ -40,12 +59,23 @@ export {
   sidebarSubsectionRowFor,
   sidebarUnitLink,
   PROGRESS_SELECTORS,
+  PROFILE_SELECTORS,
+  profileControl,
+  profileEditor,
+  TEAMS_SELECTORS,
+  teamThread,
+  teamsTopicLink,
   progressTabLink,
   DASHBOARD_SELECTORS,
   DISCUSSIONS_SELECTORS,
   NOTIFICATION_PREFERENCES_SELECTORS,
   NOTIFICATION_TRAY_SELECTORS,
   COURSE_HOME_SELECTORS,
+  COURSE_TOOLS_SELECTORS,
+  bookmarkRowFor,
+  courseHomeFragmentHolding,
+  courseToolLink,
+  subsectionEffort,
   STUDIO_HOME_SELECTORS,
   STUDIO_OUTLINE_SELECTORS,
   STUDIO_OUTLINE_PAGE_SELECTORS,
@@ -78,7 +108,13 @@ export {
   STUDIO_PAGES_RESOURCES_SELECTORS,
   STUDIO_CUSTOM_PAGES_SELECTORS,
   STUDIO_UNIT_PAGE_SELECTORS,
+  COMMUNICATIONS_SELECTORS,
+  advancedComponentOption,
+  ADVANCED_BLOCK_SELECTORS,
+  advancedBlockRoot,
   STUDIO_EDITOR_SELECTORS,
+  LEGACY_EDITOR_SELECTORS,
+  PDF_EDITOR_SELECTORS,
   COURSE_CREATOR_ADMIN_SELECTORS,
   CERTIFICATE_GENERATION_ADMIN_SELECTORS,
   INSTRUCTOR_CERTIFICATE_FILTERS,

@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 
 import { PROGRESS_SELECTORS, progressTabLink, type AppConfig } from '../../../config';
 
@@ -10,6 +10,8 @@ export class ProgressPage {
   readonly totalGrade: Locator;
   readonly tables: Locator;
   readonly tableFooter: Locator;
+  readonly certificateStatus: Locator;
+  readonly certificateAction: Locator;
 
   constructor(
     private readonly page: Page,
@@ -18,6 +20,8 @@ export class ProgressPage {
     this.totalGrade = page.locator(PROGRESS_SELECTORS.totalGrade);
     this.tables = page.locator(PROGRESS_SELECTORS.table);
     this.tableFooter = page.locator(PROGRESS_SELECTORS.tableFooter);
+    this.certificateStatus = page.locator(PROGRESS_SELECTORS.certificateStatus);
+    this.certificateAction = page.locator(PROGRESS_SELECTORS.certificateAction);
   }
 
   url(courseKey: string): string {
@@ -53,5 +57,28 @@ export class ProgressPage {
     const text = (await this.totalGrade.textContent()) ?? '';
     const digits = text.replace(/[^\d]/g, '');
     return digits === '' ? undefined : Number(digits);
+  }
+
+  /**
+   * The state the certificate block shows (`requestable`, `downloadable`, …),
+   * read from its element id. Waits for the block, so a page without one
+   * times out rather than answering `undefined`.
+   */
+  async certificateCase(): Promise<string | undefined> {
+    await this.certificateStatus.waitFor();
+    const id = await this.page.locator(PROGRESS_SELECTORS.certificateStatusCase).getAttribute('id');
+    return id?.replace(/_certificate_status$/, '');
+  }
+
+  /**
+   * Presses "Request certificate" and waits for the request it sends
+   * (`POST /courses/<key>/generate_user_cert`), returning that response.
+   */
+  async requestCertificate(): Promise<Response> {
+    const sent = this.page.waitForResponse(
+      (r) => r.url().includes('/generate_user_cert') && r.request().method() === 'POST',
+    );
+    await this.certificateAction.click();
+    return sent;
   }
 }

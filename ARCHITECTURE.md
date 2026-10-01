@@ -197,6 +197,25 @@ of the configured mailbox provider (`mailboxLearner`, `src/mail/`), and the
 suite reads the mail through that provider's API — a Mailpit catcher on the CI
 Tutor stack.
 
+The **learner-page** personas (Epic 14) are mostly one fresh learner per test
+(`courseLearner`, `roundTripLearner`), because what a learner bookmarked,
+completed or chose is the assertion. Two more complete them: a **profile
+viewer**, a second fresh learner on a request context of its own, whose reading
+decides every privacy case; and **global staff**, the admin in a browser
+(`adminPage`), for the dashboard's "View as". Platform-wide switches that one
+case changes and others rely on are serialised by a named cross-worker
+reader/writer lock (`src/fixtures/named-lock.ts`) beside the admin lock — the
+certificate auto-generation switch is the first, the ORA team-submissions
+switch the second.
+
+The **instructor-dashboard role** personas (Epic 15) are the worker author as
+the course's instructor, plus a worker-scoped `instructorCast`: one plain
+account per role it is granted — `staff`, `limitedStaff`, a staff
+`discussionAdmin`, a `teamMember` — enrolled nowhere until a test grants it a
+role on its own course. Course e-mail is sent by a mailbox learner granted
+course staff, on its own context, because the communications MFE needs an LMS
+session the author's browser does not hold.
+
 The account backend is therefore the seam for an install with custom auth: it
 supplies `createIdentity` and `activate`, and may override `signIn` (headless,
 used by `setup`), `signInStudio` (the Studio half of every authoring session, the
@@ -234,4 +253,8 @@ Two `src/` modules support specs across every domain rather than a single layer:
 | `src/a11y/`      | The `@axe-core/playwright` gate (`checkA11y`) for WCAG 2.2 AA, with a known-debt baseline. Per-scan results are attached to each test and aggregated by the reporter above.                                                                                                                                                                                                                                                                                                  |
 
 Configuration lives in [`playwright.config.ts`](playwright.config.ts); timeouts
-are centralized in `src/config/timeouts.ts` (no fixed sleeps).
+are centralized in `src/config/timeouts.ts` (no fixed sleeps). Both it and
+[`merge.config.ts`](merge.config.ts), the configuration CI's `playwright
+merge-reports` step uses to combine the blob reports of its shards and CI
+profiles, take the reporters from `src/reporting/reporters.ts`. A merged run
+therefore writes the same report files as a single one.

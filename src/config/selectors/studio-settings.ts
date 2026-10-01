@@ -42,16 +42,33 @@ export const STUDIO_SCHEDULE_DETAILS_SELECTORS = {
   enrollmentEndDate: '#enrollmentEnd-date',
   enrollmentEndTime: '#enrollmentEnd-time',
   /**
-   * "Certificates available date" / time — rendered only when the target lets
-   * the field show (`can_show_certificate_available_date_field`, off by default).
+   * "Certificate available date" — a date-only field (no time), rendered only
+   * when the target lets the certificates row show
+   * (`can_show_certificate_available_date_field`, off by default) and the
+   * display behaviour is "A date after the course end date" (`end_with_date`).
+   * Unlike the schedule rows, its input is named without a `-date` suffix.
    */
-  certificateAvailableDate: '#certificateAvailableDate-date',
-  certificateAvailableTime: '#certificateAvailableDate-time',
+  certificateAvailableDate: 'input[name="certificateAvailableDate"]',
+  /**
+   * "Certificates display behavior" — the dropdown the certificates row shows
+   * under the same condition; the date fields follow only for "End date of
+   * course run" with an available date (`end_with_date`).
+   */
+  certificateBehaviorDropdown: '#certificate-behavior-dropdown',
 
   /** "Course language" dropdown toggle. */
   languageDropdown: '#languageDropdown',
   /** "Course short description" textarea. */
   shortDescription: 'textarea[name="shortDescription"]',
+
+  /**
+   * "Course overview": a TinyMCE editor, the page's only one. Its toolbar's
+   * "Source code" button has no anchor common to both releases (`main`'s
+   * TinyMCE names its buttons in `data-mce-name`; `verawood`'s folds it into a
+   * "More..." drawer with only localized labels), so HTML is given to the
+   * editor through TinyMCE's own API, which the MFE's editor binding follows.
+   */
+  overviewEditor: '.tox-tinymce',
 
   /** Course card image: the drop zone's file input ("Upload course card image"). */
   courseImageFileInput: '.pgn__dropzone input[type="file"]',

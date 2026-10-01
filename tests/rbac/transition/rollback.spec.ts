@@ -59,6 +59,7 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
   test(
     'restores every legacy role and every actor’s access to the baseline',
     {
+      tag: '@authz-auto-migration',
       annotation: [
         testId('TC-00600'),
         testId('TC-00601'),
@@ -198,7 +199,7 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
 
   test(
     'keeps an organization’s roles inside it after a rollback',
-    { annotation: testId('TC-00612') },
+    { tag: '@authz-auto-migration', annotation: testId('TC-00612') },
     async (
       {
         page,

@@ -225,4 +225,67 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   grantExceptionsModal: '[role="dialog"].grant-exceptions-modal',
   grantExceptionsIndividualTab: '#grant-exceptions-tabs-tab-single',
   invalidateModal: '[role="dialog"].invalidate-certificate-modal',
+
+  // ---- Course Team -------------------------------------------------------
+  /** "Add Team Member": the tab's one primary button. */
+  courseTeamAddButton: 'button.btn-primary',
+  /**
+   * The add-member modal: identifiers (usernames or e-mails, comma-separated)
+   * and the role select, whose option values are the v2 API's role keys.
+   */
+  teamMemberIdentifiers: 'textarea',
+  teamMemberRole: 'select',
+  /** The modal's "Save" — its primary button (a plain button, not a submit). */
+  teamMemberSave: 'button.btn-primary',
+
+  // ---- Special Exams -----------------------------------------------------
+  /**
+   * The tab's view toggle, in order: "Exam Attempts", then "Allowances" (the
+   * active one is the primary button). In the Allowances view, "Add Allowance"
+   * is the one primary button outside the toggle.
+   */
+  specialExamsViewToggle: '.btn-group > button',
+  addAllowanceButton: 'button.btn-primary:not(.btn-group > button)',
+  /**
+   * The add-allowance modal: learners (usernames or e-mails), the exam type
+   * (`timed` / `proctored`), one checkbox per exam of that type (value = exam
+   * id), the allowance type (`additional_time_granted`, `time_multiplier`,
+   * `review_policy_exception`) and its value; "Create Allowance" is the form's
+   * submit. The edit modal reuses the value input.
+   */
+  allowanceLearners: 'textarea[name="users"]',
+  allowanceExamType: 'select[name="examType"]',
+  allowanceExam: (examId: number) => `input[name="examIds"][value="${examId}"]`,
+  allowanceType: 'select[name="allowanceType"]',
+  allowanceValue: 'input[name="value"]',
+  /** A table row's "Actions" kebab (its last button), and the popover's Edit, then Delete. */
+  allowanceRowActions: 'button',
+  allowanceMenuItem: '.popover .dropdown-item',
+  /** The delete confirmation's "Delete" (its last primary). */
+  allowanceDeleteConfirm: 'button.btn-primary',
+
+  // ---- Cohorts -----------------------------------------------------------
+  /**
+   * While cohorts are off, the tab's only primary button is "Enable Cohorts";
+   * once on, the first primary is "+ Add Cohort", beside the cohort picker
+   * (`select[name="cohort"]`, option values are cohort ids).
+   */
+  cohortsPrimaryButton: 'button.btn-primary',
+  cohortPicker: 'select[name="cohort"]',
+  /**
+   * The add-cohort form: the name input (the form's one non-radio input; it
+   * carries no `type`), the assignment method radios (`random` / `manual`,
+   * manual disabled until an automatic cohort exists), the content-group radios
+   * (`noContentGroup` / `selectContentGroup`) and select (values are group ids),
+   * and "Save" (the form's submit).
+   */
+  cohortForm: 'form:has(input[name="assignmentType"])',
+  cohortNameInput: 'input:not([type="radio"])',
+  cohortAssignment: (type: 'random' | 'manual') => `input[name="assignmentType"][value="${type}"]`,
+  cohortContentGroupRadio: 'input[name="associatedContentGroup"][value="selectContentGroup"]',
+  cohortContentGroupSelect: 'select[name="contentGroup"]',
+  cohortFormSubmit: 'button[type="submit"]',
+  /** The selected cohort's "add learners" textarea and its "Add Learners" button. */
+  cohortLearnersInput: 'textarea',
+  cohortLearnersSubmit: 'button.mt-2.btn-primary',
 } as const;

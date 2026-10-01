@@ -37,7 +37,11 @@ should be a new `*.spec.ts` and nothing else.
 5. **Composition** → `src/fixtures/index.ts`. Add a typed fixture with a doc
    comment so the spec receives a finished object. Put any `test.skip` condition
    here (missing `COURSE_KEY`, a course lacking the needed content) — conditionals
-   do not belong in test bodies.
+   do not belong in test bodies — and label it `// skip-kind: capability |
+suite-config | content` (enforced by `tests/conventions/skip-kinds.spec.ts`).
+   A case that depends on how the target is **configured** is not a skip: give it
+   a capability tag, and have the fixture check the declaration with
+   `requireCapabilityTag` / `capabilityContradicted` (see CONVENTIONS "Tags").
 6. **The spec** → `tests/<domain>/<feature>.spec.ts`.
 
 ```ts
@@ -102,7 +106,9 @@ visits, and run `npm run check`.
 - Tier: `@smoke` (critical path) or `@regression` (broader depth); `@unit` for
   pure logic (no browser/target).
 - Capability: `@discussions`, `@catalog-search`, … — must exist in
-  `src/config/capabilities.ts`. The `capabilityGate` fixture reads the test's
+  `src/config/capabilities.ts`; `docs/capabilities.md` says what each means,
+  which releases have it and where CI declares it (a new one must be added
+  there too). The `capabilityGate` fixture reads the test's
   own tags and skips automatically, so **the tag is the whole contract**. A gated
   spec must assert the feature's surface is really present, so a target that
   declares a capability it lacks fails rather than passing vacuously.

@@ -58,3 +58,64 @@ export const STUDIO_EDITOR_SELECTORS = {
     '[role="dialog"] .collapsible-card:not(:has(input)) button.btn-link.btn-sm',
   videoTranscriptFileInput: '[role="dialog"] input.upload[type="file"]',
 } as const;
+
+/**
+ * The PDF component's editor (the authoring MFE's own `PdfEditor`, opened in the
+ * component editor dialog). Measured on Tutor `main` (2026-09-24).
+ */
+export const PDF_EDITOR_SELECTORS = {
+  /**
+   * "File": the hidden file input the editor uploads from, straight to the
+   * course's Files. The file row's "Replace" action opens this same input.
+   */
+  fileInput: 'input#pdf-url[type="file"]',
+  /** "Show PDF download link". */
+  allowDownload: 'input[name="allowDownload"]',
+  /** "Original File URL" and "Original File Link Text". */
+  sourceUrl: '#pdf-source-url',
+  sourceText: '#pdf-source-text',
+} as const;
+
+/**
+ * The XBlock-provided ("legacy") editors — an advanced block's own `studio_view`
+ * — which the authoring MFE opens in a dialog holding one iframe framed at
+ * `/xblock/<key>/action/edit`. Their anchors are the ids each block's editor
+ * template renders, named with the package they come from. Each editor's save
+ * posts to one of the block's Studio handlers, and the dialog closes after it.
+ * Measured on Tutor `main` (2026-09-24).
+ */
+export const LEGACY_EDITOR_SELECTORS = {
+  /** The dialog's editor iframe. */
+  frame: 'iframe.modal-iframe',
+  /** xblock-google-drive `google-calendar`: the calendar id and "Save". */
+  calendarId: '#edit_calendar_id',
+  calendarSave: '#calendar-submit-options',
+  /** xblock-google-drive `google-document`: the raw embed code and "Save". */
+  embedCode: '#edit_embed_code',
+  documentSave: '#document-submit-options',
+  /** xblock-poll `poll`: the question, one label per answer key, and "Save". */
+  pollQuestion: '#poll-question-editor',
+  pollAnswerLabel: (key: string) => `#answer-label-${key}`,
+  pollSave: '#poll-submit-options',
+  /**
+   * recommender-xblock: the "entries per page" setting and "Set configurations"
+   * (`set_client_configuration`). This editor stays open after its save; its
+   * dialog's close control is the frame's `action-cancel`.
+   */
+  recommenderEntriesPerPage: 'select.entriesPerPage',
+  recommenderSave: 'input.recommender_configSubmit',
+  /**
+   * edx-ora2's editor: the "Settings" tab — click it at its left edge, because
+   * the MFE dialog's expand button overlaps its right side — a control every
+   * Settings tab renders ("Show rubric during response"), the "Teams enabled"
+   * select (present only while team submissions are on; `0` / `1`), the
+   * "Select Team-Set" select (values are team-set ids), and "Save"
+   * (`update_editor_context`).
+   */
+  oraSettingsTab: '#oa_edit_settings_tab a',
+  oraSettingsLoaded: '#openassessment_show_rubric_during_response_selector',
+  oraTeamsEnabled: '#openassessment_team_enabled_selector',
+  oraTeamSet: '#openassessment_teamset_selector',
+  oraSave: 'a.openassessment_save_button',
+  close: 'a.action-cancel',
+} as const;

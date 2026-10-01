@@ -7,14 +7,17 @@ need to reproduce locally first.
 ## What a `ci-tests` run uploads
 
 `ci.yml` fans out to `run_tests_tutor.yml` once per release (`main` plus the
-newest named release, e.g. `verawood`). Each Tutor job uploads three artifacts,
-suffixed with the release:
+newest named release, e.g. `verawood`). Within a release, one job per shard of
+each CI profile (`.ci/profiles.json`) runs against its own Tutor install and
+uploads a `blob-report-<release>-<profile>-<shard>` and a
+`tutor-logs-<release>-<profile>-<shard>`; the release's `Merge reports` job
+combines the blobs into one report per release:
 
-| Artifact                      | Contents                                                                                                                                                                                                             |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `playwright-report-<release>` | `playwright-report/` (HTML report; `index.html` embeds the machine-readable report as a base64 zip; `data/` holds screenshots, videos, traces, `error-context.md`) and `test-results/` (one dir per failed attempt). |
-| `suite-reports-<release>`     | `btr-coverage.json` (test_id → outcome), `btr-run.json` (per-case specs/notes/timing + run metadata; input to the BTR results-sheet publisher) and `a11y-violations.json` (failing / baselined rules).               |
-| `tutor-logs-<release>`        | `docker ps -a` plus `tutor local logs <service>` for `lms`, `cms`, `lms-worker`, `cms-worker`, `mfe`, `caddy`. Lines are prefixed `<service>-1                                                                       | `.  |
+| Artifact                                 | Contents                                                                                                                                                                                                          |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `playwright-report-<release>`            | `playwright-report/` (HTML report; `index.html` embeds the machine-readable report as a base64 zip; `data/` holds screenshots, videos, traces, `error-context.md`) and `test-results/` (the merged report files). |
+| `suite-reports-<release>`                | `btr-coverage.json` (test_id → outcome), `btr-run.json` (per-case specs/notes/timing + run metadata; input to the BTR results-sheet publisher) and `a11y-violations.json` (failing / baselined rules).            |
+| `tutor-logs-<release>-<profile>-<shard>` | `docker ps -a` plus `tutor local logs <service>` for `lms`, `cms`, `lms-worker`, `cms-worker`, `mfe`, `caddy`. Lines are prefixed `<service>-1                                                                    | `.  |
 
 Two things bite when reading them by hand: a **re-run attempt re-uploads
 artifacts under the same names** (so `gh run download` mixes attempts), and
@@ -35,6 +38,9 @@ python3 $S fetch https://github.com/openedx/end-to-end-tests/actions/runs/344183
 python3 $S fetch 43 --dest $D                    # PR number
 python3 $S fetch <ref> --dest $D --only playwright,suite   # skip the ~1.5 MB/job Tutor logs
 python3 $S fetch <ref> --dest $D --all-attempts  # keep every attempt as <name>-<artifact-id>/
+
+# Sharded runs: per-shard provisioning vs. suite time, and the fixture time each shard repeats
+python3 $S fetch <ref> --dest $D --only suite && python3 $S shards $D
 
 # 2. Orient — one screen: jobs, per-release pass/fail/flaky, each failing test with its
 #    first error line, most common error shapes, a11y + BTR totals, traceback/5xx counts per log

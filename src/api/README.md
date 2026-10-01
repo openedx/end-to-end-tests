@@ -39,7 +39,8 @@ Contains:
   the Blocks API folded into sections → subsections → units with per-block
   completion, which is what the completion steps and fixtures drive from; plus
   `fetchCourseNavigation` (the course-home navigation model, a gated subsection
-  present as a `lock`) and `fetchSequenceMetadata` (the learning MFE's
+  present as a `lock`; `navigationSections` lists its sections in order) and
+  `fetchSequenceMetadata` (the learning MFE's
   per-subsection reading, `undefined` when it is not served to the learner) — the
   learner-side outcome the visibility round trips assert on.
 - `course-preflight.ts` — `assertCourseAccessible` / `courseKeySkipReason`:
@@ -53,6 +54,13 @@ Contains:
   (an `ApiError` naming the action on a non-2xx or non-JSON answer; the CSRF
   header on writes; `mergePatch` for the discussion API's `PATCH`), the LMS
   counterpart of `studioJson` / `studioWrite`.
+- `xblock-handler.ts` — a learner's reading of an advanced block through its
+  own LMS handlers (`/courses/<course>/xblock/<usage>/handler/<name>`, session
+  - CSRF): poll and survey `get_results`, the word cloud's `handle_get_state`,
+    and a conditional's `conditional_get` (message only until its condition is
+    met). Each reader narrows to what the learner submitted, never rendered copy. In Studio,
+    `fetchPdfFields` reads a PDF component's content-scoped fields through its
+    `load_pdf` handler, as its editor does.
 - `notifications.ts` — the recipient's notifications (verawood onward): the
   list (`listNotifications`, filterable by app), the unseen `count/`, **seen**
   (`markNotificationsSeen`, what opening a tray tab sends and all `count/`
@@ -65,7 +73,9 @@ Contains:
   the reading a moderator grant is verified by), topics, threads (created
   **following** by default, because the platform notifies an author only of
   threads it follows), search (`listThreads` with `textSearch`, indexed
-  asynchronously), responses and comments, and the `PATCH`es that follow, vote,
+  asynchronously), responses and comments, `divideDiscussionsByCohort` (the
+  legacy session-authed settings view, as the admin; it reports a login
+  redirect rather than following it into a 405), and the `PATCH`es that follow, vote,
   report, endorse and edit.
 
 ### Studio clients
@@ -98,7 +108,10 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   grading (`v1/course_grading`), Advanced Settings (`/settings/advanced`, the
   legacy JSON view that answers on every release), and `fetchCourseSettingsFlags`
   (`v1/course_settings`: whether the certificates-available-date and prerequisite
-  controls render on this target).
+  controls render on this target). `ensureTeamsTopic` turns teams on with a
+  team set through `teams_configuration`, writing only when it is missing.
+  `addAdvancedModules` adds XBlock types to `advanced_modules`, keeping the
+  listed ones.
 - `course-team.ts`, `group-configurations.ts`, `certificates.ts`,
   `course-apps.ts` (Pages & Resources toggles), `custom-pages.ts` (static-tab
   create/rename/delete + reorder read, `v0/tabs`), `course-transfer.ts` (export
@@ -107,7 +120,8 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   `course-modes.ts` (LMS enrollment modes; `ensureCertificateBearingMode` adds the
   `honor` mode a course needs before the Certificates form renders — staff only).
 - `xblock.ts` — the legacy `xblock_handler` client: `createXBlock`,
-  `updateXBlock`, `publishXBlock`, and the reads (`fetchXBlockOutline`,
+  `updateXBlock`, `publishXBlock`, `deleteXBlock` (for seeds that replace what
+  an earlier seed built), and the reads (`fetchXBlockOutline`,
   `fetchXBlock`, `fetchCourseIndex`, `fetchContainer` / `fetchContainerChildren`,
   `availableComponentTypes` / `advancedComponentTypes`). The one endpoint the whole
   outline and every unit go through. Duplicate / delete / reorder / move and the
@@ -127,7 +141,9 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   **session**-auth LMS views, not JWT: a JWT-only context is redirected to login
   and the write surfaces as **HTTP 405**, so drive them from a fresh
   `loginSession` on a throwaway context
-  (see `.private/studio-auth-resilience.md` §2.4).
+  (see `.private/studio-auth-resilience.md` §2.4). The v1 cohorts API the
+  instructor-dashboard MFE writes through (`listCohortsV1`, `createCohortV1`,
+  `enableCohortsV1`) accepts the JWT and rides `page.request`.
 - `search.ts` — `searchCourseDiscovery` (the LMS catalog-search index the
   discovery page runs) and `reindexCourse` (Studio's `reindex_link`, global-staff
   only — rebuilds the index so freshly authored content becomes findable).
@@ -147,8 +163,12 @@ outcome").
   here and returns no task id, see `INSTR-002`), the enrollment list and
   learner / per-problem readings, the two grading writes the seeds and steps
   need (`resetAttempts`, `overrideScore`), extensions (`listUnitExtensions`),
-  the certificate reads and the writes the certificate step composes, and
-  `grantCourseTeamRole` (report generation needs `data_researcher`). Only what
+  the certificate reads and the writes the certificate step composes,
+  `sendCourseEmail` (the legacy bulk-email view, a form post),
+  `grantCourseTeamRole` (report generation needs `data_researcher`) and its
+  read-back `listCourseTeam` (forum roles included), and the special-exam
+  readings (`listSpecialExams`, `listAllowances`). Team and allowance writes
+  answer 200 with a per-row `success`, so their lists are the oracle. Only what
   a page object, step, fixture or spec calls is here; the rest of the surface
   is driven through the dashboard and asserted on the response it returns. DRF views that accept the JWT, so the author's
   `page.request` drives them. A `400 "already running"` is a
@@ -200,8 +220,9 @@ outcome").
   `/textbooks/<key>` handler, because the v1 API is read-only and answers a
   `POST` with 405 (measured on `main`). The learner effect is read via
   `fetchCourseMetadata` tabs.
-- `course-updates.ts` — `fetchCourseUpdates` / `fetchHandouts` / `createCourseUpdate`:
-  the Course Updates page's `course_info_update` and handouts-xblock oracles.
+- `course-updates.ts` — `fetchCourseUpdates` / `fetchHandouts` / `createCourseUpdate`
+  / `updateHandouts`: the Course Updates page's `course_info_update` and
+  handouts-xblock oracles.
 
 ### Roles and permissions clients
 
@@ -232,9 +253,51 @@ outcome").
 - `user-admin.ts` — `deactivateAccount`: turns an account's `is_active` off
   through the LMS user admin, the only way to reach the platform's "registered
   but not activated" behaviour on a target that activates on registration.
-- `django-admin.ts` — the admin-form mechanics the four clients above share:
+- `waffle-switch.ts` — platform-wide waffle **switches**
+  (`setWaffleSwitch` / `fetchWaffleSwitch`, e.g.
+  `AUTO_CERTIFICATE_GENERATION_SWITCH`). A switch is global, so a caller holds
+  the named lock that serialises it (`certificateSwitch`).
+- `bulk-email-admin.ts` — `enableCourseEmail`: the `BulkEmailFlag` and one
+  course's `CourseAuthorization`, which the dashboard's "Email settings" needs.
+- `django-admin.ts` — the admin-form mechanics the clients above share:
   `openAdminForm` / `postAdminForm` / `readAdminForm` (a whole change form,
   inline formsets included, read back for re-posting), `findAdminRowPk`,
   `countAdminResultRows`, and `assertAdminPage` — which is what stops an
   **evicted** Django session from reading as an empty list, since `/admin/…`
   answers a logged-out caller with a 302 the request context follows to a 200.
+
+### Learner clients
+
+The learner's side of the platform, each call on the learner's **own**
+context (Epic 14). Several of these views are session-only, so a JWT-only
+context is not enough — the learner's signed-in context, whose session
+registration created, always is.
+
+- `accounts.ts` — `fetchAccount` / `updateAccount` (merge-patch) and
+  `fetchPreferences` / `updatePreferences`: the profile's and Account
+  Settings' oracle, `lmsServesLanguage` (whether the LMS has a translation
+  for a language a frontend offers), and `listLearnerCertificates` (a learner's certificates as
+  another user reads them; `{ forbidden: true }` on a 403). A privacy setting
+  is proven by a **second** user's `fetchAccount`; a profile stays private
+  until it has an adult year of birth (`ADULT_YEAR_OF_BIRTH`). `bio: null` is a 500 — clear it with `""`.
+- `bookmarks.ts` — `listBookmarks` / `addBookmark` / `removeBookmark`: session
+  or Bearer only (a JWT alone is a 401).
+- `completion.ts` — `recordCompletion` (the learner's own `completion-batch`,
+  which fixes a resume point) and `fetchResumePoint`.
+- `learner-home.ts` — `fetchLearnerHome` (the dashboard's cards, e-mail
+  settings state; `{ user }` is global staff's "View as", a 403 otherwise) and
+  `setCourseEmailOptIn`.
+- `course-home.ts` — `fetchCourseHomeOutline`: the course home's own
+  reading — the Resume target, handouts and course tools (`courseTool` picks
+  one by its `analytics_id`) — and `fetchCoursewareCourse`, the courseware
+  metadata (`show_calculator`, the notes state, and the About page's rendered
+  `overview`).
+- `teams.ts` — `createTeam` / `joinTeam` / `fetchTeam` / `listTeamsOf` and
+  `listTeamThreadIds`: session or Bearer only, on the learner's own context.
+- `notes.ts` — `listCourseNotes`: the learner's notes in a course as the LMS
+  lists them from the notes service.
+- `user-tours.ts` — `fetchUserTours`: whether the course-home tour is still
+  offered.
+- `mfe-config.ts` `fetchChromeConfig` — the values a page's header and footer
+  are built from, narrowed to one `ChromeConfig` whether the page is a legacy
+  MFE (`mfe_config`) or the frontend-base shell (`frontend_site_config`).

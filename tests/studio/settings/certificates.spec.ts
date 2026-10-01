@@ -1,7 +1,12 @@
 import { checkA11y } from '../../../src/a11y';
-import { fetchCertificateConfiguration, resetCertificates } from '../../../src/api';
+import {
+  fetchCertificateConfiguration,
+  fetchCourseSettingsFlags,
+  resetCertificates,
+} from '../../../src/api';
+import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
-import { knownGap, testId } from '../../../src/reporting';
+import { testId } from '../../../src/reporting';
 
 /**
  * Certificates (authoring MFE), on the worker's own course.
@@ -123,44 +128,38 @@ test.describe('Certificates', { tag: ['@studio', '@author', '@mfe-authoring'] },
     },
   );
 
-  // TC-00277 (enable automatic certificate generation) toggles the
-  // `certificates.auto_certificate_generation` waffle switch in Django admin, not
-  // a control the authoring MFE exposes — the suite cannot drive it. A `fixme`
-  // until there is a supported way to set it.
-  test.fixme(
+  // TC-00277: automatic certificate generation is the platform-wide
+  // `certificates.auto_certificate_generation` waffle switch, set in the Django
+  // admin rather than in Studio. Its Studio-side effect is that an
+  // instructor-paced course's Schedule & Details offers a "Certificates
+  // available" date. The switch is global, so `certificateSwitch` holds it
+  // exclusively. (TC-00278, a learner receiving the certificate, is in
+  // `tests/lms/course-home/certificate.spec.ts`.)
+  test(
     'enables automatic certificate generation',
-    {
-      tag: '@regression',
-      annotation: [
-        testId('TC-00277'),
-        knownGap(
-          'Automatic certificate generation is a Django-admin waffle switch the authoring MFE does not expose',
-        ),
-      ],
-    },
-    async ({ request, config, authoredCourse }) => {
-      const cfg = await fetchCertificateConfiguration(request, config, authoredCourse.courseKey);
-      expect(cfg.hasCertificateModes).toBe(true);
-    },
-  );
+    { tag: ['@regression', '@certificates'], annotation: testId('TC-00277') },
+    async ({
+      page,
+      config,
+      authoredCourse,
+      scheduleDetailsPage,
+      studioAuthorSession,
+      certificateSwitch,
+    }) => {
+      void studioAuthorSession;
+      const api = page.request;
+      const { courseKey } = authoredCourse;
+      const offered = async () =>
+        (await fetchCourseSettingsFlags(api, config, courseKey))
+          .canShowCertificateAvailableDateField;
+      expect(await offered()).toBe(false);
+      await scheduleDetailsPage.goto(courseKey);
+      await expect(scheduleDetailsPage.certificateBehaviorDropdown).toHaveCount(0);
 
-  // TC-00278 (complete the course as a student and receive the certificate) needs
-  // gradable content the course does not have — Epic 8. Cross-references the Epic 6
-  // certificate annotation in `tests/lms/course-home/progress.spec.ts`.
-  test.fixme(
-    'a student who passes receives the certificate',
-    {
-      tag: '@regression',
-      annotation: [
-        testId('TC-00278'),
-        knownGap(
-          'Needs gradable authored content and a passing learner; certificate issuance is not yet driven end to end',
-        ),
-      ],
-    },
-    async ({ request, config, authoredCourse }) => {
-      const cfg = await fetchCertificateConfiguration(request, config, authoredCourse.courseKey);
-      expect(cfg.isActive).toBe(true);
+      await certificateSwitch.turnOn();
+      await expect.poll(offered, { timeout: TIMEOUTS.contentPublish }).toBe(true);
+      await scheduleDetailsPage.goto(courseKey);
+      await expect(scheduleDetailsPage.certificateBehaviorDropdown).toBeVisible();
     },
   );
 });

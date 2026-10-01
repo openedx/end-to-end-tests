@@ -57,4 +57,28 @@ test.describe('Learner dashboard', () => {
       expect(url.pathname).toContain(`/course/${courseKey}`);
     },
   );
+
+  test(
+    'unenrolls from a course through its card, and keeps it on cancel',
+    {
+      tag: ['@regression', '@authenticated', '@mfe-learner-dashboard'],
+      annotation: testId('TC-00043'),
+    },
+    async ({ page, request, config, dashboardPage, enrolledCourse }) => {
+      const { courseKey } = enrolledCourse;
+      await dashboardPage.goto();
+      await expect(dashboardPage.courseCard(courseKey)).toBeVisible();
+
+      // Cancelling leaves the learner enrolled.
+      await dashboardPage.cancelUnenroll(courseKey);
+      expect(await isEnrolled(request, config, courseKey)).toBe(true);
+      await checkA11y(page, { label: 'dashboard-after-cancel' });
+
+      // Confirming unenrolls: the platform's record, then the card.
+      expect((await dashboardPage.unenroll(courseKey)).ok()).toBe(true);
+      expect(await isEnrolled(request, config, courseKey)).toBe(false);
+      await dashboardPage.goto();
+      await expect(dashboardPage.courseCard(courseKey)).toHaveCount(0);
+    },
+  );
 });

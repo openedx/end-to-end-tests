@@ -1,10 +1,13 @@
+import type { APIRequestContext } from '@playwright/test';
+
 import { expect, test } from '../../../src/fixtures';
-import { TIMEOUTS, type InstructorReportType } from '../../../src/config';
+import { TIMEOUTS, type AppConfig, type InstructorReportType } from '../../../src/config';
 import { downloadReport, listReports } from '../../../src/api';
 import { waitForReport } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
 import { testId } from '../../../src/reporting';
 import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS, csvHeader } from './helpers';
+import type { InstructorDataDownloadsPage } from '../../../src/pages/lms/instructor/data-downloads.page';
 
 /**
  * Data downloads (TC-00526–TC-00535): every report the tab can generate is
@@ -25,13 +28,6 @@ interface ReportCase {
   readonly media: 'text/csv' | 'application/zip';
   /** A column identifier the CSV header must carry, when the header is stable. */
   readonly column?: RegExp;
-  /**
-   * Capability tag the report's group tab needs; the case is gated on it when
-   * set. The certificates group tab is only rendered where platform-wide
-   * certificate generation is on, so its case has to carry the gate itself —
-   * gating the whole describe would drop the other reports too.
-   */
-  readonly capability?: `@${string}`;
 }
 
 const REPORTS: readonly ReportCase[] = [
@@ -56,13 +52,6 @@ const REPORTS: readonly ReportCase[] = [
     media: 'text/csv',
     column: /email/i,
   },
-  {
-    id: 'TC-00530',
-    type: 'issued_certificates',
-    title: 'issued certificates',
-    media: 'text/csv',
-    capability: '@certificates',
-  },
   { id: 'TC-00531', type: 'grade', title: 'grades', media: 'text/csv', column: /username|email/i },
   {
     id: 'TC-00532',
@@ -81,6 +70,54 @@ const REPORTS: readonly ReportCase[] = [
   },
 ];
 
+/**
+ * The certificates group tab is only rendered where platform-wide certificate
+ * generation is on, so this case is gated on `@certificates` and turns the
+ * switch on itself (`platformCertificates`), rather than relying on an earlier
+ * test of the run having done it.
+ */
+const CERTIFICATES_REPORT: ReportCase = {
+  id: 'TC-00530',
+  type: 'issued_certificates',
+  title: 'issued certificates',
+  media: 'text/csv',
+};
+
+/**
+ * Generates `report` from its button, waits for the download to be listed, and
+ * checks its media type, its CSV header (when known) and its row in the table.
+ */
+async function expectReportDownloaded(
+  request: APIRequestContext,
+  config: AppConfig,
+  instructorDataDownloads: InstructorDataDownloadsPage,
+  courseKey: string,
+  report: ReportCase,
+): Promise<void> {
+  await instructorDataDownloads.gotoTab(courseKey);
+
+  const before = await listReports(request, config, courseKey);
+  const queued = await instructorDataDownloads.generate(report.type);
+  expect(queued.status()).toBe(200);
+
+  const outcome = await waitForReport(request, config, courseKey, report.type, before);
+  expect(
+    outcome.report,
+    `no ${report.type} report within ${outcome.elapsedMs} ms; tasks: ${JSON.stringify(outcome.tasks)}; same type: ${JSON.stringify(outcome.sameType)}`,
+  ).toBeDefined();
+  const download = outcome.report as NonNullable<typeof outcome.report>;
+  expect(download.report_type).toBe(report.type);
+
+  const file = await downloadReport(request, config, download);
+  expect(file.headers()['content-type']).toContain(report.media);
+  if (report.column) expect(await csvHeader(file)).toMatch(report.column);
+
+  // The table lists the new file (its name is the platform's, matched as a value).
+  await instructorDataDownloads.gotoTab(courseKey);
+  await expect(instructorDataDownloads.rowFor(download.report_name)).toBeVisible();
+  await expect(instructorDataDownloads.downloadButtonFor(download.report_name)).toBeVisible();
+}
+
 test.describe(
   'Instructor dashboard data downloads',
   { tag: ['@regression', ...INSTRUCTOR_TAGS] },
@@ -90,40 +127,43 @@ test.describe(
     for (const report of REPORTS) {
       test(
         `generates and downloads the ${report.title} report`,
-        {
-          ...(report.capability ? { tag: report.capability } : {}),
-          annotation: testId(report.id),
-        },
+        { annotation: testId(report.id) },
         async ({ page, config, contentCourse, instructorDataDownloads, studioAuthorSession }) => {
           void studioAuthorSession;
-          const courseKey = contentCourse.courseKey;
-          await instructorDataDownloads.gotoTab(courseKey);
-
-          const before = await listReports(page.request, config, courseKey);
-          const queued = await instructorDataDownloads.generate(report.type);
-          expect(queued.status()).toBe(200);
-
-          const outcome = await waitForReport(page.request, config, courseKey, report.type, before);
-          expect(
-            outcome.report,
-            `no ${report.type} report within ${outcome.elapsedMs} ms; tasks: ${JSON.stringify(outcome.tasks)}; same type: ${JSON.stringify(outcome.sameType)}`,
-          ).toBeDefined();
-          const download = outcome.report as NonNullable<typeof outcome.report>;
-          expect(download.report_type).toBe(report.type);
-
-          const file = await downloadReport(page.request, config, download);
-          expect(file.headers()['content-type']).toContain(report.media);
-          if (report.column) expect(await csvHeader(file)).toMatch(report.column);
-
-          // The table lists the new file (its name is the platform's, matched as a value).
-          await instructorDataDownloads.gotoTab(courseKey);
-          await expect(instructorDataDownloads.rowFor(download.report_name)).toBeVisible();
-          await expect(
-            instructorDataDownloads.downloadButtonFor(download.report_name),
-          ).toBeVisible();
+          await expectReportDownloaded(
+            page.request,
+            config,
+            instructorDataDownloads,
+            contentCourse.courseKey,
+            report,
+          );
         },
       );
     }
+
+    test(
+      `generates and downloads the ${CERTIFICATES_REPORT.title} report`,
+      { tag: '@certificates', annotation: testId(CERTIFICATES_REPORT.id) },
+      async ({
+        page,
+        config,
+        contentCourse,
+        instructorDataDownloads,
+        studioAuthorSession,
+        platformCertificates,
+      }) => {
+        void studioAuthorSession;
+        const courseKey = contentCourse.courseKey;
+        await platformCertificates.ensureEnabled(courseKey);
+        await expectReportDownloaded(
+          page.request,
+          config,
+          instructorDataDownloads,
+          courseKey,
+          CERTIFICATES_REPORT,
+        );
+      },
+    );
 
     test(
       'generates and downloads the problem responses report for a problem',

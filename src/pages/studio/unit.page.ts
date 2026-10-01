@@ -1,13 +1,15 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Dialog, Frame, Locator, Page, Response } from '@playwright/test';
 
 import {
   COURSE_LIBRARY_SYNC_SELECTORS,
+  LEGACY_EDITOR_SELECTORS,
+  advancedComponentOption,
   STUDIO_EDITOR_SELECTORS,
   STUDIO_UNIT_PAGE_SELECTORS,
   TIMEOUTS,
   type AppConfig,
 } from '../../config';
-import { CLIPBOARD_PATH, XBLOCK_PATH, studioOrigin } from '../../api';
+import { ApiError, CLIPBOARD_PATH, XBLOCK_PATH, studioOrigin } from '../../api';
 import { waitForWrite } from './wait-for-write';
 
 /** The usage key in a `/container/<vertical>/…` URL, or undefined if none. */
@@ -221,6 +223,36 @@ export class StudioUnitPage {
   }
 
   /**
+   * Adds a component through the "Advanced" tile: opens the picker (the tile at
+   * `advancedTileIndex`, from `availableComponentTypes`), chooses `category` by
+   * its radio's value and selects it, waiting for the create it causes
+   * (`POST /xblock/`). Returns the new block's usage key.
+   */
+  async addAdvancedComponent(advancedTileIndex: number, category: string): Promise<string> {
+    await this.openAddComponent(advancedTileIndex);
+    const picker = this.page.locator(this.s.advancedPickerDialog);
+    await picker.locator(advancedComponentOption(category)).check();
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => new URL(r.url()).pathname === XBLOCK_PATH,
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => picker.locator(this.s.advancedPickerSelect).click(),
+    );
+    const body = (await response.json()) as { locator?: string };
+    if (!response.ok() || body.locator === undefined) {
+      throw new ApiError(`Adding a ${category} component failed (HTTP ${response.status()}).`, {
+        status: response.status(),
+        url: response.url(),
+        body: JSON.stringify(body).slice(0, 500),
+      });
+    }
+    return body.locator;
+  }
+
+  /**
    * Pastes the clipboard's component into this unit via the "Paste Component"
    * button (shown while the clipboard holds a component), waiting for the write.
    * Returns nothing — the caller re-reads the unit's children.
@@ -258,6 +290,17 @@ export class StudioUnitPage {
   }
 
   /**
+   * A component's rendered preview inside the unit's iframe, by its usage key —
+   * the block's own `div.xblock`, not its card header (which carries the same
+   * `data-usage-id`).
+   */
+  component(usageKey: string): Locator {
+    return this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`div.xblock[data-usage-id="${usageKey}"]`);
+  }
+
+  /**
    * Selects a component card inside the unit's iframe by clicking its header —
    * the Verawood interaction that shows the component's Info in the unit-page
    * sidebar (with a Back button and the component's own overflow menu). The
@@ -285,6 +328,97 @@ export class StudioUnitPage {
       .first()
       .click();
     await this.page.locator(STUDIO_EDITOR_SELECTORS.editorDialog).last().waitFor();
+  }
+
+  /**
+   * "Edit" on a component whose editor is its own XBlock `studio_view` (poll,
+   * Google calendar, recommender, ORA, …): the MFE opens a dialog holding the
+   * editor in an iframe. Returns that frame once it has loaded.
+   */
+  async openLegacyEditor(usageKey: string): Promise<Frame> {
+    await this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`[data-usage-id="${usageKey}"]`)
+      .locator(COURSE_LIBRARY_SYNC_SELECTORS.iframeEditButton)
+      .first()
+      .click();
+    const element = this.page.locator(LEGACY_EDITOR_SELECTORS.frame);
+    await element.waitFor({ timeout: TIMEOUTS.navigation });
+    const handle = await element.elementHandle();
+    const frame = await handle?.contentFrame();
+    await handle?.dispose();
+    if (frame === null || frame === undefined) {
+      throw new Error(`The editor for ${usageKey} opened no frame.`);
+    }
+    await frame.waitForLoadState('load', { timeout: TIMEOUTS.navigation });
+    return frame;
+  }
+
+  /**
+   * Clicks a legacy editor's save control and waits for the Studio handler it
+   * posts to (`POST /xblock/<key>/handler/<handler>`), then — unless the editor
+   * stays open after a save, as the recommender's does — for the dialog to
+   * close. Returns the handler's response.
+   */
+  async saveLegacyEditor(
+    frame: Frame,
+    saveSelector: string,
+    { handler = 'studio_submit', closes = true }: { handler?: string; closes?: boolean } = {},
+  ): Promise<Response> {
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => new URL(r.url()).pathname.endsWith(`/handler/${handler}`),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => frame.locator(saveSelector).click(),
+    );
+    if (closes) await this.legacyEditorClosed();
+    return response;
+  }
+
+  /**
+   * Opens an ORA's editor on its Settings tab, returning the editor's frame once
+   * the tab has rendered its settings.
+   */
+  async openOraSettings(usageKey: string): Promise<Frame> {
+    const editor = await this.openLegacyEditor(usageKey);
+    // The MFE dialog's expand button sits over the tab's right side.
+    await editor
+      .locator(LEGACY_EDITOR_SELECTORS.oraSettingsTab)
+      .click({ position: { x: 8, y: 8 } });
+    await editor.locator(LEGACY_EDITOR_SELECTORS.oraSettingsLoaded).waitFor();
+    return editor;
+  }
+
+  /**
+   * Saves an ORA's editor (`update_editor_context`). A released ORA asks the
+   * author to confirm first (a native dialog: changes affect only new
+   * submissions); the author confirms, as they must for the save to happen.
+   */
+  async saveOraEditor(frame: Frame): Promise<Response> {
+    const confirm = (dialog: Dialog) => void dialog.accept();
+    this.page.on('dialog', confirm);
+    try {
+      return await this.saveLegacyEditor(frame, LEGACY_EDITOR_SELECTORS.oraSave, {
+        handler: 'update_editor_context',
+      });
+    } finally {
+      this.page.off('dialog', confirm);
+    }
+  }
+
+  /** Closes a legacy editor without saving, through its own cancel control. */
+  async closeLegacyEditor(frame: Frame): Promise<void> {
+    await frame.locator(LEGACY_EDITOR_SELECTORS.close).first().click();
+    await this.legacyEditorClosed();
+  }
+
+  private async legacyEditorClosed(): Promise<void> {
+    await this.page
+      .locator(LEGACY_EDITOR_SELECTORS.frame)
+      .waitFor({ state: 'detached', timeout: TIMEOUTS.navigation });
   }
 
   async openUpdateAvailable(usageKey: string): Promise<void> {

@@ -84,3 +84,125 @@ export async function fetchAuthoringMfeConfig(
 export function agreementTypesIn(gating: AgreementGating): readonly string[] {
   return [...new Set(Object.values(gating).flat())];
 }
+
+/** Where the frontend-base shell reads its runtime configuration. */
+export const FRONTEND_SITE_CONFIG_PATH = '/api/frontend_site_config/v1/';
+
+/**
+ * The configuration that decides what a page's header and footer offer, in one
+ * shape whichever frontend generation renders them.
+ *
+ * A legacy MFE (`frontend-component-header`) reads the flat `mfe_config` keys;
+ * the frontend-base shell reads `frontend_site_config`, where the same keys sit
+ * under `commonAppConfig` (with per-app overrides in `apps[]`) and the account
+ * and profile links are `externalRoutes` roles. Which apps are on the shell is
+ * changing release by release, so callers pick the source from the header the
+ * page actually rendered, never from a list of apps.
+ *
+ * The header link rules the chrome specs assert follow from these values: Help
+ * exists iff `supportUrl`, Order History iff `orderHistoryUrl`, Programs iff
+ * `enablePrograms`, and the catalog link iff discovery is on and courses are
+ * browsable.
+ */
+export interface ChromeConfig {
+  readonly siteName: string | undefined;
+  readonly lmsBaseUrl: string | undefined;
+  readonly logoutUrl: string | undefined;
+  readonly accountSettingsUrl: string | undefined;
+  readonly accountProfileUrl: string | undefined;
+  readonly supportUrl: string | undefined;
+  readonly orderHistoryUrl: string | undefined;
+  readonly enablePrograms: boolean;
+  /** `ENABLE_COURSE_DISCOVERY` and not `NON_BROWSABLE_COURSES`. */
+  readonly courseDiscovery: boolean;
+  readonly passwordResetSupportLink: string | undefined;
+  /** The cookie the frontends and the LMS keep the site language in. */
+  readonly languageCookieName: string | undefined;
+}
+
+type RawConfig = Readonly<Record<string, unknown>>;
+
+function asSetting(value: unknown): string | undefined {
+  // An unset value reaches the MFEs as '', null or the string "null".
+  return typeof value === 'string' && value !== '' && value !== 'null' ? value : undefined;
+}
+
+function asRecord(value: unknown): RawConfig {
+  return value !== null && typeof value === 'object' ? (value as RawConfig) : {};
+}
+
+function chromeConfigFromKeys(keys: RawConfig): ChromeConfig {
+  return {
+    siteName: asSetting(keys.SITE_NAME),
+    lmsBaseUrl: asSetting(keys.LMS_BASE_URL),
+    logoutUrl: asSetting(keys.LOGOUT_URL),
+    accountSettingsUrl: asSetting(keys.ACCOUNT_SETTINGS_URL),
+    accountProfileUrl: asSetting(keys.ACCOUNT_PROFILE_URL),
+    supportUrl: asSetting(keys.SUPPORT_URL),
+    orderHistoryUrl: asSetting(keys.ORDER_HISTORY_URL),
+    enablePrograms: asBool(keys.ENABLE_PROGRAMS),
+    courseDiscovery: asBool(keys.ENABLE_COURSE_DISCOVERY) && !asBool(keys.NON_BROWSABLE_COURSES),
+    passwordResetSupportLink: asSetting(keys.PASSWORD_RESET_SUPPORT_LINK),
+    languageCookieName: asSetting(keys.LANGUAGE_PREFERENCE_COOKIE_NAME),
+  };
+}
+
+/** Narrows a legacy MFE's `mfe_config` answer. */
+export function chromeConfigFromMfeConfig(raw: RawConfig): ChromeConfig {
+  return chromeConfigFromKeys(raw);
+}
+
+/**
+ * Narrows the shell's `frontend_site_config` answer for one app (`appId`, e.g.
+ * `org.openedx.frontend.app.learnerDashboard`): the common keys, overridden by
+ * that app's own config, with the shell's top-level and route values on top.
+ */
+export function chromeConfigFromSiteConfig(raw: RawConfig, appId?: string): ChromeConfig {
+  const apps = Array.isArray(raw.apps) ? (raw.apps as readonly RawConfig[]) : [];
+  const appConfig = asRecord(apps.find((app) => app.appId === appId)?.config);
+  const keys = { ...asRecord(raw.commonAppConfig), ...appConfig };
+  const routes = Array.isArray(raw.externalRoutes)
+    ? (raw.externalRoutes as readonly RawConfig[])
+    : [];
+  const route = (role: string) =>
+    asSetting(routes.find((entry) => entry.role === `org.openedx.frontend.role.${role}`)?.url);
+  const base = chromeConfigFromKeys(keys);
+  return {
+    ...base,
+    siteName: asSetting(raw.siteName) ?? base.siteName,
+    lmsBaseUrl: asSetting(raw.lmsBaseUrl) ?? base.lmsBaseUrl,
+    logoutUrl: route('logout') ?? asSetting(raw.logoutUrl) ?? base.logoutUrl,
+    languageCookieName: asSetting(raw.languagePreferenceCookieName) ?? base.languageCookieName,
+    accountSettingsUrl: route('account') ?? base.accountSettingsUrl,
+    accountProfileUrl: route('profile') ?? base.accountProfileUrl,
+  };
+}
+
+/** Where one page's chrome reads its config: a legacy app by name, or the shell. */
+export type ChromeConfigSource =
+  | { readonly kind: 'legacy'; readonly mfe: string }
+  | { readonly kind: 'shell'; readonly appId?: string };
+
+/** Reads the chrome configuration a page's header and footer were built from. Public. */
+export async function fetchChromeConfig(
+  request: APIRequestContext,
+  config: AppConfig,
+  source: ChromeConfigSource,
+): Promise<ChromeConfig> {
+  const url =
+    source.kind === 'legacy'
+      ? `${config.baseUrls.lms}${MFE_CONFIG_PATH}?${new URLSearchParams({ mfe: source.mfe })}`
+      : `${config.baseUrls.lms}${FRONTEND_SITE_CONFIG_PATH}`;
+  const response = await request.get(url);
+  if (!response.ok()) {
+    throw new ApiError(`Reading the frontend config failed (HTTP ${response.status()}).`, {
+      status: response.status(),
+      url,
+      body: await response.text(),
+    });
+  }
+  const raw = (await response.json()) as RawConfig;
+  return source.kind === 'legacy'
+    ? chromeConfigFromMfeConfig(raw)
+    : chromeConfigFromSiteConfig(raw, source.appId);
+}
