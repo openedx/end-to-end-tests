@@ -157,6 +157,7 @@ import {
   type CourseTeamRoleV2,
   courseKeySkipReason,
   enrollInCourseViaApi,
+  unenrollFromCourseViaApi,
   fetchCourseDetail,
   fetchCourseOutline,
   primeCoursewareForLearner,
@@ -3892,6 +3893,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       metadata: { html5_sources: [videoSource], youtube_id_1_0: '' },
     });
     await publishXBlock(request, config, section.usageKey);
+    // Studio enrolls whoever creates a course, and that enrollment reaches
+    // Aspects from the CMS at no fixed time (before a test's first reading on one
+    // run, after its last on another). Ending it here, from the LMS, keeps the
+    // author out of every enrollee count: the charts read each learner's latest
+    // status, and the unenrollment is newer than the Studio enrollment.
+    await unenrollFromCourseViaApi(request, config, courseKey);
     await use({
       ...authoringCourse,
       section,

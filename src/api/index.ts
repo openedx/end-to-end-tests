@@ -43,6 +43,7 @@ export {
   ENROLLMENT_PATH,
   COURSE_ENROLLMENT_DETAILS_PATH,
   enrollInCourseViaApi,
+  unenrollFromCourseViaApi,
   fetchCourseEnrollmentDetails,
   isEnrolled,
   type CourseEnrollmentDetails,

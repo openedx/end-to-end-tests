@@ -138,3 +138,30 @@ export async function enrollInCourseViaApi(
     });
   }
 }
+
+/**
+ * Ends the caller's own enrollment in `courseKey` through the same API
+ * (`is_active: false`), keeping its course-team roles. Studio enrolls whoever
+ * creates a course, and a spec that counts enrollees takes that one out.
+ *
+ * @throws {ApiError} when the platform refuses the change.
+ */
+export async function unenrollFromCourseViaApi(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<void> {
+  const token = await fetchCsrfToken(request, config);
+  const url = `${config.baseUrls.lms}${ENROLLMENT_PATH}`;
+  const response = await request.post(url, {
+    data: { course_details: { course_id: courseKey }, is_active: false },
+    headers: { [CSRF_HEADER]: token, Referer: config.baseUrls.lms },
+  });
+  if (!response.ok()) {
+    throw new ApiError(`Could not unenroll from "${courseKey}" (HTTP ${response.status()}).`, {
+      status: response.status(),
+      url,
+      body: await response.text(),
+    });
+  }
+}
