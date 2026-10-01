@@ -147,6 +147,7 @@ export {
   supersetDashboardTab,
   supersetNativeFilter,
   supersetSelectOption,
+  supersetSelectedValue,
   type InstructorReportType,
   type InstructorTabId,
 } from './selectors';

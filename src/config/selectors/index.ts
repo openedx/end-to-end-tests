@@ -95,6 +95,7 @@ export {
   supersetDashboardTab,
   supersetNativeFilter,
   supersetSelectOption,
+  supersetSelectedValue,
 } from './superset';
 export {
   COURSE_LIBRARY_SYNC_SELECTORS,

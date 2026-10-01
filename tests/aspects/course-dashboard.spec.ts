@@ -1,6 +1,6 @@
 import { expect, test } from '../../src/fixtures';
 import { COURSE_DASHBOARD_CHARTS as C, COURSE_DASHBOARD_TABS, TIMEOUTS } from '../../src/config';
-import { enrollInCourseViaApi, fetchCourseOutline } from '../../src/api';
+import { enrollInCourseViaApi, fetchCourseOutline, fetchInstructorCourse } from '../../src/api';
 import { ProblemBlock } from '../../src/pages/lms/courseware/problem.block';
 import { VideoBlock } from '../../src/pages/lms/courseware/video.block';
 import { findChart, openCourseDashboard, waitForAnalytics } from '../../src/steps';
@@ -18,8 +18,10 @@ import { cellText, choiceIndex } from './helpers';
  * from the platform's analytics store, never chart text or pixels.
  *
  * The course starts with no activity, so the only people Aspects has seen in
- * it are the test's own: the staff viewer (a course-team grant enrolls it) and
- * the learner.
+ * it are the test's own: its creator (Studio enrolls whoever creates a course),
+ * the staff viewer (a course-team grant enrolls it) and the learner. A count
+ * that starts above zero is read from the platform first, and the learner's
+ * action is asserted as exactly one more.
  */
 
 const TAGS = [
@@ -66,23 +68,40 @@ test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
           ?.number_of_learners,
         cumulativeAudit: (await dashboard.read(cumulative)).at(-1)?.audit,
       });
-      const enrolled = (n: number) => ({ currentEnrollees: n, auditTrack: n, cumulativeAudit: n });
+      const enrolled = (all: number, audit: number) => ({
+        currentEnrollees: all,
+        auditTrack: audit,
+        cumulativeAudit: audit,
+      });
 
-      // Before: only the staff viewer, whom the course-team grant enrolled (audit).
+      // Before: whoever the platform has enrolled (the creator, whom Studio
+      // enrolls, and the staff viewer, whom the course-team grant does), once
+      // Aspects has seen them all. The learner enrolls in audit.
+      const platform = await fetchInstructorCourse(
+        member.request,
+        config,
+        analyticsCourse.courseKey,
+      );
+      const already = platform.total_enrollment;
+      const audit = platform.enrollment_counts.audit ?? 0;
       const before = await waitForAnalytics(
         read,
-        (r) => JSON.stringify(r) === JSON.stringify(enrolled(1)),
+        (r) => JSON.stringify(r) === JSON.stringify(enrolled(already, audit)),
       );
-      expect(before.last, `readings: ${JSON.stringify(before.readings)}`).toEqual(enrolled(1));
+      expect(before.last, `readings: ${JSON.stringify(before.readings)}`).toEqual(
+        enrolled(already, audit),
+      );
 
       const learner = await newLearner();
       await enrollInCourseViaApi(learner.request, config, analyticsCourse.courseKey);
 
       const after = await waitForAnalytics(
         read,
-        (r) => JSON.stringify(r) === JSON.stringify(enrolled(2)),
+        (r) => JSON.stringify(r) === JSON.stringify(enrolled(already + 1, audit + 1)),
       );
-      expect(after.last, `readings: ${JSON.stringify(after.readings)}`).toEqual(enrolled(2));
+      expect(after.last, `readings: ${JSON.stringify(after.readings)}`).toEqual(
+        enrolled(already + 1, audit + 1),
+      );
     },
   );
 

@@ -51,6 +51,11 @@ export function supersetSelectOption(value: string): string {
   return `.ant-select-item-option[title="${value.replace(/"/g, '\\"')}"]`;
 }
 
+/** A value a select filter holds, as the tag it shows once chosen (the test's own data). */
+export function supersetSelectedValue(value: string): string {
+  return `.ant-select-selection-item[title="${value.replace(/"/g, '\\"')}"]`;
+}
+
 /**
  * A dashboard tab by its layout id (`TAB-…` in the dashboard's asset file).
  * Superset renders it as `TABS-<parent>-tab-<TAB id>`, fixed by the asset.

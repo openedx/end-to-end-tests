@@ -1,10 +1,12 @@
-import type { Locator, Page, Response } from '@playwright/test';
+import { errors, type Locator, type Page, type Response } from '@playwright/test';
 
 import {
   SUPERSET_SELECTORS,
   supersetDashboardTab,
   supersetNativeFilter,
   supersetSelectOption,
+  supersetSelectedValue,
+  TIMEOUTS,
 } from '../../config';
 import {
   isFilterQuery,
@@ -158,15 +160,8 @@ export class SupersetDashboardBlock {
   async applySelectFilter(filterId: string, values: readonly string[]): Promise<number> {
     await this.expandFilterBar();
     const control = this.root.locator(supersetNativeFilter(filterId));
-    for (const value of values) {
-      await control.click();
-      await control.locator('input').first().fill(value);
-      await this.root
-        .locator(`${SUPERSET_SELECTORS.openSelectDropdown} ${supersetSelectOption(value)}`)
-        .first()
-        .click();
-    }
-    await this.page.keyboard.press('Escape');
+    for (const value of values) await this.chooseOption(control, value);
+    await this.closeSelect(control);
     const marker = this.capturedCount();
     await this.root.locator(SUPERSET_SELECTORS.filterApply).click();
     return marker;
@@ -182,10 +177,53 @@ export class SupersetDashboardBlock {
     const control = this.root.locator(supersetNativeFilter(filterId));
     await control.hover();
     await control.locator(SUPERSET_SELECTORS.selectClear).click();
-    await this.page.keyboard.press('Escape');
+    await this.closeSelect(control);
     const marker = this.capturedCount();
     await this.root.locator(SUPERSET_SELECTORS.filterApply).click();
     return marker;
+  }
+
+  /**
+   * Types `value` into a select filter and picks its option, until the control
+   * shows it as chosen. A filter that searches its options as you type (the
+   * Username filter) re-renders its dropdown under the pointer, so a pick can
+   * land on a detached option; it is then typed and picked again.
+   */
+  private async chooseOption(control: Locator, value: string): Promise<void> {
+    const option = this.root
+      .locator(`${SUPERSET_SELECTORS.openSelectDropdown} ${supersetSelectOption(value)}`)
+      .first();
+    const chosen = control.locator(supersetSelectedValue(value)).first();
+    for (let attempt = 1; ; attempt++) {
+      // A pick that timed out may still have landed; picking again would undo it.
+      if (await chosen.isVisible()) return;
+      await control.click();
+      await control.locator('input').first().fill(value);
+      try {
+        await option.click({ timeout: TIMEOUTS.optionalOverlay });
+        await chosen.waitFor({ timeout: TIMEOUTS.optionalOverlay });
+        return;
+      } catch (error) {
+        if (!(error instanceof errors.TimeoutError) || attempt === 3) throw error;
+      }
+    }
+  }
+
+  /**
+   * Closes a select filter's dropdown, which otherwise lies over the filter
+   * bar's Apply button. Escape closes it on 6.1; on 6.0 it can stay open, and
+   * leaving the search input closes it there.
+   */
+  private async closeSelect(control: Locator): Promise<void> {
+    const open = this.root.locator(SUPERSET_SELECTORS.openSelectDropdown).first();
+    await this.page.keyboard.press('Escape');
+    try {
+      await open.waitFor({ state: 'hidden', timeout: TIMEOUTS.optionalOverlay });
+    } catch (error) {
+      if (!(error instanceof errors.TimeoutError)) throw error;
+      await control.locator('input').first().blur();
+      await open.waitFor({ state: 'hidden', timeout: TIMEOUTS.optionalOverlay });
+    }
   }
 
   /** Opens the filter bar where it starts collapsed (an embedded dashboard's does). */

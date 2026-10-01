@@ -17,6 +17,7 @@ import {
   waitForRerun,
   fetchCourseOutline,
   fetchCourseProgress,
+  fetchInstructorCourse,
   publishXBlock,
   updateGradingPolicy,
 } from '../../src/api';
@@ -107,9 +108,18 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
           ],
         };
       };
-      // Before: the staff viewer, whom the course-team grant enrolled.
-      const before = await waitForAnalytics(read, (r) => consistent(r, 1));
-      expect(consistent(before.last, 1), `readings: ${JSON.stringify(before.readings)}`).toBe(true);
+      // Before: whoever the platform has enrolled (the creator, whom Studio
+      // enrolls, and the staff viewer, whom the course-team grant does), once
+      // Aspects has seen them all.
+      const { total_enrollment: already } = await fetchInstructorCourse(
+        staff.request,
+        config,
+        courseKey,
+      );
+      const before = await waitForAnalytics(read, (r) => consistent(r, already));
+      expect(consistent(before.last, already), `readings: ${JSON.stringify(before.readings)}`).toBe(
+        true,
+      );
 
       // The learner enrolls and goes into the course, as a learner enrolling
       // from the LMS does: Aspects counts a learner active from a course visit,
@@ -126,10 +136,10 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
       const activeBefore = Number(before.last.active[0] ?? 0);
       const after = await waitForAnalytics(
         read,
-        (r) => consistent(r, 2) && Number(r.active[0] ?? 0) === activeBefore + 1,
+        (r) => consistent(r, already + 1) && Number(r.active[0] ?? 0) === activeBefore + 1,
       );
       expect(after.last, `readings: ${JSON.stringify(after.readings)}`).toEqual({
-        enrollees: [2, 2, 2, 2, 2, 2],
+        enrollees: Array(6).fill(already + 1),
         active: Array(4).fill(activeBefore + 1),
       });
     },
