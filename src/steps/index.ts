@@ -89,6 +89,7 @@ export {
   linkTargets,
   partitionSiteLinks,
   readPageChrome,
+  switchableLanguage,
   type AnonymousHeaderExpectation,
   type ChromeDefectContext,
   type ChromeScenario,

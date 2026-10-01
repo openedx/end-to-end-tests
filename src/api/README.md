@@ -259,7 +259,8 @@ registration created, always is.
 
 - `accounts.ts` — `fetchAccount` / `updateAccount` (merge-patch) and
   `fetchPreferences` / `updatePreferences`: the profile's and Account
-  Settings' oracle, and `listLearnerCertificates` (a learner's certificates as
+  Settings' oracle, `lmsServesLanguage` (whether the LMS has a translation
+  for a language a frontend offers), and `listLearnerCertificates` (a learner's certificates as
   another user reads them; `{ forbidden: true }` on a 403). A privacy setting
   is proven by a **second** user's `fetchAccount`; a profile stays private
   until it has an adult year of birth (`ADULT_YEAR_OF_BIRTH`). `bio: null` is a 500 — clear it with `""`.

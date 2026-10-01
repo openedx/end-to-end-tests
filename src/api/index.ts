@@ -578,6 +578,7 @@ export {
   ADULT_YEAR_OF_BIRTH,
   fetchAccount,
   fetchPreferences,
+  lmsServesLanguage,
   listLearnerCertificates,
   updateAccount,
   updatePreferences,

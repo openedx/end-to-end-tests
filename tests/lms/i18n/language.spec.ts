@@ -1,12 +1,15 @@
 import { expect, test } from '../../../src/fixtures';
 import { fetchPreferences } from '../../../src/api';
 import { testId } from '../../../src/reporting';
+import { switchableLanguage } from '../../../src/steps';
 
 /**
  * Switching the site language (TC-00066). The platform stores the choice as
  * the learner's `pref-lang` preference and serves pages in it; both are read
  * back after the UI makes the switch. Which language to switch to is taken
- * from what the page itself offers, never from a list in the suite.
+ * from what the page itself offers, never from a list in the suite — the first
+ * one the LMS can also serve, since a frontend may offer languages the LMS has
+ * no translation for (the frontend-base Account app offers its whole bundle).
  *
  * Account Settings' Site language is on every release; the frontend-base
  * shell's own language menu is only in the shell (`@frontend-base`). Every
@@ -23,13 +26,27 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
   test(
     'switches from Account Settings',
     { tag: '@mfe-account', annotation: testId('TC-00066') },
-    async ({ page, config, accountSettingsPage, dashboardPage, chromeCase, courseLearner }) => {
+    async ({
+      page,
+      playwright,
+      config,
+      accountSettingsPage,
+      dashboardPage,
+      chromeCase,
+      courseLearner,
+    }) => {
       const { username } = courseLearner.identity;
       await accountSettingsPage.goto();
       const { chrome } = await chromeCase.read();
       const { current, offered } = await accountSettingsPage.editSiteLanguage();
-      const target = offered.find((code) => code !== current);
-      expect(target, 'the site offers a second language').toBeDefined();
+      const target = await switchableLanguage(
+        playwright.request,
+        config,
+        chrome.languageCookieName!,
+        current,
+        offered,
+      );
+      expect(target, 'the site offers a second language the LMS serves').toBeDefined();
 
       await accountSettingsPage.saveSiteLanguage(target!);
 
@@ -59,6 +76,8 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
     },
     async ({
       page,
+      playwright,
+      config,
       siteHeader,
       accountSettingsPage,
       dashboardPage,
@@ -68,9 +87,16 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
     }) => {
       const { username } = courseLearner.identity;
       await accountSettingsPage.goto();
+      const { chrome } = await chromeCase.read();
       const { current, offered } = await accountSettingsPage.editSiteLanguage();
-      const target = offered.find((code) => code !== current);
-      expect(target, 'the site offers a second language').toBeDefined();
+      const target = await switchableLanguage(
+        playwright.request,
+        config,
+        chrome.languageCookieName!,
+        current,
+        offered,
+      );
+      expect(target, 'the site offers a second language the LMS serves').toBeDefined();
       await accountSettingsPage.saveSiteLanguage(target!);
 
       const readings = [];

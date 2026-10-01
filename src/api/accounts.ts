@@ -105,6 +105,36 @@ export async function fetchPreferences(
   );
 }
 
+/** A language code's primary subtag, lower-cased (`af-za` → `af`). */
+function primaryLanguage(code: string): string {
+  return code.split(/[-_]/)[0]!.toLowerCase();
+}
+
+/**
+ * Whether the LMS serves pages in `code`: an anonymous page asked for in that
+ * language — through the language cookie (`cookieName`), which the LMS honours
+ * ahead of `Accept-Language` — answers with a `Content-Language` in it.
+ * Frontends may offer languages the LMS has no translation for (the
+ * frontend-base Account app lists every one its bundle carries); a preference
+ * set to one of those is stored, but the LMS keeps serving its default.
+ *
+ * `request` must carry no session: on a signed-in request the LMS copies the
+ * cookie into the caller's `pref-lang`.
+ */
+export async function lmsServesLanguage(
+  request: APIRequestContext,
+  config: AppConfig,
+  code: string,
+  cookieName: string,
+): Promise<boolean> {
+  const response = await request.get(`${config.baseUrls.lms}/dashboard`, {
+    headers: { Cookie: `${cookieName}=${code}` },
+    maxRedirects: 0,
+  });
+  const served = response.headers()['content-language'];
+  return served !== undefined && primaryLanguage(served) === primaryLanguage(code);
+}
+
 /**
  * Sets (or, with `null`, deletes) preferences. Keys holding `-` or `.`
  * (`pref-lang`, `visibility.*`) can only be written here, on the collection: the

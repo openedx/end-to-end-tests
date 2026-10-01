@@ -1,7 +1,12 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequest, APIRequestContext, Page } from '@playwright/test';
 
 import { registrableDomain, type AppConfig } from '../config';
-import { fetchChromeConfig, type ChromeConfig, type ChromeConfigSource } from '../api';
+import {
+  fetchChromeConfig,
+  lmsServesLanguage,
+  type ChromeConfig,
+  type ChromeConfigSource,
+} from '../api';
 import type { ChromeGeneration, HeaderBlock } from '../pages/lms/chrome/header.block';
 
 /**
@@ -211,4 +216,30 @@ export async function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(() =>
     Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
   );
+}
+
+/**
+ * The first of the languages a page offers that differs from `current` and
+ * that the LMS can serve (see `lmsServesLanguage`) — the one a language switch
+ * can be proven on from the LMS's side. The probe runs on a fresh, cookie-free
+ * context so it cannot touch the signed-in learner's preference.
+ */
+export async function switchableLanguage(
+  apiRequest: APIRequest,
+  config: AppConfig,
+  cookieName: string,
+  current: string,
+  offered: readonly string[],
+): Promise<string | undefined> {
+  const primary = (code: string) => code.split(/[-_]/)[0]!.toLowerCase();
+  const anonymous = await apiRequest.newContext();
+  try {
+    for (const code of offered) {
+      if (primary(code) === primary(current)) continue;
+      if (await lmsServesLanguage(anonymous, config, code, cookieName)) return code;
+    }
+    return undefined;
+  } finally {
+    await anonymous.dispose();
+  }
 }
