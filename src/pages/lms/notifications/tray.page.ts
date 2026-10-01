@@ -130,6 +130,27 @@ export class NotificationTray {
     return { read, opened };
   }
 
+  /**
+   * Follows the tray's gear to the preference centre and returns the page it
+   * landed on. A legacy MFE's tray opens it in a **new tab**; the frontend-base
+   * shell, where Account Settings is an app of the same site, routes there in
+   * this one.
+   */
+  async followGear(): Promise<Page> {
+    if ((await this.gearLink.getAttribute('target')) === '_blank') {
+      const [opened] = await Promise.all([
+        this.page.context().waitForEvent('page'),
+        this.gearLink.click(),
+      ]);
+      await opened.waitForLoadState();
+      return opened;
+    }
+    const href = await this.gearLink.evaluate((anchor) => (anchor as HTMLAnchorElement).href);
+    await this.gearLink.click();
+    await this.page.waitForURL(href);
+    return this.page;
+  }
+
   /** "Mark all as read" on the open tab, waiting for its `PATCH read/`. */
   async markAllRead(): Promise<Response> {
     return waitForWrite(

@@ -42,21 +42,17 @@ test.describe(
           additionalBaseline: NOTIFICATION_PREFERENCES_A11Y_BASELINE,
         });
 
-        // The tray gear opens it in a new tab.
+        // The tray gear opens it — in a new tab from a legacy MFE, in place from
+        // the frontend-base shell, whose gear is a site-relative link.
         await learner.page.goto(trayHostUrl(config));
         await learner.notificationTray.open();
-        await expect(learner.notificationTray.gearLink).toHaveAttribute(
+        await expect(learner.notificationTray.gearLink).toHaveJSProperty(
           'href',
           learner.notificationPreferences.url(),
         );
-        const [opened] = await Promise.all([
-          learner.context.waitForEvent('page'),
-          learner.notificationTray.gearLink.click(),
-        ]);
-        await opened.waitForLoadState();
+        const opened = await learner.notificationTray.followGear();
         expect(opened.url()).toBe(learner.notificationPreferences.url());
         await expect(opened.locator(NOTIFICATION_PREFERENCES_SELECTORS.section)).toBeVisible();
-        await opened.close();
       },
     );
 
