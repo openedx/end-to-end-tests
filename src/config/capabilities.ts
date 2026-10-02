@@ -167,12 +167,37 @@ export const CAPABILITIES = [
   // adds that tab to TC-00514's expected set. CI turns the setting on for the
   // releases that declare it.
   'special-exams',
-  // Aspects (the Superset analytics deployment, not part of a default install)
-  // is installed. No spec is tagged with it yet; the report coverage itself
-  // (BTR TC-00542–00559) is Epic 16. It already changes one expectation:
-  // declared, TC-00514 expects the instructor dashboard to offer Aspects'
-  // Reports tab (`tests/lms/instructor/tab-visibility.spec.ts`).
+  // Aspects (the Superset analytics deployment: `tutor-contrib-aspects`, its
+  // ClickHouse, Vector or Ralph, and Superset; not part of a default install)
+  // is installed with its instructor dashboard plugin: the dashboard's Reports
+  // tab embeds the Superset dashboards, and Superset signs users in through the
+  // LMS. Gates the Reports tab and Superset coverage (BTR TC-00542–00559), and
+  // declared, TC-00514 expects the dashboard to offer the Reports tab
+  // (`tests/lms/instructor/tab-visibility.spec.ts`).
   'analytics',
+  // Aspects' Studio in-context metrics (`ASPECTS_ENABLE_STUDIO_IN_CONTEXT_METRICS`,
+  // off in Tutor): the authoring MFE's outline and unit sidebars gain an
+  // Analytics page embedding the in-context dashboards (BTR TC-00312–00316).
+  // Requires `analytics` (`CAPABILITY_REQUIRES`).
+  'analytics-in-context',
+  // Aspects exposes learner PII (`ASPECTS_ENABLE_PII`, off in Tutor): the
+  // Reports tab offers the Individual Learner dashboard, filterable by
+  // username (TC-00544). Requires `analytics`.
+  'analytics-pii',
+  // The **outline cards' Analytics buttons open the element's own analytics**
+  // (Aspects' in-context metrics). frontend-plugin-aspects 3.0.1 reads the
+  // selected element from the authoring MFE's outline-sidebar `currentItemData`,
+  // which `release/verawood` provides and `master` no longer does, so on `main`
+  // every card button shows the course's view (`ASPECTS-009`). Declared where it
+  // works, like `rbac-error-view-action`. Requires `analytics-in-context`.
+  'analytics-in-context-cards',
+  // **Course Comparison's video counts answer course staff.** Superset 6.1.0
+  // (tutor-contrib-aspects 5.0.0) aliases each table its row-level security
+  // filters under the table's own name; 6.0.0 (the 4.x line, `verawood`) aliases
+  // it as `schema.table`, so the video-count charts' `dim_course_blocks.<column>`
+  // references fail for every RLS-limited user (`ASPECTS-011`). Declared where
+  // it works. Requires `analytics`.
+  'analytics-staff-video-counts',
   // Roles and permissions under **openedx-authz**: the `/api/authz/v1/` API and
   // the Roles and Permissions console (the admin-console MFE, reached through
   // the `ADMIN_CONSOLE_URL` the authoring MFE config advertises). Both ship on
@@ -351,6 +376,19 @@ export const MUTUALLY_EXCLUSIVE_CAPABILITIES: ReadonlyArray<readonly Capability[
   // The MFE config either sets SUPPORT_URL or it does not.
   ['support-url', 'no-support-url'],
 ];
+
+/**
+ * Capabilities that only make sense on top of another one: each key needs its
+ * value enabled too, and declaring it alone is a configuration error, since the
+ * finer toggle describes a part of the other's deployment (ADR-0002's
+ * finer-grained toggles).
+ */
+export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability>>> = {
+  'analytics-in-context': 'analytics',
+  'analytics-pii': 'analytics',
+  'analytics-in-context-cards': 'analytics-in-context',
+  'analytics-staff-video-counts': 'analytics',
+};
 
 export function isCapability(value: string): value is Capability {
   return (CAPABILITIES as readonly string[]).includes(value);

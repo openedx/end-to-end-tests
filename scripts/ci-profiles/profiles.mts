@@ -30,6 +30,11 @@ export interface CapabilityDelta {
 export interface TutorExtension {
   /** The pip package; installed with the release's Tutor constraint, e.g. `>=22.0.0,<23.0.0`. */
   readonly pip: string;
+  /**
+   * A pip version specifier (`==5.0.0`) used instead of the release's Tutor
+   * constraint, for a plugin that does not version with Tutor.
+   */
+  readonly version: string | undefined;
   /** The Tutor plugin name to enable. */
   readonly plugin: string;
   /** Whether it has a `tutor local do init --limit <plugin>` task to run after enabling. */
@@ -62,6 +67,18 @@ export interface Profile {
   /** Scripts run on the runner after the install is provisioned, to seed content. */
   readonly seedScripts: readonly string[];
   readonly capabilities: CapabilityDelta;
+  /** Capabilities the profile adds on one release only (a behaviour that differs by release). */
+  readonly releaseCapabilities: Readonly<Record<string, readonly string[]>>;
+  /**
+   * The releases the profile runs on (keys of `.ci/openedx-releases.json`);
+   * empty means every release.
+   */
+  readonly releases: readonly string[];
+  /**
+   * The image variant its jobs pull (`.ci/tutor-main-images.sh`, built nightly by
+   * `build_tutor_main_images.yml`); empty for the stock images.
+   */
+  readonly images: string;
   readonly select: Selection;
   /** How many shards (matrix jobs, each with its own Tutor stack) run the profile. */
   readonly shards: number;
@@ -93,6 +110,8 @@ export interface MatrixEntry {
   readonly seedScripts: readonly string[];
   /** A `--grep` limiting the job to the profile's selection; empty for `select: all`. */
   readonly grep: string;
+  /** The image variant to pull (`Profile.images`); empty for the stock images. */
+  readonly images: string;
 }
 
 export class ProfileError extends Error {}
@@ -104,10 +123,13 @@ const KNOWN_KEYS = new Set([
   'tutorExtensions',
   'seedScripts',
   'capabilities',
+  'releaseCapabilities',
+  'releases',
+  'images',
   'select',
   'shards',
 ]);
-const EXTENSION_KEYS = new Set(['pip', 'plugin', 'init', 'capability', 'releases']);
+const EXTENSION_KEYS = new Set(['pip', 'version', 'plugin', 'init', 'capability', 'releases']);
 /** Two digits of shard number plus the code keep the suffix within its three characters. */
 const MAX_SHARDS = 20;
 
@@ -240,9 +262,16 @@ export function parseProfiles(
       if (extra.length > 0) {
         throw new ProfileError(`${at} has unknown key(s): ${extra.join(', ')}.`);
       }
-      const { pip, plugin, init, capability } = ext;
+      const { pip, plugin, init, capability, version } = ext;
       if (typeof pip !== 'string' || !/^[A-Za-z0-9][\w.-]*$/.test(pip)) {
         throw new ProfileError(`${at}: pip must be a package name (the constraint is added).`);
+      }
+      if (
+        version !== undefined &&
+        (typeof version !== 'string' ||
+          !/^(==|~=|>=|<=|>|<|!=)[\w.*]+(,(==|~=|>=|<=|>|<|!=)[\w.*]+)*$/.test(version))
+      ) {
+        throw new ProfileError(`${at}: version must be a pip version specifier, e.g. "==5.0.0".`);
       }
       if (typeof plugin !== 'string' || !/^[a-z][a-z0-9_-]*$/.test(plugin)) {
         throw new ProfileError(`${at}: plugin must be a Tutor plugin name.`);
@@ -253,8 +282,44 @@ export function parseProfiles(
       const releases = stringList(ext.releases, `${at}: releases`);
       if (releases.length === 0)
         throw new ProfileError(`${at} must list the releases it supports.`);
-      return { pip, plugin, init, capability, releases };
+      return { pip, version, plugin, init, capability, releases };
     });
+    // One plugin, one install per release: a plugin may take a different
+    // version line per release (tutor-contrib-aspects 4.x on verawood).
+    tutorExtensions.forEach((ext, i) => {
+      const clash = tutorExtensions
+        .slice(0, i)
+        .find((o) => o.plugin === ext.plugin && o.releases.some((r) => ext.releases.includes(r)));
+      if (clash !== undefined) {
+        throw new ProfileError(
+          `${where}: two tutorExtensions enable "${ext.plugin}" on the same release.`,
+        );
+      }
+    });
+
+    const releases = stringList(entry.releases ?? [], `${where}: releases`);
+    const rawByRelease: unknown = entry.releaseCapabilities ?? {};
+    if (typeof rawByRelease !== 'object' || rawByRelease === null || Array.isArray(rawByRelease)) {
+      throw new ProfileError(
+        `${where}: releaseCapabilities must map releases to capability lists.`,
+      );
+    }
+    const releaseCapabilities: Record<string, readonly string[]> = {};
+    for (const [releaseName, list] of Object.entries(rawByRelease as Record<string, unknown>)) {
+      const names = stringList(list, `${where}: releaseCapabilities.${releaseName}`);
+      checkCapabilityNames(names, `${where}: releaseCapabilities.${releaseName}`, isCapability);
+      if (releases.length > 0 && !releases.includes(releaseName)) {
+        throw new ProfileError(
+          `${where}: releaseCapabilities names "${releaseName}", which is not one of its releases.`,
+        );
+      }
+      releaseCapabilities[releaseName] = names;
+    }
+
+    const images = entry.images ?? '';
+    if (typeof images !== 'string' || (images !== '' && !/^[a-z][a-z0-9-]*$/.test(images))) {
+      throw new ProfileError(`${where}: images must be an image variant name.`);
+    }
 
     profiles.push({
       name,
@@ -264,6 +329,9 @@ export function parseProfiles(
       tutorExtensions,
       seedScripts,
       capabilities: { add, remove },
+      releaseCapabilities,
+      releases,
+      images,
       select,
       shards,
     });
@@ -289,13 +357,25 @@ export function findProfile(profiles: readonly Profile[], name: string): Profile
   return profile;
 }
 
-/** A profile's capabilities on a release: its delta, plus its extensions for that release. */
+/** Whether a profile runs on a release (every release, unless it lists its own). */
+export function runsOn(profile: Profile, releaseName: string): boolean {
+  return profile.releases.length === 0 || profile.releases.includes(releaseName);
+}
+
+/**
+ * A profile's capabilities on a release: its delta, its extensions for that
+ * release, and what it adds on that release only.
+ */
 export function profileCapabilities(profile: Profile, release: ReleaseInfo): string {
   const extensions = profile.tutorExtensions
     .filter((ext) => ext.releases.includes(release.name))
     .map((ext) => ext.capability);
   return resolveCapabilities(release.capabilities, {
-    add: [...profile.capabilities.add, ...extensions],
+    add: [
+      ...profile.capabilities.add,
+      ...extensions,
+      ...(profile.releaseCapabilities[release.name] ?? []),
+    ],
     remove: profile.capabilities.remove,
   });
 }
@@ -344,16 +424,22 @@ export function shardMatrix(
   const defaults = findProfile(profiles, 'default');
   return names.flatMap((name) => {
     const profile = findProfile(profiles, name);
+    if (!runsOn(profile, release.name)) {
+      throw new ProfileError(
+        `Profile "${name}" does not run on ${release.name}; it runs on ${profile.releases.join(', ')}.`,
+      );
+    }
     const extensions = profile.tutorExtensions.filter((ext) => ext.releases.includes(release.name));
     const shared = {
       shards: profile.shards,
       capabilities: profileCapabilities(profile, release),
       tutorPlugins: profile.tutorPlugins,
-      tutorPip: extensions.map((ext) => `${ext.pip}${release.tutorConstraint}`),
+      tutorPip: extensions.map((ext) => `${ext.pip}${ext.version ?? release.tutorConstraint}`),
       tutorEnable: extensions.map((ext) => ext.plugin),
       tutorInit: extensions.filter((ext) => ext.init).map((ext) => ext.plugin),
       seedScripts: profile.seedScripts,
       grep: profile.select === 'delta' ? deltaGrep(profile, defaults, release) : '',
+      images: profile.images,
     };
     return Array.from({ length: profile.shards }, (_, i) => ({
       profile: profile.name,

@@ -60,6 +60,8 @@ import { InstructorCohortsPage } from '../pages/lms/instructor/cohorts.page';
 import { InstructorCourseTeamPage } from '../pages/lms/instructor/course-team.page';
 import { InstructorSpecialExamsPage } from '../pages/lms/instructor/special-exams.page';
 import { InstructorDashboardPage } from '../pages/lms/instructor/dashboard.page';
+import { ReportsPage } from '../pages/lms/instructor/reports.page';
+import { AnalyticsSidebar } from '../pages/studio/sidebar/analytics.block';
 import { BulkEmailPage } from '../pages/lms/communications/bulk-email.page';
 import { InstructorDataDownloadsPage } from '../pages/lms/instructor/data-downloads.page';
 import { InstructorCertificatesPage } from '../pages/lms/instructor/certificates.page';
@@ -152,8 +154,10 @@ import {
   ensureAgreement,
   type AgreementGating,
   type AuthoredProblem,
+  type CourseTeamRoleV2,
   courseKeySkipReason,
   enrollInCourseViaApi,
+  modifyEnrollments,
   fetchCourseDetail,
   fetchCourseOutline,
   primeCoursewareForLearner,
@@ -331,6 +335,33 @@ export interface TestFixtures {
   teamsCourse: AuthoredCourse & { readonly topicId: string };
   /** The learner dashboard in the admin's browser (`adminPage`), for global staff's "View as". */
   adminDashboardPage: DashboardPage;
+  /** Aspects' Reports tab in the admin's browser (`adminPage`): the superuser's reading (TC-00543). */
+  adminReportsPage: ReportsPage;
+  /**
+   * A course's Reports-tab viewer: the worker's `instructorCast('staff')`
+   * member, granted `staff` on `courseKey` by the worker author (the course's
+   * instructor), with a {@link ReportsPage} on its own page. Aspects' LMS views
+   * accept only a session, which the member's own sign-in holds and the author's
+   * JWT-only browser does not. The grant is revoked when the test ends.
+   */
+  reportsViewer: (courseKey: string) => Promise<ReportsViewer>;
+  /**
+   * A throwaway account for a Superset access case, with its own LMS session in
+   * a request context and a browser. `role`, when given, is granted on
+   * `courseKey` by the worker author **before** the account ever signs in to
+   * Superset: Superset caches what a user may see at sign-in, so an account with
+   * an earlier history (a cast member) would answer for its past. Disposed when
+   * the test ends.
+   */
+  supersetColleague: (options?: SupersetColleagueOptions) => Promise<SupersetColleague>;
+  /**
+   * A Studio user for Aspects' in-context metrics on `courseKey`: a
+   * `studioColleague` the worker author grants course `staff`, with the outline,
+   * unit and Analytics-sidebar page objects on its page. The plugin's LMS calls
+   * need an LMS session, which the colleague's sign-in holds and the worker
+   * author's JWT-only browser does not.
+   */
+  inContextViewer: (courseKey: string) => Promise<InContextViewer>;
   /**
    * Turns course e-mail on for the content course only (`enableCourseEmail`,
    * through the Django admin under the admin lock), so its learners' dashboard
@@ -407,10 +438,11 @@ export interface TestFixtures {
   videoUnit: CourseUnit;
   /**
    * Serves the bundled clip in place of the HTML5 sources of the given units'
-   * videos, on this test's `page`. Call it before opening a unit whose video is to
-   * be watched; see `stubVideoSources` for why the real bytes are never fetched.
+   * videos, on this test's `page` or on `target` (a learner's own page). Call it
+   * before opening a unit whose video is to be watched; see `stubVideoSources` for
+   * why the real bytes are never fetched.
    */
-  stubVideoSources: (units: readonly CourseUnit[]) => Promise<void>;
+  stubVideoSources: (units: readonly CourseUnit[], target?: Page) => Promise<void>;
   /**
    * Gate for Studio coverage: skips unless the installation declares the `studio`
    * capability, and hands the spec the Studio origin as a plain string.
@@ -737,6 +769,15 @@ export interface TestFixtures {
    * slower MFE. One course per test that asks.
    */
   authoringCourse: AuthoredCourse;
+  /**
+   * An `authoringCourse` shaped for Aspects' Course Dashboard: one section with
+   * a graded (`Homework`) subsection of two units (a multiple-choice and a
+   * numerical problem; an HTML5 video, whose source the learner's browser is
+   * served by `stubVideoSources`), and an ungraded subsection with an HTML-only
+   * unit. Published. Every chart the pipeline cases read starts empty on it,
+   * because nobody has acted in the course yet.
+   */
+  analyticsCourse: AnalyticsCourse;
   /** A {@link roundTripLearner} enrolled in this test's {@link authoringCourse}. */
   authoringCourseLearner: RoundTripLearner;
   /**
@@ -1055,6 +1096,51 @@ export type ForumCastPart = 'poster' | 'moderator';
  * `discussionAdmin`, or a `teamMember` whose roles the Course Team tab changes.
  */
 export type InstructorCastPart = 'staff' | 'limitedStaff' | 'discussionAdmin' | 'teamMember';
+
+/** What {@link TestFixtures.analyticsCourse} hands a spec. */
+export interface AnalyticsCourse extends AuthoredCourse {
+  readonly section: AuthoredSection;
+  /** The graded subsection holding the problem and video units. */
+  readonly gradedSubsectionKey: string;
+  readonly problemUnitKey: string;
+  readonly videoUnitKey: string;
+  /** The multiple-choice problem (with the answers that score and do not). */
+  readonly problem: AuthoredProblem;
+  readonly videoKey: string;
+  /** The video's one HTML5 source URL (answered by the suite's clip in the learner's browser). */
+  readonly videoSource: string;
+}
+
+/** What a {@link TestFixtures.supersetColleague} is granted before its first Superset sign-in. */
+export interface SupersetColleagueOptions {
+  readonly courseKey: string;
+  readonly role: CourseTeamRoleV2;
+}
+
+/** What {@link TestFixtures.supersetColleague} hands a spec. */
+export interface SupersetColleague {
+  readonly identity: LearnerIdentity;
+  /** Request context holding the account's LMS session. */
+  readonly request: APIRequestContext;
+  readonly context: BrowserContext;
+  readonly page: Page;
+}
+
+/** What {@link TestFixtures.inContextViewer} hands a spec. */
+export interface InContextViewer {
+  readonly colleague: StudioColleague;
+  readonly outlinePage: StudioCourseOutlinePage;
+  readonly unitPage: StudioUnitPage;
+  readonly analytics: AnalyticsSidebar;
+  /** The authoring sidebar the Analytics page lives in (its collapse is the panel's close). */
+  readonly sidebar: AuthoringSidebar;
+}
+
+/** What {@link TestFixtures.reportsViewer} hands a spec. */
+export interface ReportsViewer {
+  readonly member: InstructorCastMember;
+  readonly reportsPage: ReportsPage;
+}
 
 /** A cast member: its identity, its API and browser sessions, and the pages it reads. */
 export interface InstructorCastMember {
@@ -2108,6 +2194,92 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   adminDashboardPage: async ({ adminPage, config }, use) => {
     await use(new DashboardPage(adminPage, config));
+  },
+
+  supersetColleague: async ({ playwright, browser, page, config, studioAuthorSession }, use) => {
+    void studioAuthorSession;
+    const requests: APIRequestContext[] = [];
+    const contexts: BrowserContext[] = [];
+    await use(async (options) => {
+      const request = await playwright.request.newContext();
+      requests.push(request);
+      const identity = await provisionLearnerSession(request, config);
+      if (options !== undefined) {
+        await grantCourseTeamRole(
+          page.request,
+          config,
+          options.courseKey,
+          [identity.username],
+          options.role,
+        );
+      }
+      const context = await browser.newContext();
+      contexts.push(context);
+      await context.addCookies((await request.storageState()).cookies);
+      return { identity, request, context, page: await context.newPage() };
+    });
+    for (const context of contexts) await context.close();
+    for (const request of requests) await request.dispose();
+  },
+
+  inContextViewer: async ({ page, config, studioAuthorSession, studioColleague }, use) => {
+    void studioAuthorSession;
+    await use(async (courseKey) => {
+      const colleague = await studioColleague();
+      await grantCourseTeamRole(
+        page.request,
+        config,
+        courseKey,
+        [colleague.identity.username],
+        'staff',
+      );
+      return {
+        colleague,
+        outlinePage: new StudioCourseOutlinePage(colleague.page, config),
+        unitPage: colleague.unitPage,
+        analytics: new AnalyticsSidebar(colleague.page),
+        sidebar: new AuthoringSidebar(colleague.page, config),
+      };
+    });
+  },
+
+  adminReportsPage: async ({ adminPage, config }, use) => {
+    const reportsPage = new ReportsPage(adminPage, config);
+    await use(reportsPage);
+    reportsPage.detach();
+  },
+
+  reportsViewer: async ({ page, config, studioAuthorSession, instructorCast }, use) => {
+    void studioAuthorSession;
+    const made: { courseKey: string; viewer: ReportsViewer }[] = [];
+    await use(async (courseKey) => {
+      const member = await instructorCast('staff');
+      await grantCourseTeamRole(
+        page.request,
+        config,
+        courseKey,
+        [member.identity.username],
+        'staff',
+      );
+      const viewer = { member, reportsPage: new ReportsPage(member.page, config) };
+      made.push({ courseKey, viewer });
+      return viewer;
+    });
+    for (const { courseKey, viewer } of made) {
+      viewer.reportsPage.detach();
+      // Tabs the test opened from the Reports tab (its Superset link).
+      for (const extra of viewer.member.context.pages()) {
+        if (extra !== viewer.member.page) await extra.close();
+      }
+      await grantCourseTeamRole(
+        page.request,
+        config,
+        courseKey,
+        [viewer.member.identity.username],
+        'staff',
+        'revoke',
+      );
+    }
   },
 
   courseEmailEnabled: async ({ config, adminLms, contentCourse }, use) => {
@@ -3694,6 +3866,60 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
+  analyticsCourse: async (
+    { page, config, authoringCourse, studioAuthorSession, workerAuthor },
+    use,
+  ) => {
+    void studioAuthorSession;
+    const request = page.request;
+    const { courseKey } = authoringCourse;
+    const section = await buildSection(request, config, courseKey, `E2E analytics ${getRunId()}`, {
+      subsections: [
+        {
+          gradedAs: 'Homework',
+          units: [
+            { blocks: ['multiplechoiceresponse', 'numericalresponse'] },
+            { blocks: ['video'] },
+          ],
+        },
+        { units: [{ blocks: ['html'] }] },
+      ],
+    });
+    const graded = section.subsections[0]!;
+    const [problemUnit, videoUnit] = graded.units;
+    const problem = problemUnit!.blocks.find((b) => b.type === 'problem')!;
+    const video = videoUnit!.blocks.find((b) => b.type === 'video')!;
+    // Third-party media, as a course's would be, never a platform URL: the
+    // specs that watch it serve the suite's clip there (`stubVideoSources`).
+    const videoSource = 'https://media.invalid/e2e-analytics-clip.webm';
+    await updateXBlock(request, config, video.usageKey, {
+      metadata: { html5_sources: [videoSource], youtube_id_1_0: '' },
+    });
+    await publishXBlock(request, config, section.usageKey);
+    // Studio enrolls whoever creates a course, and that enrollment reaches
+    // Aspects from the CMS at no fixed time (before a test's first reading on one
+    // run, after its last, or never, on another). Enrolling the author again from
+    // the LMS makes it reach Aspects promptly on every release, so every count
+    // starts from the author and the staff viewer; a late Studio event is then an
+    // older one for the same learner and changes nothing. The instructor API
+    // re-enrolls (unenroll, then enroll), since enrolling an enrolled user is a
+    // no-op that emits nothing.
+    const author = workerAuthor?.identity.username;
+    if (author === undefined) throw new Error('analyticsCourse needs the worker author.');
+    await modifyEnrollments(request, config, courseKey, [author], 'unenroll');
+    await modifyEnrollments(request, config, courseKey, [author], 'enroll');
+    await use({
+      ...authoringCourse,
+      section,
+      gradedSubsectionKey: graded.usageKey,
+      problemUnitKey: problemUnit!.usageKey,
+      videoUnitKey: videoUnit!.usageKey,
+      problem: { usageKey: problem.usageKey, type: 'multiplechoiceresponse', ...problem.answers! },
+      videoKey: video.usageKey,
+      videoSource,
+    });
+  },
+
   timedExam: async ({ page, config, authoringCourse, studioAuthorSession }, use) => {
     void studioAuthorSession;
     const request = page.request;
@@ -4041,7 +4267,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   stubVideoSources: async ({ page }, use) => {
-    await use((units) => stubVideoSources(page, units));
+    await use((units, target) => stubVideoSources(target ?? page, units));
   },
 });
 

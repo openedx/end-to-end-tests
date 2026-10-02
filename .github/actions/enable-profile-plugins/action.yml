@@ -1,0 +1,42 @@
+name: Enable a CI profile's Tutor plugins
+description: >
+  Copy a CI profile's Tutor plugin files (.ci/tutor/*.py) into Tutor's plugin
+  root and enable them together with the profile's installed extensions, in one
+  `tutor plugins enable` call. Enabling saves the configuration, and a profile
+  plugin may patch with an extension's settings (e2e_aspects.py uses
+  SUPERSET_PORT), so every plugin must be loaded before the first render.
+  Shared by run_tests_tutor.yml and build_tutor_main_images.yml so a test job
+  and the image variant it pulls enable the same plugins the same way. Expects
+  Tutor and the extensions to be installed already.
+
+inputs:
+  plugin-files:
+    description: Space-separated paths of the profile's Tutor plugin files.
+    required: true
+  extensions:
+    description: Space-separated names of the profile's installed Tutor extensions to enable.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Enable the profile's Tutor plugins
+      shell: bash
+      env:
+        PLUGIN_FILES: ${{ inputs.plugin-files }}
+        EXTENSIONS: ${{ inputs.extensions }}
+      run: |
+        set -euo pipefail
+        PLUGINS_ROOT="$(tutor plugins printroot)"
+        mkdir -p "$PLUGINS_ROOT"
+        NAMES=()
+        for file in $PLUGIN_FILES; do
+          name="$(basename "$file" .py)"
+          cp "$file" "${PLUGINS_ROOT}/${name}.py"
+          NAMES+=("$name")
+        done
+        # shellcheck disable=SC2206  # plugin names have no spaces
+        NAMES+=($EXTENSIONS)
+        tutor plugins enable "${NAMES[@]}"
+        echo "Enabled Tutor plugins: ${NAMES[*]}"

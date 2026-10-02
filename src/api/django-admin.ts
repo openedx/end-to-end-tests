@@ -81,6 +81,18 @@ export function countAdminResultRows(html: string): number {
   return Math.max(0, (table.match(/<tr\b/g) ?? []).length - 1);
 }
 
+/**
+ * The primary key of a change list's first result row, or undefined when it
+ * has none. Only the `#result_list` table counts: the page above it can carry
+ * change links too — the "was changed successfully" message a previous save
+ * queued links the row that save changed.
+ */
+export function firstAdminResultPk(html: string, adminPath: string): string | undefined {
+  const table = /id="result_list"[\s\S]*?<\/table>/.exec(html)?.[0];
+  if (table === undefined) return undefined;
+  return new RegExp(`${adminPath}/(\\d+)/change/`).exec(table)?.[1];
+}
+
 export function adminFormValue(html: string, name: string): string {
   const input = new RegExp(`<input[^>]*\\bname="${name}"[^>]*>`, 'i').exec(html)?.[0];
   if (input !== undefined) return decodeAdminEntities(/\bvalue="([^"]*)"/.exec(input)?.[1] ?? '');
@@ -230,6 +242,18 @@ export async function findAdminRowPk(
   query: string,
 ): Promise<string | undefined> {
   const url = `${origin}${adminPath}/?q=${encodeURIComponent(query)}`;
-  const html = await (await adminSession.get(url)).text();
-  return new RegExp(`${adminPath}/(\\d+)/change/`).exec(html)?.[1];
+  const response = await adminSession.get(url);
+  // A signed-out session is redirected to the login page, which lists no rows:
+  // say so, rather than report the row missing, so the admin runner signs in again.
+  if (!new URL(response.url()).pathname.startsWith(adminPath)) {
+    throw new ApiError(
+      `The admin changelist ${adminPath} did not render (landed on ${response.url()}).`,
+      {
+        status: response.status(),
+        url,
+        body: '',
+      },
+    );
+  }
+  return firstAdminResultPk(await response.text(), adminPath);
 }

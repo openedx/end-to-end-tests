@@ -1,7 +1,8 @@
 name: Build Tutor main images
 
-# Build the Docker images for the unreleased "main" Open edX release once a
-# day and push them to this repository's GitHub Container Registry namespace
+# Build the Docker images for the unreleased "main" Open edX release, and every
+# CI profile's image variant (below), once a day and push them to this
+# repository's GitHub Container Registry namespace
 # (ghcr.io/<owner>/<repo>/openedx:main, openedx-permissions:main, openedx-mfe:main,
 # openedx-notes:main).
 #
@@ -14,12 +15,29 @@ name: Build Tutor main images
 # Dispatch this workflow manually to refresh them sooner.
 #
 # One-time setup on the GitHub side (not doable from this repo):
-#   - After the first push, make the four ghcr.io packages public (or, if they
+#   - After the first push, make the ghcr.io packages public (or, if they
 #     stay private, make sure the repository has read access to them) so that
-#     pull-request runs from forks can pull them.
+#     pull-request runs from forks can pull them: openedx, openedx-permissions,
+#     openedx-mfe and openedx-notes, and the variants' openedx-aspects and
+#     openedx-aspects-superset. A variant has no build fallback in the test
+#     job, so a run that cannot pull it fails.
 #
-# The BuildKit layer cache is also pushed to the registry (<image>:main-cache)
+# The BuildKit layer cache is also pushed to the registry (<image>:<tag>-cache)
 # so subsequent nightly builds only rebuild layers whose inputs changed.
+#
+# Image variants: a CI profile that needs images of its own (`images` in
+# .ci/profiles.json) is built here too, for each release it runs on, under its
+# own tags and caches (<image>:<release>-<variant>, and -cache), so the stock
+# pulls never see them. The `aspects` variant installs tutor-contrib-aspects at
+# the profile's pin, with the profile's Tutor plugins enabled (in-context
+# metrics change what the MFE image installs), and builds the Open edX, MFE,
+# Aspects and Superset images for `main` and `verawood`. The matrix below lists
+# each profile's releases by hand; tests/config/ci-profiles.spec.ts checks it
+# against .ci/profiles.json.
+#
+# A dispatch from a branch pushes the same tags as the nightly build, so a
+# branch that changes a variant's inputs (its pin, its plugin files) tests
+# against its own build until the next nightly run replaces it.
 
 on:
   schedule:
@@ -31,18 +49,31 @@ permissions:
   contents: read
   packages: write
 
-# Never build the same tag twice at once; a manual run supersedes a running one.
+# Never build the same tag twice at once; a manual run waits for a running one.
 concurrency:
   group: build-tutor-main-images
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   TUTOR_ROOT: ./.ci/
 
 jobs:
   build:
+    name: ${{ matrix.release }} ${{ matrix.profile || 'stock' }} images
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The stock images of the unreleased "main" release.
+          - release: main
+            profile: ''
+          # The `aspects` profile's variant, for each release it runs on.
+          - release: main
+            profile: aspects
+          - release: verawood
+            profile: aspects
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,11 +83,64 @@ jobs:
         with:
           python-version: 3.12
 
+      - name: Set up Node.js (variants)
+        if: matrix.profile != ''
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
       - name: Install Tutor and plugins (main branch)
+        if: matrix.release == 'main'
         uses: ./.github/actions/install-tutor-main
 
+      - name: Install Tutor and plugins (named release)
+        if: matrix.release != 'main'
+        env:
+          RELEASE: ${{ matrix.release }}
+        run: |
+          set -euo pipefail
+          C=$(jq -er --arg r "$RELEASE" '.[$r].tutorConstraint' .ci/openedx-releases.json)
+          pip install "tutor${C}" "tutor-mfe${C}" "tutor-forum${C}" "tutor-notes${C}"
+
+      # The variant's Tutor plugins and extensions, exactly as its test jobs
+      # enable them (scripts/ci-profiles.mts reads .ci/profiles.json).
+      - name: Configure the profile's variant
+        if: matrix.profile != ''
+        env:
+          PROFILE: ${{ matrix.profile }}
+          RELEASE: ${{ matrix.release }}
+        run: |
+          set -euo pipefail
+          BUILD=$(node scripts/ci-profiles.mts build --profile "$PROFILE" --release "$RELEASE")
+          echo "$BUILD" | jq .
+          PIP=$(echo "$BUILD" | jq -r '.tutorPip | join(" ")')
+          # shellcheck disable=SC2086  # a deliberate word list of requirements
+          if [ -n "$PIP" ]; then pip install $PIP; fi
+          {
+            echo "VARIANT_PLUGIN_FILES=$(echo "$BUILD" | jq -r '.tutorPlugins | join(" ")')"
+            echo "VARIANT_EXTENSIONS=$(echo "$BUILD" | jq -r '.tutorEnable | join(" ")')"
+          } >> "$GITHUB_ENV"
+          echo "VARIANT=$(echo "$BUILD" | jq -r '.images')" >> "$GITHUB_ENV"
+
+      - name: Enable the profile's Tutor plugins (variants)
+        if: matrix.profile != ''
+        uses: ./.github/actions/enable-profile-plugins
+        with:
+          plugin-files: ${{ env.VARIANT_PLUGIN_FILES }}
+          extensions: ${{ env.VARIANT_EXTENSIONS }}
+
       - name: Point Tutor at the ghcr.io image names
-        run: .ci/tutor-main-images.sh "ghcr.io/${{ github.repository }}"
+        env:
+          RELEASE: ${{ matrix.release }}
+        run: |
+          set -euo pipefail
+          if [ -n "${VARIANT:-}" ]; then
+            .ci/tutor-main-images.sh "ghcr.io/${{ github.repository }}" "${RELEASE}-${VARIANT}" "$VARIANT"
+            echo "BUILD_IMAGES_VAR=TUTOR_VARIANT_IMAGES" >> "$GITHUB_ENV"
+          else
+            .ci/tutor-main-images.sh "ghcr.io/${{ github.repository }}"
+            echo "BUILD_IMAGES_VAR=TUTOR_MAIN_IMAGES" >> "$GITHUB_ENV"
+          fi
 
       - name: Assert Tutor config is loaded from .ci/config.yml
         run: |
@@ -68,10 +152,7 @@ jobs:
             echo "::error::Tutor config not loaded from .ci/config.yml (PLATFORM_NAME is '$ACTUAL')."
             exit 1
           fi
-          echo "Images to build and push:"
-          for key in DOCKER_IMAGE_OPENEDX DOCKER_IMAGE_PERMISSIONS MFE_DOCKER_IMAGE NOTES_DOCKER_IMAGE; do
-            echo "  $key=$(tutor config printvalue "$key")"
-          done
+          echo "Images to build and push: ${!BUILD_IMAGES_VAR}"
 
       # We'll run out of disk building images if we don't clear up some space
       - name: Free Disk Space
@@ -94,7 +175,7 @@ jobs:
               max-parallelism = 2
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -102,14 +183,14 @@ jobs:
 
       # Only the images the test job actually runs — not "all", which would
       # also build the openedx-dev and per-MFE *-dev images nobody uses here.
-      # --cache-to-registry pushes the BuildKit cache to <image>:main-cache;
+      # --cache-to-registry pushes the BuildKit cache to <image>:<tag>-cache;
       # the default --cache-from picks it up on the next run.
       - name: Build images
         run: |
-          # shellcheck disable=SC2086  # TUTOR_MAIN_IMAGES is a deliberate word list
-          tutor images build $TUTOR_MAIN_IMAGES --cache-to-registry
+          # shellcheck disable=SC2086  # a deliberate word list of image names
+          tutor images build ${!BUILD_IMAGES_VAR} --cache-to-registry
 
       - name: Push images
         run: |
           # shellcheck disable=SC2086
-          tutor images push $TUTOR_MAIN_IMAGES
+          tutor images push ${!BUILD_IMAGES_VAR}

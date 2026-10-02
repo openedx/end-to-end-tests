@@ -88,6 +88,15 @@ export {
   type InstructorReportType,
   type InstructorTabId,
 } from './instructor';
+export { INSTRUCTOR_REPORTS_SELECTORS, reportsDashboardTab } from './instructor-reports';
+export { STUDIO_ANALYTICS_SELECTORS, outlineCardHeader } from './studio-analytics';
+export {
+  SUPERSET_SELECTORS,
+  supersetDashboardTab,
+  supersetNativeFilter,
+  supersetSelectOption,
+  supersetSelectedValue,
+} from './superset';
 export {
   COURSE_LIBRARY_SYNC_SELECTORS,
   LEGACY_MIGRATION_SELECTORS,

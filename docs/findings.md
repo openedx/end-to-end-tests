@@ -114,6 +114,15 @@ measured, and issues are opened by hand from them.
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
+| `ASPECTS-001` | `openedx/frontend-app-aspects`, `openedx/frontend-plugin-aspects` (no test ids on the Reports tab; a few on the in-context sidebar) | open, shapes every anchor in `selectors/instructor-reports.ts` and `selectors/studio-analytics.ts`
+| `ASPECTS-005` | `openedx/tutor-contrib-aspects` (Course Comparison assets: Run Metrics "More details" files the org under the Course Run filter's id) | open, no `fixme` — TC-00559 asserts the link names the course and run
+| `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
+| `ASPECTS-010` | `openedx/aspects-dbt` (`dim_learner_last_response` joins block names at insert time) | open, no `fixme` — TC-00547 finds its row by the problem's usage key
+| `ASPECTS-011` | `apache/superset` 6.0.0 (tutor-contrib-aspects 4.x, `verawood`): row-level security aliases a filtered table as `schema.table`, so Course Comparison's video counts fail for course staff | open, gated — TC-00554's video-count case needs `analytics-staff-video-counts`, declared where it works (`main`)
+| `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive`; 6.0.0 (Aspects 4.0.0) also `dlitem` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
+| `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
+| `ASPECTS-008` | `openedx/tutor-contrib-aspects` (dashboard assets: "Clear all" empties the preselected course filter) | open, no `fixme` — TC-00544 clears only the learner filter, as the sheet asks
+| `ASPECTS-009` | `openedx/frontend-plugin-aspects` 3.0.1 on authoring `master`: the outline cards' Analytics buttons show the course | open, gated — TC-00314's card case needs `analytics-in-context-cards`, declared where it works
 
 ---
 
@@ -2146,6 +2155,216 @@ configuration. Measured in CI (2026-09-24): `main` passes, `verawood` reopens on
 `recommender-studio-settings` capability, declared for `main` only, so the
 `verawood` gap is an undeclared capability. A `verawood.2` that picks up 5.1.0
 can declare it.
+
+## Epic 16 — Aspects findings (2026-09-29)
+
+### `ASPECTS-001` — the Reports tab ships no test ids, and the in-context sidebar only a few
+
+**Where:** `frontend-app-aspects` (the instructor dashboard's Reports tab, as
+tutor-contrib-aspects 5.0.0 installs it) and `frontend-plugin-aspects` 3.0.1
+(Studio's in-context Analytics page and card buttons).
+
+**What happens:** the Reports tab renders no `data-testid` at all, and its
+heading, link text and dashboard names are translated. The in-context plugin
+marks its sidebar (`sidebar`, `sidebar-title`, through the authoring sidebar it
+plugs into), but not its element lists, its "Show more" toggle, its empty state
+or the outline cards' Analytics button.
+
+**Coverage impact:** open. The suite anchors on the Reports tab's own classes
+(`aspects-wrapper`, `aspects-superset-link`) and on the dashboard uuids the
+platform hands out, and in Studio on the sidebar's test ids plus Paragon's
+button classes. The card button is "the one medium icon button without a test
+id". Any restyle breaks these, which stable test ids would prevent (the
+`INSTR-001` pattern).
+
+### `ASPECTS-005` — Course Comparison's Run Metrics "More details" link files the organization under the Course Run filter
+
+**Where:** the Course Comparison dashboard's Run Metrics tab (tutor-contrib-aspects
+5.0.0 assets), in Superset 6.1.0.
+
+**What happens:** each row's "More details" link opens the Course Dashboard with a
+`native_filters` state that names `NATIVE_FILTER-w863AfFgi` twice: once carrying
+the organization and once the course run. So the organization is filed under
+the Course Run filter's id. The
+area is the one `openedx/wg-build-test-release#607` fixed, and this looks like
+a leftover of it. Measured on local `main` (2026-09-27).
+
+**Coverage impact:** open, no `fixme`. TC-00559 asserts that the link leads to
+the Course Dashboard with filter values naming the test's course and run, so it
+would catch a regression in the link itself, not this malformation.
+
+### `ASPECTS-006` — with Vector, a watched video never shows in Aspects' video charts
+
+**Where:** `aspects-dbt` (as tutor-contrib-aspects 5.0.0 installs it), the
+`fact_video_segments` model, built as a ClickHouse materialized view, and every
+video chart downstream of it (`fact_video_engagement`, the Course Dashboard's
+Videos tab, Course Comparison's video engagement).
+
+**What happens:** `fact_video_segments_mv` pairs each `played` statement with
+the next playback statement of the same learner and video, using window
+functions over `openedx.video_playback_events`. A ClickHouse materialized view
+runs on **each insert block**, and only sees that block's rows. Vector, the
+default xAPI pipeline since Aspects v4, inserts into ClickHouse about once a
+second. So a watch is counted only when its `played` statement and the `paused`
+or `completed` that ends it land in the same insert. For any real watch longer
+than a second or so, they essentially never do.
+
+Measured on local `main` (2026-09-29, tutor-contrib-aspects 5.0.0, Vector),
+twice, with a learner watching the suite's one-second HTML5 clip to the end.
+Both times `initialized`, `played`, `completed` and `paused` reached
+`openedx.video_playback_events` within 2 s.
+- **First run:** the statements were split across inserts one second apart.
+  Neither `fact_video_segments` nor `fact_video_engagement` gained a row for the
+  course, and the Videos tab's charts stayed empty.
+- **Second run:** they happened to share an insert, a segment row appeared, and
+  the charts showed the watch.
+
+Apart from these, the only course on that stack with segment rows is the demo
+course, most likely from a bulk load.
+
+**Coverage impact:** open. TC-00548 is written against the intended behaviour
+(learners who viewed a video = 1, full views = 1, a watched segment). With a
+one-second clip the outcome is a matter of timing, so a `test.fail` would pass
+at random. It is a declaration-form `test.fixme` with a `knownGap` instead, to
+lift once the marts pair statements across inserts. TC-00554's watched and
+rewatched percentages depend on the same mart.
+
+### `ASPECTS-A11Y-001` — Superset's dashboard pages fail serious axe rules
+
+**Where:** Apache Superset 6.1.0, as `edunext/aspects-superset:5.0.0` serves
+it, and 6.0.0, as `edunext/aspects-superset:4.0.0` does (Verawood's line).
+Found on the Course Comparison dashboard, which Aspects' users reach from the
+Reports tab's "View dashboards in Superset".
+
+**What happens:** axe (WCAG 2.2 AA) reports serious rules:
+- `html-has-lang`: the page's `<html>` carries no `lang`;
+- `nested-interactive`: three chart-header controls nest one interactive
+  element inside another;
+- `dlitem` (6.0.0 only): two `<dt>`/`<dd>` elements outside a `<dl>`.
+
+All are Superset's own markup, not Aspects' dashboards.
+
+**Coverage impact:** open, no `fixme`. TC-00549's scan of the Superset page
+baselines the rules (`SUPERSET_A11Y_BASELINE`, Superset-page scans only).
+The Reports tab's own scan excludes the embed, so the Open edX surface keeps the
+full gate.
+
+### `ASPECTS-007` — a new course-level tag reaches Course Comparison only sometimes
+
+**Where:** `aspects-dbt`'s `event_sink.dim_course_names` dictionary (as
+tutor-contrib-aspects 5.0.0 installs it). Course Comparison's Course Info tag
+list and its Tag filter read course tags from it, through
+`reporting.dim_most_recent_course_tags`.
+
+**What happens:** tagging a course makes platform-plugin-aspects dump the
+course overview again, now with the tag. But the dump carries the same
+`modified` as the previous one, because tagging does not change the course
+overview. `dim_course_names` keeps, per course, the `course_overviews` row
+whose `modified` is the latest (`max(modified)` joined back to the table). The
+two rows tie, and the dictionary keeps either.
+
+Measured on local `main` (2026-09-29): seven dumps of one new course, the last
+with tags `[993]` and the same `modified` as the one before it. The dictionary
+held `tags_str: []`, and six minutes on, the Tag filter still offered nothing.
+On a second new course the tag showed within 10 s. Republishing the course
+makes a newer `modified`, and the tag then shows reliably.
+
+**Coverage impact:** open.
+- TC-00556's filter case tags the course and then republishes it. That is a
+  workaround, commented in the spec with this finding, so the Course Info tag
+  list and the Tag filter are covered.
+- A separate `fixme` holds the sheet's case as written: tag the course, and the
+  tag shows without anything else.
+
+### `ASPECTS-008` — "Clear all" leaves an Aspects dashboard unable to render
+
+**Where:** the Aspects dashboards' native filters (tutor-contrib-aspects 5.0.0
+assets), in Superset 6.1.0. Seen on the Individual Learner dashboard embedded in
+the Reports tab.
+
+**What happens:** each dashboard's Course Name filter is set to "Select first
+filter value by default", which is how the dashboard scopes itself to the
+course. The filter bar's "Clear all" empties that filter too. Superset then
+shows "The following filters have the 'Select first filter value by default'
+option checked and could not be loaded, which is preventing the dashboard from
+rendering: Course Name", and the charts and tabs are gone until the page is
+reloaded. The Individual Learner filters also cascade in a loop: Organization's
+parent is Course Name, and Course Name's is Organization.
+
+**Coverage impact:** open, no `fixme`. TC-00544 asks to clear the learner
+filter, and the spec clears that one filter with its own control, which works.
+
+### `ASPECTS-009` — on `main`, an outline card's Analytics button shows the whole course
+
+**Where:** `frontend-plugin-aspects` 3.0.1 in `frontend-app-authoring` `master`
+(checked at `b98d86b`, 2026-09-29).
+
+**What happens:** the graded-subsection and unit cards' Analytics buttons call
+the outline sidebar context's `setSelectedContainerState({currentId})` and open
+the Analytics page. That page (`CourseOutlineAspectsPage`) decides what to show
+from the context's `currentItemData`. `release/verawood`'s
+`OutlineSidebarContext` still provides that field; `master`'s no longer does. So
+on `main` the page always shows the course's view: the course's dashboard, no
+subsection view, no unit list. Drilling into an element from the Analytics
+page's own lists still works. Measured on local `main`: clicking a graded
+subsection's button loads `superset_in_context_dashboard/<course key>` only,
+with no request for the subsection.
+
+**Coverage impact:** open, gated. TC-00314's check that the buttons are present
+on the right cards is ungated. Its "a card opens that element's analytics" case
+is tagged `@analytics-in-context-cards`, a capability declared where the plugin
+and the authoring MFE agree (Verawood). So the regression shows as an
+undeclared capability on `main` rather than as a permanently red case.
+
+### `ASPECTS-010` — a problem answered soon after a publish shows with no name, for good
+
+**Where:** `aspects-dbt`'s `dim_learner_last_response` model (as tutor-contrib-aspects
+5.0.0 installs it), built as a ClickHouse materialized view, and the Course
+Dashboard's "Problem Attempts and Results" table that reads it.
+
+**What happens:** the view takes each problem's name from
+`reporting.dim_course_blocks` **when a learner's response is inserted**. That
+view is built on the `dim_course_block_names` dictionary, which refreshes at a
+random point within 120 s. A response inserted before the refresh has picked up
+the course's blocks gets an empty `display_name_with_location`, and a
+materialized view never revisits a row. So the table shows that learner's
+attempts on a problem with no name, however long you wait.
+
+Measured on local `main` (2026-09-29): a course's blocks were dumped at
+20:19:21–26, a learner answered its problem at 20:20:12, and the row was stored
+with an empty name. The dictionary refreshed later, and the row stayed nameless.
+The row's `problem_link` still carries the problem's URL, and its counts are
+right.
+
+**Coverage impact:** open, no `fixme`. TC-00547 finds its row by the problem's
+usage key in `problem_link` rather than by its name, so it reads the counts
+either way. Before that change, a run that answered inside the refresh window
+failed, with "attempted at least one" at 1 and the problem's counts at 0.
+
+### `ASPECTS-011` — on Superset 6.0.0, Course Comparison's video counts fail for course staff
+
+**Where:** Apache Superset 6.0.0, as tutor-contrib-aspects 4.x (the Verawood
+line) ships it, with Aspects' `watched_video_duration` dataset behind Course
+Comparison's video-count charts.
+
+**What happens:** for a user under row-level security (course staff), Superset
+6.0.0 rewrites each filtered table into a subquery aliased with its
+**qualified** name:
+`` (SELECT * FROM reporting.dim_course_blocks WHERE course_key IN (…)) AS `reporting.dim_course_blocks` ``.
+The dataset qualifies its columns with the bare table name
+(`dim_course_blocks.org`), which no longer resolves. ClickHouse answers
+`Code: 47 … Unknown expression or function identifier dim_course_blocks.org`,
+and the chart shows an error. Superset 6.1.0 (tutor-contrib-aspects 5.0.0)
+aliases the subquery under the table's own name, and with the same dataset SQL
+and the same ClickHouse 25.8 the charts load.
+
+Measured in CI: run 36720301819 (2026-09-30) had 34 such errors on `verawood`
+and none on `main`. Run 36897236438 (2026-10-01) repeated it.
+
+**Coverage impact:** open, gated. TC-00554's video-count case is tagged
+`@analytics-staff-video-counts`, a capability declared where it works (`main`).
+So the defect shows as an undeclared capability on `verawood`, not as a
+permanently red case.
 
 ## CI split — sharded runs and profiles (2026-09-24/25, suite-side)
 

@@ -2,24 +2,36 @@
   "default": {
     "description": "The standard CI installation: every release's capabilities as .ci/openedx-releases.json declares them, run as the whole suite.",
     "code": "d",
-    "tutorPlugins": [".ci/tutor/e2e_base.py"],
-    "capabilities": { "add": [], "remove": [] },
+    "tutorPlugins": [
+      ".ci/tutor/e2e_base.py"
+    ],
+    "capabilities": {
+      "add": [],
+      "remove": []
+    },
     "shards": 4
   },
   "extended": {
     "description": "The installation configured the other way round, plus seeded content and codejail, running only the cases default skips: manual AuthZ migration, a SUPPORT_URL, a multi-organization catalog, a course intro video and (where the release has the plugin) Python-graded problems.",
     "code": "x",
-    "tutorPlugins": [".ci/tutor/e2e_base.py", ".ci/tutor/e2e_extended.py"],
+    "tutorPlugins": [
+      ".ci/tutor/e2e_base.py",
+      ".ci/tutor/e2e_extended.py"
+    ],
     "tutorExtensions": [
       {
         "pip": "tutor-contrib-codejail",
         "plugin": "codejail",
         "init": true,
         "capability": "codejail",
-        "releases": ["verawood"]
+        "releases": [
+          "verawood"
+        ]
       }
     ],
-    "seedScripts": [".ci/seed/extended.sh"],
+    "seedScripts": [
+      ".ci/seed/extended.sh"
+    ],
     "capabilities": {
       "add": [
         "authz-manual-migration",
@@ -27,8 +39,56 @@
         "multi-org-catalog",
         "course-intro-video"
       ],
-      "remove": ["authz-auto-migration"]
+      "remove": [
+        "authz-auto-migration"
+      ]
     },
+    "select": "delta",
+    "shards": 1
+  },
+  "aspects": {
+    "description": "The installation with Aspects (tutor-contrib-aspects: ClickHouse, Vector and Superset), learner PII and Studio's in-context metrics on, running only the analytics cases: the instructor dashboard's Reports tab, Superset access and dashboards, and in-context metrics. Its Open edX, MFE, Aspects and Superset images are this profile's own variant (build_tutor_main_images.yml).",
+    "code": "a",
+    "releases": [
+      "main",
+      "verawood"
+    ],
+    "tutorPlugins": [
+      ".ci/tutor/e2e_base.py",
+      ".ci/tutor/e2e_aspects.py"
+    ],
+    "tutorExtensions": [
+      {
+        "pip": "tutor-contrib-aspects",
+        "version": "==5.0.0",
+        "plugin": "aspects",
+        "init": true,
+        "capability": "analytics",
+        "releases": ["main"]
+      },
+      {
+        "pip": "tutor-contrib-aspects",
+        "version": ">=4.0.0,<5",
+        "plugin": "aspects",
+        "init": true,
+        "capability": "analytics",
+        "releases": ["verawood"]
+      }
+    ],
+    "capabilities": {
+      "add": [
+        "analytics-pii",
+        "analytics-in-context"
+      ],
+      "remove": []
+    },
+    "releaseCapabilities": {
+      "main": ["analytics-staff-video-counts"],
+      "verawood": [
+        "analytics-in-context-cards"
+      ]
+    },
+    "images": "aspects",
     "select": "delta",
     "shards": 1
   }
