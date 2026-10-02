@@ -157,7 +157,7 @@ import {
   type CourseTeamRoleV2,
   courseKeySkipReason,
   enrollInCourseViaApi,
-  unenrollFromCourseViaApi,
+  modifyEnrollments,
   fetchCourseDetail,
   fetchCourseOutline,
   primeCoursewareForLearner,
@@ -3866,7 +3866,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
-  analyticsCourse: async ({ page, config, authoringCourse, studioAuthorSession }, use) => {
+  analyticsCourse: async (
+    { page, config, authoringCourse, studioAuthorSession, workerAuthor },
+    use,
+  ) => {
     void studioAuthorSession;
     const request = page.request;
     const { courseKey } = authoringCourse;
@@ -3895,10 +3898,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await publishXBlock(request, config, section.usageKey);
     // Studio enrolls whoever creates a course, and that enrollment reaches
     // Aspects from the CMS at no fixed time (before a test's first reading on one
-    // run, after its last on another). Ending it here, from the LMS, keeps the
-    // author out of every enrollee count: the charts read each learner's latest
-    // status, and the unenrollment is newer than the Studio enrollment.
-    await unenrollFromCourseViaApi(request, config, courseKey);
+    // run, after its last, or never, on another). Enrolling the author again from
+    // the LMS makes it reach Aspects promptly on every release, so every count
+    // starts from the author and the staff viewer; a late Studio event is then an
+    // older one for the same learner and changes nothing. The instructor API
+    // re-enrolls (unenroll, then enroll), since enrolling an enrolled user is a
+    // no-op that emits nothing.
+    const author = workerAuthor?.identity.username;
+    if (author === undefined) throw new Error('analyticsCourse needs the worker author.');
+    await modifyEnrollments(request, config, courseKey, [author], 'unenroll');
+    await modifyEnrollments(request, config, courseKey, [author], 'enroll');
     await use({
       ...authoringCourse,
       section,

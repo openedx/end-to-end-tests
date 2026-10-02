@@ -163,7 +163,7 @@ export class SupersetDashboardBlock {
     for (const value of values) await this.chooseOption(control, value);
     await this.closeSelect(control);
     const marker = this.capturedCount();
-    await this.root.locator(SUPERSET_SELECTORS.filterApply).click();
+    await this.applyFilters();
     return marker;
   }
 
@@ -179,8 +179,19 @@ export class SupersetDashboardBlock {
     await control.locator(SUPERSET_SELECTORS.selectClear).click();
     await this.closeSelect(control);
     const marker = this.capturedCount();
-    await this.root.locator(SUPERSET_SELECTORS.filterApply).click();
+    await this.applyFilters();
     return marker;
+  }
+
+  /**
+   * Presses the filter bar's Apply button with the keyboard. Superset 6.0 pins
+   * the button to the bottom of the dashboard's own viewport
+   * (`position: fixed`), which inside a tall embed lies below the page's, so a
+   * pointer cannot reach it; Enter on the focused button is the keyboard user's
+   * way to apply, and works on both versions.
+   */
+  private async applyFilters(): Promise<void> {
+    await this.root.locator(SUPERSET_SELECTORS.filterApply).press('Enter');
   }
 
   /**

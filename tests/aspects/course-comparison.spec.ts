@@ -107,10 +107,10 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
           ],
         };
       };
-      // Before: the staff viewer, whom the course-team grant enrolled (the
-      // course's author is unenrolled when the course is built).
-      const before = await waitForAnalytics(read, (r) => consistent(r, 1));
-      expect(consistent(before.last, 1), `readings: ${JSON.stringify(before.readings)}`).toBe(true);
+      // Before: the author (re-enrolled from the LMS when the course is built)
+      // and the staff viewer, whom the course-team grant enrolled.
+      const before = await waitForAnalytics(read, (r) => consistent(r, 2));
+      expect(consistent(before.last, 2), `readings: ${JSON.stringify(before.readings)}`).toBe(true);
 
       // The learner enrolls and goes into the course, as a learner enrolling
       // from the LMS does: Aspects counts a learner active from a course visit,
@@ -127,10 +127,10 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
       const activeBefore = Number(before.last.active[0] ?? 0);
       const after = await waitForAnalytics(
         read,
-        (r) => consistent(r, 2) && Number(r.active[0] ?? 0) === activeBefore + 1,
+        (r) => consistent(r, 3) && Number(r.active[0] ?? 0) === activeBefore + 1,
       );
       expect(after.last, `readings: ${JSON.stringify(after.readings)}`).toEqual({
-        enrollees: [2, 2, 2, 2, 2, 2],
+        enrollees: [3, 3, 3, 3, 3, 3],
         active: Array(4).fill(activeBefore + 1),
       });
     },

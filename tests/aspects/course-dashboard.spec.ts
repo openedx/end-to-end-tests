@@ -18,9 +18,9 @@ import { cellText, choiceIndex } from './helpers';
  * from the platform's analytics store, never chart text or pixels.
  *
  * The course starts with no activity, so the only people Aspects counts in it
- * are the test's own: the staff viewer (a course-team grant enrolls it) and the
- * learner. Its author, whom Studio enrolls on creation, is unenrolled when the
- * course is built (`analyticsCourse`).
+ * are the test's own: its author (enrolled by Studio, and again from the LMS
+ * when the course is built, `analyticsCourse`), the staff viewer (a course-team
+ * grant enrolls it) and the learner.
  */
 
 const TAGS = [
@@ -69,22 +69,21 @@ test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
       });
       const enrolled = (n: number) => ({ currentEnrollees: n, auditTrack: n, cumulativeAudit: n });
 
-      // Before: only the staff viewer, whom the course-team grant enrolled (audit);
-      // the course's author is unenrolled when the course is built.
+      // Before: the author and the staff viewer (both audit).
       const before = await waitForAnalytics(
         read,
-        (r) => JSON.stringify(r) === JSON.stringify(enrolled(1)),
+        (r) => JSON.stringify(r) === JSON.stringify(enrolled(2)),
       );
-      expect(before.last, `readings: ${JSON.stringify(before.readings)}`).toEqual(enrolled(1));
+      expect(before.last, `readings: ${JSON.stringify(before.readings)}`).toEqual(enrolled(2));
 
       const learner = await newLearner();
       await enrollInCourseViaApi(learner.request, config, analyticsCourse.courseKey);
 
       const after = await waitForAnalytics(
         read,
-        (r) => JSON.stringify(r) === JSON.stringify(enrolled(2)),
+        (r) => JSON.stringify(r) === JSON.stringify(enrolled(3)),
       );
-      expect(after.last, `readings: ${JSON.stringify(after.readings)}`).toEqual(enrolled(2));
+      expect(after.last, `readings: ${JSON.stringify(after.readings)}`).toEqual(enrolled(3));
     },
   );
 

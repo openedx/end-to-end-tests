@@ -112,7 +112,12 @@ export async function replayChartData(
   const url = `${supersetOrigin}/api/v1/chart/data`;
   const headers: Record<string, string> = { Referer: `${supersetOrigin}/` };
   if (auth !== 'session') headers['X-GuestToken'] = auth.guestToken;
-  const response = await request.post(url, { data: replayBody(query), headers });
+  // A gateway error is the proxy giving up on a busy Superset worker (seen on
+  // loaded CI runners), not an answer about the query: send it again, twice at most.
+  let response = await request.post(url, { data: replayBody(query), headers });
+  for (let retry = 0; retry < 2 && [502, 503, 504].includes(response.status()); retry++) {
+    response = await request.post(url, { data: replayBody(query), headers });
+  }
   const text = await response.text();
   if (response.status() !== 200) {
     throw new ApiError(
