@@ -121,6 +121,7 @@ measured, and issues are opened by hand from them.
 | `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
 | `ASPECTS-010` | `openedx/aspects-dbt` (`dim_learner_last_response` joins block names at insert time) | open, no `fixme` — TC-00547 finds its row by the problem's usage key
 | `ASPECTS-011` | `apache/superset` 6.0.0 (tutor-contrib-aspects 4.x): row-level security aliases a filtered table as `schema.table`, so Course Comparison's video counts fail for course staff | open, gated — TC-00554's video-count case needs `analytics-staff-video-counts` (CI declares it: both releases run Superset 6.1)
+| `ASPECTS-012` | `openedx/aspects-dbt` (`dim_most_recent_enrollment`: a ReplacingMergeTree with no version, read without `FINAL`) | open, no `fixme` — TC-00553 and TC-00545 no longer give a learner two enrollment events
 | `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive`; 6.0.0 (Aspects 4.0.0) also `dlitem` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
 | `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
 | `ASPECTS-008` | `openedx/tutor-contrib-aspects` (dashboard assets: "Clear all" empties the preselected course filter) | open, no `fixme` — TC-00544 clears only the learner filter, as the sheet asks
@@ -2426,6 +2427,39 @@ attempts. Other runs pass, so it is a race.
 would fail the run whenever the race goes the right way. The legacy Account app
 (`verawood`) still runs them. A likely fix is to store the preference first and
 switch the session after it.
+
+### `ASPECTS-012` — a learner with two enrollment events is counted twice by the Performance Breakdown, and may keep the wrong status
+
+**Where:** `aspects-dbt` (`v8.0.0`, as tutor-contrib-aspects 5.1 and 6.0
+install it): `reporting.dim_most_recent_enrollment`, and the
+`dim_student_status` view that Course Comparison's "Learner Performance
+Breakdown" charts read through the `learner_performance_breakdown` dataset.
+
+**What happens:**
+- **Duplicate counting.** `dim_most_recent_enrollment` is a ReplacingMergeTree
+  keyed on `(org, course_key, actor_id)`, and `dim_student_status` reads it
+  without `FINAL`. Until ClickHouse merges the parts, a learner with more than one
+  enrollment event (enroll then unenroll, unenroll then enroll again) has more
+  than one row. The breakdown's metrics are `COUNT(actor_id)` (not distinct), so
+  it counts that learner once per row, while Course Info and the enrollment
+  counts, which read enrollment status another way, count them once.
+- **The wrong status can win.** The table has no version column, so a merge
+  keeps the last *inserted* row, not the latest by `emission_time`. Two events
+  for one learner in one Vector insert (an unenroll and a re-enroll in the same
+  second) leave either one as the learner's "most recent" status.
+
+Measured on local `main` (2026-10-05): with the course author unenrolled and
+re-enrolled through the instructor API in the same second, Course Info and the
+enrollment counts read 1 while both Performance Breakdowns read 2, for the
+whole three-minute wait. In CI (run 37000238764, `main`) the breakdowns read 4
+enrollees and 2 active against 3 and 1 on the other four charts.
+
+**Coverage impact:** open, no `fixme`. The suite's own fixture had triggered it,
+by re-enrolling the course author so it would be counted (a workaround for the
+author's Studio enrollment reaching Aspects at no fixed time); that is gone.
+TC-00553 and TC-00545 now read their starting count once every chart agrees and
+assert exactly one more after the learner enrolls, so no account they count has
+two enrollment events.
 
 ## CI split — sharded runs and profiles (2026-09-24/25, suite-side)
 

@@ -50,18 +50,24 @@ export async function deactivateAccount(
 }
 
 /**
- * Makes an account **global staff** (`is_staff`), as the sheet's "make your test
- * account a staff account" asks: through the LMS user admin, like
- * {@link deactivateAccount}, since no API grants it.
+ * Turns an account's **global staff** flag (`is_staff`) on or off, as the
+ * sheet's "make your test account a staff account" asks: through the LMS user
+ * admin, like {@link deactivateAccount}, since no API grants it. Whatever turns
+ * it on turns it off again when done (`globalStaffColleague`), so a run leaves
+ * no staff accounts behind.
  */
-export async function makeGlobalStaff(
+export async function setGlobalStaff(
   adminSession: APIRequestContext,
   config: AppConfig,
   username: string,
+  staff: boolean,
 ): Promise<void> {
   const url = await userChangeUrl(adminSession, config, username);
-  const { html, token } = await openAdminForm(adminSession, url, `Making ${username} staff`);
+  const what = `${staff ? 'Making' : 'Unmaking'} ${username} global staff`;
+  const { html, token } = await openAdminForm(adminSession, url, what);
   const form = readAdminForm(html);
-  form.is_staff = 'on';
-  await postAdminForm(adminSession, url, token, form, `Making ${username} staff`);
+  // An unchecked checkbox is simply absent from a form body.
+  if (staff) form.is_staff = 'on';
+  else delete form.is_staff;
+  await postAdminForm(adminSession, url, token, form, what);
 }

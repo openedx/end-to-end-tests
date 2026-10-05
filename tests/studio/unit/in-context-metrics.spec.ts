@@ -1,6 +1,8 @@
 import { expect, test } from '../../../src/fixtures';
-import { TIMEOUTS } from '../../../src/config';
+import { STUDIO_ANALYTICS_SELECTORS, TIMEOUTS } from '../../../src/config';
+import { checkA11y } from '../../../src/a11y';
 import { knownGap, testId } from '../../../src/reporting';
+import { SIDEBAR_A11Y_BASELINE } from '../sidebar/helpers';
 
 /**
  * Aspects' in-context metrics on the unit page (TC-00315, TC-00316, and the
@@ -31,7 +33,9 @@ test.describe('Aspects in-context metrics on the unit page', { tag: [...TAGS] },
       const [graded, ungraded] = analyticsCourse.section.subsections;
       const problemUnit = graded!.units[0]!;
       const htmlUnit = ungraded!.units[0]!;
-      const { unitPage, analytics, sidebar } = await inContextViewer(analyticsCourse.courseKey);
+      const { colleague, unitPage, analytics, sidebar } = await inContextViewer(
+        analyticsCourse.courseKey,
+      );
 
       await unitPage.goto(problemUnit.usageKey);
       await analytics.open({ expectDashboard: false });
@@ -39,6 +43,11 @@ test.describe('Aspects in-context metrics on the unit page', { tag: [...TAGS] },
       expect([...(await analytics.listNames(0))].sort()).toEqual(
         problemUnit.blocks.map((b) => b.displayName).sort(),
       );
+      await checkA11y(colleague.page, {
+        label: 'studio-analytics-unit',
+        exclude: STUDIO_ANALYTICS_SELECTORS.embedContainer,
+        additionalBaseline: SIDEBAR_A11Y_BASELINE,
+      });
 
       await unitPage.goto(htmlUnit.usageKey);
       await analytics.open({ expectDashboard: false });

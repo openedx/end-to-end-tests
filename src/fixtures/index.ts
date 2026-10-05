@@ -157,7 +157,7 @@ import {
   type CourseTeamRoleV2,
   courseKeySkipReason,
   enrollInCourseViaApi,
-  modifyEnrollments,
+  setGlobalStaff,
   fetchCourseDetail,
   fetchCourseOutline,
   primeCoursewareForLearner,
@@ -354,6 +354,12 @@ export interface TestFixtures {
    * the test ends.
    */
   supersetColleague: (options?: SupersetColleagueOptions) => Promise<SupersetColleague>;
+  /**
+   * A {@link TestFixtures.supersetColleague} made **global staff** before its
+   * first Superset sign-in (through the LMS admin), and unmade global staff when
+   * the test ends, so no staff account outlives the run. Needs the admin.
+   */
+  globalStaffColleague: () => Promise<SupersetColleague>;
   /**
    * A Studio user for Aspects' in-context metrics on `courseKey`: a
    * `studioColleague` the worker author grants course `staff`, with the outline,
@@ -2227,6 +2233,21 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     for (const request of requests) await request.dispose();
   },
 
+  globalStaffColleague: async ({ config, supersetColleague, adminLms }, use) => {
+    const made: string[] = [];
+    await use(async () => {
+      const colleague = await supersetColleague();
+      await adminLms((session) =>
+        setGlobalStaff(session, config, colleague.identity.username, true),
+      );
+      made.push(colleague.identity.username);
+      return colleague;
+    });
+    for (const username of made) {
+      await adminLms((session) => setGlobalStaff(session, config, username, false));
+    }
+  },
+
   inContextViewer: async ({ page, config, studioAuthorSession, studioColleague }, use) => {
     void studioAuthorSession;
     await use(async (courseKey) => {
@@ -3872,10 +3893,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
   },
 
-  analyticsCourse: async (
-    { page, config, authoringCourse, studioAuthorSession, workerAuthor },
-    use,
-  ) => {
+  analyticsCourse: async ({ page, config, authoringCourse, studioAuthorSession }, use) => {
     void studioAuthorSession;
     const request = page.request;
     const { courseKey } = authoringCourse;
@@ -3902,18 +3920,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       metadata: { html5_sources: [videoSource], youtube_id_1_0: '' },
     });
     await publishXBlock(request, config, section.usageKey);
-    // Studio enrolls whoever creates a course, and that enrollment reaches
-    // Aspects from the CMS at no fixed time (before a test's first reading on one
-    // run, after its last, or never, on another). Enrolling the author again from
-    // the LMS makes it reach Aspects promptly on every release, so every count
-    // starts from the author and the staff viewer; a late Studio event is then an
-    // older one for the same learner and changes nothing. The instructor API
-    // re-enrolls (unenroll, then enroll), since enrolling an enrolled user is a
-    // no-op that emits nothing.
-    const author = workerAuthor?.identity.username;
-    if (author === undefined) throw new Error('analyticsCourse needs the worker author.');
-    await modifyEnrollments(request, config, courseKey, [author], 'unenroll');
-    await modifyEnrollments(request, config, courseKey, [author], 'enroll');
     await use({
       ...authoringCourse,
       section,

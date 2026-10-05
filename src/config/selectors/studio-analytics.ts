@@ -22,6 +22,8 @@ export const STUDIO_ANALYTICS_SELECTORS = {
   backButton: '[data-testid="sidebar-title"] button',
   /** The embedded in-context dashboard. */
   embedFrame: '.aspects-sidebar-embed-container iframe',
+  /** The embed's container, excluded from the sidebar's own a11y scan (Superset is scanned on its own pages). */
+  embedContainer: '.aspects-sidebar-embed-container',
   /**
    * The element lists, in order (outline: graded subsections, problems, videos;
    * unit page: the unit's problems and videos in one list).

@@ -283,8 +283,6 @@ export {
   instructorApiBase,
   listCertificateGenerationHistory,
   listEnrollments,
-  modifyEnrollments,
-  type EnrollmentChange,
   listInstructorTasks,
   listIssuedCertificates,
   listReports,
@@ -474,7 +472,7 @@ export {
   readAdminForm,
   splitAdminDateTime,
 } from './django-admin';
-export { USER_ADMIN, deactivateAccount, makeGlobalStaff } from './user-admin';
+export { USER_ADMIN, deactivateAccount, setGlobalStaff } from './user-admin';
 export {
   COURSE_ACCESS_ROLE_ADMIN,
   LEGACY_COURSE_ROLES,

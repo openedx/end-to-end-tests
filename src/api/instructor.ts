@@ -455,50 +455,6 @@ export async function listEnrollments(
   );
 }
 
-/**
- * One identifier's outcome in an {@link modifyEnrollments} call (the v1 shape:
- * the before and after state on success, `error` or `invalid_identifier` on a
- * refusal).
- */
-export interface EnrollmentChange {
-  readonly identifier: string;
-  readonly error?: boolean | string;
-  readonly invalid_identifier?: boolean;
-}
-
-/**
- * Enrolls or unenrolls learners by username or email, as course staff (the
- * dashboard's "Enroll Learners" submit, `enrollments/modify`, which takes a
- * JWT). The platform answers 200 with a result per identifier, so a refused
- * one throws here rather than passing unnoticed.
- */
-export async function modifyEnrollments(
-  request: APIRequestContext,
-  config: AppConfig,
-  courseKey: string,
-  identifiers: readonly string[],
-  action: 'enroll' | 'unenroll',
-): Promise<readonly EnrollmentChange[]> {
-  const what = `${action === 'enroll' ? 'Enrolling' : 'Unenrolling'} ${identifiers.join(', ')} in ${courseKey}`;
-  const { results } = await write<{ readonly results: readonly EnrollmentChange[] }>(
-    request,
-    config,
-    'POST',
-    `${instructorApiBase(config, courseKey)}/enrollments/modify`,
-    what,
-    { identifier: identifiers, action },
-  );
-  const refused = results.filter((r) => Boolean(r.error) || r.invalid_identifier === true);
-  if (refused.length > 0) {
-    throw new ApiError(`${what} was refused for ${refused.map((r) => r.identifier).join(', ')}.`, {
-      status: 200,
-      url: `${instructorApiBase(config, courseKey)}/enrollments/modify`,
-      body: JSON.stringify(refused).slice(0, 500),
-    });
-  }
-  return results;
-}
-
 /** One learner's identity and enrollment state in the course. */
 export async function fetchInstructorLearner(
   request: APIRequestContext,

@@ -18,9 +18,11 @@ import { cellText, choiceIndex } from './helpers';
  * from the platform's analytics store, never chart text or pixels.
  *
  * The course starts with no activity, so the only people Aspects counts in it
- * are the test's own: its author (enrolled by Studio, and again from the LMS
- * when the course is built, `analyticsCourse`), the staff viewer (a course-team
- * grant enrolls it) and the learner.
+ * are the test's own: the staff viewer (a course-team grant enrolls it), the
+ * learner, and possibly the author, whom Studio enrolls on creation and whose
+ * enrollment reaches Aspects from the CMS at no fixed time, if at all. A count
+ * the learner changes is therefore read first, once its charts agree, and the
+ * learner's action asserted as exactly one more.
  */
 
 const TAGS = [
@@ -69,21 +71,29 @@ test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
       });
       const enrolled = (n: number) => ({ currentEnrollees: n, auditTrack: n, cumulativeAudit: n });
 
-      // Before: the author and the staff viewer (both audit).
+      // Before: the staff viewer, and the author if Studio's enrollment has reached
+      // Aspects (all audit), once the three charts agree.
       const before = await waitForAnalytics(
         read,
-        (r) => JSON.stringify(r) === JSON.stringify(enrolled(2)),
+        (r) =>
+          Number(r.currentEnrollees) >= 1 &&
+          JSON.stringify(r) === JSON.stringify(enrolled(Number(r.currentEnrollees))),
       );
-      expect(before.last, `readings: ${JSON.stringify(before.readings)}`).toEqual(enrolled(2));
+      const already = Number(before.last.currentEnrollees);
+      expect(before.last, `readings: ${JSON.stringify(before.readings)}`).toEqual(
+        enrolled(already),
+      );
 
       const learner = await newLearner();
       await enrollInCourseViaApi(learner.request, config, analyticsCourse.courseKey);
 
       const after = await waitForAnalytics(
         read,
-        (r) => JSON.stringify(r) === JSON.stringify(enrolled(3)),
+        (r) => JSON.stringify(r) === JSON.stringify(enrolled(already + 1)),
       );
-      expect(after.last, `readings: ${JSON.stringify(after.readings)}`).toEqual(enrolled(3));
+      expect(after.last, `readings: ${JSON.stringify(after.readings)}`).toEqual(
+        enrolled(already + 1),
+      );
     },
   );
 

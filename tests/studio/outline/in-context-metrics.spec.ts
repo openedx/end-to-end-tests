@@ -1,8 +1,10 @@
 import { expect, test } from '../../../src/fixtures';
-import { TIMEOUTS } from '../../../src/config';
+import { STUDIO_ANALYTICS_SELECTORS, TIMEOUTS } from '../../../src/config';
 import { buildSection, publishXBlock } from '../../../src/api';
+import { checkA11y } from '../../../src/a11y';
 import { testId } from '../../../src/reporting';
 import { ANALYTICS_LIST_PAGE_SIZE } from '../../../src/pages/studio/sidebar/analytics.block';
+import { SIDEBAR_A11Y_BASELINE } from '../sidebar/helpers';
 
 /**
  * Aspects' in-context metrics on the course outline (TC-00312–00314).
@@ -69,7 +71,9 @@ test.describe('Aspects in-context metrics on the outline', { tag: [...TAGS] }, (
         s.blocks.filter((b) => b.type === 'video').map((b) => b.displayName),
       );
 
-      const { outlinePage, analytics } = await inContextViewer(analyticsCourse.courseKey);
+      const { colleague, outlinePage, analytics } = await inContextViewer(
+        analyticsCourse.courseKey,
+      );
       await outlinePage.goto(analyticsCourse.courseKey);
       const load = await analytics.open({ expectDashboard: true });
 
@@ -94,6 +98,13 @@ test.describe('Aspects in-context metrics on the outline', { tag: [...TAGS] }, (
       expect(await analytics.listNames(1)).toHaveLength(ANALYTICS_LIST_PAGE_SIZE);
       expect(await analytics.listNames(2)).toEqual(videos);
       await expect(analytics.showMoreToggle(2)).toHaveCount(0);
+
+      // The sidebar around the embed; Superset's own markup is scanned on its pages.
+      await checkA11y(colleague.page, {
+        label: 'studio-analytics-outline',
+        exclude: STUDIO_ANALYTICS_SELECTORS.embedContainer,
+        additionalBaseline: SIDEBAR_A11Y_BASELINE,
+      });
     },
   );
 

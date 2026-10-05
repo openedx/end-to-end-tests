@@ -15,7 +15,12 @@ import { InstructorDashboardPage } from './dashboard.page';
 export interface DashboardEmbedLoad {
   /** The `superset_guest_token` answers the tab received before the embed's first chart data. */
   readonly guestTokenStatuses: readonly number[];
-  /** The first chart-data answer from the iframe embedding this dashboard (its filters load first). */
+  /**
+   * The first chart-data answer from the iframe embedding this dashboard (its
+   * filters load first) that is not a gateway error: a 502–504 is the proxy
+   * giving up on a busy Superset worker, and the dashboard's other queries still
+   * answer, as `replayChartData` allows for too.
+   */
   readonly firstChartData: Response;
   /** Whether that chart-data request carried the guest token. */
   readonly usedGuestToken: boolean;
@@ -59,7 +64,7 @@ export class ReportsPage extends InstructorDashboardPage {
       if (!url.includes('/api/v1/chart/data')) return;
       const uuid = /\/embedded\/([0-9a-f-]{36})/.exec(response.request().frame().url())?.[1];
       if (uuid === undefined) return;
-      if (!this.firstChartData.has(uuid)) {
+      if (!this.firstChartData.has(uuid) && ![502, 503, 504].includes(response.status())) {
         this.firstChartData.set(uuid, { response, tokens: this.guestTokens.length });
       }
       this.recorder(uuid).record(response);

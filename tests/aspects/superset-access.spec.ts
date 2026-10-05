@@ -7,7 +7,6 @@ import {
   fetchInContextDashboard,
   fetchInstructorCourse,
   fetchInstructorReports,
-  makeGlobalStaff,
   supersetOrigin,
 } from '../../src/api';
 import type { Page } from '@playwright/test';
@@ -76,9 +75,8 @@ test.describe('Superset access', { tag: [...TAGS] }, () => {
   test(
     'global staff see every course in Course Comparison',
     { annotation: testId('TC-00550') },
-    async ({ config, authoringCourse, contentCourse, supersetColleague, adminLms }) => {
-      const staff = await supersetColleague();
-      await adminLms((session) => makeGlobalStaff(session, config, staff.identity.username));
+    async ({ config, authoringCourse, contentCourse, globalStaffColleague }) => {
+      const staff = await globalStaffColleague();
       const { origin, localeSuffix } = await supersetFor(
         staff.request,
         config,

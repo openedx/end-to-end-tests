@@ -11,7 +11,6 @@ import {
   courseKeyFor,
   enrollInCourseViaApi,
   grantCourseTeamRole,
-  makeGlobalStaff,
   rerunCourse,
   setObjectTags,
   waitForRerun,
@@ -45,6 +44,11 @@ function consistent(
   enrollees: number,
 ): boolean {
   return r.enrollees.every((n) => n === enrollees) && r.active.every((n) => n === r.active[0]);
+}
+
+/** Every chart agrees on a count of at least one enrollee (whatever it is). */
+function agreed(r: Parameters<typeof consistent>[0]): boolean {
+  return Number(r.enrollees[0]) >= 1 && consistent(r, Number(r.enrollees[0]));
 }
 
 /** Both video counts equal the course's published videos. */
@@ -107,10 +111,12 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
           ],
         };
       };
-      // Before: the author (re-enrolled from the LMS when the course is built)
-      // and the staff viewer, whom the course-team grant enrolled.
-      const before = await waitForAnalytics(read, (r) => consistent(r, 2));
-      expect(consistent(before.last, 2), `readings: ${JSON.stringify(before.readings)}`).toBe(true);
+      // Before: the staff viewer, whom the course-team grant enrolled, and the
+      // author if Studio's enrollment of it has reached Aspects (at no fixed
+      // time), once every chart agrees.
+      const before = await waitForAnalytics(read, agreed);
+      expect(agreed(before.last), `readings: ${JSON.stringify(before.readings)}`).toBe(true);
+      const already = Number(before.last.enrollees[0]);
 
       // The learner enrolls and goes into the course, as a learner enrolling
       // from the LMS does: Aspects counts a learner active from a course visit,
@@ -127,10 +133,10 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
       const activeBefore = Number(before.last.active[0] ?? 0);
       const after = await waitForAnalytics(
         read,
-        (r) => consistent(r, 3) && Number(r.active[0] ?? 0) === activeBefore + 1,
+        (r) => consistent(r, already + 1) && Number(r.active[0] ?? 0) === activeBefore + 1,
       );
       expect(after.last, `readings: ${JSON.stringify(after.readings)}`).toEqual({
-        enrollees: [3, 3, 3, 3, 3, 3],
+        enrollees: Array(6).fill(already + 1),
         active: Array(4).fill(activeBefore + 1),
       });
     },
@@ -337,16 +343,14 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
       config,
       analyticsCourse,
       contentCourse,
-      supersetColleague,
-      adminLms,
+      globalStaffColleague,
       authoringCourseLearner,
     }) => {
       // Course Comparison lists a course once it has enrollees.
       void authoringCourseLearner;
       // Global staff see every course, so the filter has more than one to narrow;
       // a throwaway, because Superset fixes what a user sees at its first sign-in.
-      const viewer = await supersetColleague();
-      await adminLms((session) => makeGlobalStaff(session, config, viewer.identity.username));
+      const viewer = await globalStaffColleague();
       const cc = await comparisonFor(
         viewer.request,
         viewer.page,
