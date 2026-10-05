@@ -192,8 +192,8 @@ export const CAPABILITIES = [
   // works, like `rbac-error-view-action`. Requires `analytics-in-context`.
   'analytics-in-context-cards',
   // **Course Comparison's video counts answer course staff.** Superset 6.1.0
-  // (tutor-contrib-aspects 5.0.0) aliases each table its row-level security
-  // filters under the table's own name; 6.0.0 (the 4.x line, `verawood`) aliases
+  // (tutor-contrib-aspects 5.1+ and 6.x) aliases each table its row-level
+  // security filters under the table's own name; 6.0.0 (the 4.x line) aliases
   // it as `schema.table`, so the video-count charts' `dim_course_blocks.<column>`
   // references fail for every RLS-limited user (`ASPECTS-011`). Declared where
   // it works. Requires `analytics`.

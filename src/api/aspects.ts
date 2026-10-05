@@ -160,3 +160,18 @@ export function narrowInContextDashboard(body: unknown): InContextDashboard {
     defaultCourseRun: typeof body.defaultCourseRun === 'string' ? body.defaultCourseRun : '',
   };
 }
+
+/** The in-context dashboard for a course key or a block's usage key (session auth). */
+export async function fetchInContextDashboard(
+  request: APIRequestContext,
+  config: AppConfig,
+  key: string,
+): Promise<InContextDashboard> {
+  return narrowInContextDashboard(
+    await lmsGet<unknown>(
+      request,
+      `${config.baseUrls.lms}/aspects/superset_in_context_dashboard/${key}`,
+      `Reading the Aspects in-context dashboard for ${key}`,
+    ),
+  );
+}

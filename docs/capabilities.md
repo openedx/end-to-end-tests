@@ -118,7 +118,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `analytics-in-context` | — | — | — | — | — | — | | + |
 | `analytics-pii` | — | — | — | — | — | — | | + |
 | `analytics-in-context-cards` | — | — | — | — | — | — | | + verawood |
-| `analytics-staff-video-counts` | — | — | — | — | — | — | | + main |
+| `analytics-staff-video-counts` | — | — | — | — | — | — | | + |
 | `rbac` | declared | declared | — | — | — | — | |  |
 | `rbac-global` | — | — | — | — | — | — | |  |
 | `rbac-matrix-parity` | declared | — | — | — | — | — | |  |
@@ -174,7 +174,7 @@ A target that differs from the stock setting declares the other half.
 | `certificates` | Course certificates can be generated. The platform-wide switch is off on a fresh install. The suite turns it on through the admin account and skips without one. | The certificate specs: Studio settings, the instructor dashboard's Certificates tab and report, learner certificates, profile visibility. | every release CI runs |
 | `special-exams` | `ENABLE_SPECIAL_EXAMS` is on (LMS and CMS; off on a default install): timed subsections register as exams, and the instructor dashboard offers its Special Exams tab. | TC-00541, and TC-00514's expected tab set. | `main`, `verawood` |
 | `codejail` | A working codejail sandbox: Python-graded (`loncapa/python`) problems can be scored. A stock Tutor install has codejail configured but no sandbox that can start, so such a problem answers with no grade. | TC-00203 (`tests/studio/unit/python-grader.spec.ts`). | `verawood` with `tutor-contrib-codejail`. That plugin has no Tutor 23 (`main`) build yet. |
-| `analytics` | Aspects (`tutor-contrib-aspects`: ClickHouse, Vector or Ralph, and Superset) is installed with its instructor-dashboard plugin: the dashboard's Reports tab embeds the Superset dashboards, and Superset signs users in through the LMS. Superset's origin is the one the platform advertises (`superset_url`) and must be same-site with the LMS. | The Reports tab and Superset coverage (TC-00542–00559), and TC-00514's expected tab set. | `main` (tutor-contrib-aspects 5.0.0); CI's `aspects` profile runs it on `main` (5.0.0) and `verawood` (the 4.x line: 5.x builds a frontend-base 2 app that Verawood's site cannot install) |
+| `analytics` | Aspects (`tutor-contrib-aspects`: ClickHouse, Vector or Ralph, and Superset) is installed with its instructor-dashboard plugin: the dashboard's Reports tab embeds the Superset dashboards, and Superset signs users in through the LMS. Superset's origin is the one the platform advertises (`superset_url`) and must be same-site with the LMS. | The Reports tab and Superset coverage (TC-00542–00559), and TC-00514's expected tab set. | `main` (tutor-contrib-aspects 6.x); CI's `aspects` profile runs it on `main` (6.x, whose Reports app is on frontend-base 2) and `verawood` (5.1+, on frontend-base 1, which Verawood's site uses) |
 | `analytics-in-context` | Aspects' Studio in-context metrics (`ASPECTS_ENABLE_STUDIO_IN_CONTEXT_METRICS`, off in Tutor): an Analytics page in the outline and unit sidebars. Requires `analytics`. | TC-00312–00316. | `main` (local stack) |
 | `analytics-pii` | Aspects exposes learner PII (`ASPECTS_ENABLE_PII`, off in Tutor): the Reports tab offers the Individual Learner dashboard. Requires `analytics`. | TC-00544. | `main` (local stack) |
 
@@ -234,7 +234,7 @@ permanently red case. Declare one where the behaviour is right.
 | `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood`, `ulmo`, `teak`, `sumac`, `redwood` |
 | `recommender-studio-settings` | The recommender's Studio editor shows the settings it saved (recommender-xblock ≥ 5.1.0). `verawood` pins 5.0.0 (`XBLOCK-002`). | TC-00132. | `main` |
 | `analytics-in-context-cards` | The outline cards' Analytics buttons open the element's own in-context analytics. frontend-plugin-aspects 3.0.1 reads the selection from the authoring MFE's `currentItemData`, which `master` removed, so on `main` they show the course's view (`ASPECTS-009`). Requires `analytics-in-context`. | TC-00314's card-opens-element case. | `verawood` (not yet run there) |
-| `analytics-staff-video-counts` | Course Comparison's video-count charts answer course staff. Superset 6.0.0 (tutor-contrib-aspects 4.x) aliases each table its row-level security filters as `schema.table`, so the charts' `dim_course_blocks.<column>` references fail for every RLS-limited user (`ASPECTS-011`); 6.1.0 (5.0.0) does not. Requires `analytics`. | TC-00554's video-count case. | `main` (tutor-contrib-aspects 5.0.0) |
+| `analytics-staff-video-counts` | Course Comparison's video-count charts answer course staff. Superset 6.0.0 (tutor-contrib-aspects 4.x) aliases each table its row-level security filters as `schema.table`, so the charts' `dim_course_blocks.<column>` references fail for every RLS-limited user (`ASPECTS-011`); 6.1.0 (5.1+ and 6.x) does not. Requires `analytics`. | TC-00554's video-count case. | Superset 6.1 targets: tutor-contrib-aspects 5.1+ and 6.x (`main` and `verawood`); not the 4.x line |
 
 ### Content
 

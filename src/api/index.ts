@@ -668,6 +668,7 @@ export {
 } from './teams';
 export {
   fetchGuestToken,
+  fetchInContextDashboard,
   fetchInstructorReports,
   narrowGuestToken,
   narrowInContextDashboard,

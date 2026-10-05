@@ -3,13 +3,16 @@ import { TIMEOUTS } from '../../src/config';
 import {
   ApiError,
   enrollInCourseViaApi,
+  fetchGuestToken,
+  fetchInContextDashboard,
   fetchInstructorCourse,
+  fetchInstructorReports,
   makeGlobalStaff,
   supersetOrigin,
 } from '../../src/api';
 import type { Page } from '@playwright/test';
 import { dashboardLocaleSuffix, openCourseComparison, signInToSuperset } from '../../src/steps';
-import { testId } from '../../src/reporting';
+import { issue, testId } from '../../src/reporting';
 import { supersetFor } from './helpers';
 
 /**
@@ -22,6 +25,9 @@ import { supersetFor } from './helpers';
  * Superset caches what a user may see at sign-in. The reading is Course
  * Comparison's own Course Name filter, replayed on the subject's Superset
  * session: the courses row-level security lets it see.
+ *
+ * A learner is also refused Aspects' LMS views themselves (the dashboards, a
+ * guest token, the in-context dashboard), which GHSA-hm6j-7x8q-5hqw fixed.
  *
  * The courses are the test's: its `authoringCourse` and the worker's shared
  * `contentCourse`, neither of which the subject holds a role on unless the test
@@ -158,6 +164,49 @@ test.describe('Superset access', { tag: [...TAGS] }, () => {
         (error: unknown) => (error instanceof ApiError ? error.status : error),
       );
       expect(dashboard).toBe(403);
+    },
+  );
+
+  test(
+    'a signed-in learner gets no Aspects dashboard or guest token from the LMS',
+    {
+      annotation: [
+        testId('TC-00552'),
+        issue(
+          'https://github.com/openedx/platform-plugin-aspects/security/advisories/GHSA-hm6j-7x8q-5hqw',
+        ),
+      ],
+    },
+    async ({ config, authoringCourse, supersetColleague }) => {
+      const { courseKey } = authoringCourse;
+      // Aspects' three LMS views hand out what an embedded dashboard needs: the
+      // Reports tab's dashboards, a Superset guest token for the course, and the
+      // in-context dashboard. They admit global staff and the course's staff
+      // only; before the fix for GHSA-hm6j-7x8q-5hqw, any signed-in user's GET
+      // was admitted. Asked of an account enrolled as a learner and of one not
+      // enrolled at all, each must answer 403.
+      const statusOf = (read: Promise<unknown>) =>
+        read.then(
+          () => 200,
+          (error: unknown) => (error instanceof ApiError ? error.status : error),
+        );
+      const enrolled = await supersetColleague();
+      await enrollInCourseViaApi(enrolled.request, config, courseKey);
+      const stranger = await supersetColleague();
+
+      for (const [who, account] of [
+        ['an enrolled learner', enrolled],
+        ['an account with no enrollment', stranger],
+      ] as const) {
+        expect(
+          {
+            reports: await statusOf(fetchInstructorReports(account.request, config, courseKey)),
+            guestToken: await statusOf(fetchGuestToken(account.request, config, courseKey)),
+            inContext: await statusOf(fetchInContextDashboard(account.request, config, courseKey)),
+          },
+          who,
+        ).toEqual({ reports: 403, guestToken: 403, inContext: 403 });
+      }
     },
   );
 });

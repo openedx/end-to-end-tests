@@ -114,11 +114,12 @@ measured, and issues are opened by hand from them.
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
+| `ASPECTS-SEC-001` | `openedx/platform-plugin-aspects` (any signed-in user could get a Superset guest token) | **fixed** — [GHSA-hm6j-7x8q-5hqw](https://github.com/openedx/platform-plugin-aspects/security/advisories/GHSA-hm6j-7x8q-5hqw); TC-00552 asserts a learner is refused
 | `ASPECTS-001` | `openedx/frontend-app-aspects`, `openedx/frontend-plugin-aspects` (no test ids on the Reports tab; a few on the in-context sidebar) | open, shapes every anchor in `selectors/instructor-reports.ts` and `selectors/studio-analytics.ts`
 | `ASPECTS-005` | `openedx/tutor-contrib-aspects` (Course Comparison assets: Run Metrics "More details" files the org under the Course Run filter's id) | open, no `fixme` — TC-00559 asserts the link names the course and run
 | `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
 | `ASPECTS-010` | `openedx/aspects-dbt` (`dim_learner_last_response` joins block names at insert time) | open, no `fixme` — TC-00547 finds its row by the problem's usage key
-| `ASPECTS-011` | `apache/superset` 6.0.0 (tutor-contrib-aspects 4.x, `verawood`): row-level security aliases a filtered table as `schema.table`, so Course Comparison's video counts fail for course staff | open, gated — TC-00554's video-count case needs `analytics-staff-video-counts`, declared where it works (`main`)
+| `ASPECTS-011` | `apache/superset` 6.0.0 (tutor-contrib-aspects 4.x): row-level security aliases a filtered table as `schema.table`, so Course Comparison's video counts fail for course staff | open, gated — TC-00554's video-count case needs `analytics-staff-video-counts` (CI declares it: both releases run Superset 6.1)
 | `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive`; 6.0.0 (Aspects 4.0.0) also `dlitem` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
 | `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
 | `ASPECTS-008` | `openedx/tutor-contrib-aspects` (dashboard assets: "Clear all" empties the preselected course filter) | open, no `fixme` — TC-00544 clears only the learner filter, as the sheet asks
@@ -2158,6 +2159,35 @@ can declare it.
 
 ## Epic 16 — Aspects findings (2026-09-29)
 
+### `ASPECTS-SEC-001` — any signed-in user could get a Superset guest token
+
+**Where:** `platform-plugin-aspects` ≥ 0.7.0 (every Aspects release back to
+Redwood): the LMS views that serve the Reports tab's dashboards
+(`superset_instructor_dashboard`), a course's Superset guest token
+(`superset_guest_token`) and Studio's in-context dashboard
+(`superset_in_context_dashboard`).
+
+**What happened:** each view's permission was
+`IsStaffOrReadOnly | IsCourseStaffInstructor`. When the views became GETs (2024),
+`IsStaffOrReadOnly` began admitting every authenticated user, so any signed-in
+account, enrolled or not, could get a guest token for any course's dashboards,
+including the Individual Learner dashboard's PII where it is on. Found while
+building Epic 16, and reported privately through the Open edX security process.
+
+**Status:** fixed and disclosed as
+[GHSA-hm6j-7x8q-5hqw](https://github.com/openedx/platform-plugin-aspects/security/advisories/GHSA-hm6j-7x8q-5hqw)
+(2026-10-02). The views now admit global staff and the course's staff only
+(`IsAdminUser | IsCourseStaffInstructor`). Patched in `platform-plugin-aspects`
+2.0.1 (tutor-contrib-aspects 5.1.0) and the tags `open-release/redwood.3.1`,
+`open-release/sumac.3.1`, `release/teak.3.1`, `release/ulmo.1.1` and
+`release/verawood.1.1`; the advisory links install instructions for Redwood
+through Verawood. The same fix makes the Superset XBlock's JSON handler, which
+could hand a learner a guest token too, refuse anyone but the course's staff.
+
+**Coverage:** TC-00552 has a case that asks all three views as an enrolled
+learner and as an account with no enrollment, and expects 403 from each. A
+target on a vulnerable release fails it.
+
 ### `ASPECTS-001` — the Reports tab ships no test ids, and the in-context sidebar only a few
 
 **Where:** `frontend-app-aspects` (the instructor dashboard's Reports tab, as
@@ -2362,9 +2392,10 @@ Measured in CI: run 36720301819 (2026-09-30) had 34 such errors on `verawood`
 and none on `main`. Run 36897236438 (2026-10-01) repeated it.
 
 **Coverage impact:** open, gated. TC-00554's video-count case is tagged
-`@analytics-staff-video-counts`, a capability declared where it works (`main`).
-So the defect shows as an undeclared capability on `verawood`, not as a
-permanently red case.
+`@analytics-staff-video-counts`, a capability declared where it works. Both CI
+releases now run Superset 6.1 (tutor-contrib-aspects 6.x on `main`, 5.1+ on
+`verawood`), so CI declares it everywhere; a target on the 4.x line leaves it
+undeclared, and the case skips there rather than staying red.
 
 ## CI split — sharded runs and profiles (2026-09-24/25, suite-side)
 

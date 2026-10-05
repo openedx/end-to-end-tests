@@ -60,7 +60,7 @@
     "tutorExtensions": [
       {
         "pip": "tutor-contrib-aspects",
-        "version": ">5.1.0",
+        "version": ">=6.0.0,<7",
         "plugin": "aspects",
         "init": true,
         "capability": "analytics",
@@ -68,7 +68,7 @@
       },
       {
         "pip": "tutor-contrib-aspects",
-        "version": ">=4.0.0,<6",
+        "version": ">=5.1.0,<6",
         "plugin": "aspects",
         "init": true,
         "capability": "analytics",
@@ -78,12 +78,11 @@
     "capabilities": {
       "add": [
         "analytics-pii",
-        "analytics-in-context"
+        "analytics-in-context", "analytics-staff-video-counts"
       ],
       "remove": []
     },
     "releaseCapabilities": {
-      "main": ["analytics-staff-video-counts"],
       "verawood": [
         "analytics-in-context-cards"
       ]

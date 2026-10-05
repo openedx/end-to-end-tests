@@ -64,8 +64,10 @@ Contains:
 - `aspects.ts` — Aspects' LMS views (`/aspects/…`, **session auth only**, so the
   reader's own signed-in context): the Reports tab's dashboards and Superset URL
   (`fetchInstructorReports`), a course's Superset guest token
-  (`fetchGuestToken`, five minutes' life), and `narrowInContextDashboard` for the
-  answer Studio's in-context sidebar gets for a course or block.
+  (`fetchGuestToken`, five minutes' life) and Studio's in-context dashboard for a
+  course or block (`fetchInContextDashboard`; the sidebar's own answer is read
+  with `narrowInContextDashboard`). All three refuse a learner
+  (GHSA-hm6j-7x8q-5hqw).
 - `superset.ts` — Superset's API as the analytics oracle: `parseChartQuery`
   reads a chart-data request the dashboard sent, and `replayChartData` sends it
   again with only `force` set (`replayBody`: nothing else changes the dashboard's
