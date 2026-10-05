@@ -37,7 +37,13 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
     }) => {
       const { username } = courseLearner.identity;
       await accountSettingsPage.goto();
-      const { chrome } = await chromeCase.read();
+      const { chrome, generation } = await chromeCase.read();
+      // BASE-006: on the shell's Account app the switch races and is held.
+      chromeCase.expectKnownDefects({
+        generations: [generation],
+        signedIn: true,
+        scenario: 'account-language',
+      });
       const { current, offered } = await accountSettingsPage.editSiteLanguage();
       const target = await switchableLanguage(
         playwright.request,
@@ -91,7 +97,13 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
     }) => {
       const { username } = courseLearner.identity;
       await accountSettingsPage.goto();
-      const { chrome } = await chromeCase.read();
+      const { chrome, generation } = await chromeCase.read();
+      // BASE-006: on the shell's Account app the switch races and is held.
+      chromeCase.expectKnownDefects({
+        generations: [generation],
+        signedIn: true,
+        scenario: 'account-language',
+      });
       const { current, offered } = await accountSettingsPage.editSiteLanguage();
       const target = await switchableLanguage(
         playwright.request,

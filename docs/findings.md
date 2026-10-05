@@ -81,6 +81,7 @@ measured, and issues are opened by hand from them.
 | `DISC-002`  | `openedx/forum` (DELETE of a missing thread)                  | open, no `fixme` — suite deletes each thread once
 | `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing and course About scans only (`SHELL_CHROME_A11Y_BASELINE`)
 | `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | open, `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
+| `BASE-006`  | `openedx/frontend-base` (`updateSiteLanguage` races its own two requests) | open, runtime `fixme` on TC-00066 where the Account page renders in the shell (`KNOWN_CHROME_DEFECTS`, intermittent)
 | `CATALOG-001` | `openedx/frontend-app-catalog` (filter facet values camel-cased) | open, no `fixme` — TC-00017 compares organizations case-insensitively
 | `LEARN-002` | `openedx/frontend-component-header` (learning header Help link `href="null"`) | open, `test.fail` on the no-Help-link tests of TC-00020 / TC-00021 where the learning header renders (`KNOWN_CHROME_DEFECTS`)
 | `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages mix the shell with a legacy header (`KNOWN_CHROME_DEFECTS`)
@@ -2396,6 +2397,35 @@ and none on `main`. Run 36897236438 (2026-10-01) repeated it.
 releases now run Superset 6.1 (tutor-contrib-aspects 6.x on `main`, 5.1+ on
 `verawood`), so CI declares it everywhere; a target on the 4.x line leaves it
 undeclared, and the case skips there rather than staying red.
+
+### `BASE-006` — a site-language change from the shell's Account app can revert to the old language
+
+**Where:** `@openedx/frontend-base`'s `updateSiteLanguage` (2.0.0-alpha), which
+the Account app calls since it moved onto the shell on `main` (tutor-mfe
+`5dbe9c0`), with the LMS's language middleware.
+
+**What happens:** `updateSiteLanguage` sends two requests at once, both carrying
+the old language cookie:
+- `PATCH /api/user/v1/preferences/<user>` stores the new `pref-lang` and
+  answers `Set-Cookie: openedx-language-preference=<new>`;
+- `PATCH /lang_pref/update_language` sets the cookie to the new language in its
+  view, but on the way out the LMS's language middleware re-sets it from the
+  user's stored preference. If the first request has not committed yet, that is
+  still the old language.
+
+When the second response lands last, the browser keeps the old cookie, and the
+next request carrying it copies it back into `pref-lang`. The learner chose a
+language and stays on the old one. Measured in CI on `main` (run 37354172509,
+2026-10-05): the preferences PATCH answered `…=ar`, `update_language` answered
+`…=en` a moment later, and the preference read back `en`, on all three
+attempts. Other runs pass, so it is a race.
+
+**Coverage impact:** open. TC-00066's two Account Settings cases are held
+(`fixme`) where the Account page renders in the frontend-base shell, through
+`KNOWN_CHROME_DEFECTS` with the defect marked intermittent: an expected failure
+would fail the run whenever the race goes the right way. The legacy Account app
+(`verawood`) still runs them. A likely fix is to store the preference first and
+switch the session after it.
 
 ## CI split — sharded runs and profiles (2026-09-24/25, suite-side)
 

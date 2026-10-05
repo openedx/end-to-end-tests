@@ -1427,6 +1427,8 @@ export interface AdminConsoleFixture {
   readonly auditFor: (page: Page) => UserAuditPage;
   /** The console shell bound to another browser, for a second actor's view of it. */
   readonly consoleFor: (page: Page) => AdminConsolePage;
+  /** The Team Members table bound to another browser (with {@link consoleFor}). */
+  readonly teamMembersFor: (page: Page) => TeamMembersTable;
 }
 
 /** Runs one unit of admin work on a fresh LMS Django session, under the admin lock. */
@@ -2132,7 +2134,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           { ...context, viewportWidth: page.viewportSize()?.width ?? 0 },
           testIdsFromAnnotations(testInfo.annotations),
         );
-        for (const defect of defects) testInfo.fail(true, defect.reason);
+        for (const defect of defects) {
+          if (defect.intermittent) testInfo.fixme(true, defect.reason);
+          else testInfo.fail(true, defect.reason);
+        }
       },
       requireSupportUrl: (chrome, configured) => {
         const capability = configured ? 'support-url' : 'no-support-url';
@@ -3270,6 +3275,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       matrix: new PermissionsMatrix(page),
       auditFor: (other: Page) => new UserAuditPage(other, origin),
       consoleFor: (other: Page) => new AdminConsolePage(other, config, origin),
+      teamMembersFor: (other: Page) => new TeamMembersTable(other),
     });
   },
 
