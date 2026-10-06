@@ -126,12 +126,16 @@ export class HeaderBlock {
   }
 
   /**
-   * Opens the account menu and follows the item pointing at `url` (a trailing
-   * slash on either side aside).
+   * Follows the account-menu item pointing at `url` (a trailing slash on either
+   * side aside), opening the menu first unless it already is: the trigger
+   * toggles, so a second click on an open menu closes it under the item being
+   * clicked (the item animates out, then detaches).
    */
   async followUserMenuItem(url: string): Promise<void> {
     const bare = (href: string) => href.replace(/\/$/, '');
-    const index = (await this.openUserMenu()).map(bare).indexOf(bare(url));
+    const open = await this.userMenuItems.first().isVisible();
+    const hrefs = open ? await this.hrefs(this.userMenuItems) : await this.openUserMenu();
+    const index = hrefs.map(bare).indexOf(bare(url));
     if (index < 0) throw new Error(`The account menu has no item pointing at ${url}.`);
     await this.follow(this.userMenuItems.nth(index));
   }

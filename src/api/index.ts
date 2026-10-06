@@ -466,12 +466,13 @@ export {
   adminSaveSucceeded,
   decodeAdminEntities,
   findAdminRowPk,
+  firstAdminResultPk,
   openAdminForm,
   postAdminForm,
   readAdminForm,
   splitAdminDateTime,
 } from './django-admin';
-export { USER_ADMIN, deactivateAccount } from './user-admin';
+export { USER_ADMIN, deactivateAccount, setGlobalStaff } from './user-admin';
 export {
   COURSE_ACCESS_ROLE_ADMIN,
   LEGACY_COURSE_ROLES,
@@ -663,3 +664,28 @@ export {
   listTeamsOf,
   type Team,
 } from './teams';
+export {
+  fetchGuestToken,
+  fetchInContextDashboard,
+  fetchInstructorReports,
+  narrowGuestToken,
+  narrowInContextDashboard,
+  narrowInstructorReports,
+  supersetOrigin,
+  type AspectsDashboard,
+  type InContextDashboard,
+  type InstructorReports,
+} from './aspects';
+export {
+  fetchSupersetUser,
+  isFilterQuery,
+  narrowChartData,
+  narrowSupersetUser,
+  parseChartQuery,
+  replayBody,
+  replayChartData,
+  type ChartQuery,
+  type ChartResult,
+  type SupersetAuth,
+  type SupersetUser,
+} from './superset';

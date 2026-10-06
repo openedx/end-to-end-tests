@@ -101,10 +101,13 @@ test.describe(
         // The console renders for them — it is not library-specific — but with
         // the library's scope preset it has nothing to show: no team, no rows.
         // (It shows an empty table rather than an access-denied view; the
-        // refusals above are what actually protects the library.)
-        await adminConsole.console.goto(library);
-        await expect(adminConsole.teamMembers.rows).toHaveCount(0);
-        expect(await adminConsole.console.isFilterApplied(2)).toBe(true);
+        // refusals above are what actually protects the library.) It is the
+        // outsider's own browser: the worker author is the library's admin, and
+        // the console lists the viewer's own assignment ("(Me)").
+        const outsiderConsole = adminConsole.consoleFor(outsider.page);
+        await outsiderConsole.goto(library);
+        await expect(adminConsole.teamMembersFor(outsider.page).rows).toHaveCount(0);
+        expect(await outsiderConsole.isFilterApplied(2)).toBe(true);
       },
     );
   },

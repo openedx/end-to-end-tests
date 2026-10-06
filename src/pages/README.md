@@ -27,6 +27,19 @@ Page objects live in the same platform-domain folder as the specs that use them,
   request an action fires); the tab page objects (`course-info`, `enrollments`,
   `grading`, `date-extensions`, `data-downloads`, `certificates`) build on it and
   return the response of every write they trigger
+- `pages/lms/instructor/reports.page.ts` is Aspects' Reports tab: it records
+  every guest-token and chart-data exchange of the embeds from construction (the
+  first dashboard loads unasked) and `detach()`es when the test ends;
+  `dashboard(uuid)` is the embed as a `pages/superset/dashboard.block.ts`,
+  which selects Superset's tabs by their asset layout ids and returns the answered
+  chart queries of the charts on screen; `pages/superset/dashboard.page.ts` is
+  the same dashboard on Superset's own pages (Course Comparison, read on the
+  user's Superset session), and `sign-in.page.ts` is Superset's sign-in through
+  the LMS, accepting the LMS's consent page on a first sign-in
+- `pages/studio/sidebar/analytics.block.ts` is Aspects' in-context Analytics page
+  of the authoring sidebar (outline and unit page) and the outline cards'
+  Analytics buttons; every open or drill-in returns the
+  `superset_in_context_dashboard` request it caused
 - `pages/lms/notifications/tray.page.ts` is the notifications tray in any MFE's
   header (no `goto`: navigate first, then `open()`); it opens tabs, reads rows by
   notification id, and returns the new tab a row opens (`openRow`, since the

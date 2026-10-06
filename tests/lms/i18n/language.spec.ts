@@ -37,7 +37,13 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
     }) => {
       const { username } = courseLearner.identity;
       await accountSettingsPage.goto();
-      const { chrome } = await chromeCase.read();
+      const { chrome, generation } = await chromeCase.read();
+      // BASE-006: on the shell's Account app the switch races and is held.
+      chromeCase.expectKnownDefects({
+        generations: [generation],
+        signedIn: true,
+        scenario: 'account-language',
+      });
       const { current, offered } = await accountSettingsPage.editSiteLanguage();
       const target = await switchableLanguage(
         playwright.request,
@@ -50,10 +56,10 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
 
       await accountSettingsPage.saveSiteLanguage(target!);
 
-      expect((await fetchPreferences(page.request, config, username))['pref-lang']).toBe(target);
-      // The session now carries the language, and the LMS serves the next page
-      // in it. Its `Content-Language` is the reading every release shares: the
-      // legacy MFEs switch `dir` but leave `<html lang>` as built.
+      // The session now carries the language. The cookie is read first: the LMS
+      // copies the language cookie a request carries into `pref-lang`, and the
+      // frontend-base Account app stores the preference and updates the cookie
+      // side by side, so a read sent with the old cookie would reset what it reads.
       await expect
         .poll(
           async () =>
@@ -61,6 +67,10 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
               ?.value,
         )
         .toBe(target);
+      expect((await fetchPreferences(page.request, config, username))['pref-lang']).toBe(target);
+      // The LMS serves the next page in it. Its `Content-Language` is the reading
+      // every release shares: the legacy MFEs switch `dir` but leave
+      // `<html lang>` as built.
       const next = await page.request.get(dashboardPage.url, { maxRedirects: 0 });
       expect(next.headers()['content-language']).toMatch(
         new RegExp(`^${target!.split('-')[0]}`, 'i'),
@@ -87,7 +97,13 @@ test.describe('Site language', { tag: ['@regression', '@authenticated'] }, () =>
     }) => {
       const { username } = courseLearner.identity;
       await accountSettingsPage.goto();
-      const { chrome } = await chromeCase.read();
+      const { chrome, generation } = await chromeCase.read();
+      // BASE-006: on the shell's Account app the switch races and is held.
+      chromeCase.expectKnownDefects({
+        generations: [generation],
+        signedIn: true,
+        scenario: 'account-language',
+      });
       const { current, offered } = await accountSettingsPage.editSiteLanguage();
       const target = await switchableLanguage(
         playwright.request,

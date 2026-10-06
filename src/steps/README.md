@@ -12,6 +12,22 @@ can reuse — e.g.:
   the New Course form, submit, follow the MFE to the new outline),
   `grantCourseCreatorThroughAdmin`, and the Studio-SSO helpers
   (`establishStudioBrowserSession` / `signInToStudioThroughUi`).
+- `analytics.ts` — Aspects' analytics as course staff read them in the Reports
+  tab: `openReportsDashboard` opens one of a course's dashboards by slug
+  (`openCourseDashboard` the Course Dashboard) and waits until
+  Superset knows the course (its course filter is fed by a dictionary refresh,
+  and a dashboard loaded before it sends no chart queries), and hands back
+  `chartsOn(tab)` / `read(chart)`, which replays a chart's own query with the
+  cache bypassed on a guest token it re-mints when it expires, plus `filter` /
+  `clearFilter` for its filter bar. `findChart`
+  picks a chart by its `AspectsChartKey` (`src/config/aspects-charts.ts`), and `waitForAnalytics` is the
+  pipeline poll that returns its readings rather than throwing.
+  `signInToSuperset` runs Superset's LMS sign-in from wherever a page is and
+  returns who Superset says the user is (a refused user comes back anonymous),
+  and `openCourseComparison` opens Course Comparison on the user's Superset
+  session once it offers the courses asked for (reloading after Superset learns
+  a new course, as its filters load once), and reads its courses, its charts per
+  tab, and filter changes made through its filter bar.
 - `instructor.ts` — the instructor-dashboard waits and flows: `waitForInstructorTask`
   / `waitForReport` / `waitForLearnerProgress` / `waitForLearnerProblem` (bounded
   polls that return their last readings instead of throwing, so a spec's failure

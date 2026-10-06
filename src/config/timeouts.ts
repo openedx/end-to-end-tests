@@ -216,4 +216,37 @@ export const TIMEOUTS = {
    * for a shared CI worker and an external provider's polling.
    */
   emailDelivery: 120_000,
+
+  /**
+   * Budget for an Aspects dashboard embedded in the instructor dashboard's
+   * Reports tab to load: the tab asks the LMS for a guest token, the LMS asks
+   * Superset to mint it, and the iframe fetches its first chart data (its filter
+   * options). Measured 2026-09-27 on Tutor `main` with Aspects 5.0.0: a few
+   * seconds from selecting the tab. The headroom is for Superset's first request
+   * after start, which warms its caches, on a shared CI runner. It is also the
+   * budget for any one Superset exchange a page waits on: a dashboard's filter or
+   * chart queries after a tab or filter change, a Superset page load, and Studio's
+   * in-context dashboard request.
+   */
+  supersetEmbed: 60_000,
+
+  /**
+   * Budget for a learner's action to show in an Aspects chart: the xAPI
+   * statement is logged, Vector ships it to ClickHouse, the materialized views
+   * update, and Superset answers the replayed query with its cache bypassed.
+   * Measured 2026-09-27 on Tutor `main`: about 2 s to ClickHouse and 3–10 s to
+   * the chart. A new course's name reaches the dashboards' course filter on a
+   * dictionary refresh up to 120 s later (32 s measured), which the first
+   * reading of a fresh course waits on too. The rest is headroom for a shared
+   * CI runner; every reading polls under it and reports its last value.
+   */
+  analyticsPipeline: 180_000,
+
+  /**
+   * Per-test budget for an Aspects pipeline case: build and publish a course
+   * (`contentPublish`), wait for Superset to know the new course and then for the
+   * learner's action to reach a chart (two `analyticsPipeline` waits at most),
+   * with the browser work of both actors on top.
+   */
+  analyticsTest: 600_000,
 } as const;

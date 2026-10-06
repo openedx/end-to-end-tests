@@ -59,6 +59,11 @@ premise requires it.
 At the time of writing that is two specs — ``rbac/console/error-views.spec.ts``
 and ``rbac/console/assign-role-errors.spec.ts`` — plus the media stub above.
 
+Observing traffic is not interception. The Aspects specs record the chart-data
+requests a Superset dashboard sends (``page.on('response')``, no ``page.route``)
+and replay each one on a real request with only ``force`` set, so the reading is
+the platform's own answer to the dashboard's own query.
+
 Consequences
 ************
 

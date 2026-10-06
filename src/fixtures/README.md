@@ -165,6 +165,25 @@ Rules:
   `discussionAdmin`, `teamMember`), enrolled nowhere and granted its role by
   the test that reads it. It depends on no worker course on purpose: building
   `contentCourse` mid-worker for it broke the author's next Studio write.
+- **Aspects' Reports tab is read with a real LMS session.** Its LMS views
+  accept only a session, which the worker author's JWT-first browser lacks, so
+  `reportsViewer(courseKey)` grants the cast's `staff` member `staff` on the
+  course and hands back a `ReportsPage` on the member's own page (the grant is
+  revoked at teardown), and `adminReportsPage` is the superuser's. A
+  `ReportsPage` records the embed traffic from the moment the tab opens and is
+  detached when the test ends, because a cast member's page outlives it.
+- **Superset access cases take throwaway accounts.** `supersetColleague` is a
+  new account with its own LMS session and browser, granted its course role (if
+  any) before it first signs in to Superset, which caches what a user may see at
+  sign-in. `reportsViewer` also closes the tabs its Superset link opened.
+- **In-context metrics are read by a Studio colleague.** `inContextViewer(courseKey)`
+  is a `studioColleague` granted course `staff`, with the outline, unit page,
+  Analytics sidebar and authoring sidebar objects on its page: the plugin's LMS
+  calls need the LMS session the worker author's browser lacks.
+- **An Aspects pipeline case starts from an empty course.** `analyticsCourse`
+  is an `authoringCourse` with a graded subsection (a multiple-choice and a
+  numerical problem, then an HTML5 video) and an ungraded HTML-only one,
+  published; nobody has acted in it, so its charts read only what the test does.
 - **Special exams need a timed exam.** `timedExam` turns timed exams on in an
   `authoringCourse`, publishes one time-limited subsection and waits for the
   CMS worker to register it (`special-exams` capability).

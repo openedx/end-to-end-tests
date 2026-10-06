@@ -95,6 +95,10 @@ names `teams`.
 - **Default-on:** stock surfaces and stock settings are on unless turned off
   with a `-` prefix (`CAPABILITIES=-mfe-authn`), so a missing declaration never
   silently drops coverage an install has.
+- **Required partners:** `analytics-in-context`, `analytics-pii` and
+  `analytics-staff-video-counts` describe parts of an Aspects deployment and
+  need `analytics` declared too;
+  `analytics-in-context-cards` needs `analytics-in-context`.
 - **Mutually exclusive pairs:** two implementations or configurations of one
   surface. Declaring both halves fails validation.
 - **Declared but missing:** a declared capability the target lacks fails its
@@ -443,18 +447,27 @@ artifacts. `scripts/ci-profiles.mts` reads the file, and the `unit` project
 validates it. Each shard's run id carries a `RUN_ID_SUFFIX` (profile code +
 shard number), so data created by different shards never collides.
 
-Two profiles exist, and `ci.yml` runs both for `main` and `verawood`:
+Three profiles exist, and `ci.yml` runs all three for `main` and `verawood`:
 
-| Profile    | Runs                                               | Installation                                                                                                                                                                                                                                                                 |
-| ---------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `default`  | the whole suite, in 4 shards                       | `.ci/tutor/e2e_base.py`                                                                                                                                                                                                                                                      |
-| `extended` | only the cases `default` skips (`select: "delta"`) | plus `.ci/tutor/e2e_extended.py` (AuthZ migration left to an operator, a `SUPPORT_URL`), `.ci/seed/extended.sh` (a second-organization course, an intro video on the demo course) and, where the release has the plugin, `tutor-contrib-codejail` for Python-graded problems |
+| Profile    | Runs                                                                   | Installation                                                                                                                                                                                                                                                                               |
+| ---------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `default`  | the whole suite, in 4 shards                                           | `.ci/tutor/e2e_base.py`                                                                                                                                                                                                                                                                    |
+| `extended` | only the cases `default` skips (`select: "delta"`)                     | plus `.ci/tutor/e2e_extended.py` (AuthZ migration left to an operator, a `SUPPORT_URL`), `.ci/seed/extended.sh` (a second-organization course, an intro video on the demo course) and, where the release has the plugin, `tutor-contrib-codejail` for Python-graded problems               |
+| `aspects`  | only the analytics cases (`select: "delta"`), on `main` and `verawood` | plus `tutor-contrib-aspects` (a line per release in the profile: 6.x on `main`, frontend-base 2; 5.1+ on `verawood`, frontend-base 1) and `.ci/tutor/e2e_aspects.py` (learner PII and in-context metrics on, Superset reachable from the LMS container), on its own prebuilt image variant |
 
 A `select: "delta"` profile runs only the tests tagged with a capability it
 declares and `default` does not. The merge then reports those tests from it and
 everything else from `default`. `rbac-global` is not in `extended`: turning the
 authz flag on for the whole site locks every unmigrated course's team out of
 Studio, which the other cases need. It would need a profile of its own.
+
+A profile can declare an **image variant** (`images`): `build_tutor_main_images.yml`
+builds it nightly for each release the profile runs on, with the profile's Tutor
+plugins and extensions enabled, and pushes it under its own tags and BuildKit
+caches (`<image>:<release>-<variant>`). The `aspects` variant is the Open edX,
+MFE, Aspects and Superset images. A variant job pulls it; if the pull fails it
+stops (a variant cannot be rebuilt on the runner, where the profile's plugins
+are enabled only after launch), so run the build workflow and retry.
 
 The MySQL state after migrations is cached per release/Tutor-version so most
 runs skip the ~20-minute migration step; delete the `tutor-mysql-*` cache from

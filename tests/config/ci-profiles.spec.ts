@@ -9,6 +9,7 @@ import {
   parseProfiles,
   pluginName,
   resolveCapabilities,
+  runsOn,
   shardMatrix,
   type ReleaseInfo,
 } from '../../scripts/ci-profiles/profiles.mts';
@@ -21,8 +22,9 @@ import {
 
 /**
  * The CI profile rules (`.ci/profiles.json`, read by `scripts/ci-profiles.mts`
- * for `run_tests_tutor.yml`), and the real file checked against the capability
- * vocabulary the script itself cannot load.
+ * for `run_tests_tutor.yml` and `build_tutor_main_images.yml`), and the real file
+ * checked against the capability vocabulary the script itself cannot load and
+ * the image-build matrix it cannot generate.
  */
 
 const PLUGIN = '.ci/tutor/e2e_base.py';
@@ -72,11 +74,32 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
     for (const [name, entry] of Object.entries(releases)) {
       const matrix = shardMatrix(
         profiles,
-        profiles.map((p) => p.name),
+        profiles.filter((p) => runsOn(p, name)).map((p) => p.name),
         { name, ...entry },
       );
       expect(matrix.length, name).toBeGreaterThan(0);
     }
+  });
+
+  test('the image build covers every image variant on every release its profile runs on', () => {
+    // A variant job pulls its images and cannot build them, so a release missing
+    // from build_tutor_main_images.yml's hand-written matrix would fail every run.
+    const profiles = parseProfiles(
+      JSON.parse(readFileSync('.ci/profiles.json', 'utf8')),
+      existsSync,
+      isCapability,
+    );
+    const releases = Object.keys(
+      JSON.parse(readFileSync('.ci/openedx-releases.json', 'utf8')) as Record<string, unknown>,
+    );
+    const wanted = profiles
+      .filter((p) => p.images !== '')
+      .flatMap((p) => releases.filter((r) => runsOn(p, r)).map((r) => `${r} ${p.name}`));
+    const workflow = readFileSync('.github/workflows/build_tutor_main_images.yml', 'utf8');
+    const built = [...workflow.matchAll(/- release: (\S+)\n\s+profile: (\S+)/g)]
+      .map(([, r, p]) => `${r} ${p}`)
+      .filter((entry) => !entry.endsWith(" ''"));
+    expect(built.sort()).toEqual(wanted.sort());
   });
 
   test('every job declares a valid capability list, and a delta profile selects all it gains', () => {
@@ -98,7 +121,7 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
     for (const [name, entry] of Object.entries(releases)) {
       const matrix = shardMatrix(
         profiles,
-        profiles.map((p) => p.name),
+        profiles.filter((p) => runsOn(p, name)).map((p) => p.name),
         { name, ...entry },
       );
       const defaults = enabled(matrix.find((m) => m.profile === 'default')!.capabilities, name);
@@ -142,10 +165,95 @@ test.describe('parseProfiles', { tag: '@unit' }, () => {
     ).toThrow(/releases it supports/);
     expect(() =>
       parseProfiles(
-        { default: profile({ tutorExtensions: [{ ...CODEJAIL, version: '22' }] }) },
+        { default: profile({ tutorExtensions: [{ ...CODEJAIL, branch: 'main' }] }) },
         always,
       ),
-    ).toThrow(/unknown key\(s\): version/);
+    ).toThrow(/unknown key\(s\): branch/);
+  });
+
+  test('takes one plugin at a different version per release, never twice on one release', () => {
+    const line = (version: string, releases: string[]) => ({ ...CODEJAIL, version, releases });
+    const [profile4] = parseProfiles(
+      {
+        default: profile({
+          tutorExtensions: [line('==2.0.0', ['main']), line('>=1.0.0,<2', ['verawood'])],
+        }),
+      },
+      always,
+    );
+    const [entry] = shardMatrix([profile4!], ['default'], release(''));
+    expect(entry!.tutorPip).toEqual(['tutor-contrib-codejail>=1.0.0,<2']);
+    expect(() =>
+      parseProfiles(
+        {
+          default: profile({
+            tutorExtensions: [line('==2.0.0', ['main', 'verawood']), line('<2', ['verawood'])],
+          }),
+        },
+        always,
+      ),
+    ).toThrow(/two tutorExtensions enable "codejail" on the same release/);
+  });
+
+  test('pins an extension to its own version instead of the Tutor constraint', () => {
+    const profiles = parseProfiles(
+      {
+        default: profile(),
+        extra: profile({
+          code: 'x',
+          tutorExtensions: [{ ...CODEJAIL, pip: 'tutor-contrib-aspects', version: '==5.0.0' }],
+        }),
+      },
+      always,
+    );
+    const [job] = shardMatrix(profiles, ['extra'], release('teams'));
+    expect(job!.tutorPip).toEqual(['tutor-contrib-aspects==5.0.0']);
+    expect(() =>
+      parseProfiles(
+        { default: profile({ tutorExtensions: [{ ...CODEJAIL, version: '5.0.0' }] }) },
+        always,
+      ),
+    ).toThrow(/version specifier/);
+  });
+
+  test('runs a profile only on its releases, adding per-release capabilities', () => {
+    const profiles = parseProfiles(
+      {
+        default: profile(),
+        extra: profile({
+          code: 'x',
+          releases: ['main', 'verawood'],
+          capabilities: { add: ['teams'], remove: [] },
+          releaseCapabilities: { verawood: ['notes'] },
+          images: 'extra',
+          select: 'delta',
+        }),
+      },
+      always,
+    );
+    const [onVerawood] = shardMatrix(profiles, ['extra'], release('cohorts'));
+    expect(onVerawood!.capabilities).toBe('cohorts,teams,notes');
+    expect(onVerawood!.images).toBe('extra');
+    const [onMain] = shardMatrix(profiles, ['extra'], release('cohorts', 'main'));
+    expect(onMain!.capabilities).toBe('cohorts,teams');
+    expect(() => shardMatrix(profiles, ['extra'], release('cohorts', 'ulmo'))).toThrow(
+      /does not run on ulmo/,
+    );
+    expect(runsOn(findProfile(profiles, 'default'), 'ulmo')).toBe(true);
+  });
+
+  test('rejects release capabilities for a release the profile skips, and a bad image variant', () => {
+    expect(() =>
+      parseProfiles(
+        {
+          default: profile({ releases: ['main'], releaseCapabilities: { verawood: ['notes'] } }),
+        },
+        always,
+      ),
+    ).toThrow(/not one of its releases/);
+    expect(() => parseProfiles({ default: profile({ images: 'Aspects!' }) }, always)).toThrow(
+      /image variant/,
+    );
   });
 
   test('requires a default profile', () => {
@@ -214,6 +322,7 @@ test.describe('shardMatrix', { tag: '@unit' }, () => {
       tutorInit: [],
       seedScripts: [],
       grep: '',
+      images: '',
     };
     expect(shardMatrix(profiles, ['default', 'extended'], release('notes'))).toEqual([
       { profile: 'default', shard: 1, shards: 2, runIdSuffix: 'd1', ...shared },

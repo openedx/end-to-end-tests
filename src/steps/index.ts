@@ -100,3 +100,15 @@ export {
   type KnownChromeDefect,
   type PageChrome,
 } from './chrome';
+export {
+  dashboardLocaleSuffix,
+  findChart,
+  openCourseComparison,
+  openCourseDashboard,
+  openReportsDashboard,
+  signInToSuperset,
+  waitForAnalytics,
+  type AnalyticsWait,
+  type CourseComparison,
+  type ReportsDashboard,
+} from './analytics';

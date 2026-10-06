@@ -280,15 +280,32 @@ test.describe(
           });
 
           // What the copy actually inherits, read as the superuser (the re-run was
-          // taken by it, so the course author holds nothing in the copy).
-          const copied = await adminLms(async (session) => ({
-            authz: (
-              await listRoleUsers(session, config, rerunKey, { pageSize: 100 })
-            ).members.flatMap((member) => member.roles.map((role) => `${member.username}:${role}`)),
-            legacy: (await listCourseAccessRoles(session, config, rerunKey)).map(
-              (row) => `${row.username}:${row.role}`,
-            ),
-          }));
+          // taken by it, so the course author holds nothing in the copy). The
+          // re-run can report success before its team is written, so the copy is
+          // read until it has one (an empty team on a loaded runner, 2026-10-01).
+          const copied = await adminLms(async (session) => {
+            const read = async () => ({
+              authz: (
+                await listRoleUsers(session, config, rerunKey, { pageSize: 100 })
+              ).members.flatMap((member) =>
+                member.roles.map((role) => `${member.username}:${role}`),
+              ),
+              legacy: (await listCourseAccessRoles(session, config, rerunKey)).map(
+                (row) => `${row.username}:${row.role}`,
+              ),
+            });
+            let latest = await read();
+            await expect
+              .poll(
+                async () => {
+                  latest = await read();
+                  return latest.authz.length + latest.legacy.length;
+                },
+                { timeout: TIMEOUTS.rbacMigration },
+              )
+              .toBeGreaterThan(0);
+            return latest;
+          });
 
           // The copy exists and has a team of its own…
           expect(copied.authz.length + copied.legacy.length).toBeGreaterThan(0);

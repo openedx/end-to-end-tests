@@ -9,6 +9,7 @@ export { ConfigError };
 export {
   CAPABILITIES,
   CAPABILITY_OPT_OUT_PREFIX,
+  CAPABILITY_REQUIRES,
   DEFAULT_ON_CAPABILITIES,
   MUTUALLY_EXCLUSIVE_CAPABILITIES,
   isCapability,
@@ -25,6 +26,21 @@ export { registrableDomain } from './domain';
 export { importPluginModule, instantiatePluginExport } from './plugin-module';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
+export {
+  COURSE_COMPARISON_CHARTS,
+  COURSE_COMPARISON_FILTERS,
+  COURSE_COMPARISON_SLUG,
+  COURSE_COMPARISON_TABS,
+  COURSE_DASHBOARD_CHARTS,
+  COURSE_DASHBOARD_SLUG,
+  COURSE_DASHBOARD_TAB_PARENTS,
+  COURSE_DASHBOARD_TABS,
+  INDIVIDUAL_LEARNER_CHARTS,
+  INDIVIDUAL_LEARNER_FILTERS,
+  INDIVIDUAL_LEARNER_SLUG,
+  INDIVIDUAL_LEARNER_TABS,
+  type AspectsChartKey,
+} from './aspects-charts';
 export {
   A11Y_VIEWPORTS,
   RESPONSIVE_VIEWPORTS,
@@ -120,9 +136,18 @@ export {
   INSTRUCTOR_CERTIFICATE_FILTERS,
   INSTRUCTOR_DASHBOARD_SELECTORS,
   INSTRUCTOR_REPORT_ROWS,
+  INSTRUCTOR_REPORTS_SELECTORS,
   INSTRUCTOR_TAB_IDS,
   instructorTabLink,
   instructorTabPath,
+  reportsDashboardTab,
+  STUDIO_ANALYTICS_SELECTORS,
+  outlineCardHeader,
+  SUPERSET_SELECTORS,
+  supersetDashboardTab,
+  supersetNativeFilter,
+  supersetSelectOption,
+  supersetSelectedValue,
   type InstructorReportType,
   type InstructorTabId,
 } from './selectors';

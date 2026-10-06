@@ -75,7 +75,8 @@ export function anonymousHeaderExpectation(chrome: ChromeConfig): AnonymousHeade
  * What a chrome case is checking, so a known defect marks only the tests it
  * breaks (the Help link's absence, say, and not its presence).
  */
-export type ChromeScenario = 'no-help-link' | 'logo-consistency' | 'navigation' | 'page-language';
+export type ChromeScenario =
+  'no-help-link' | 'logo-consistency' | 'navigation' | 'page-language' | 'account-language';
 
 /**
  * A chrome defect the suite knows about, tied to the generation (and layout)
@@ -89,6 +90,12 @@ export interface KnownChromeDefect {
   readonly cases: readonly string[];
   readonly applies: (context: ChromeDefectContext) => boolean;
   readonly reason: string;
+  /**
+   * The defect is a race that breaks the case on some runs only, so the case is
+   * held (`fixme`) rather than expected to fail: an expected failure that
+   * happens to pass would fail the run.
+   */
+  readonly intermittent?: true;
 }
 
 export interface ChromeDefectContext {
@@ -131,6 +138,15 @@ export const KNOWN_CHROME_DEFECTS: readonly KnownChromeDefect[] = [
       generations.some((generation) => generation !== 'shell'),
     reason:
       'BASE-004: the frontend-base shell and the legacy headers size the header and footer logos differently, so a site mixing them is inconsistent',
+  },
+  {
+    id: 'BASE-006',
+    cases: ['TC-00066'],
+    applies: ({ generations, scenario }) =>
+      scenario === 'account-language' && generations.includes('shell'),
+    reason:
+      "BASE-006: frontend-base's updateSiteLanguage stores the preference and switches the session in parallel, and the session call's response can set the language cookie back to the old language",
+    intermittent: true,
   },
   {
     id: 'FP-001',
