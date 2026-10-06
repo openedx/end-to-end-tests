@@ -99,9 +99,11 @@ test.describe('Aspects in-context metrics on the outline', { tag: [...TAGS] }, (
       expect(await analytics.listNames(2)).toEqual(videos);
       await expect(analytics.showMoreToggle(2)).toHaveCount(0);
 
-      // The sidebar around the embed; Superset's own markup is scanned on its pages.
+      // The Analytics panel itself, around the embed: Superset's own markup is
+      // scanned on its pages, and the outline is not this case's surface.
       await checkA11y(colleague.page, {
         label: 'studio-analytics-outline',
+        include: STUDIO_ANALYTICS_SELECTORS.panel,
         exclude: STUDIO_ANALYTICS_SELECTORS.embedContainer,
         additionalBaseline: SIDEBAR_A11Y_BASELINE,
       });

@@ -111,6 +111,7 @@ measured, and issues are opened by hand from them.
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy detail breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` scan only |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
+| `PLAT-011`  | `openedx/openedx-platform` (problem previews: MathJax renders an empty math element as an unlabelled `svg[role=img]`) | open, no `fixme` — the in-context Analytics scans cover only their panel; no other scan reaches a problem preview yet
 | `INSTR-009` | `openedx/frontend-app-instructor-dashboard` (allowance Delete sends a numeric user id) | open, `test.fail` on TC-00541's delete test
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
@@ -122,7 +123,7 @@ measured, and issues are opened by hand from them.
 | `ASPECTS-010` | `openedx/aspects-dbt` (`dim_learner_last_response` joins block names at insert time) | open, no `fixme` — TC-00547 finds its row by the problem's usage key
 | `ASPECTS-011` | `apache/superset` 6.0.0 (tutor-contrib-aspects 4.x): row-level security aliases a filtered table as `schema.table`, so Course Comparison's video counts fail for course staff | open, gated — TC-00554's video-count case needs `analytics-staff-video-counts` (CI declares it: both releases run Superset 6.1)
 | `ASPECTS-012` | `openedx/aspects-dbt` (`dim_most_recent_enrollment`: a ReplacingMergeTree with no version, read without `FINAL`) | open, no `fixme` — TC-00553 and TC-00545 no longer give a learner two enrollment events
-| `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive`; 6.0.0 (Aspects 4.0.0) also `dlitem` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
+| `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive`, intermittently `aria-prohibited-attr`; 6.0.0 (Aspects 4.0.0) also `dlitem` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
 | `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
 | `ASPECTS-008` | `openedx/tutor-contrib-aspects` (dashboard assets: "Clear all" empties the preselected course filter) | open, no `fixme` — TC-00544 clears only the learner filter, as the sheet asks
 | `ASPECTS-009` | `openedx/frontend-plugin-aspects` 3.0.1 on authoring `master`: the outline cards' Analytics buttons show the course | open, gated — TC-00314's card case needs `analytics-in-context-cards`, declared where it works
@@ -2161,6 +2162,27 @@ can declare it.
 
 ## Epic 16 — Aspects findings (2026-09-29)
 
+### `PLAT-011` — a numerical problem's preview renders an unlabelled image to assistive technology
+
+**Where:** Studio's unit page, in the preview of a numerical-input problem
+(capa's MathJax rendering), on `main` and `verawood`.
+
+**What happens:** the problem preview contains a MathJax-rendered empty math
+element, `<svg class="mjx-svg-math" role="img" data-semantic-type="empty" …>`,
+with no title or label. axe (WCAG 2.2 AA) reports it as `svg-img-alt`
+(serious): an `svg` with an image role must have alternative text. An empty
+expression should be hidden from assistive technology (`aria-hidden`) or not
+rendered at all.
+
+Found in CI (run 37370447154, 2026-10-06) by the unit-page Analytics scan of
+TC-00315 on both releases, on every attempt. Locally it did not show, most
+likely because MathJax had not rendered by the time of the scan.
+
+**Coverage impact:** open, no `fixme`. The in-context Analytics scans now cover
+only their panel (`include` the sidebar), since the unit page's component
+previews are not that case's surface. No other scan reaches a problem preview
+yet; one that does will meet this rule.
+
 ### `ASPECTS-SEC-001` — any signed-in user could get a Superset guest token
 
 **Where:** `platform-plugin-aspects` ≥ 0.7.0 (every Aspects release back to
@@ -2272,7 +2294,10 @@ Reports tab's "View dashboards in Superset".
 - `html-has-lang`: the page's `<html>` carries no `lang`;
 - `nested-interactive`: three chart-header controls nest one interactive
   element inside another;
-- `dlitem` (6.0.0 only): two `<dt>`/`<dd>` elements outside a `<dl>`.
+- `dlitem` (6.0.0 only): two `<dt>`/`<dd>` elements outside a `<dl>`;
+- `aria-prohibited-attr` (6.1.0, on some loads only): two nodes carry an ARIA
+  attribute their role does not permit. Seen once on `main` in CI (run
+  37370447154, TC-00549), passing on retry.
 
 All are Superset's own markup, not Aspects' dashboards.
 

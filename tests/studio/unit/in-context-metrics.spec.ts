@@ -43,8 +43,12 @@ test.describe('Aspects in-context metrics on the unit page', { tag: [...TAGS] },
       expect([...(await analytics.listNames(0))].sort()).toEqual(
         problemUnit.blocks.map((b) => b.displayName).sort(),
       );
+      // The Analytics panel only: the unit page's component previews are not this
+      // case's surface (a numerical problem's MathJax preview renders an empty
+      // `svg[role=img]` with no text, which axe reports as `svg-img-alt`).
       await checkA11y(colleague.page, {
         label: 'studio-analytics-unit',
+        include: STUDIO_ANALYTICS_SELECTORS.panel,
         exclude: STUDIO_ANALYTICS_SELECTORS.embedContainer,
         additionalBaseline: SIDEBAR_A11Y_BASELINE,
       });

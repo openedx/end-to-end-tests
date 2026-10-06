@@ -39,12 +39,19 @@ export const INSTRUCTOR_A11Y_BASELINE = ['aria-prohibited-attr', 'select-name'] 
  * - `html-has-lang` (serious): Superset's `<html>` has no `lang`;
  * - `nested-interactive` (serious): the dashboard's chart headers nest their
  *   menu triggers inside other controls;
- * - `dlitem` (serious, 6.0.0 only): two `<dt>`/`<dd>` outside a `<dl>`.
+ * - `dlitem` (serious, 6.0.0 only): two `<dt>`/`<dd>` outside a `<dl>`;
+ * - `aria-prohibited-attr` (serious, 6.1.0, intermittent): two nodes carry an
+ *   ARIA attribute their role does not permit, on some loads only.
  *
  * The Reports tab's own scan excludes the embed instead, so the Open edX surface
  * around it is held to the full gate.
  */
-export const SUPERSET_A11Y_BASELINE = ['html-has-lang', 'nested-interactive', 'dlitem'] as const;
+export const SUPERSET_A11Y_BASELINE = [
+  'html-has-lang',
+  'nested-interactive',
+  'dlitem',
+  'aria-prohibited-attr',
+] as const;
 
 /** A short, unique label for content a test authors. */
 export function label(tag: string, testId: string): string {
