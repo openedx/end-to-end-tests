@@ -5,7 +5,7 @@ import { A11Y_VIEWPORTS, viewportUse } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { fetchAccount, updateAccount, updatePreferences } from '../../../src/api';
 import { issue, testId } from '../../../src/reporting';
-import { partitionSiteLinks } from '../../../src/steps';
+import { offDashboardMainLinks, partitionSiteLinks } from '../../../src/steps';
 import { PROFILE_A11Y_BASELINE } from './helpers';
 
 /**
@@ -148,13 +148,10 @@ test.describe('Learner profile', { tag: ['@regression', '@authenticated', '@mfe-
       // in the legacy header, through its logo in the frontend-base shell,
       // whose primary links are the dashboard's own and render only there
       // (BASE-007), so the profile's header offers none.
-      if (generation === 'shell') {
-        await expect(siteHeader.mainLinks).toHaveCount(0);
-        await siteHeader.follow(siteHeader.logoLink);
-      } else {
-        await expect(siteHeader.mainLinks.first()).toBeVisible();
-        await siteHeader.follow(siteHeader.mainLinks.first());
-      }
+      await expect(siteHeader.mainLinks).toHaveCount(offDashboardMainLinks(generation));
+      const dashboardLink = siteHeader.dashboardLink(generation);
+      await expect(dashboardLink).toBeVisible();
+      await siteHeader.follow(dashboardLink);
       await expect(dashboardPage.content).toBeVisible();
     },
   );

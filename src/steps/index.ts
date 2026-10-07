@@ -91,6 +91,7 @@ export {
   horizontalOverflow,
   knownChromeDefects,
   linkTargets,
+  offDashboardMainLinks,
   partitionSiteLinks,
   readPageChrome,
   switchableLanguage,

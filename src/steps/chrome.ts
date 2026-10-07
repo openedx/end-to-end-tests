@@ -72,6 +72,16 @@ export function anonymousHeaderExpectation(chrome: ChromeConfig): AnonymousHeade
 }
 
 /**
+ * The primary links a signed-in learner's header shows away from the dashboard
+ * (the profile, say): the legacy header's "Courses"; none in the frontend-base
+ * shell, whose primary links are the dashboard app's and render only on the
+ * dashboard (`BASE-007`).
+ */
+export function offDashboardMainLinks(generation: ChromeGeneration): number {
+  return generation === 'shell' ? 0 : 1;
+}
+
+/**
  * What a chrome case is checking, so a known defect marks only the tests it
  * breaks (the Help link's absence, say, and not its presence).
  */

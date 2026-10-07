@@ -153,6 +153,16 @@ export class HeaderBlock {
     await this.page.waitForURL((url) => url.toString() !== from);
   }
 
+  /**
+   * The header's link to the learner's dashboard from a page that is not the
+   * dashboard: the legacy header's "Courses" (its first primary link), the
+   * shell's logo — the shell renders primary links on the dashboard only
+   * (`BASE-007`).
+   */
+  dashboardLink(generation: ChromeGeneration): Locator {
+    return generation === 'shell' ? this.logoLink : this.mainLinks.first();
+  }
+
   /** The rendered height of the header's logo. */
   async logoHeight(): Promise<number> {
     const box = await this.logoImage.boundingBox();
