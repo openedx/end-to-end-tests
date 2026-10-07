@@ -569,9 +569,11 @@ should reuse the same runnable unit and supply only the target.
 Both own the same thing - the image, the install, the Playwright command line,
 and the report artifacts - so the consuming pipeline is left with the target's
 origins, its readiness check, and its credentials. Their inputs correspond:
-`features` / `exclude_features` on the action are `E2E_FEATURES` /
-`E2E_EXCLUDE_FEATURES` in the template, and adding one to either generally means
-adding it to both.
+`features` / `exclude_features` / `select_grep` / `shard` on the action are
+`E2E_FEATURES` / `E2E_EXCLUDE_FEATURES` / `E2E_SELECT_GREP` / `E2E_SHARD` in the
+template, and adding one to either generally means adding it to both. Inputs that
+only set an environment variable (`mail_provider`, `profile`, `run_id_suffix`, …)
+need nothing in the template: a consuming job sets them as `variables:`.
 
 ```yaml
 include:

@@ -193,6 +193,71 @@ This belongs in the consuming pipeline, not in the template: how long a target
 takes to serve, and which of its hosts to wait on, is a property of how it is
 deployed.
 
+### Splitting a run across shards
+
+`E2E_SHARD` takes Playwright's `"<index>/<total>"`, and GitLab's `parallel:` hands
+you exactly those two numbers — `CI_NODE_INDEX` is 1-based, as Playwright expects:
+
+```yaml
+e2e:
+  extends: .openedx-e2e
+  parallel: 4
+  variables:
+    E2E_SHARD: $CI_NODE_INDEX/$CI_NODE_TOTAL
+  artifacts:
+    when: always
+    paths:
+      - suite/blob-report/ # each shard's slice, for the merge below
+```
+
+Three things to know before reaching for it.
+
+**It is incompatible with `resource_group` as written above.** A resource group runs
+its members one at a time, so four sharded jobs in one group take exactly as long as
+one unsharded job did, for four times the runner cost. Pick one: serialise runs
+against an environment, or split a run across shards. If you shard, the registration
+rate limit the resource group was protecting now has four jobs registering at once —
+raise it on the target first (see below).
+
+**Each shard's reports describe only its own slice.** Under CI the suite writes a blob
+report alongside the others, which is the input to a merge; the per-shard HTML and
+JUnit are partial. Collect the blobs and merge them in a following job to get the
+single report a one-job run would have produced:
+
+```yaml
+e2e-report:
+  stage: report
+  image: mcr.microsoft.com/playwright:v1.62.1-noble
+  needs: ['e2e'] # restores every shard's artifacts, so blobs land in suite/blob-report/
+  variables:
+    GIT_STRATEGY: none
+  script:
+    # merge.config.ts and its testDir live in the suite, so the merge runs from a clone
+    # at the same ref. Keep E2E_SUITE_REF equal to the test job's.
+    - git clone --filter=blob:none https://github.com/openedx/end-to-end-tests.git /tmp/suite
+    - git -C /tmp/suite checkout --detach $E2E_SUITE_REF
+    - mv suite/blob-report /tmp/suite/blob-report
+    - cd /tmp/suite && npm ci
+    - export PLAYWRIGHT_JUNIT_OUTPUT_FILE=test-results/junit.xml
+    - npx playwright merge-reports --config merge.config.ts blob-report
+    - mv playwright-report test-results "$CI_PROJECT_DIR/"
+  artifacts:
+    when: always
+    paths:
+      - playwright-report/
+      - test-results/
+    reports:
+      junit: test-results/junit.xml
+```
+
+`merge.config.ts` uses the same reporter list as a run, so the merged output has the
+same shape — including the JUnit file, when `PLAYWRIGHT_JUNIT_OUTPUT_FILE` is set on
+the merge job. Report the merged result, not the shards'.
+
+**Sharding splits tests, not time.** Playwright distributes by test count, so one shard
+holding the slow authenticated specs still dominates the wall clock. Measure before
+assuming four shards are four times faster.
+
 ### Serialise runs against one environment, and bound them
 
 Every run registers several accounts, and the platform rate-limits registration

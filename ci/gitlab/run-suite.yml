@@ -10,7 +10,7 @@
 # Keep the two in step: an input added to that action generally belongs here too, under
 # the name below.
 #
-# `README.md` next to this file containes working examples of consuming pipelines and the
+# `README.md` next to this file contains working examples of consuming pipelines and the
 # patterns around them; this header is the reference for the variables themselves.
 #
 # ## Usage
@@ -78,6 +78,11 @@
 #                       space-separated tags to exclude. Defaults to `@unit`, the suite's
 #                       own framework tests — they check the suite rather than the target
 #                       and are already covered by its own CI. (`exclude_features` there.)
+#   E2E_SELECT_GREP     a `--grep` regex, not a tag list: an additional selection a test
+#                       must match *as well as* E2E_FEATURES. (`select_grep` there.)
+#   E2E_SHARD           "<index>/<total>", e.g. "2/4", to run one shard of the selection.
+#                       Empty runs all of it. Pairs with GitLab's `parallel:` — see
+#                       README.md. (`shard` there.)
 #   E2E_JUNIT           where to write the JUnit XML that GitLab's Tests tab reads,
 #                       relative to the suite. Overriding it also needs the matching
 #                       `artifacts:reports:junit` path overridden on the extending job.
@@ -99,6 +104,8 @@
     E2E_DOMAINS: ''
     E2E_FEATURES: ''
     E2E_EXCLUDE_FEATURES: '@unit'
+    E2E_SELECT_GREP: ''
+    E2E_SHARD: ''
     E2E_JUNIT: test-results/junit.xml
 
   script:
@@ -135,6 +142,13 @@
           *) fail "feature tag '$tag' must start with '@' (e.g. @smoke)" ;;
         esac
       done
+
+      # Playwright rejects a malformed --shard, but only after the clone and the install.
+      case "${E2E_SHARD:-}" in
+        '') ;;
+        [1-9]*/[1-9]*) ;;
+        *) fail "E2E_SHARD must be \"<index>/<total>\", e.g. 2/4 (got '$E2E_SHARD')" ;;
+      esac
 
       echo "Target: LMS=$LMS_BASE_URL APPS=$APPS_BASE_URL CMS=${CMS_BASE_URL:-<skipped>}"
       if [ -n "${ADMIN_USERNAME:-}" ]; then
@@ -186,11 +200,27 @@
       if [ -n "${E2E_DOMAINS// /}" ]; then
         for domain in $E2E_DOMAINS; do cmd+=("tests/$domain"); done
       fi
+      grep_expr=""
       if [ -n "${E2E_FEATURES// /}" ]; then
-        cmd+=(--grep "$(echo "$E2E_FEATURES" | xargs | tr ' ' '|')")
+        grep_expr="$(echo "$E2E_FEATURES" | xargs | tr ' ' '|')"
+      fi
+      # A selection and the feature filter must both match: the two lookaheads express
+      # that as the one --grep Playwright takes. Mirrors the composite action.
+      if [ -n "${E2E_SELECT_GREP:-}" ]; then
+        if [ -n "$grep_expr" ]; then
+          grep_expr="^(?=.*(?:${E2E_SELECT_GREP}))(?=.*(?:${grep_expr}))"
+        else
+          grep_expr="$E2E_SELECT_GREP"
+        fi
+      fi
+      if [ -n "$grep_expr" ]; then
+        cmd+=(--grep "$grep_expr")
       fi
       if [ -n "${E2E_EXCLUDE_FEATURES// /}" ]; then
         cmd+=(--grep-invert "$(echo "$E2E_EXCLUDE_FEATURES" | xargs | tr ' ' '|')")
+      fi
+      if [ -n "${E2E_SHARD:-}" ]; then
+        cmd+=(--shard "$E2E_SHARD")
       fi
       echo "Running: ${cmd[*]}"
       "${cmd[@]}"
