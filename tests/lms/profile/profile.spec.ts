@@ -127,10 +127,12 @@ test.describe('Learner profile', { tag: ['@regression', '@authenticated', '@mfe-
       profilePage,
       siteHeader,
       siteFooter,
+      chromeCase,
       dashboardPage,
       profileLearner,
     }) => {
       await profilePage.goto(profileLearner.identity.username);
+      const { generation } = await chromeCase.read();
 
       // The footer logo shows and its link works (fetched when on the install,
       // checked as well formed when off-site).
@@ -142,9 +144,17 @@ test.describe('Learner profile', { tag: ['@regression', '@authenticated', '@mfe-
         expect((await request.get(url)).status(), url).toBeLessThan(400);
       }
 
-      // The header's Courses link leads to the learner's dashboard.
-      await expect(siteHeader.mainLinks.first()).toBeVisible();
-      await siteHeader.follow(siteHeader.mainLinks.first());
+      // The header leads to the learner's dashboard: through its Courses link
+      // in the legacy header, through its logo in the frontend-base shell,
+      // whose primary links are the dashboard's own and render only there
+      // (BASE-007), so the profile's header offers none.
+      if (generation === 'shell') {
+        await expect(siteHeader.mainLinks).toHaveCount(0);
+        await siteHeader.follow(siteHeader.logoLink);
+      } else {
+        await expect(siteHeader.mainLinks.first()).toBeVisible();
+        await siteHeader.follow(siteHeader.mainLinks.first());
+      }
       await expect(dashboardPage.content).toBeVisible();
     },
   );

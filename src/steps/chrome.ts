@@ -187,7 +187,8 @@ export function linkTargets(urls: readonly string[]): readonly string[] {
  * ({@link linkTargets}), in the order the header renders them. The shell and
  * the legacy headers differ: the legacy ones lead with the dashboard — except
  * on the dashboard itself, whose own header leaves it out — and the shell
- * reaches it through its logo and "Courses" link instead.
+ * reaches it through its logo instead (and, on the dashboard, its "Courses"
+ * link; see `BASE-007`).
  */
 export function expectedUserMenu(
   generation: ChromeGeneration,
