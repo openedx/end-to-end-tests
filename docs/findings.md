@@ -82,6 +82,7 @@ measured, and issues are opened by hand from them.
 | `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing and course About scans only (`SHELL_CHROME_A11Y_BASELINE`)
 | `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | open, `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
 | `BASE-006`  | `openedx/frontend-base` (`updateSiteLanguage` races its own two requests) | open, runtime `fixme` on TC-00066 where the Account page renders in the shell (`KNOWN_CHROME_DEFECTS`, intermittent)
+| `BASE-007`  | `openedx/frontend-base` + `frontend-app-learner-dashboard` (no primary links outside the dashboard) | open, no `fixme` — TC-00071 reaches the dashboard through the shell header's logo and asserts the profile's header offers no primary link
 | `CATALOG-001` | `openedx/frontend-app-catalog` (filter facet values camel-cased) | open, no `fixme` — TC-00017 compares organizations case-insensitively
 | `LEARN-002` | `openedx/frontend-component-header` (learning header Help link `href="null"`) | open, `test.fail` on the no-Help-link tests of TC-00020 / TC-00021 where the learning header renders (`KNOWN_CHROME_DEFECTS`)
 | `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages mix the shell with a legacy header (`KNOWN_CHROME_DEFECTS`)
@@ -2452,6 +2453,36 @@ attempts. Other runs pass, so it is a race.
 would fail the run whenever the race goes the right way. The legacy Account app
 (`verawood`) still runs them. A likely fix is to store the preference first and
 switch the session after it.
+
+### `BASE-007` — the shell header shows no primary links outside the learner dashboard
+
+**Where:** `@openedx/frontend-base`'s shell header (2.0.0-alpha) with
+`@openedx/frontend-app-learner-dashboard`'s header widgets, on every shell
+page that is not the dashboard — the profile since it moved onto the shell on
+`main` (tutor-mfe `ed13232`, merged 2026-10-06), the account page, the admin
+console.
+
+**What happens:** the shell's header has no primary links of its own: the
+`primaryLinks` slot is filled by apps, and the learner dashboard contributes
+"Courses", "Programs" and "Discover New" with `condition: { active:
+[dashboardRole] }`, so they render only while the dashboard route is active
+(`frontend-app-learner-dashboard` `3c2ccdc8`, "scope header slot widgets to
+dashboard role"). The profile app contributes none. On the profile the header
+is the logo, the notification bell, the account menu and the language menu;
+the legacy `frontend-component-header` on the same page shows "Courses". The
+shell's account menu has no Dashboard item either (`expectedUserMenu`), so the
+logo (resolved to the dashboard role, `/learner-dashboard`) is the only header
+route back to the dashboard. Measured in CI on `main` (run 37526119121,
+2026-10-07): TC-00071 failed on all three attempts waiting for an
+`a.nav-link` in the profile's header, the first run after tutor-mfe shipped
+the Profile app in the site bundle.
+
+**Coverage impact:** open, no `fixme`. TC-00071 ("Courses button in the top
+menu is working") reads the header generation: the legacy header's first
+primary link, the shell header's logo, each followed to the dashboard. The
+shell branch also asserts the header offers no primary link, so the day
+frontend-base or the dashboard app renders one site-wide the case fails and
+this entry is revisited. The legacy profile (`verawood`) is unchanged.
 
 ### `ASPECTS-012` — a learner with two enrollment events is counted twice by the Performance Breakdown, and may keep the wrong status
 

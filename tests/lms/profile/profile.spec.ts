@@ -5,7 +5,7 @@ import { A11Y_VIEWPORTS, viewportUse } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { fetchAccount, updateAccount, updatePreferences } from '../../../src/api';
 import { issue, testId } from '../../../src/reporting';
-import { partitionSiteLinks } from '../../../src/steps';
+import { offDashboardMainLinks, partitionSiteLinks } from '../../../src/steps';
 import { PROFILE_A11Y_BASELINE } from './helpers';
 
 /**
@@ -127,10 +127,12 @@ test.describe('Learner profile', { tag: ['@regression', '@authenticated', '@mfe-
       profilePage,
       siteHeader,
       siteFooter,
+      chromeCase,
       dashboardPage,
       profileLearner,
     }) => {
       await profilePage.goto(profileLearner.identity.username);
+      const { generation } = await chromeCase.read();
 
       // The footer logo shows and its link works (fetched when on the install,
       // checked as well formed when off-site).
@@ -142,9 +144,14 @@ test.describe('Learner profile', { tag: ['@regression', '@authenticated', '@mfe-
         expect((await request.get(url)).status(), url).toBeLessThan(400);
       }
 
-      // The header's Courses link leads to the learner's dashboard.
-      await expect(siteHeader.mainLinks.first()).toBeVisible();
-      await siteHeader.follow(siteHeader.mainLinks.first());
+      // The header leads to the learner's dashboard: through its Courses link
+      // in the legacy header, through its logo in the frontend-base shell,
+      // whose primary links are the dashboard's own and render only there
+      // (BASE-007), so the profile's header offers none.
+      await expect(siteHeader.mainLinks).toHaveCount(offDashboardMainLinks(generation));
+      const dashboardLink = siteHeader.dashboardLink(generation);
+      await expect(dashboardLink).toBeVisible();
+      await siteHeader.follow(dashboardLink);
       await expect(dashboardPage.content).toBeVisible();
     },
   );
