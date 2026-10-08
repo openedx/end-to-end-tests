@@ -71,9 +71,12 @@
 #                       pipeline red without anything in the deployment having changed.
 #                       Pin it to a commit, and keep it equal to the ref this file is
 #                       included from.
-#   E2E_DOMAINS         space-separated domains, e.g. "lms studio". Empty = all.
+#   E2E_DOMAINS         space-separated domains, e.g. "lms studio". Empty = all. Exported
+#                       to the suite as DOMAINS, which the BTR-coverage reporter reads to
+#                       scope its numbers to the same selection.
+#                       (`domains` on the composite action.)
 #   E2E_FEATURES        space-separated tags to run, e.g. "@smoke". Empty = all.
-#                       (`features` on the composite action.)
+#                       (`features` there.)
 #   E2E_EXCLUDE_FEATURES
 #                       space-separated tags to exclude. Defaults to `@unit`, the suite's
 #                       own framework tests — they check the suite rather than the target
@@ -144,11 +147,11 @@
       done
 
       # Playwright rejects a malformed --shard, but only after the clone and the install.
-      case "${E2E_SHARD:-}" in
-        '') ;;
-        [1-9]*/[1-9]*) ;;
-        *) fail "E2E_SHARD must be \"<index>/<total>\", e.g. 2/4 (got '$E2E_SHARD')" ;;
-      esac
+      # Not a `case` glob: there `*` matches `/` too, so "2/4/8" and "1abc/2def" would both
+      # pass a pattern that looks like it rejects them. An anchored ERE means what it says.
+      if [ -n "${E2E_SHARD:-}" ] && ! printf '%s' "$E2E_SHARD" | grep -Eq '^[1-9][0-9]*/[1-9][0-9]*$'; then
+        fail "E2E_SHARD must be \"<index>/<total>\", e.g. 2/4 (got '$E2E_SHARD')"
+      fi
 
       echo "Target: LMS=$LMS_BASE_URL APPS=$APPS_BASE_URL CMS=${CMS_BASE_URL:-<skipped>}"
       if [ -n "${ADMIN_USERNAME:-}" ]; then
@@ -195,6 +198,11 @@
       set -euo pipefail
       cd "$CI_PROJECT_DIR/suite"
       export PLAYWRIGHT_JUNIT_OUTPUT_FILE="$E2E_JUNIT"
+      # The BTR-coverage reporter reads DOMAINS to decide which tests it accounts for
+      # (`src/reporting/btr-run-reporter.ts`), which is why the composite action exports it
+      # under that name. Filtering the run without filtering the report would publish
+      # coverage for a selection that never ran.
+      export DOMAINS="$E2E_DOMAINS"
 
       cmd=(npx playwright test)
       if [ -n "${E2E_DOMAINS// /}" ]; then

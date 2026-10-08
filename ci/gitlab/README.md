@@ -111,7 +111,10 @@ e2e:
 
     ORG: OpenedX
     COURSE_KEY: 'course-v1:OpenedX+DemoX+DemoCourse'
-    CAPABILITIES: 'discussions,notes'
+    # Additive, not a replacement: the default-on capabilities stay on and `-name`
+    # opts out of one. Listing a default-on capability here changes nothing. See
+    # `docs/capabilities.md` for the full set and which are on by default.
+    CAPABILITIES: 'notes,wiki,-frontend-base'
     ACCOUNT_BACKEND: automatic
 
     ADMIN_USERNAME: $E2E_ADMIN_USERNAME
@@ -270,9 +273,14 @@ timeout: 30m
 ```
 
 The timeout is not decoration. A resource group held by a hanging job also blocks
-the _next_ deploy if the deploy jobs share it — and under CI the suite runs
-single-worker with two retries, so an unhealthy target can keep a job alive for a
-long time. Give it a bound well below the project timeout.
+the _next_ deploy if the deploy jobs share it — and under CI the suite retries a
+failing test twice, so against an unhealthy target every failure costs three times
+its timeout budget before the job gives up. Give it a bound well below the project
+timeout.
+
+Size the target for the concurrency, too: the suite runs **four workers** in CI by
+default, so the installation sees four browsers driving it at once. `WORKERS`
+overrides that if the environment cannot take it.
 
 ### A manual job needs `allow_failure`
 
@@ -375,3 +383,10 @@ accessibility JSON are job artifacts.
 the template sets it. Do not pass `--reporter=junit` instead: that replaces the
 whole configured list and silently stops the BTR-coverage and accessibility
 reporters producing anything.
+
+One gap to know about: the BTR JSON carries **no run metadata** here. The run URL,
+repository, workflow, ref and SHA come from `ciMetaFromEnv`
+(`src/reporting/btr-run.ts`), which reads `GITHUB_*` variables and returns `null`
+anywhere else — so under GitLab those fields are absent while the per-case results
+themselves are complete. The report is still worth publishing; it just does not
+identify the run that produced it.
