@@ -22,7 +22,7 @@ measured, and issues are opened by hand from them.
 | `DEMO-001`  | `openedx/openedx-demo-course`                            | open, `fixme` in `discovery.spec.ts`                                           |
 | `LEARN-001` | `openedx/frontend-app-learning`                          | open, `fixme` in `outline.spec.ts`                                             |
 | `PLAT-001`  | `openedx/edx-platform` (completion-on-view)              | **filed**  - [#459](https://github.com/openedx/completion/issues/459), blocks the 100%-completion crawl                                         |
-| `PLAT-002`  | `openedx/edx-platform` (video handlers)                  | open, two 500s on a default install                                            |
+| `PLAT-002`  | `openedx/edx-platform` (video handlers) + `overhangio/tutor` (demo transcripts) | **filed** - [#39211](https://github.com/openedx/openedx-platform/issues/39211) and [tutor#1506](https://github.com/overhangio/tutor/issues/1506) (tracked here as [#115](https://github.com/openedx/end-to-end-tests/issues/115)), no `fixme` — playback is not asserted |
 | `PLAT-003`  | `openedx/edx-platform` / `frontend-app-learning` (video) | **superseded** — HTML5 videos are drivable (issue #41); `fixme` lifted, only YouTube-only videos remain out of reach |
 | `DEMO-002`  | `openedx/openedx-demo-course`                            | open, blocks any passing-grade coverage (corrected)                            |
 | `CAT-160`   | `openedx/frontend-app-catalog`                           | **filed** — [#160](https://github.com/openedx/frontend-app-catalog/issues/160) |
@@ -37,25 +37,25 @@ measured, and issues are opened by hand from them.
 | `RBAC-007`  | `openedx/openedx-authz` + console                        | open, `knownGap` on TC-00567                                                   |
 | `RBAC-008`  | `openedx/frontend-app-admin-console`                     | open (regression on `main`), TC-00442 gated on `rbac-error-view-action`        |
 | `RBAC-009`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00569                                              |
-| `RBAC-010`  | `openedx/edx-platform` (content libraries)               | open, `fixme` sibling on TC-00573                                              |
+| `RBAC-010`  | BTR test plan (TC-00573 draft clause)                    | **resolved** — by design: `view_library` serves drafts to every role; [wg#618](https://github.com/openedx/wg-build-test-release/issues/618) (tracked here as [#120](https://github.com/openedx/end-to-end-tests/issues/120)), `fixme` sibling on TC-00573 |
 | `RBAC-011`  | `openedx/frontend-app-authoring`                         | open, asserted as a 403 on the offered action (TC-00572)                       |
 | `RBAC-012`  | sheet vs platform (`openedx-authz` roles)                | open, platform's model asserted on TC-00571                                    |
 | `RBAC-013`  | `openedx/frontend-app-authoring`                         | open, `fixme` sibling on TC-00575                                              |
 | `RBAC-014`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00620                                              |
-| `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | open, `fixme` sibling on TC-00640                                              |
-| `RBAC-016`  | `openedx/edx-platform` (course re-run)                   | open, `fixme` sibling on TC-00632                                              |
+| `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | **filed** - [authz#521](https://github.com/openedx/openedx-authz/issues/521) (tracked here as [#118](https://github.com/openedx/end-to-end-tests/issues/118)), `fixme` sibling on TC-00640 |
+| `RBAC-016`  | BTR test plan (TC-00632 expectation)                     | **resolved** — by design: re-runs never copied the team; [wg#617](https://github.com/openedx/wg-build-test-release/issues/617) (tracked here as [#119](https://github.com/openedx/end-to-end-tests/issues/119)), `fixme` sibling on TC-00632 |
 | `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-matrix-parity` |
 | `AUTH-004`  | `openedx/frontend-app-authoring`                         | open, not asserted — Help topics are, their doc links are not                  |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
 | `PLAT-004`  | `openedx/edx-platform` (`login_session`)                 | open, no `fixme` — the suite no longer makes the call                          |
 | `TUTOR-001` | `overhangio/tutor` (+ any plugin setting the old key)    | open, no `fixme` — handled by the `catalog-search` capability                  |
 | `STUDIO-001` | `openedx/edx-platform` (`create_new_course`)            | **filed** - [#569](https://github.com/openedx/edx-organizations/issues/569), `fixme` in `tests/studio/bootstrap.spec.ts` — worked around in `ensureCourse` |
-| `PLAT-005`  | `openedx/edx-platform` (`delete_course` → search index)  | open, no `fixme` — operator-side command, not reachable by the suite           |
+| `PLAT-005`  | `openedx/edx-search` (`delete_course` → search index)  | **resolved on `main`** — [edx-search#283](https://github.com/openedx/edx-search/pull/283) in 5.0.3 (tracked here as [#117](https://github.com/openedx/end-to-end-tests/issues/117)); `verawood` still pins 5.0.0; no `fixme` — operator-side command |
 | `STUDIO-002` | `openedx/edx-platform` (`create_new_course` org enforcement) | **filed** - [#39084](https://github.com/openedx/openedx-platform/issues/39084), `fixme` in `tests/studio/home/create-course.spec.ts`                     |
 | `STUDIO-003` | `openedx/frontend-app-course-authoring` (course outline a11y) | open, per-screen a11y tolerance in `tests/studio/home/create-course.spec.ts`  |
 | `STUDIO-004` | `openedx/frontend-app-course-authoring` (grading page a11y) | open, per-screen a11y tolerance in `tests/studio/settings/grading.spec.ts`  |
 | `PLAT-006`  | `openedx/edx-platform` (`course_details` PUT, `self_paced`)  | **filed** - [#39094](https://github.com/openedx/openedx-platform/issues/39094), no `fixme` — worked around in `updateCourseDetails`                      |
-| `STUDIO-005` | `openedx/edx-platform` (`/api/enrollment/v1/course` read staleness) | open, no `fixme` — suite reads Studio `course_details` instead; TC-00298/TC-00299 pass |
+| `STUDIO-005` | `openedx/edx-platform` (`/api/enrollment/v1/course` read staleness) | **resolved** — by design: a 60 s cache (`ENROLLMENT_COURSE_DETAILS_CACHE_TIMEOUT`); suite reads Studio `course_details` instead; TC-00298/TC-00299 pass |
 | `STUDIO-006` | `openedx/frontend-app-course-authoring` (certificates page empty without a cert-bearing mode) | worked around — suite adds an `honor` mode with the staff session; TC-00275/276/279 pass |
 | `STUDIO-007` | `openedx/frontend-app-course-authoring` (Import dropzone's file input has no label) | open, no `fixme` — a11y `label` baselined on the `studio-import` scan only; TC-00309 passes |
 | `STUDIO-008` | `openedx/frontend-app-course-authoring` (Custom Pages draggable list is a `<ul>` of `<div>`s) | open, no `fixme` — a11y `list` baselined on the `studio-custom-pages` scan only; TC-00237 passes |
@@ -69,9 +69,9 @@ measured, and issues are opened by hand from them.
 | `STUDIO-009` | `openedx/edx-platform` (Studio settings save endpoints renamed on `main`) | open, no `fixme` — the API client picks the route per release
 | `PLAT-009`  | `openedx/edx-platform` (course-home navigation view after a publish) | **filed** - [#39116](https://github.com/openedx/openedx-platform/issues/39116), `fixme` in `tests/studio/outline/sidebar.spec.ts` — 500 until the CMS worker outline task lands
 | `INSTR-001` | `openedx/frontend-app-instructor` (no test ids of its own)    | open, no `fixme` — selectors anchor on roles and structure
-| `INSTR-002` | `openedx/edx-platform` (report generation returns no task id) | open, no `fixme` — the suite polls the report list instead
-| `INSTR-003` | `openedx/edx-platform` (`grading-config` is an HTML dump)     | open, no `fixme` — the suite reads the grading policy API instead
-| `INSTR-004` | `openedx/edx-platform` (course-home dates API omits a graded subsection) | open, no `fixme` — date extensions are asserted through `progress`
+| `INSTR-002` | `openedx/edx-platform` (report generation returns no task id) | **filed** - [#39209](https://github.com/openedx/openedx-platform/issues/39209) (tracked here as [#114](https://github.com/openedx/end-to-end-tests/issues/114)), no `fixme` — the suite polls the report list instead
+| `INSTR-003` | `openedx/edx-platform` (`grading-config` is an HTML dump)     | **filed** - [#39212](https://github.com/openedx/openedx-platform/issues/39212) (tracked here as [#116](https://github.com/openedx/end-to-end-tests/issues/116)), no `fixme` — the suite reads the grading policy API instead
+| `INSTR-004` | `openedx/edx-platform` (course-home dates API omits a graded subsection) | **resolved** — by design: assignment dates are gated on the `course_experience.relative_dates` flag (default off); date extensions are asserted through `progress`
 | `INSTR-005` | `openedx/frontend-app-instructor` (prohibited ARIA attribute) | open, no `fixme` — baselined on the instructor scans only
 | `NOTIF-001` | `openedx/edx-platform` (`v3/configurations/` PUT, e-mail cadence) | open, no `fixme` — the client always sends `notification_channel`
 | `NOTIF-002` | `edx-ora2` (staff grader `initialize` as a learner)           | open, no `fixme` — not asserted; the suite only calls it as staff
@@ -120,7 +120,7 @@ measured, and issues are opened by hand from them.
 | `ASPECTS-SEC-001` | `openedx/platform-plugin-aspects` (any signed-in user could get a Superset guest token) | **fixed** — [GHSA-hm6j-7x8q-5hqw](https://github.com/openedx/platform-plugin-aspects/security/advisories/GHSA-hm6j-7x8q-5hqw); TC-00552 asserts a learner is refused
 | `ASPECTS-001` | `openedx/frontend-app-aspects`, `openedx/frontend-plugin-aspects` (no test ids on the Reports tab; a few on the in-context sidebar) | open, shapes every anchor in `selectors/instructor-reports.ts` and `selectors/studio-analytics.ts`
 | `ASPECTS-005` | `openedx/tutor-contrib-aspects` (Course Comparison assets: Run Metrics "More details" files the org under the Course Run filter's id) | open, no `fixme` — TC-00559 asserts the link names the course and run
-| `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | open, `fixme` on TC-00548 (the outcome is timing-dependent)
+| `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | **in progress** [177](https://github.com/openedx/aspects-dbt/pull/177), `fixme` on TC-00548 (the outcome is timing-dependent)
 | `ASPECTS-010` | `openedx/aspects-dbt` (`dim_learner_last_response` joins block names at insert time) | open, no `fixme` — TC-00547 finds its row by the problem's usage key
 | `ASPECTS-011` | `apache/superset` 6.0.0 (tutor-contrib-aspects 4.x): row-level security aliases a filtered table as `schema.table`, so Course Comparison's video counts fail for course staff | open, gated — TC-00554's video-count case needs `analytics-staff-video-counts` (CI declares it: both releases run Superset 6.1)
 | `ASPECTS-012` | `openedx/aspects-dbt` (`dim_most_recent_enrollment`: a ReplacingMergeTree with no version, read without `FINAL`) | open, no `fixme` — TC-00553 and TC-00545 no longer give a learner two enrollment events
@@ -312,6 +312,13 @@ asks for an English transcript the demo course does not ship. Both surface in th
 browser console as "Unable to get youtube video metadata" and "ERROR while
 fetching captions"; playback still works, so this is error-handling, not a
 regression. A 4xx or an empty payload would be the right answer to both.
+
+**Root cause (2026-10-09):** the demo course does ship an English transcript, but
+Tutor's `cms-job` has no media mount, so `importdemocourse` keeps the edx-val row
+and loses the `.srt` file ([tutor#1506](https://github.com/overhangio/tutor/issues/1506)).
+The platform then lets edx-val's `TranscriptNotFoundError` escape as a 500, and
+`yt_video_metadata` defaults to 500 when no API key is set
+([#39211](https://github.com/openedx/openedx-platform/issues/39211)).
 
 ### `PLAT-003` — video completion cannot be driven by a test
 
@@ -587,6 +594,12 @@ rules still fail on any other screen. Remove the tolerance when this lands.
 
 ### `STUDIO-005` — the LMS enrollment-details read endpoint is stale after a window change
 
+**Resolution (2026-10-09):** by design, not filed. `get_course_enrollment_details`
+(`openedx/core/djangoapps/enrollments/api.py`) caches its result for
+`ENROLLMENT_COURSE_DETAILS_CACHE_TIMEOUT` (60 s) and nothing invalidates it, so a
+read in the minute before a change keeps the old window until the TTL expires. That
+explains the intermittency. No MFE in the `openedx` org reads this endpoint.
+
 **Corrected from an earlier reading.** This finding first claimed the authoring
 MFE's enrollment date field would not persist a *changed* value and that its time
 field ignored UTC, and both TC-00298 and TC-00299 were `test.fixme`. Both of those
@@ -854,6 +867,14 @@ answer immediately after a publish.
 
 ### `PLAT-005` — `delete_course` logs a Meilisearch `invalid_search_filter` error
 
+**Resolution (2026-10-09):** fixed upstream before it was filed.
+[edx-search#283](https://github.com/openedx/edx-search/pull/283) (merged
+2026-09-01, released in 5.0.3) adds `course` to the `course_info` index's
+filterable attributes; openedx-platform `master` pins 5.0.3 and tutor-main's index
+now lists it. `release/verawood` still pins `edx-search==5.0.0`, so verawood is
+still affected. Existing installs need `search.meilisearch.create_indexes()`
+after upgrading.
+
 **Where:** `./manage.py cms delete_course <key>` → `course_deleted` signal →
 `listen_for_course_delete` (search indexing). Tutor `main`, Meilisearch 1.36.
 
@@ -981,6 +1002,13 @@ the "View Grading Configuration" modal.
 Studio's grading API instead; nothing is asserted on the dump.
 
 ### `INSTR-004` — the course-home dates API lists no assignment for a graded subsection with a due date
+
+**Resolution (2026-10-09):** by design, not filed. `get_course_date_blocks`
+(`lms/djangoapps/courseware/courses.py`) adds assignment dates only when the
+`course_experience.relative_dates` `CourseWaffleFlag` is enabled for the course
+(`toggle_default: False`); otherwise only the fixed blocks (course start, end,
+certificate) are returned. The flag is off on a stock install, which matches the
+response exactly. Not self-paced, publish path, or lag.
 
 **Where:** `GET /api/course_home/v1/dates/<key>` as an enrolled learner, on an
 instructor-paced course whose graded subsection received a `due` date through
@@ -1560,6 +1588,15 @@ test id, written as the case asks.
 
 ### `RBAC-010` — a `library_user` sees draft content
 
+**Resolution (2026-10-09):** by design, not a platform defect. `library_user`
+holds `view_library`, `reuse_library_content` and `view_library_team`
+(openedx-authz `constants/roles.py`); `view_library` is the same viewing
+permission every library role has, and it serves drafts. The role docs describe
+it as "view and reuse content", not published-only. The draft clause comes from
+the BTR sheet's TC-00573 (which the tester marked Passed); raised as
+[wg-build-test-release#618](https://github.com/openedx/wg-build-test-release/issues/618),
+suggesting a feature request if published-only viewing is wanted.
+
 **Where:** content libraries v2 (`GET blocks/?library_id=`) and the library MFE,
 `main`.
 
@@ -1631,6 +1668,18 @@ action the platform refuses, here it refuses one the platform allows.
 
 ### `RBAC-015` — an organization-level override blocks course creation for legacy creators
 
+**Corrected (2026-10-09), filed as
+[openedx-authz#521](https://github.com/openedx/openedx-authz/issues/521):** the
+explanation below is wrong. Studio does not ask AuthZ for `create_course`;
+`is_content_creator` checks only the legacy creator groups, and it passes. The
+course **is created**, and the 403 comes afterwards: `add_instructor` assigns the
+creator's instructor role through AuthZ, then `auth.add_users(…, CourseStaffRole)`
+→ `_check_caller_authority` does not see that role and raises `PermissionDenied`.
+Enrollment, forum roles and the rest of `create_new_course` are skipped. Any
+non-superuser creator is affected, not only legacy ones. Related:
+[openedx-authz#354](https://github.com/openedx/openedx-authz/issues/354)
+(closed; same symptom, failed at the creator check).
+
 **Where:** Studio's course-creation endpoint for an organization under
 `authz.enable_course_authoring`, `main`.
 
@@ -1647,6 +1696,14 @@ is a `fixme` + `knownGap` sibling. TC-00632 takes its re-run as the superuser fo
 the same reason.
 
 ### `RBAC-016` — a re-run does not copy a course's AuthZ team
+
+**Resolution (2026-10-09):** by design, not a platform defect. Re-runs have never
+copied the course team, with or without AuthZ: `rerun_course`
+(`cms/djangoapps/contentstore/tasks.py`) clones the content and calls
+`initialize_permissions` for the re-running user only, and `_create_or_rerun_course`
+adds only the requester as instructor. The expectation comes from the BTR sheet's
+TC-00632; raised as [wg-build-test-release#617](https://github.com/openedx/wg-build-test-release/issues/617),
+suggesting a feature request if copying the team is wanted.
 
 **Where:** Studio's course re-run of a course under AuthZ, `main`.
 
