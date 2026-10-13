@@ -9,7 +9,7 @@ import {
   publishXBlock,
   updateAdvancedSettings,
 } from '../../../src/api';
-import { testId } from '../../../src/reporting';
+import { issue, testId } from '../../../src/reporting';
 import { waitForLearnerBlock } from '../../../src/steps';
 
 /**
@@ -65,7 +65,12 @@ test.describe(
     // annotatable text in a unit to take a note on.
     test(
       'takes a note on a unit’s text and lists it on the Notes page',
-      { annotation: testId('TC-00038') },
+      {
+        annotation: [
+          testId('TC-00038'),
+          issue('https://github.com/openedx/openedx-platform/issues/39223'),
+        ],
+      },
       async ({ request, config, contentCourse, ownSection, roundTripLearner }) => {
         test.fail(true, 'NOTES-001: the extracted HTML block is not annotatable');
         const unit = ownSection.units[0]!;
