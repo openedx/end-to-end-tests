@@ -64,11 +64,11 @@ measured, and issues are opened by hand from them.
 | `LIB-001`   | `openedx/edx-platform` (`delete_library`, content libraries v2) | **filed** - [#39117](https://github.com/openedx/openedx-platform/issues/39117), found in the Epic 10 probe — the per-test seeded libraries cannot be torn down; teardown is best effort |
 | `LIB-002`   | `openedx/frontend-app-course-authoring` (course "Review Content Updates" tab) | open, no `fixme` — review tab lags downstream sync under load; TC-00348 uses a fresh course + reload-poll, TC-00346 uses the unlagged unit-page path |
 | `LIB-003`   | `openedx/frontend-app-authoring` (library components page, `target-size` after publish) | open, no `fixme` — baselined on the `library-components` scan only; CI `main` only; TC-00321 passes |
-| `LIB-005`   | `openedx/frontend-app-authoring` (library MFE ships almost no test ids) | open, no `fixme` — anchors are Paragon event keys, `name`/`id` attributes and positions; every positional action waits for the request it must cause |
+| `LIB-005`   | `openedx/frontend-app-authoring` (library MFE controls distinguishable only by localized labels or position) | open, no `fixme` — anchors are Paragon event keys, `name`/`id` attributes and positions; every positional action waits for the request it must cause |
 | `LIB-004`   | `openedx/frontend-app-authoring` (library MFE: five serious axe rules) | open, no `fixme` — baselined as `LIBRARY_A11Y_BASELINE` on the library scans only |
 | `STUDIO-009` | `openedx/edx-platform` (Studio settings save endpoints renamed on `main`) | open, no `fixme` — the API client picks the route per release
 | `PLAT-009`  | `openedx/edx-platform` (course-home navigation view after a publish) | **filed** - [#39116](https://github.com/openedx/openedx-platform/issues/39116), `fixme` in `tests/studio/outline/sidebar.spec.ts` — 500 until the CMS worker outline task lands
-| `INSTR-001` | `openedx/frontend-app-instructor` (no test ids of its own)    | open, no `fixme` — selectors anchor on roles and structure
+| `INSTR-001` | `openedx/frontend-app-instructor` (controls distinguishable only by localized labels or position)    | open, no `fixme` — selectors anchor on roles and structure
 | `INSTR-002` | `openedx/edx-platform` (report generation returns no task id) | **filed** - [#39209](https://github.com/openedx/openedx-platform/issues/39209) (tracked here as [#114](https://github.com/openedx/end-to-end-tests/issues/114)), no `fixme` — the suite polls the report list instead
 | `INSTR-003` | `openedx/edx-platform` (`grading-config` is an HTML dump)     | **filed** - [#39212](https://github.com/openedx/openedx-platform/issues/39212) (tracked here as [#116](https://github.com/openedx/end-to-end-tests/issues/116)), no `fixme` — the suite reads the grading policy API instead
 | `INSTR-004` | `openedx/edx-platform` (course-home dates API omits a graded subsection) | **resolved** — by design: assignment dates are gated on the `course_experience.relative_dates` flag (default off); date extensions are asserted through `progress`
@@ -118,7 +118,7 @@ measured, and issues are opened by hand from them.
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | **resolved on `main`** — duplicate of [RecommenderXBlock#135](https://github.com/openedx/RecommenderXBlock/issues/135), fixed in 5.1.0 (tracked here as [#125](https://github.com/openedx/end-to-end-tests/issues/125)); `verawood` still pins 5.0.0; TC-00132 gated on `recommender-studio-settings`, declared for `main` only
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 | `ASPECTS-SEC-001` | `openedx/platform-plugin-aspects` (any signed-in user could get a Superset guest token) | **fixed** — [GHSA-hm6j-7x8q-5hqw](https://github.com/openedx/platform-plugin-aspects/security/advisories/GHSA-hm6j-7x8q-5hqw); TC-00552 asserts a learner is refused
-| `ASPECTS-001` | `openedx/frontend-app-aspects`, `openedx/frontend-plugin-aspects` (no test ids on the Reports tab; a few on the in-context sidebar) | open, shapes every anchor in `selectors/instructor-reports.ts` and `selectors/studio-analytics.ts`
+| `ASPECTS-001` | `openedx/frontend-app-aspects`, `openedx/frontend-plugin-aspects` (Reports tab and in-context controls distinguishable only by classes, labels or position) | open, shapes every anchor in `selectors/instructor-reports.ts` and `selectors/studio-analytics.ts`
 | `ASPECTS-005` | `openedx/tutor-contrib-aspects` (Course Comparison assets: Run Metrics "More details" files the org under the Course Run filter's id) | open, no `fixme` — TC-00559 asserts the link names the course and run
 | `ASPECTS-006` | `openedx/aspects-dbt` (video marts as insert-time materialized views) | **in progress** [177](https://github.com/openedx/aspects-dbt/pull/177), `fixme` on TC-00548 (the outcome is timing-dependent)
 | `ASPECTS-010` | `openedx/aspects-dbt` (`dim_learner_last_response` joins block names at insert time) | open, no `fixme` — TC-00547 finds its row by the problem's usage key
@@ -961,19 +961,23 @@ Measured on Tutor `main` (`overhangio/openedx:22.0.2-main`, edx-platform
 `b94dca4e`; `frontend-app-instructor-dashboard` `v2.0.0-alpha` build in
 `overhangio/openedx-mfe:22.0.0-main`).
 
-### `INSTR-001` — the instructor dashboard MFE ships no test ids of its own
+### `INSTR-001` — the instructor dashboard's controls can only be told apart by their localized labels
 
 **Where:** `frontend-app-instructor-dashboard`, every tab.
 
 **Finding:** the rendered dashboard carries only Paragon's own `data-testid`s
 (`data-table-container`, `dropdown`, …). Tabs, action buttons, modal fields and
-table controls have neither test ids nor stable `name`/`id` attributes in most
+table controls have no stable `name`/`id` attributes or distinguishing structure in most
 places (the Grading tab's problem-location input has no `name` at all), and
 every label is localized. The `specify-learner-field` / `specify-problem-field`
 ids that appear in the MFE's source exist only in its unit tests.
 
-**Suggested fix:** `data-testid`s on the tab links, the per-tab primary
-actions, modal form controls and table row actions, as the authoring MFE has.
+**Suggested fix:** structural, not test ids. Give form controls `name`s (the
+problem-location input has none) and label them programmatically; render the
+tabs as a `tablist` whose tabs carry `aria-controls`; put each tab's primary
+action and each modal in a labelled region (`aria-labelledby` its heading) so
+they are reached by structure rather than by position; give table row actions a
+column of their own. These also help assistive technology.
 
 **Coverage impact:** `src/config/selectors/instructor.ts` anchors on tab ids in
 URLs, the few `id`/`name` attributes that exist, Paragon structural classes and
@@ -1192,7 +1196,7 @@ migration stepper's library list scrolls without keyboard access).
 scan still guards these rules. Upstream ask: one issue per rule against the MFE.
 
 
-### `LIB-005` — the library-authoring MFE ships almost no test ids
+### `LIB-005` — the library-authoring MFE's controls can only be told apart by localized labels or position
 
 **Where:** `frontend-app-authoring`'s library tree (library page, sidebar,
 container pages, the course "Library Content" picker, the preview-changes
@@ -1206,9 +1210,12 @@ tab title and menu item is localized copy.
 anchors on Paragon tab `eventKey`s, `name` / `id` attributes, the few test ids
 and structural position, each with the label it stands in for; every action
 that clicks by position waits for the exact request it must cause and returns
-the response, so a mis-located control fails loudly. Upstream ask: test ids on
-the Add Content buttons, the preview-changes footer, the picker's library cards
-and the migration stepper's destination radios.
+the response, so a mis-located control fails loudly. Upstream ask (structural,
+not test ids): the Add Content buttons as a labelled group whose buttons carry
+their block type (e.g. a `value` or `name`), the preview-changes footer's
+actions with distinct `type`s or `name`s, the picker's library cards as list
+items keyed by library, and the migration stepper's destination radios with
+`value`s naming the destination.
 
 
 ### `LIB-006` — revoking library reuse by toggle: not reproduced on this target
@@ -1472,7 +1479,7 @@ Measured on Tutor `main` with openedx-authz 1.23.0 and the admin-console MFE it
 ships; `verawood` runs 1.21.0. Where a finding decides how a case is written,
 the case names the ID.
 
-### `RBAC-001` — the admin console ships almost no test ids, and every label is localized
+### `RBAC-001` — the admin console's controls can only be told apart by their localized labels
 
 **Where:** `frontend-app-admin-console` (the Roles and Permissions console),
 `main` and `verawood`.
@@ -1487,8 +1494,11 @@ role", "Back to Studio").
 **Coverage impact:** open, no `fixme`. ADR-0002 forbids matching localized text,
 so `src/config/selectors/admin-console.ts` anchors on Paragon's own test ids,
 ARIA roles with no name, and structural classes, each documented with the label
-it stands in for and the release it was read on. Upstream ask: test ids on the
-tabs, the filter toggles, the row actions and the error views.
+it stands in for and the release it was read on. Upstream ask (structural, not
+test ids): tabs rendered as a `tablist` with `aria-controls`, filter toggles
+with a `name` or `value` naming the filter, row actions in a column of their
+own, and the error views as landmarks (`main` / `role="alert"`) with a stable
+`id`.
 
 ### `RBAC-002` — openedx-authz exposes no assignment rows for superusers or global staff
 
@@ -2348,14 +2358,15 @@ could hand a learner a guest token too, refuse anyone but the course's staff.
 learner and as an account with no enrollment, and expects 403 from each. A
 target on a vulnerable release fails it.
 
-### `ASPECTS-001` — the Reports tab ships no test ids, and the in-context sidebar only a few
+### `ASPECTS-001` — the Reports tab and the in-context Analytics controls can only be told apart by classes, labels or position
 
 **Where:** `frontend-app-aspects` (the instructor dashboard's Reports tab, as
 tutor-contrib-aspects 5.0.0 installs it) and `frontend-plugin-aspects` 3.0.1
 (Studio's in-context Analytics page and card buttons).
 
-**What happens:** the Reports tab renders no `data-testid` at all, and its
-heading, link text and dashboard names are translated. The in-context plugin
+**What happens:** the Reports tab has no structure that identifies its parts
+(no landmark, list or labelled region), and its heading, link text and
+dashboard names are translated. The in-context plugin
 marks its sidebar (`sidebar`, `sidebar-title`, through the authoring sidebar it
 plugs into), but not its element lists, its "Show more" toggle, its empty state
 or the outline cards' Analytics button.
@@ -2363,9 +2374,12 @@ or the outline cards' Analytics button.
 **Coverage impact:** open. The suite anchors on the Reports tab's own classes
 (`aspects-wrapper`, `aspects-superset-link`) and on the dashboard uuids the
 platform hands out, and in Studio on the sidebar's test ids plus Paragon's
-button classes. The card button is "the one medium icon button without a test
-id". Any restyle breaks these, which stable test ids would prevent (the
-`INSTR-001` pattern).
+button classes. The card button is the card header's one medium icon
+button that is neither Rename nor the menu. Any restyle breaks these. Upstream ask (structural, not test ids): the
+dashboard links as a list in a labelled region, the element lists as lists, the
+"Show more" toggle with `aria-controls` pointing at the list it expands, and the
+card button carrying an attribute naming what it opens (the `INSTR-001`
+pattern).
 
 ### `ASPECTS-005` — Course Comparison's Run Metrics "More details" link files the organization under the Course Run filter
 

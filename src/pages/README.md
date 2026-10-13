@@ -72,8 +72,9 @@ video, which plays in a cross-origin iframe.
 
 Rules:
 
-- Locator priority: test ID → stable attribute / role **without a localized
-  name** → structural CSS. Never the platform's displayed text (see
+- Locator priority: stable attribute / role **without a localized name** →
+  structural CSS → a test ID the app already ships. An ambiguous element is an
+  upstream ask for a structural fix, never for a new test ID. Never the platform's displayed text (see
   `ARCHITECTURE.md`); anchors come from `src/config/selectors/<surface>.ts`.
 - Wait for the _cause_ of a state change (a response, a URL), never for a fixed
   time; web-first, auto-retrying interactions.

@@ -6,10 +6,11 @@ import { testId } from '../../../src/reporting';
 /**
  * The Verawood Add sidebar on the outline and unit page (BTR TC-00491, 00496):
  * it opens with an Add New (default) and an Add Existing tab, and both are
- * reachable. The create controls and the library picker inside Add Existing carry
- * no stable test ids and the library-reference guard is a known upstream defect
- * (wg-build-test-release#587, the sheet's Failed note), so this asserts the
- * two-tab structure — the part that works — rather than driving a create.
+ * reachable. The create controls and the library picker inside Add Existing
+ * have no structure that tells them apart, and the library-reference guard is
+ * a known upstream defect (wg-build-test-release#587, the sheet's Failed note),
+ * so this asserts the two-tab structure — the part that works — rather than
+ * driving a create.
  *
  * Gated on `authoring-sidebar`; `studioAuthorSession` resolves last.
  */

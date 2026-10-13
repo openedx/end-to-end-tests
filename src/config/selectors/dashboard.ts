@@ -32,7 +32,9 @@ export const DASHBOARD_SELECTORS = {
    * it is always used scoped under a card locator, and a comma list would
    * silently drop that scoping from the second branch.
    *
-   * Still no test ID on it, so an upstream request remains warranted.
+   * Nothing structural tells it apart from other primary buttons, so an
+   * upstream ask remains warranted: one shape on every release, carrying the
+   * course it opens (e.g. a real link to the course home), not a test ID.
    */
   courseCardCta: 'a.btn-primary:is([role="button"], [href*="/course/"])',
 
