@@ -21,8 +21,9 @@ import { ADMIN_CONSOLE_A11Y_BASELINE, RBAC_TAGS } from '../helpers';
  * The sheet describes this block on the library console, with a "Server Error"
  * page offering *Reload Page* and *Back to Libraries*. This build reports a
  * failed list as a **toast with a retry** over an empty table, and its only
- * full-page error view is the 404 (`RBAC-004`), so each case is asserted
- * against what the console actually renders.
+ * full-page error view is for errors that reach its error boundary — by design,
+ * 500/502/503/408 are "transient" and toasted (`RBAC-004`) — so each case is
+ * asserted against what the console actually renders.
  *
  * The two cases that need the Team Members table take `authoringLibrary`
  * although they never look at it: creating it makes the author a
@@ -98,6 +99,7 @@ test.describe(
         annotation: [
           testId('TC-00442'),
           issue('https://github.com/openedx/wg-build-test-release/issues/605'),
+          issue('https://github.com/openedx/frontend-app-admin-console/issues/260'),
         ],
       },
       async ({ page, adminConsole, studioAuthorSession }) => {
@@ -121,7 +123,14 @@ test.describe(
 
     test(
       'reports a failed list, retries it once, and leaks nothing when the caller moves on',
-      { annotation: [testId('TC-00440'), testId('TC-00441'), testId('TC-00443')] },
+      {
+        annotation: [
+          testId('TC-00440'),
+          testId('TC-00441'),
+          testId('TC-00443'),
+          issue('https://github.com/openedx/wg-build-test-release/issues/619'),
+        ],
+      },
       async ({ page, adminConsole, authoringLibrary, studioAuthorSession }) => {
         void studioAuthorSession;
         void authoringLibrary;

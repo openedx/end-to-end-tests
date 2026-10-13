@@ -128,16 +128,18 @@ test.describe(
       },
     );
 
-    // AUTH-002: a unit cannot be selected from the outline (its card is fully
-    // covered by a navigating title link), so its Info panel cannot be reached
-    // there. The unit's Info is covered from the unit page by TC-00495.
+    // Not yet written. A unit *is* selectable from the outline: a click on its
+    // header's own blank space (between the title link and the actions) selects
+    // it (AUTH-002, resolved as not reproducing). The page object needs a
+    // `selectCard` for units that clicks there; until then the unit's Info is
+    // covered from the unit page by TC-00495.
     test.fixme(
       'shows a selected unit its Details from the outline',
       {
         annotation: [
           testId('TC-00489'),
           knownGap(
-            'AUTH-002: a unit is not selectable from the course outline; see docs/findings.md',
+            'Suite gap: selecting a unit from the outline needs a click on its header blank space (AUTH-002)',
           ),
         ],
       },

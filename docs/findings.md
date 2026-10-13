@@ -30,22 +30,24 @@ measured, and issues are opened by hand from them.
 | `BASE-001`  | `openedx/frontend-base` (shell header/footer)            | open, `test.fail` in `discovery.spec.ts`, gated `@frontend-base`               |
 | `RBAC-001`  | `openedx/frontend-app-admin-console`                     | open, shapes every anchor in `selectors/admin-console.ts`                      |
 | `RBAC-002`  | `openedx/openedx-authz`                                  | **duplicate** - [openedx-authz#347](https://github.com/openedx/openedx-authz/issues/347) (tracked here as [#127](https://github.com/openedx/end-to-end-tests/issues/127)), `fixme` in `team-members.spec.ts` (TC-00568) |
-| `RBAC-003`  | `openedx/frontend-app-admin-console`                     | open, asserted as an empty Role cell (the sheet's own note on TC-00619)        |
-| `RBAC-004`  | `openedx/frontend-app-admin-console`                     | open, TC-00440/00441/00443 asserted against what it does render                |
+| `RBAC-003`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#259](https://github.com/openedx/frontend-app-admin-console/issues/259) (tracked here as [#138](https://github.com/openedx/end-to-end-tests/issues/138)), asserted as an empty Role cell (the sheet's own note on TC-00619) |
+| `RBAC-004`  | `openedx/frontend-app-admin-console`                     | **resolved — by design** (2026-10-13), test plan: [wg-build-test-release#619](https://github.com/openedx/wg-build-test-release/issues/619) (tracked here as [#137](https://github.com/openedx/end-to-end-tests/issues/137)); TC-00440/00441/00443 asserted against what it does render |
 | `RBAC-005`  | `openedx/frontend-app-admin-console`                     | open, pager located by position instead                                        |
 | `RBAC-006`  | `openedx/frontend-app-admin-console`                     | open, three axe rules baselined for console scans                              |
 | `RBAC-007`  | `openedx/openedx-authz` + console                        | **filed** - [openedx-authz#526](https://github.com/openedx/openedx-authz/issues/526) (tracked here as [#126](https://github.com/openedx/end-to-end-tests/issues/126)), `knownGap` on TC-00567 |
-| `RBAC-008`  | `openedx/frontend-app-admin-console`                     | open (regression on `main`), TC-00442 gated on `rbac-error-view-action`        |
-| `RBAC-009`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00569                                              |
+| `RBAC-008`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#260](https://github.com/openedx/frontend-app-admin-console/issues/260) (tracked here as [#139](https://github.com/openedx/end-to-end-tests/issues/139)), regression on `main`; TC-00442 gated on `rbac-error-view-action` |
+| `RBAC-009`  | `openedx/frontend-app-admin-console`                     | **resolved — does not reproduce on `main`** (2026-10-13); a11y residue split out as `RBAC-018`; `fixme` sibling on TC-00569 |
+| `RBAC-018`  | `openedx/frontend-app-admin-console` (matrix row labels are not row headers) | open, not asserted — found while re-checking `RBAC-009` |
 | `RBAC-010`  | BTR test plan (TC-00573 draft clause)                    | **resolved** — by design: `view_library` serves drafts to every role; [wg#618](https://github.com/openedx/wg-build-test-release/issues/618) (tracked here as [#120](https://github.com/openedx/end-to-end-tests/issues/120)), `fixme` sibling on TC-00573 |
-| `RBAC-011`  | `openedx/frontend-app-authoring`                         | open, asserted as a 403 on the offered action (TC-00572)                       |
+| `RBAC-011`  | `openedx/frontend-app-authoring`                         | **filed** - [frontend-app-authoring#3310](https://github.com/openedx/frontend-app-authoring/issues/3310) (tracked here as [#132](https://github.com/openedx/end-to-end-tests/issues/132)), asserted as a 403 on the offered action (TC-00572) |
 | `RBAC-012`  | sheet vs platform (`openedx-authz` roles)                | open, platform's model asserted on TC-00571                                    |
-| `RBAC-013`  | `openedx/frontend-app-authoring`                         | open, `fixme` sibling on TC-00575                                              |
-| `RBAC-014`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00620                                              |
+| `RBAC-013`  | `openedx/frontend-app-authoring`                         | **filed** - [frontend-app-authoring#3311](https://github.com/openedx/frontend-app-authoring/issues/3311) (tracked here as [#133](https://github.com/openedx/end-to-end-tests/issues/133)), `fixme` sibling on TC-00575 |
+| `RBAC-014`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#258](https://github.com/openedx/frontend-app-admin-console/issues/258) (tracked here as [#136](https://github.com/openedx/end-to-end-tests/issues/136)), `fixme` sibling on TC-00620 |
 | `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | **filed** - [authz#521](https://github.com/openedx/openedx-authz/issues/521) (tracked here as [#118](https://github.com/openedx/end-to-end-tests/issues/118)), `fixme` sibling on TC-00640 |
 | `RBAC-016`  | BTR test plan (TC-00632 expectation)                     | **resolved** — by design: re-runs never copied the team; [wg#617](https://github.com/openedx/wg-build-test-release/issues/617) (tracked here as [#119](https://github.com/openedx/end-to-end-tests/issues/119)), `fixme` sibling on TC-00632 |
 | `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-matrix-parity` |
 | `AUTH-004`  | `openedx/frontend-app-authoring`                         | open, not asserted — Help topics are, their doc links are not                  |
+| `AUTH-005`  | `openedx/frontend-app-authoring` (outline card selection is mouse-only) | open, not asserted — found while re-measuring `AUTH-002` |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
 | `PLAT-004`  | `openedx/edx-platform` (`login_session`)                 | open, no `fixme` — the suite no longer makes the call                          |
 | `TUTOR-001` | `overhangio/tutor` (+ any plugin setting the old key)    | open, no `fixme` — handled by the `catalog-search` capability                  |
@@ -56,19 +58,19 @@ measured, and issues are opened by hand from them.
 | `STUDIO-004` | `openedx/frontend-app-course-authoring` (grading page a11y) | open, per-screen a11y tolerance in `tests/studio/settings/grading.spec.ts`  |
 | `PLAT-006`  | `openedx/edx-platform` (`course_details` PUT, `self_paced`)  | **filed** - [#39094](https://github.com/openedx/openedx-platform/issues/39094), no `fixme` — worked around in `updateCourseDetails`                      |
 | `STUDIO-005` | `openedx/edx-platform` (`/api/enrollment/v1/course` read staleness) | **resolved** — by design: a 60 s cache (`ENROLLMENT_COURSE_DETAILS_CACHE_TIMEOUT`); suite reads Studio `course_details` instead; TC-00298/TC-00299 pass |
-| `STUDIO-006` | `openedx/frontend-app-course-authoring` (certificates page empty without a cert-bearing mode) | worked around — suite adds an `honor` mode with the staff session; TC-00275/276/279 pass |
+| `STUDIO-006` | `openedx/frontend-app-course-authoring` (certificates page empty without a cert-bearing mode) | **resolved — does not reproduce** (2026-10-13): the page explains the missing mode; suite still adds an `honor` mode for the form; TC-00275/276/279 pass |
 | `STUDIO-007` | `openedx/frontend-app-course-authoring` (Import dropzone's file input has no label) | open, no `fixme` — a11y `label` baselined on the `studio-import` scan only; TC-00309 passes |
 | `STUDIO-008` | `openedx/frontend-app-course-authoring` (Custom Pages draggable list is a `<ul>` of `<div>`s) | open, no `fixme` — a11y `list` baselined on the `studio-custom-pages` scan only; TC-00237 passes |
 | `PLAT-007`  | `openedx/edx-platform` (Blocks API on a not-yet-started course) | **filed** - [#39115](https://github.com/openedx/openedx-platform/issues/39115), `fixme` planned in Epic 8 `future-dated.spec.ts` — learner readings use `course_metadata` instead |
 | `PLAT-008`  | `openedx/edx-platform` (subsection gating by completion) | **filed** - [#39114](https://github.com/openedx/openedx-platform/issues/39114), `fixme` in `tests/studio/outline/gating.spec.ts` (TC-00160)              |
 | `LIB-001`   | `openedx/edx-platform` (`delete_library`, content libraries v2) | **filed** - [#39117](https://github.com/openedx/openedx-platform/issues/39117), found in the Epic 10 probe — the per-test seeded libraries cannot be torn down; teardown is best effort |
-| `LIB-002`   | `openedx/frontend-app-course-authoring` (course "Review Content Updates" tab) | open, no `fixme` — review tab lags downstream sync under load; TC-00348 uses a fresh course + reload-poll, TC-00346 uses the unlagged unit-page path |
+| `LIB-002`   | `openedx/frontend-app-course-authoring` (course "Review Content Updates" tab) | **resolved — by design** (2026-10-13): async link creation, not a defect; TC-00348 uses a fresh course + reload-poll, TC-00346 uses the unlagged unit-page path |
 | `LIB-003`   | `openedx/frontend-app-authoring` (library components page, `target-size` after publish) | open, no `fixme` — baselined on the `library-components` scan only; CI `main` only; TC-00321 passes |
-| `LIB-005`   | `openedx/frontend-app-authoring` (library MFE controls distinguishable only by localized labels or position) | open, no `fixme` — anchors are Paragon event keys, `name`/`id` attributes and positions; every positional action waits for the request it must cause |
+| `LIB-005`   | `openedx/frontend-app-authoring` (library MFE controls distinguishable only by localized labels or position) | **filed** - [frontend-app-authoring#3309](https://github.com/openedx/frontend-app-authoring/issues/3309) (tracked here as [#131](https://github.com/openedx/end-to-end-tests/issues/131)), no `fixme` — anchors are Paragon event keys, `name`/`id` attributes and positions; every positional action waits for the request it must cause |
 | `LIB-004`   | `openedx/frontend-app-authoring` (library MFE: five serious axe rules) | open, no `fixme` — baselined as `LIBRARY_A11Y_BASELINE` on the library scans only |
 | `STUDIO-009` | `openedx/edx-platform` (Studio settings save endpoints renamed on `main`) | open, no `fixme` — the API client picks the route per release
 | `PLAT-009`  | `openedx/edx-platform` (course-home navigation view after a publish) | **filed** - [#39116](https://github.com/openedx/openedx-platform/issues/39116), `fixme` in `tests/studio/outline/sidebar.spec.ts` — 500 until the CMS worker outline task lands
-| `INSTR-001` | `openedx/frontend-app-instructor` (controls distinguishable only by localized labels or position)    | open, no `fixme` — selectors anchor on roles and structure
+| `INSTR-001` | `openedx/frontend-app-instructor` (controls distinguishable only by localized labels or position)    | **filed** - [frontend-app-instructor-dashboard#257](https://github.com/openedx/frontend-app-instructor-dashboard/issues/257) (tracked here as [#134](https://github.com/openedx/end-to-end-tests/issues/134)), no `fixme` — selectors anchor on roles and structure
 | `INSTR-002` | `openedx/edx-platform` (report generation returns no task id) | **filed** - [#39209](https://github.com/openedx/openedx-platform/issues/39209) (tracked here as [#114](https://github.com/openedx/end-to-end-tests/issues/114)), no `fixme` — the suite polls the report list instead
 | `INSTR-003` | `openedx/edx-platform` (`grading-config` is an HTML dump)     | **filed** - [#39212](https://github.com/openedx/openedx-platform/issues/39212) (tracked here as [#116](https://github.com/openedx/end-to-end-tests/issues/116)), no `fixme` — the suite reads the grading policy API instead
 | `INSTR-004` | `openedx/edx-platform` (course-home dates API omits a graded subsection) | **resolved** — by design: assignment dates are gated on the `course_experience.relative_dates` flag (default off); date extensions are asserted through `progress`
@@ -101,10 +103,10 @@ measured, and issues are opened by hand from them.
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
 | `LIB-006`   | `openedx/frontend-app-authoring` (TC-00422, wg-build-test-release#604) | **not reproduced** — case committed green on both targets
 | `AUTH-001`  | `openedx/frontend-app-authoring` (Verawood sidebar a11y)      | open, no `fixme` — baselined as `SIDEBAR_A11Y_BASELINE` on the sidebar scans only
-| `AUTH-002`  | `openedx/frontend-app-authoring` (unit card not selectable from the outline) | open, `fixme` in `tests/studio/sidebar/outline-info.spec.ts` (TC-00489)
+| `AUTH-002`  | `openedx/frontend-app-authoring` (unit card not selectable from the outline) | **resolved — does not reproduce** (2026-10-13): the header's blank space selects a unit; `fixme` in `tests/studio/sidebar/outline-info.spec.ts` (TC-00489) can lift
 | `AUTH-003`  | `openedx/frontend-app-authoring` (TC-00491/00496, wg-build-test-release#587/#578) | **not reproduced** — all three cases committed green on both targets
 | `TAG-001`   | `openedx/edx-platform` (author tagging its own course)        | **resolved** — no defect; the earlier 403 was a pre-migration course
-| `TAG-002`   | `openedx/frontend-app-authoring` (outline tag counts, wg-build-test-release#592) | open, no `fixme` — the drawer cases assert the API, never the badge
+| `TAG-002`   | `openedx/frontend-app-authoring` (outline tag counts, wg-build-test-release#592) | **filed** (card badge) - [frontend-app-authoring#3308](https://github.com/openedx/frontend-app-authoring/issues/3308) (tracked here as [#130](https://github.com/openedx/end-to-end-tests/issues/130)); course-level field **by design**; no `fixme` — the drawer cases assert the API, never the badge
 | `FILES-001` | `openedx/frontend-app-authoring` (TC-00137, frontend-app-authoring#3096) | **not reproduced** — case committed green on both targets
 | `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; copy asserted by URL resolution
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
@@ -113,7 +115,7 @@ measured, and issues are opened by hand from them.
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
 | `PLAT-011`  | `openedx/openedx-platform` (problem previews: MathJax renders an empty math element as an unlabelled `svg[role=img]`) | open, no `fixme` — the in-context Analytics scans cover only their panel; no other scan reaches a problem preview yet
-| `INSTR-009` | `openedx/frontend-app-instructor-dashboard` (allowance Delete sends a numeric user id) | open, `test.fail` on TC-00541's delete test
+| `INSTR-009` | `openedx/edx-platform` + `openedx/frontend-app-instructor-dashboard` (allowance Delete: numeric id ignored, failure shown as success) | **filed** - [openedx-platform#39228](https://github.com/openedx/openedx-platform/issues/39228) and [frontend-app-instructor-dashboard#258](https://github.com/openedx/frontend-app-instructor-dashboard/issues/258) (tracked here as [#135](https://github.com/openedx/end-to-end-tests/issues/135)), `test.fail` on TC-00541's delete test
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | **resolved on `main`** — duplicate of [RecommenderXBlock#135](https://github.com/openedx/RecommenderXBlock/issues/135), fixed in 5.1.0 (tracked here as [#125](https://github.com/openedx/end-to-end-tests/issues/125)); `verawood` still pins 5.0.0; TC-00132 gated on `recommender-studio-settings`, declared for `main` only
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
@@ -715,6 +717,15 @@ mode the MFE should not render a blank page — a disabled preview, or a clear
 "add a certificate-bearing mode first" call to action, would tell an author what
 to do. Nothing here is a suite `fixme` any more; this is the upstream UX gap.
 
+**Resolution (2026-10-13): does not reproduce — nothing to file.** Re-measured
+on the local `main` sandbox with an audit-only course: the page renders the
+"without modes" state, *"This course does not use a mode that offers
+certificates."*, plus the help sidebar. The authoring MFE has a component for
+exactly this (`certificate-without-modes/CertificateWithoutModes.tsx`, kept
+through the React Query migration in #3117). The 2026-09-09 reading of a blank
+page was wrong. The suite's `honor`-mode workaround stays: without a
+certificate-bearing mode there is, by design, no form to drive.
+
 **Remaining `fixme`s (unrelated to the mode):** TC-00277 (enable automatic
 certificate generation) toggles the `certificates.auto_certificate_generation`
 waffle switch in Django admin, which the MFE does not expose; TC-00278 (complete
@@ -979,6 +990,16 @@ action and each modal in a labelled region (`aria-labelledby` its heading) so
 they are reached by structure rather than by position; give table row actions a
 column of their own. These also help assistive technology.
 
+**Narrowed and filed (2026-10-13)** as
+[frontend-app-instructor-dashboard#257](https://github.com/openedx/frontend-app-instructor-dashboard/issues/257)
+(tracked here as [#134](https://github.com/openedx/end-to-end-tests/issues/134)), with only what was verified on `main` (2026-10-12):
+the problem-location input has no `name`; the override-score input's `name` is
+a translated string (`intl.formatMessage(...)`); the grading actions, the
+Single/All learner toggle (no `aria-pressed`), the report buttons and the
+certificate header buttons are plain buttons with no `value`. The tablist,
+labelled-region and modal suggestions above were not re-verified and are not
+part of the issue.
+
 **Coverage impact:** `src/config/selectors/instructor.ts` anchors on tab ids in
 URLs, the few `id`/`name` attributes that exist, Paragon structural classes and
 **button position**, and every page-object action waits for the exact
@@ -1158,6 +1179,20 @@ the downstream directly, not the search index), has no such lag. Upstream ask:
 back the Review tab with the downstreams API, or surface the index-staleness so a
 just-published update is not silently reported as "up to date".
 
+**Resolution (2026-10-13): by design — the diagnosis above was wrong.** On
+`master` the tab's "All components are up to date" and its out-of-sync list come
+from the entity-links API (`/api/contentstore/v2/downstreams/<course>/summary`
+and `?ready_to_sync=true`), which computes `ready_to_sync` live in the database
+from the upstream's published version against `version_synced`; the search
+index only supplies display details for those keys. What lags is the **link row
+itself**: adding a library block to a course creates it asynchronously
+(`XBLOCK_CREATED` → `handle_create_xblock_upstream_link.delay`), and until that
+task runs the course has no link to count. The single-downstream endpoint reads
+the block's own upstream fields, so it never lags. The delay shows only when a
+block is added and its library published within seconds while the CMS worker is
+backed up — the suite's pattern, not an author's. Nothing to file; the reload-poll
+stays.
+
 ### `LIB-003` — a sub-24px touch target on the library components page after a publish (CI `main` only)
 
 **Where:** the library-authoring MFE's components page (`/library/<key>/components`)
@@ -1210,12 +1245,16 @@ tab title and menu item is localized copy.
 anchors on Paragon tab `eventKey`s, `name` / `id` attributes, the few test ids
 and structural position, each with the label it stands in for; every action
 that clicks by position waits for the exact request it must cause and returns
-the response, so a mis-located control fails loudly. Upstream ask (structural,
-not test ids): the Add Content buttons as a labelled group whose buttons carry
-their block type (e.g. a `value` or `name`), the preview-changes footer's
-actions with distinct `type`s or `name`s, the picker's library cards as list
-items keyed by library, and the migration stepper's destination radios with
-`value`s naming the destination.
+the response, so a mis-located control fails loudly. Upstream ask (structural, not test ids): the Add Content buttons as a labelled group whose buttons carry their block type (a `value` or `name`), and the preview-changes footer's actions with a `value`/`name` naming the action.
+
+**Narrowed and filed (2026-10-13)** as
+[frontend-app-authoring#3309](https://github.com/openedx/frontend-app-authoring/issues/3309)
+(tracked here as [#131](https://github.com/openedx/end-to-end-tests/issues/131)). Re-checked on `master`: the picker's library
+radios (`name="selected-library" value=<library key>`) and the migration
+stepper's destination radios (`value=<library key>`) are already keyed, so they
+are not part of the ask. Two spots remain: `AddContentButton` does not expose
+its `blockType`, and the preview-changes footer's actions differ only by text
+and variant while the primary's meaning flips with the block's state.
 
 
 ### `LIB-006` — revoking library reuse by toggle: not reproduced on this target
@@ -1322,6 +1361,17 @@ the outline-side selection the case describes has no click point here. The two
 readings are not in conflict: the sheet exercised the unit page, which this
 suite also reaches, and left the outline path untested.
 
+**Resolution (2026-10-13): does not reproduce.** Re-measured on the local
+`main` sandbox (authoring MFE after the outline refactor, #3073): the unit
+card's header (`[data-testid="unit-card-header"]`) has its own `onClick`, and a
+click on its blank space between the title link and the action buttons (320 to
+520 px wide at 1600 px) has the header itself as the target, so it selects the
+unit (`outline-card-selected`) without navigating. Three of three units
+selected. The 2026-09-16 reading probed only the title, buttons and the empty
+content row. A maintainer said the same on frontend-app-authoring#3135. Nothing
+to file; TC-00489's `fixme` can lift once the page object clicks the header's
+blank space.
+
 ### `AUTH-003` — the sheet-failed Add-sidebar cases do not reproduce
 
 **Where:** the Add sidebar on the course outline and on the unit page
@@ -1360,8 +1410,21 @@ immediately, so none of them depends on the rendered badge. That is why all five
 course-level cases pass here while the sheet records them as partial: this suite
 does not read the surface the defect is on. Upstream ask: refresh the card badge
 and the course-level field from the same response the drawer already uses. If
-the badge is ever asserted, it must be polled after a reload, and the
-course-level field will fail until #592 is fixed.
+the badge is ever asserted, it must be polled after a reload.
+
+**Resolution (2026-10-13):** two different outcomes.
+
+- **Card badge — filed** as [frontend-app-authoring#3308](https://github.com/openedx/frontend-app-authoring/issues/3308)
+  (tracked here as [#130](https://github.com/openedx/end-to-end-tests/issues/130)). The drawer's mutation invalidates
+  `['contentTags', 'contentTagsCount', pattern]`, but the card's
+  `useContentTagsCount` queries `['contentTagsCount', pattern]`; React Query
+  matches by prefix, so the card's query is never invalidated.
+- **Course-level field — by design.** The "Course Tags — Manage Tags" header
+  field was removed in
+  [frontend-app-authoring#3005](https://github.com/openedx/frontend-app-authoring/pull/3005);
+  course tags are managed from the outline sidebar. The comments on
+  wg-build-test-release#592 confirm it, and the sheet's owner is updating the
+  cases.
 
 
 ## Epic 11 — Files / taxonomy admin findings (steps 7–11, 2026-09-16)
@@ -1537,6 +1600,16 @@ cell empty. This is the sheet's own note on TC-00619.
 of its `data-role` attribute, never by its text, and TC-00619 asserts the empty
 cell as the measured behaviour.
 
+
+**Filed (2026-10-13)** as
+[frontend-app-admin-console#259](https://github.com/openedx/frontend-app-admin-console/issues/259)
+(tracked here as [#138](https://github.com/openedx/end-to-end-tests/issues/138)). Re-checked on `master` (2026-10-12): the map still
+has ten roles; the user audit view's `RoleCell` still renders `''` for the
+three, while the Team Members table, redesigned in admin-console#222
+(2026-10-05), now falls back to the raw key (`course_beta_tester`). The issue
+also notes that the labels are hard-coded English, not `messages`. When TC-00619
+next runs against a console with #222, its Team Members `data-role` assertion
+may need to follow the redesign.
 ### `RBAC-004` — a failed list produces a toast with a retry, not a Server Error view
 
 **Where:** the console's Team Members tab, `main`.
@@ -1550,6 +1623,16 @@ build has neither. Its only full-page error view is the 404.
 **Coverage impact:** open, no `fixme`. The three cases are asserted against what
 the console actually renders — the alert with a retry, an empty table, exactly
 one retry request, and no alert after navigating away — under ADR-0003.
+
+**Resolution (2026-10-13): by design.** The console maps 500/502/503/408 to an
+`error-retry` toast on purpose (`ToastManagerContext.tsx`: "Transient
+(retryable) server errors"); its full-page `ErrorPage` (with Reload Page and
+*Back to Studio*) is for errors that reach the error boundary. TC-00440/00441/00443
+date from Ulmo (old RBAC-71/72/74) and have no Verawood result; raised with the
+test plan as [wg-build-test-release#619](https://github.com/openedx/wg-build-test-release/issues/619) (tracked here as [#137](https://github.com/openedx/end-to-end-tests/issues/137)), suggesting a
+feature request if the full-page view is wanted. Left as a minor note, not
+filed: the failed list's pager reads "of -1" (likely Paragon `Pagination` with
+`pageCount` 0).
 
 ### `RBAC-005` — both pager buttons carry the `previous` class
 
@@ -1606,6 +1689,14 @@ change, gated on the `rbac-error-view-action` capability — declared for
 nothing to drive. The regression is therefore visible as a capability `main`
 does not have, rather than as a permanently failing case.
 
+**Cause (2026-10-13), filed as** [frontend-app-admin-console#260](https://github.com/openedx/frontend-app-admin-console/issues/260)
+(tracked here as [#139](https://github.com/openedx/end-to-end-tests/issues/139)): the frontend-base migration (admin-console#210,
+merged via #227 on 2026-09-19) changed the button's destination from
+`` `${getConfig().COURSE_AUTHORING_MICROFRONTEND_URL}` `` to
+`getUrlByRouteRole('org.openedx.frontend.role.courseAuthoring') ?? undefined`.
+On Tutor `main` the authoring MFE is not an app of the frontend-base site, so
+the lookup returns nothing and the anchor gets no `href`.
+
 ### `RBAC-009` — the permission matrix loses its row labels sideways and offers no scroll to top
 
 **Where:** the console's Roles and Permissions tab, `main`.
@@ -1619,6 +1710,30 @@ switches). TC-00569 asks for both.
 **Coverage impact:** open. The clauses this build does implement are asserted
 green; the two missing ones are a `fixme` + `knownGap` sibling carrying the same
 test id, written as the case asks.
+
+**Resolution (2026-10-13): does not reproduce on `master` — nothing to file.**
+The tab does have a scroll-to-top control: `AnchorButton`
+(`components/AnchorButton.tsx`, in `RolesPermissions.tsx`) appears once the page
+has scrolled more than 300 px, which the 2026-09-22 reading never did. And since
+#250 (2026-10-12) the matrix is 432 px at min-content, so it scrolls sideways —
+and loses its row labels — only on `xs` (phone-width) screens. The accessibility
+residue is split out as `RBAC-018`.
+
+### `RBAC-018` — the permission matrix's row labels are not row headers
+
+**Where:** the console's Roles and Permissions tab
+(`src/authz-module/components/PermissionTable.tsx`), `master` (2026-10-12).
+
+**What happens:** each permission's label is a plain `<td class="d-flex …">`,
+not a `<th scope="row">`, while the role columns are `<th>`s. A screen reader
+moving through the ✓/✗ cells hears the role (column header) but not the
+permission (no row header), so the matrix cannot be read cell by cell. WCAG
+1.3.1 (Info and Relationships). `d-flex` on a table cell also takes it out of
+table layout, which is part of why making it sticky is awkward.
+
+**Coverage impact:** open, not asserted. Upstream ask (structural): render the
+label cell as `<th scope="row">` (layout inside it with an inner wrapper), and
+the group rows' labels as headers too (`<th scope="rowgroup" colspan=…>`).
 
 ### `RBAC-010` — a `library_user` sees draft content
 
@@ -1654,7 +1769,15 @@ sends `POST blocks/<key>/publish/`, which answers **403**, and the item stays a
 draft. The library-level "Publish All" is correctly hidden from this role, so
 only the per-item control is wrong.
 
-**Coverage impact:** open, no `fixme`. TC-00572 drives the click and asserts the
+**Cause (2026-10-13):** the item-level half of
+[openedx-authz#139](https://github.com/openedx/openedx-authz/issues/139), whose fix
+(frontend-app-authoring#2685) added `canPublish` to `LibraryContext` and gated
+only the library-level "Publish All". `ComponentInfo` renders `PublishDraftButton`
+under `!readOnly` alone, and `ContainerInfo` with no permission check.
+
+**Coverage impact:** filed as
+[frontend-app-authoring#3310](https://github.com/openedx/frontend-app-authoring/issues/3310)
+(tracked here as [#132](https://github.com/openedx/end-to-end-tests/issues/132)), no `fixme`. TC-00572 drives the click and asserts the
 403 and the unchanged draft — the platform decides, and a control that cannot
 work is the case's real risk.
 
@@ -1681,7 +1804,14 @@ state (`#toast-root` stays empty). TC-00575 and openedx-authz#239's acceptance
 criteria both ask for a success message (and an error message with a retry on
 failure).
 
-**Coverage impact:** open. TC-00575 reads the outcome from the API and the
+**Corrected (2026-10-13):** "in either direction" overstated it. On `master`
+`PublicReadToggle` (#2942) disables the switch while the save is pending and
+shows an error toast on failure; what is missing is the **success** toast (it
+only calls `showToast` in the `.catch`) and the error toast's Retry action.
+
+**Coverage impact:** filed as
+[frontend-app-authoring#3311](https://github.com/openedx/frontend-app-authoring/issues/3311)
+(tracked here as [#133](https://github.com/openedx/end-to-end-tests/issues/133)). TC-00575 reads the outcome from the API and the
 outsider's picker; the message clause is a `fixme` + `knownGap` sibling.
 
 ### `RBAC-014` — the console cannot remove a **course**-scope assignment
@@ -1699,6 +1829,18 @@ assignments are removable from the same view.
 and asserts both systems clear; a `fixme` + `knownGap` sibling carries the
 console path. This is the mirror image of wg#603 — there the console offers an
 action the platform refuses, here it refuses one the platform allows.
+
+**Re-measured and filed (2026-10-13)** as
+[frontend-app-admin-console#258](https://github.com/openedx/frontend-app-admin-console/issues/258)
+(tracked here as [#136](https://github.com/openedx/end-to-end-tests/issues/136)). Not the console's deliberate flag gate (its
+ADR-0003 disables course actions where course authoring is off): within one page
+load the course was in `waffle-flag-states` `course_overrides.on` and
+`validate/me` allowed `courses.manage_course_team`, yet the row rendered the
+`DisabledCourseActionButton` branch, so `isCourseEnabled(scope)` resolved
+`false`. Suspected cause, not confirmed: the cell is rendered from the flag
+hook's loading state (everything `false`) and not re-rendered. The held case's
+body is complete; it was run once as a plain `test` to measure this and still
+fails at `toBeEnabled()`.
 
 ### `RBAC-015` — an organization-level override blocks course creation for legacy creators
 
@@ -1796,6 +1938,27 @@ running. It now asserts the **topics**, which every build renders; whether a
 topic links out depends on the installation's docs URLs, and a deployment-agnostic
 suite cannot require them. The Settings tab's links are a different thing — MFE
 routes, not docs — and are still asserted.
+
+### `AUTH-005` — outline cards can only be selected with a mouse
+
+**Where:** the authoring MFE's course outline, section, subsection and unit
+cards, `main` (measured 2026-10-13 on the local sandbox).
+
+**What happens:** a card is selected — highlighted, with its Info sidebar
+opened — by a click handler on plain `div`s: the card header
+(`*-card-header`, `class="item-card-header"`, no `role`, no `tabindex`) and the
+card's content row, each acting only when the click lands on the element itself
+(`e.target === e.currentTarget`). Neither is focusable or exposes a role, so a
+keyboard or screen-reader user has no way to select a card; the focusable
+controls inside it (the title link, which navigates; the edit and menu buttons)
+do other things. On a unit card the only mouse target is the header's blank
+space between the title and the actions (see `AUTH-002`).
+
+**Coverage impact:** open, not asserted. Upstream ask (structural): make
+selection an interactive element — a button (or `role="button"` with
+`tabindex="0"` and Enter/Space handling) per card, or the cards as a
+`listbox`/`tree` with `aria-selected` — rather than a click on a non-interactive
+container.
 
 ### `NOTIF-001` — a cadence change without a channel answers 500
 
@@ -2281,8 +2444,16 @@ e-mail, finds none, and answers **200** with
 MFE treats the 200 as done, and the allowance stays, both in the API's list and
 in the table after a reload. Measured on local `main` (2026-09-24).
 
-**Coverage impact:** open. TC-00541's add and edit test passes; its delete test
-is a `test.fail` that lifts itself when the fix lands.
+**Cause (2026-10-13):** split across two repos. The platform's own API spec
+(`ExamAllowanceDeleteRequest.user_ids`) allows *"usernames, emails, or numeric
+user IDs"*, but the view resolves each entry with
+`get_user_by_username_or_email(str(...))`, so the MFE's numeric id is never
+found; the MFE then ignores the 200's per-row `results` and closes as if done.
+
+**Coverage impact:** filed as [openedx-platform#39228](https://github.com/openedx/openedx-platform/issues/39228) (server) and
+[frontend-app-instructor-dashboard#258](https://github.com/openedx/frontend-app-instructor-dashboard/issues/258) (MFE), tracked here as [#135](https://github.com/openedx/end-to-end-tests/issues/135). TC-00541's add and
+edit test passes; its delete test is a `test.fail` that lifts itself when either
+fix lands.
 
 ### `XBLOCK-002` — on `verawood` the recommender's Studio editor forgets its settings
 
