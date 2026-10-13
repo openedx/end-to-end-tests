@@ -5,7 +5,7 @@ import {
   listLearnerCertificates,
   type LearnerCertificate,
 } from '../../../src/api';
-import { testId } from '../../../src/reporting';
+import { issue, testId } from '../../../src/reporting';
 import {
   earnCertificate,
   passCertificateCourse,
@@ -94,7 +94,13 @@ test.describe(
     // install with no marketing site (`CERT-002`).
     test(
       'renders the certificate for the learner and the course',
-      { tag: '@certificate-web-view', annotation: testId('TC-00033') },
+      {
+        tag: '@certificate-web-view',
+        annotation: [
+          testId('TC-00033'),
+          issue('https://github.com/openedx/openedx-platform/issues/39222'),
+        ],
+      },
       async ({ config, certificateCourse, certificateLearner }) => {
         const learner = certificateLearner;
         const webView = await earnedWebView(learner, config, certificateCourse);

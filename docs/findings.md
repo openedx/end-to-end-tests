@@ -24,17 +24,17 @@ measured, and issues are opened by hand from them.
 | `PLAT-001`  | `openedx/edx-platform` (completion-on-view)              | **filed**  - [#459](https://github.com/openedx/completion/issues/459), blocks the 100%-completion crawl                                         |
 | `PLAT-002`  | `openedx/edx-platform` (video handlers) + `overhangio/tutor` (demo transcripts) | **filed** - [#39211](https://github.com/openedx/openedx-platform/issues/39211) and [tutor#1506](https://github.com/overhangio/tutor/issues/1506) (tracked here as [#115](https://github.com/openedx/end-to-end-tests/issues/115)), no `fixme` — playback is not asserted |
 | `PLAT-003`  | `openedx/edx-platform` / `frontend-app-learning` (video) | **superseded** — HTML5 videos are drivable (issue #41); `fixme` lifted, only YouTube-only videos remain out of reach |
-| `DEMO-002`  | `openedx/openedx-demo-course`                            | open, blocks any passing-grade coverage (corrected)                            |
+| `DEMO-002`  | `openedx/openedx-demo-course`                            | **resolved — not a content defect** (2026-10-13); suite-side: import an answer key |
 | `CAT-160`   | `openedx/frontend-app-catalog`                           | **filed** — [#160](https://github.com/openedx/frontend-app-catalog/issues/160) |
 | `CAT-161`   | `openedx/frontend-app-catalog`                           | **filed** — [#161](https://github.com/openedx/frontend-app-catalog/issues/161) |
 | `BASE-001`  | `openedx/frontend-base` (shell header/footer)            | open, `test.fail` in `discovery.spec.ts`, gated `@frontend-base`               |
 | `RBAC-001`  | `openedx/frontend-app-admin-console`                     | open, shapes every anchor in `selectors/admin-console.ts`                      |
-| `RBAC-002`  | `openedx/openedx-authz`                                  | open, `fixme` in `team-members.spec.ts` (TC-00568)                             |
+| `RBAC-002`  | `openedx/openedx-authz`                                  | **duplicate** - [openedx-authz#347](https://github.com/openedx/openedx-authz/issues/347) (tracked here as [#127](https://github.com/openedx/end-to-end-tests/issues/127)), `fixme` in `team-members.spec.ts` (TC-00568) |
 | `RBAC-003`  | `openedx/frontend-app-admin-console`                     | open, asserted as an empty Role cell (the sheet's own note on TC-00619)        |
 | `RBAC-004`  | `openedx/frontend-app-admin-console`                     | open, TC-00440/00441/00443 asserted against what it does render                |
 | `RBAC-005`  | `openedx/frontend-app-admin-console`                     | open, pager located by position instead                                        |
 | `RBAC-006`  | `openedx/frontend-app-admin-console`                     | open, three axe rules baselined for console scans                              |
-| `RBAC-007`  | `openedx/openedx-authz` + console                        | open, `knownGap` on TC-00567                                                   |
+| `RBAC-007`  | `openedx/openedx-authz` + console                        | **filed** - [openedx-authz#526](https://github.com/openedx/openedx-authz/issues/526) (tracked here as [#126](https://github.com/openedx/end-to-end-tests/issues/126)), `knownGap` on TC-00567 |
 | `RBAC-008`  | `openedx/frontend-app-admin-console`                     | open (regression on `main`), TC-00442 gated on `rbac-error-view-action`        |
 | `RBAC-009`  | `openedx/frontend-app-admin-console`                     | open, `fixme` sibling on TC-00569                                              |
 | `RBAC-010`  | BTR test plan (TC-00573 draft clause)                    | **resolved** — by design: `view_library` serves drafts to every role; [wg#618](https://github.com/openedx/wg-build-test-release/issues/618) (tracked here as [#120](https://github.com/openedx/end-to-end-tests/issues/120)), `fixme` sibling on TC-00573 |
@@ -73,12 +73,12 @@ measured, and issues are opened by hand from them.
 | `INSTR-003` | `openedx/edx-platform` (`grading-config` is an HTML dump)     | **filed** - [#39212](https://github.com/openedx/openedx-platform/issues/39212) (tracked here as [#116](https://github.com/openedx/end-to-end-tests/issues/116)), no `fixme` — the suite reads the grading policy API instead
 | `INSTR-004` | `openedx/edx-platform` (course-home dates API omits a graded subsection) | **resolved** — by design: assignment dates are gated on the `course_experience.relative_dates` flag (default off); date extensions are asserted through `progress`
 | `INSTR-005` | `openedx/frontend-app-instructor` (prohibited ARIA attribute) | open, no `fixme` — baselined on the instructor scans only
-| `NOTIF-001` | `openedx/edx-platform` (`v3/configurations/` PUT, e-mail cadence) | open, no `fixme` — the client always sends `notification_channel`
-| `NOTIF-002` | `edx-ora2` (staff grader `initialize` as a learner)           | open, no `fixme` — not asserted; the suite only calls it as staff
+| `NOTIF-001` | `openedx/edx-platform` (`v3/configurations/` PUT, e-mail cadence) | **filed** - [openedx-platform#39221](https://github.com/openedx/openedx-platform/issues/39221) (tracked here as [#121](https://github.com/openedx/end-to-end-tests/issues/121)), no `fixme` — the client always sends `notification_channel`
+| `NOTIF-002` | `edx-ora2` (staff grader `initialize` as a learner)           | **filed** - [edx-ora2#2460](https://github.com/openedx/edx-ora2/issues/2460) (tracked here as [#129](https://github.com/openedx/end-to-end-tests/issues/129)), no `fixme` — not asserted; the suite only calls it as staff
 | `NOTIF-003` | `openedx/frontend-app-account` (preference switches have no names) | **filed** - [#1464](https://github.com/openedx/frontend-app-account/issues/1464) (tracked here as [#49](https://github.com/openedx/end-to-end-tests/issues/49)), a11y `label` baselined on the preference-centre scan only; TC-00472 passes
 | `NOTIF-004` | `openedx/edx-platform` (`send_email_digest` is a no-op)       | open, `fixme` + `knownGap` on TC-00478 / TC-00480
 | `DISC-001`  | `openedx/frontend-app-discussions` (post list ARIA)           | open, no `fixme` — two axe rules baselined on the discussions scans only
-| `DISC-002`  | `openedx/forum` (DELETE of a missing thread)                  | open, no `fixme` — suite deletes each thread once
+| `DISC-002`  | `openedx/edx-platform` (DELETE of a missing thread; forum v2 error not mapped) | **filed** - [openedx-platform#39225](https://github.com/openedx/openedx-platform/issues/39225) (tracked here as [#128](https://github.com/openedx/end-to-end-tests/issues/128)), no `fixme` — suite deletes each thread once
 | `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing and course About scans only (`SHELL_CHROME_A11Y_BASELINE`)
 | `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | open, `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
 | `BASE-006`  | `openedx/frontend-base` (`updateSiteLanguage` races its own two requests) | open, runtime `fixme` on TC-00066 where the Account page renders in the shell (`KNOWN_CHROME_DEFECTS`, intermittent)
@@ -89,10 +89,10 @@ measured, and issues are opened by hand from them.
 | `FP-001`    | `openedx/frontend-platform` (`<html lang>` never follows the chosen language) | open, `test.fail` on TC-00066's page-language test wherever a legacy header renders one of its pages (`KNOWN_CHROME_DEFECTS`)
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
 | `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
-| `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | open, `test.fail` on TC-00038's take-a-note test
+| `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | **filed** - [openedx-platform#39223](https://github.com/openedx/openedx-platform/issues/39223) (tracked here as [#123](https://github.com/openedx/end-to-end-tests/issues/123)), `test.fail` on TC-00038's take-a-note test
 | `FOOTER-001` | `openedx/frontend-component-footer` (no legal / copyright line) | open, no `fixme` — TC-00063 and TC-00064 run only where the shell renders the footer (`@frontend-base`)
-| `DEMO-003`  | `openedx/openedx-demo-course` (no effort estimates)             | open, no `fixme` — TC-00027 runs on a video-free course of the suite's own
-| `CERT-002`  | `openedx/edx-platform` (certificate web view 500 without a marketing site; regression on `master`) | open, TC-00033's render test gated on `certificate-web-view` (undeclared on `main`)
+| `DEMO-003`  | `openedx/edx-platform` (no effort estimates for courses with external videos) | **filed** - [openedx-platform#39224](https://github.com/openedx/openedx-platform/issues/39224) (tracked here as [#124](https://github.com/openedx/end-to-end-tests/issues/124)), no `fixme` — TC-00027 runs on a video-free course of the suite's own
+| `CERT-002`  | `openedx/edx-platform` (certificate web view 500 without a marketing site; regression on `master`) | **filed** - [openedx-platform#39222](https://github.com/openedx/openedx-platform/issues/39222) (tracked here as [#122](https://github.com/openedx/end-to-end-tests/issues/122)), TC-00033's render test gated on `certificate-web-view` (undeclared on `main`)
 | `PROF-002`  | `openedx/frontend-app-profile` (no certificate-visibility control, wg#582) | **filed** — [wg#582](https://github.com/openedx/wg-build-test-release/issues/582), declarative `fixme` + `knownGap` on TC-00067's UI test
 | `PROF-003`  | `openedx/frontend-app-profile` (empty country list, wg#575)   | **filed** — [wg#575](https://github.com/openedx/wg-build-test-release/issues/575), `test.fail` on TC-00068's add-a-location test
 | `PROF-004`  | `openedx/frontend-app-profile` (unnamed icon buttons at phone width) | open, no `fixme` — `button-name` baselined on the profile scans only (`PROFILE_A11Y_BASELINE`)
@@ -115,7 +115,7 @@ measured, and issues are opened by hand from them.
 | `PLAT-011`  | `openedx/openedx-platform` (problem previews: MathJax renders an empty math element as an unlabelled `svg[role=img]`) | open, no `fixme` — the in-context Analytics scans cover only their panel; no other scan reaches a problem preview yet
 | `INSTR-009` | `openedx/frontend-app-instructor-dashboard` (allowance Delete sends a numeric user id) | open, `test.fail` on TC-00541's delete test
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
-| `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | fixed upstream in 5.1.0 (`main`); TC-00132 gated on `recommender-studio-settings`, declared for `main` only
+| `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | **resolved on `main`** — duplicate of [RecommenderXBlock#135](https://github.com/openedx/RecommenderXBlock/issues/135), fixed in 5.1.0 (tracked here as [#125](https://github.com/openedx/end-to-end-tests/issues/125)); `verawood` still pins 5.0.0; TC-00132 gated on `recommender-studio-settings`, declared for `main` only
 | `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 | `ASPECTS-SEC-001` | `openedx/platform-plugin-aspects` (any signed-in user could get a Superset guest token) | **fixed** — [GHSA-hm6j-7x8q-5hqw](https://github.com/openedx/platform-plugin-aspects/security/advisories/GHSA-hm6j-7x8q-5hqw); TC-00552 asserts a learner is refused
 | `ASPECTS-001` | `openedx/frontend-app-aspects`, `openedx/frontend-plugin-aspects` (no test ids on the Reports tab; a few on the in-context sidebar) | open, shapes every anchor in `selectors/instructor-reports.ts` and `selectors/studio-analytics.ts`
@@ -225,6 +225,18 @@ and a learner exploring it cannot currently see a worked answer for most of them
 `progress.spec.ts`, and the epic's "`is_passing == true`" criterion cannot be met
 on this course. The `revealAnswer()` path now exists on `ProblemBlock` and works,
 so the fixme lifts as soon as the content allows a pass.
+
+**Resolution (2026-10-13): not a content defect.** A learner who answers the
+problems passes: Basic (0.30) and Intermediate (0.35) alone clear the 0.5 mark,
+and `showanswer: finished` revealing an answer only after a correct one (with
+unlimited attempts and no due dates) is ordinary platform behaviour and a course
+author's choice. What is missing is an answer key in the suite, which only scores
+answers Show Answer reveals. One exists:
+[`bmtcril/demo_course_playwright`](https://github.com/bmtcril/demo_course_playwright)
+(Apache-2.0) solves every graded problem and reaches a passing grade
+(`UNIT_ANSWERS` in `tests/demo-course.spec.ts`, keyed by unit position; import it
+keyed by block usage key instead). Nothing is filed upstream; the `fixme` lifts
+when the suite carries that key.
 
 **Also recorded:** 2 of the 29 problems offer demand hints (`button.hint-button`,
 panel `.problem-hint .notification-hint`, `.is-hidden` toggled). Those anchors are
@@ -1488,8 +1500,17 @@ platform-level row appears in `assignments/` either. The console can only render
 what the API returns, so its "platform-managed" treatment of Super Admin and
 Global Staff rows has no subject on this target.
 
-**Coverage impact:** open. TC-00568 is held as `fixme` + `knownGap`; re-check on
-a release that returns those rows.
+**Cause (2026-10-13):** deliberate and temporary.
+[openedx-authz#345](https://github.com/openedx/openedx-authz/pull/345) dropped the
+staff/superuser rows (`SuperAdminAssignmentData`, not Casbin-backed, so they
+bypassed every filter) from `assignments/` to unblock a release, and
+[openedx-authz#347](https://github.com/openedx/openedx-authz/issues/347) tracks bringing them back with proper filtering. On `master`
+`get_superadmin_assignments()` has no callers, so the per-user endpoint returns
+none either; that is noted on #347.
+
+**Coverage impact:** duplicate of [openedx-authz#347](https://github.com/openedx/openedx-authz/issues/347)
+(tracked here as [#127](https://github.com/openedx/end-to-end-tests/issues/127)). TC-00568 is held as `fixme` + `knownGap`; lift it
+once #347 lands.
 
 ### `RBAC-003` — three migrated course roles render an empty Role cell
 
@@ -1545,7 +1566,7 @@ without failing it, exactly as the library MFE's debt is handled.
 
 ### `RBAC-007` — self-protection is a UI courtesy; the API allows self-revoke
 
-**Where:** the console's user audit view, and `PUT /api/authz/v1/roles/users/`.
+**Where:** the console's user audit view, and `DELETE /api/authz/v1/roles/users/`.
 
 **What happens:** the console omits the delete control on your own admin row
 (rather than disabling it with an explanatory tooltip, as the sheet describes),
@@ -1553,9 +1574,12 @@ and in a course-scope audit view the Actions cell is empty for your own row. The
 platform does not enforce the rule at all: a library admin revoking its own
 `library_admin` is answered `207 role_removed`.
 
-**Coverage impact:** open. TC-00567 asserts the console's behaviour and carries
-a `knownGap` recording that the API does not enforce it. Upstream ask: refuse
-the self-revoke server-side.
+**Coverage impact:** filed as
+[openedx-authz#526](https://github.com/openedx/openedx-authz/issues/526)
+(tracked here as [#126](https://github.com/openedx/end-to-end-tests/issues/126)). The rule comes from authz#54's acceptance
+criteria, which cover the UI only; `RoleUserAPIView.delete` has no self-check
+(unchanged in v1.32.1). TC-00567 asserts the console's behaviour and carries a
+`knownGap` recording that the API does not enforce it.
 
 ### `RBAC-008` — the 404 view's only action does nothing (a regression on `main`)
 
@@ -1772,9 +1796,18 @@ routes, not docs — and are still asserted.
 `validated_data['notification_channel']`: a `KeyError` in
 `_prepare_update_data`, answered as a bare 500. The account MFE always sends
 `notification_channel: "email_cadence"`, so it is only reachable through the
-API; a 400 naming the missing field is the expected answer.
+API.
 
-**Coverage impact:** open, no `fixme`. `setEmailCadence` always sends the
+**Root cause (2026-10-13):** the serializer allows this on purpose — its
+`validate()` only requires `notification_channel` when there is no
+`email_cadence` — and `_prepare_response_data` already infers
+`channel = 'email_cadence'`. `_prepare_update_data` and
+`_log_preference_update_event` do not, so the expected fix is to infer the
+channel there too (a 400 from the serializer is the alternative).
+
+**Coverage impact:** filed as
+[openedx-platform#39221](https://github.com/openedx/openedx-platform/issues/39221)
+(tracked here as [#121](https://github.com/openedx/end-to-end-tests/issues/121)), no `fixme`. `setEmailCadence` always sends the
 channel, and its doc comment names this finding.
 
 ### `NOTIF-002` — the ORA staff grader answers a learner with 500, not 403
@@ -1787,7 +1820,16 @@ channel, and its doc comment names this finding.
 do not have permission to access ORA staff grading…"}`. The permission check
 works; it is reported as a server error instead of a refusal.
 
-**Coverage impact:** open, no `fixme`. The suite only calls it as course staff
+**Root cause (2026-10-13):** the staff-grader json handlers
+(`openassessment/staffgrader/staff_grader_mixin.py`) use
+`@require_course_staff("STUDENT_GRADE")` without `with_json_handler=True`, so a
+non-staff caller gets `render_error()`: an HTML page with status 200. The
+platform's proxy (`lms/djangoapps/ora_staff_grader/ora_api.py`) fails to parse it
+as JSON and raises `XBlockInternalError`, answered as 500 `ERR_INTERNAL`.
+
+**Coverage impact:** filed as
+[edx-ora2#2460](https://github.com/openedx/edx-ora2/issues/2460)
+(tracked here as [#129](https://github.com/openedx/end-to-end-tests/issues/129)), no `fixme`. The suite only calls it as course staff
 (to find a submission's uuid for `staffAssessOra`).
 
 ### `NOTIF-003` — the preference centre's switches have no accessible names
@@ -1846,8 +1888,17 @@ backend), `main`.
 `get_thread` → `validate_object`), which the LMS answers as a bare **500**. A
 404 is the expected answer for a resource that is not there.
 
-**Coverage impact:** open, no `fixme`. `deleteThread` is not idempotent and says
-so; specs delete each thread exactly once, and TC-00029, whose last step deletes
+**Root cause (2026-10-13):** the platform, not the forum. `_get_thread_and_context`
+(`lms/djangoapps/discussion/rest_api/api.py`) maps a missing thread to
+`ThreadNotFoundError` (404) only on `CommentClientRequestError`, the old HTTP
+comments-service client's error; the comment client now calls the forum's
+Python API, which raises `ForumV2RequestError`, so it escapes. The module has
+four such `except` clauses.
+
+**Coverage impact:** filed as
+[openedx-platform#39225](https://github.com/openedx/openedx-platform/issues/39225)
+(tracked here as [#128](https://github.com/openedx/end-to-end-tests/issues/128)), no `fixme`. `deleteThread` is not idempotent and
+says so; specs delete each thread exactly once, and TC-00029, whose last step deletes
 its own post through the UI, has no teardown delete.
 
 ## Epic 14 — LMS learner completion findings (2026-09-23)
@@ -2025,7 +2076,11 @@ support, so a unit renders the notes tool's show/hide control and loads its
 scripts but no component is wrapped. There is no text a learner can select to
 take a note on, and the Notes page stays empty.
 
-**Coverage impact:** open. TC-00038 is split: the Notes tab, the "Show Notes"
+**Coverage impact:** filed as
+[openedx-platform#39223](https://github.com/openedx/openedx-platform/issues/39223)
+(tracked here as [#123](https://github.com/openedx/end-to-end-tests/issues/123)); an earlier fix,
+[openedx-platform#38014](https://github.com/openedx/openedx-platform/pull/38014),
+was closed unmerged. TC-00038 is split: the Notes tab, the "Show Notes"
 switch and the visibility round trip pass; "takes a note on a unit's text and
 lists it on the Notes page" is written to the intended behaviour and marked
 `test.fail`. The marker is unconditional: an install with
@@ -2088,7 +2143,11 @@ footer context defines `company_about_url`. `master` dropped that fallback —
 an unconfigured link is now `'#'` and `is_marketing_link_set('ABOUT')` is
 false — so the name is never defined. Verawood CI renders the certificate.
 
-**Coverage impact:** open. TC-00033 is split: "links View my certificate to the
+**Coverage impact:** filed as
+[openedx-platform#39222](https://github.com/openedx/openedx-platform/issues/39222)
+(tracked here as [#122](https://github.com/openedx/end-to-end-tests/issues/122)); the fallback went in
+[openedx-platform#38720](https://github.com/openedx/openedx-platform/pull/38720).
+TC-00033 is split: "links View my certificate to the
 issued certificate" passes everywhere; "renders the certificate for the learner
 and the course" is gated on the `certificate-web-view` capability, declared for
 every release but `main` (like `rbac-error-view-action` for `RBAC-008`), so it
@@ -2134,8 +2193,9 @@ link.
 
 ### `DEMO-003` — the demo course shows no effort estimates
 
-**Where:** `openedx/openedx-demo-course` on any install; the platform's
-`openedx/features/effort_estimation` transformer.
+**Where:** the platform's `openedx/features/effort_estimation` transformer and
+edx-val, on any install without the video upload pipeline; seen first on the
+demo course.
 
 **What happens:** the platform estimates a course's effort only when every
 video in it has a duration in edx-val; one video without one disables the
@@ -2144,7 +2204,22 @@ YouTube videos have no edx-val duration, so the outline API reports
 `effort_time: null` for all 17 subsections and the course home shows none.
 Suite-authored HTML5 videos have none either.
 
-**Coverage impact:** open, no `fixme`. TC-00027 runs on `videoFreeCourse`, a
+**Root cause (2026-10-13):** not the demo course's data. The transformer reads
+durations through `edxval.api.get_videos_for_course()`, which only returns
+videos linked to the course (`CourseVideo`), and edx-val never links an
+`external` video: `import_from_xml` marks a `<video_asset>` with no
+`<encoded_video>` profiles `external` with no courses even when it carries a
+duration, and Studio's `create_external_video` makes YouTube/URL videos
+`external` with duration 0. So no YouTube or HTML5-URL video can ever supply a
+duration, and **any** course with one gets no estimates. On the local sandbox
+all 18 edx-val rows are `external`, duration 0.0, linked to no course. Giving
+the demo course durations would not help. The all-or-nothing rule is
+deliberate (the transformer's docstring); the upstream issue asks whether
+excluding external videos is too.
+
+**Coverage impact:** filed as
+[openedx-platform#39224](https://github.com/openedx/openedx-platform/issues/39224)
+(tracked here as [#124](https://github.com/openedx/end-to-end-tests/issues/124)), no `fixme`. TC-00027 runs on `videoFreeCourse`, a
 worker course that never holds a video, where a 530-word text unit is estimated
 at two minutes.
 
@@ -2213,7 +2288,10 @@ sheet's note on TC-00132, "can't change settings". 5.1.0 renders the saved
 configuration. Measured in CI (2026-09-24): `main` passes, `verawood` reopens on
 `5`.
 
-**Coverage impact:** fixed on `main`. TC-00132 is gated on the
+**Coverage impact:** fixed on `main`; already reported as
+[RecommenderXBlock#135](https://github.com/openedx/RecommenderXBlock/issues/135)
+(tracked here as [#125](https://github.com/openedx/end-to-end-tests/issues/125)). `release/verawood` still pins 5.0.0 as of
+2026-10-13. TC-00132 is gated on the
 `recommender-studio-settings` capability, declared for `main` only, so the
 `verawood` gap is an undeclared capability. A `verawood.2` that picks up 5.1.0
 can declare it.
