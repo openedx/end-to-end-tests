@@ -8,10 +8,11 @@
  * Libraries page, the legacy-library migration stepper).
  *
  * Measured live on Tutor `main` (2026-09-15, `frontend-app-authoring`
- * `87cba01f`-era shell build). The MFE ships very few test ids in the library
- * tree (the card / sidebar kebab toggles, the sidebar, the block preview
- * iframe, two error alerts) — recorded as `LIB-005` — and every button label,
- * tab title and menu item is localized. So the anchors are Paragon tab
+ * `87cba01f`-era shell build). Few controls in the library tree have anything
+ * but their label or position to identify them — recorded as `LIB-005` (a few
+ * test ids exist: the card / sidebar kebab toggles, the sidebar, the block
+ * preview iframe, two error alerts) — and every button label, tab title and
+ * menu item is localized. So the anchors are Paragon tab
  * `eventKey`s (`data-rb-event-key`, not localized), `name` / `id` attributes,
  * the few test ids, structural containers (a button's position in a known
  * group), and **the request an action fires**: a page object clicks by

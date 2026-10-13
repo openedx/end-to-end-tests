@@ -2,15 +2,16 @@
  * Anchors for the **Roles and Permissions console** (the admin-console MFE,
  * served at the `ADMIN_CONSOLE_URL` the authoring MFE config advertises).
  *
- * The app ships **one** test id of its own (`toggle-scope-<key>`); everything
- * else in its DOM is Paragon's, and every label, tab title and tooltip is
- * localized copy the suite may not match (`RBAC-001`). So these anchor on, in
- * order: Paragon's own test ids, ARIA roles with no name, and structural
- * classes — each with a note naming the control it stands in for. Measured on
- * Tutor `main` with openedx-authz 1.23.0 (2026-09-21); the Team Members table
- * re-measured on `main` after frontend-app-admin-console#222 (2026-10-13), which
- * regrouped it from one row per assignment to one row per user. Both layouts are
- * anchored here: `release/verawood` keeps the first.
+ * Little in the app's DOM identifies a control except its localized label,
+ * tab title or tooltip, which the suite may not match (`RBAC-001`). So these
+ * anchor on ARIA roles with no name and structural classes, and, where nothing
+ * else tells a control apart, the test ids the app and Paragon already ship
+ * (`toggle-scope-<key>`, Paragon's `dropdown`) — each with a note naming the
+ * control it stands in for. Measured on Tutor `main` with openedx-authz 1.23.0
+ * (2026-09-21); the Team Members table re-measured on `main` after
+ * frontend-app-admin-console#222 (2026-10-13), which regrouped it from one row
+ * per assignment to one row per user. Both layouts are anchored here:
+ * `release/verawood` keeps the first.
  */
 export const ADMIN_CONSOLE_SELECTORS = {
   /** The console's route under its origin; `?scope=` presets the Scope filter. */
