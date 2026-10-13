@@ -159,6 +159,7 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
       annotation: [
         testId('TC-00572'),
         issue('https://github.com/openedx/wg-build-test-release/issues/589'),
+        issue('https://github.com/openedx/frontend-app-authoring/issues/3310'),
       ],
     },
     async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {

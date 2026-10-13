@@ -156,8 +156,10 @@ export const TIMEOUTS = {
   libraryMigration: 120_000,
   /**
    * The course Libraries "Review Content Updates" tab catching up with a
-   * downstream that already reports `ready_to_sync` — it is fed by the
-   * course-content search index, reindexed by Celery on publish. Measured
+   * downstream that already reports `ready_to_sync`. The tab counts the course's
+   * entity links, and a newly added library block's link row is created by a
+   * Celery task (`handle_create_xblock_upstream_link`); its card also needs the
+   * block in the course search index. Both queue behind other work. Measured
    * 2026-09-16 on Tutor `main`: ~30 s in a fresh course, past 60 s while other
    * publishes queue ahead of it (LIB-002); a reload-poll under this budget
    * passed at 4.8 min worst case.

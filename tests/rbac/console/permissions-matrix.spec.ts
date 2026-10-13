@@ -108,9 +108,10 @@ test.describe(
         annotation: [
           testId('TC-00569'),
           knownGap(
-            'The column headers are sticky, but the row-header column scrolls away horizontally and ' +
-              'the tab offers no scroll-to-top control (`RBAC-009`) — two clauses of the case this ' +
-              'build does not implement.',
+            'Suite gap: the row labels are not sticky, but since admin-console#250 the matrix ' +
+              'scrolls sideways only on phone-width screens, and the scroll-to-top control exists ' +
+              'but appears only after 300 px of page scroll (`RBAC-009`, resolved). This case ' +
+              'needs rewriting for both.',
           ),
         ],
       },
@@ -123,9 +124,11 @@ test.describe(
         // Implemented: the column headers stay put as the table scrolls.
         expect(await matrix.cellPosition(matrix.headers.first())).toBe('sticky');
 
-        // Asked for by the case, and missing: the row labels should stay in view
-        // when the matrix is scrolled sideways, and a control should return the
-        // reader to the top.
+        // Written before admin-console#250: the matrix now scrolls sideways only
+        // at `xs` widths, and the scroll-to-top button (`AnchorButton`) renders
+        // only after the window has scrolled 300 px, outside this panel. Both
+        // clauses need a narrow viewport and a page scroll to assert
+        // (`RBAC-009`, resolved; see .private/coverage_gaps.md).
         expect(await matrix.cellPosition(matrix.column(0).first())).toBe('sticky');
         await expect(matrix.panel.locator('button')).not.toHaveCount(
           await matrix.groupButtons.count(),
