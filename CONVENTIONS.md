@@ -90,11 +90,20 @@ Prefer stable, user-facing locators. **Never match on the target's displayed
 (localized) text** — installations run in different languages, so text-based
 locators break under a different site language. Priority order:
 
-1. **Test IDs** — `getByTestId(...)` where the app exposes them.
-2. **Stable attributes / roles** — `name` / `id` / `href` attributes, or
-   `getByRole('<role>')` **without** a localized `name`.
-3. **CSS containers** — only as a last resort, for language-independent structural
-   scoping.
+1. **Stable attributes / roles** — `name` / `id` / `href` attributes, or
+   `getByRole('<role>')` **without** a localized `name`, and the relationships
+   ARIA already declares (`aria-controls`, `aria-labelledby`, landmarks).
+2. **Structure** — language-independent CSS scoped from a stable container (a
+   landmark, a form, a dialog, a list and its items).
+3. **Existing test IDs** — `getByTestId(...)` only where the app already ships
+   one and nothing above identifies the element.
+
+We do not want test IDs in the platform's frontend code. When an element cannot
+be told apart from its neighbours, or a selector for it is flaky, the upstream
+ask (in `docs/findings.md` or an issue) is a **structural** change that
+disambiguates it — a semantic element or role, a landmark or labelled region, a
+unique `name`/`id`, an ARIA relationship — never a new `data-testid`. Such
+changes help assistive technology as well as the suite.
 
 Do **not** use `getByText`, `getByLabel`, `getByRole(..., { name: '<literal>' })`,
 `toContainText('<literal>')`, `hasText`, `:has-text()`, etc. against platform copy.

@@ -4,7 +4,7 @@
  * (which redirect to the MFE, whose mount path differs by release, so nothing
  * here depends on it).
  *
- * These pages carry almost no `data-testid`s, so anchors are the stable layout
+ * Little on these pages identifies a control but its label, so anchors are the stable layout
  * classes (`.export`, `.import`) and the shared course-stepper structure. Never
  * the step titles or button labels — those are localized.
  */

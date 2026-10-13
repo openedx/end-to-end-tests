@@ -1,8 +1,9 @@
 /**
  * Aspects' Reports tab inside the instructor dashboard MFE
  * (frontend-app-aspects, `ReportsDashboard`), at
- * `/instructor-dashboard/<course key>/aspects`. The app ships no test ids, and
- * its heading, link text and dashboard names are localized, so the anchors are
+ * `/instructor-dashboard/<course key>/aspects`. Its parts have no identifying
+ * structure (`ASPECTS-001`), and its heading, link text and dashboard names are
+ * localized, so the anchors are
  * its structural classes and the dashboard uuids the platform hands out.
  *
  * Measured on Tutor `main` with tutor-contrib-aspects 5.0.0 (2026-09-27).
