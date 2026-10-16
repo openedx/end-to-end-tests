@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "What the triage job's diagnosis writes to triage/out/triage.json. validate.py checks it against this file (a subset of JSON Schema: type, enum, required, properties, additionalProperties, items, minItems, maxItems, minLength, maxLength), then adds the fields the workflow owns: run, baseline, upstream_changes, fingerprint, rerun.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "verdict", "confidence", "title", "summary", "rerun_recommended", "failures"],
+  "properties": {
+    "schema": { "type": "integer", "enum": [1] },
+    "verdict": {
+      "type": "string",
+      "enum": ["spurious", "platform-regression", "test-defect", "environment", "mixed", "unknown"]
+    },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "title": { "type": "string", "minLength": 10, "maxLength": 100 },
+    "summary": { "type": "string", "minLength": 20, "maxLength": 2000 },
+    "rerun_recommended": { "type": "boolean" },
+    "failures": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["test", "category", "confidence", "error_shape", "fix_layer", "evidence"],
+        "properties": {
+          "test": { "type": "string", "minLength": 3, "maxLength": 300 },
+          "category": {
+            "type": "string",
+            "enum": ["spurious", "platform-regression", "test-defect", "environment", "unknown"]
+          },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+          "error_shape": { "type": "string", "maxLength": 300 },
+          "fix_layer": {
+            "type": "string",
+            "enum": ["spec", "page", "steps", "api", "fixture", "config", "ci", "upstream", "none", "unknown"]
+          },
+          "evidence": {
+            "type": "array",
+            "maxItems": 10,
+            "items": { "type": "string", "maxLength": 500 }
+          },
+          "suspect": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "repository": { "type": ["string", "null"], "maxLength": 200 },
+              "commit": { "type": ["string", "null"], "maxLength": 64 },
+              "compare_url": { "type": ["string", "null"], "maxLength": 300 },
+              "path": { "type": ["string", "null"], "maxLength": 300 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

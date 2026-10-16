@@ -122,11 +122,13 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "VARIANT=$(echo "$BUILD" | jq -r '.images')" >> "$GITHUB_ENV"
 
-      - name: Enable the profile's Tutor plugins (variants)
-        if: matrix.profile != ''
+      # Every build, stock or variant, also enables e2e_provenance, which
+      # records each MFE's upstream commit inside the MFE image for
+      # .ci/provenance.sh to read in the test jobs.
+      - name: Enable the profile's Tutor plugins and the provenance plugin
         uses: ./.github/actions/enable-profile-plugins
         with:
-          plugin-files: ${{ env.VARIANT_PLUGIN_FILES }}
+          plugin-files: ${{ env.VARIANT_PLUGIN_FILES }} .ci/tutor/e2e_provenance.py
           extensions: ${{ env.VARIANT_EXTENSIONS }}
 
       - name: Point Tutor at the ghcr.io image names
@@ -194,3 +196,16 @@ jobs:
         run: |
           # shellcheck disable=SC2086
           tutor images push ${!BUILD_IMAGES_VAR}
+
+      # The upstream commits these images were built from, for whoever reads
+      # the build's summary; the test jobs read the same from the images.
+      - name: Record provenance
+        run: |
+          set -euo pipefail
+          .ci/provenance.sh build-provenance.json
+          {
+            echo '### Built from'
+            echo '```json'
+            jq '{edx_platform, mfes, tutor_packages}' build-provenance.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
