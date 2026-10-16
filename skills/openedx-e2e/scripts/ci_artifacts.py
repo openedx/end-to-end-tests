@@ -3,17 +3,23 @@
 
 Zero dependencies beyond Python 3.9+ and an authenticated `gh` CLI.
 
-    ci_artifacts.py fetch   <run-url|run-id|pr-url|pr-number> [--dest DIR]
-    ci_artifacts.py summary <DIR>
-    ci_artifacts.py test    <DIR> <title-or-file-substring>
-    ci_artifacts.py logs    <DIR> [--service lms|cms|...] [--grep REGEX] [-C N]
-    ci_artifacts.py shards  <DIR>
+    ci_artifacts.py fetch      <run-url|run-id|pr-url|pr-number> [--dest DIR] [--attempt N]
+    ci_artifacts.py summary    <DIR>
+    ci_artifacts.py test       <DIR> <title-or-file-substring>
+    ci_artifacts.py logs       <DIR> [--service lms|cms|...] [--grep REGEX] [-C N]
+    ci_artifacts.py shards     <DIR>
+    ci_artifacts.py provenance <DIR> [--baseline DIR] [--json]
 
 `fetch` writes `<DIR>/run.json` plus one directory per artifact
 (`playwright-report-<release>/`, `suite-reports-<release>/`,
 `tutor-logs-<release>-<profile>-<shard>/`) and the full runner log of every failed job
 (`job-<id>.log`, ANSI stripped). Re-run attempts re-upload artifacts under the same name;
-by default only the newest copy of each name is kept.
+by default only the newest copy of each name is kept, and `--attempt N` keeps
+only what attempt N uploaded.
+
+`provenance` lists what a run tested (this repo's commit, edx-platform, each
+MFE, the Tutor packages, image digests) from each shard's `provenance.json`;
+with `--baseline` it prints what changed between two runs, with compare URLs.
 
 The Playwright HTML report has no sibling JSON: the machine-readable report is
 a zip embedded as base64 inside `playwright-report/index.html`. `summary` and
@@ -52,6 +58,21 @@ def gh_json(path: str, repo: str):
     return json.loads(sh('gh', 'api', f'repos/{repo}/{path}', '--paginate'))
 
 
+def job_log(repo: str, job_id: int) -> str:
+    """A job's runner log. gh 2.9x+ refuses to print terminal escapes (the log is
+    full of ANSI colour) without --allow-escape-sequences, which older gh lacks."""
+    path = f'repos/{repo}/actions/jobs/{job_id}/logs'
+    proc = subprocess.run(['gh', 'api', '--allow-escape-sequences', path], capture_output=True, text=True, check=False)
+    if proc.returncode != 0 and 'unknown flag' in proc.stderr:
+        return sh('gh', 'api', path, check=False)
+    return proc.stdout
+
+
+def gh_json_or_none(path: str, repo: str):
+    out = sh('gh', 'api', f'repos/{repo}/{path}', check=False)
+    return json.loads(out) if out.strip() else None
+
+
 # --------------------------------------------------------------------------- fetch
 
 
@@ -87,9 +108,21 @@ def fetch(args: argparse.Namespace) -> None:
     dest = Path(args.dest or Path(os.environ.get('TMPDIR', '/tmp')) / f'ci-run-{run_id}').resolve()
     dest.mkdir(parents=True, exist_ok=True)
 
-    run = gh_json(f'actions/runs/{run_id}', repo)
-    jobs = gh_json(f'actions/runs/{run_id}/jobs?per_page=100', repo)['jobs']
     artifacts = gh_json(f'actions/runs/{run_id}/artifacts?per_page=100', repo)['artifacts']
+    if args.attempt:
+        # The artifacts API has no attempt field: keep what was uploaded between
+        # this attempt's start and the next attempt's.
+        run = gh_json(f'actions/runs/{run_id}/attempts/{args.attempt}', repo)
+        jobs = gh_json(f'actions/runs/{run_id}/attempts/{args.attempt}/jobs?per_page=100', repo)['jobs']
+        nxt = gh_json_or_none(f'actions/runs/{run_id}/attempts/{args.attempt + 1}', repo)
+        start, end = run['run_started_at'], (nxt or {}).get('run_started_at')
+        artifacts = [a for a in artifacts if a['created_at'] >= start and (not end or a['created_at'] < end)]
+        if end and not artifacts:
+            print(f'  warning: attempt {args.attempt + 1} replaced every artifact of attempt {args.attempt} '
+                  '(a re-run uploads under the same names); only job logs remain')
+    else:
+        run = gh_json(f'actions/runs/{run_id}', repo)
+        jobs = gh_json(f'actions/runs/{run_id}/jobs?per_page=100', repo)['jobs']
 
     meta = {
         'repo': repo,
@@ -98,6 +131,8 @@ def fetch(args: argparse.Namespace) -> None:
         'title': run['display_title'],
         'branch': run['head_branch'],
         'sha': run['head_sha'],
+        'event': run.get('event'),
+        'created_at': run.get('created_at'),
         'attempt': run['run_attempt'],
         'conclusion': run['conclusion'],
         'pull_requests': [p['number'] for p in run.get('pull_requests', [])],
@@ -156,11 +191,14 @@ def fetch(args: argparse.Namespace) -> None:
         meta['artifacts'].append({'id': a['id'], 'name': a['name'], 'dir': folder, 'created_at': a['created_at']})
 
     for j in jobs:
-        if j['conclusion'] in ('failure', 'cancelled', 'timed_out'):
-            log = sh('gh', 'api', f'repos/{repo}/actions/jobs/{j["id"]}/logs', check=False)
+        wanted = args.job_logs == 'all' or (
+            args.job_logs == 'failed' and j['conclusion'] in ('failure', 'cancelled', 'timed_out')
+        )
+        if wanted:
+            log = job_log(repo, j['id'])
             if log.strip():
                 (dest / f'job-{j["id"]}.log').write_text(ANSI.sub('', log))
-                print(f'  ↓ full log for failed job {j["id"]} → job-{j["id"]}.log')
+                print(f'  ↓ full log for {j["conclusion"]} job {j["id"]} → job-{j["id"]}.log')
 
     (dest / 'run.json').write_text(json.dumps(meta, indent=2))
     print(f'\nWrote {dest}/run.json — next: ci_artifacts.py summary {dest}')
@@ -457,6 +495,115 @@ def shards(args: argparse.Namespace) -> None:
                 print(f'    {minutes(ms / 1000)}  {name}')
 
 
+# -------------------------------------------------------------------- provenance
+
+RESOLVED = re.compile(r'Resolved (https://github\.com/\S+?)(?:\.git)? to commit ([0-9a-f]{40})')
+SHA = re.compile(r'[0-9a-f]{7,40}')
+
+
+def github_url(url: str | None) -> str | None:
+    """`https://github.com/owner/repo` for any GitHub clone/remote URL, else None."""
+    m = re.match(r'(?:git\+)?https://github\.com/([^/\s]+)/([^/\s@#]+?)(?:\.git)?/?(?:[@#].*)?$', url or '')
+    return f'https://github.com/{m.group(1)}/{m.group(2)}' if m else None
+
+
+def run_components(root: Path) -> dict[str, dict]:
+    """Component name → {'value', 'repository', 'source'} for one fetched run.
+
+    From the shards' provenance.json when present. Older runs have none: fall
+    back to the `Resolved <repo> to commit <sha>` lines pip printed in the job
+    logs (fetch a green run with --job-logs all). A component whose shards
+    disagree gets every value, comma-joined.
+    """
+    seen: dict[str, dict] = {}
+
+    def add(name: str, value: str | None, repository: str | None, source: str) -> None:
+        if not value:
+            return
+        c = seen.setdefault(name, {'values': [], 'repository': repository, 'source': source})
+        if value not in c['values']:
+            c['values'].append(value)
+        c['repository'] = c['repository'] or repository
+
+    for path in sorted(root.glob('tutor-logs*/provenance.json')):
+        p = json.loads(path.read_text())
+        suite = p.get('suite') or {}
+        repo = suite.get('repository')
+        add('suite', suite.get('commit'), f'https://github.com/{repo}' if repo else None, 'provenance')
+        ep = p.get('edx_platform') or {}
+        add('edx-platform', ep.get('commit'), github_url(ep.get('repository')), 'provenance')
+        for m in p.get('mfes') or []:
+            add(f'mfe:{m["name"]}', m.get('commit'), github_url(m.get('repository')), 'provenance')
+        for pkg in p.get('tutor_packages') or []:
+            add(f'pip:{pkg["name"]}', pkg.get('commit') or pkg.get('version'), github_url(pkg.get('url')), 'provenance')
+        for img in p.get('images') or []:
+            digest = next(iter(img.get('digests') or []), None) or img.get('id')
+            add(f'image:{img["ref"]}', digest.split('@')[-1] if digest else None, None, 'provenance')
+
+    meta_path = root / 'run.json'
+    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+    if 'suite' not in seen and meta.get('sha'):
+        add('suite', meta['sha'], f'https://github.com/{meta.get("repo", DEFAULT_REPO)}', 'run.json')
+    for log in sorted(root.glob('job-*.log')):
+        for url, commit in RESOLVED.findall(log.read_text(errors='replace')):
+            repo = github_url(url)
+            name = f'pip:{repo.rsplit("/", 1)[-1]}' if repo else None
+            if name and (name not in seen or seen[name]['source'] == 'job log'):
+                add(name, commit, repo, 'job log')
+    return {
+        k: {'value': ','.join(v['values']), 'repository': v['repository'], 'source': v['source']}
+        for k, v in sorted(seen.items())
+    }
+
+
+def short(value: str) -> str:
+    return ','.join(v[:12] if re.fullmatch(r'(sha256:)?[0-9a-f]{40,64}', v) else v for v in value.split(','))
+
+
+def provenance(args: argparse.Namespace) -> None:
+    current = run_components(Path(args.dir))
+    if not args.baseline:
+        if args.json:
+            print(json.dumps(current, indent=2))
+            return
+        if not current:
+            print('no provenance.json in any tutor-logs* artifact and no "Resolved" lines in job logs')
+        for name, c in current.items():
+            print(f'  {name:<48} {short(c["value"]):<26} {c["repository"] or ""}  [{c["source"]}]')
+        return
+
+    base = run_components(Path(args.baseline))
+    changes = []
+    for name in sorted(set(current) | set(base)):
+        a, b = base.get(name), current.get(name)
+        if a and b and a['value'] == b['value']:
+            continue
+        repo = (b or a)['repository']
+        compare = None
+        if a and b and repo and SHA.fullmatch(a['value']) and SHA.fullmatch(b['value']):
+            compare = f'{repo}/compare/{a["value"]}...{b["value"]}'
+        changes.append({
+            'component': name,
+            'from': a['value'] if a else None,
+            'to': b['value'] if b else None,
+            'repository': repo,
+            'compare_url': compare,
+        })
+    unchanged = sorted((set(current) & set(base)) - {c['component'] for c in changes})
+    if args.json:
+        print(json.dumps({'changed': changes, 'unchanged': unchanged}, indent=2))
+        return
+    print(f'{len(changes)} changed, {len(unchanged)} unchanged since the baseline')
+    for c in changes:
+        frm = short(c['from']) if c['from'] else '(absent)'
+        to = short(c['to']) if c['to'] else '(absent)'
+        print(f'  {c["component"]:<48} {frm} → {to}')
+        if c['compare_url']:
+            print(f'      {c["compare_url"]}')
+    if unchanged:
+        print('unchanged: ' + ', '.join(unchanged))
+
+
 # ------------------------------------------------------------------------- main
 
 
@@ -470,6 +617,11 @@ def main() -> None:
     f.add_argument('--repo', default=DEFAULT_REPO)
     f.add_argument('--only', help='comma list of kinds: playwright,suite,tutor,blob (blob only when named)')
     f.add_argument('--all-attempts', action='store_true', help='keep every attempt\'s copy of each artifact')
+    f.add_argument('--attempt', type=int, help='only this attempt\'s jobs and artifacts (default: the latest)')
+    f.add_argument(
+        '--job-logs', choices=('failed', 'all', 'none'), default='failed',
+        help='which jobs\' runner logs to save (all: green jobs too, e.g. a baseline\'s "Resolved" lines)',
+    )
     f.set_defaults(fn=fetch)
 
     s = sub.add_parser('summary', help='one-screen overview of failures across every downloaded artifact')
@@ -492,6 +644,12 @@ def main() -> None:
     sh_ = sub.add_parser('shards', help='per-shard provisioning, test time and repeated fixture cost')
     sh_.add_argument('dir')
     sh_.set_defaults(fn=shards)
+
+    pv = sub.add_parser('provenance', help='what a run tested (commits, images); with --baseline, what changed')
+    pv.add_argument('dir')
+    pv.add_argument('--baseline', help='a second fetched run (usually the last green one) to diff against')
+    pv.add_argument('--json', action='store_true', help='print machine-readable JSON instead of text')
+    pv.set_defaults(fn=provenance)
 
     args = p.parse_args()
     args.fn(args)
