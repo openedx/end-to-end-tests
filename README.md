@@ -469,6 +469,38 @@ MFE, Aspects and Superset images. A variant job pulls it; if the pull fails it
 stops (a variant cannot be rebuilt on the runner, where the profile's plugins
 are enabled only after launch), so run the build workflow and retry.
 
+**Provenance.** Each shard writes `provenance.json` into its `tutor-logs-*`
+artifact (`.ci/provenance.sh`): this repo's commit, the Tutor packages (with
+the commit pip resolved for a git install), every image digest, edx-platform's
+commit read from the openedx image, and each MFE's commit read from the MFE
+image. The last needs `.ci/tutor/e2e_provenance.py`, which
+`build_tutor_main_images.yml` enables for every build; images from anywhere
+else report MFE commits as unknown. `skills/openedx-e2e/scripts/ci_artifacts.py
+provenance <run> --baseline <run>` diffs two fetched runs, with compare links.
+
+**Triage of scheduled failures.** When a scheduled run fails,
+`triage_scheduled_run.yml` gathers its reports and logs, the last green
+scheduled run's suite reports and provenance, and the diff between them into a
+`triage-input` artifact (read-only token). Claude Code then diagnoses the
+failure from that artifact and the repo, with no GitHub token and only
+read-only tools (`.github/triage/claude-settings.json`), and uploads
+`claude-triage`: `triage.json` (verdict — `spurious`, `platform-regression`,
+`test-defect`, `environment`, `mixed` or `unknown` — per-test categories,
+whether to re-run) and `issue.md`. `.github/triage/validate.py` checks it
+against `triage.schema.json` and falls back to `unknown` if it is missing or
+invalid. Needs the `ANTHROPIC_API_KEY` secret; the `TRIAGE_MODEL` and
+`TRIAGE_MAX_USD` variables override the model and the per-run spending cap.
+
+Two later jobs act on `claude-triage`, without Claude. A first attempt whose
+failures are all spurious is re-run once in full (`rerun`, `actions: write`);
+anything else becomes an issue in this repository labelled `scheduled-failure`
+and `triage:<verdict>`, or a comment on the open issue with the same
+fingerprint (`file-issue`, `issues: write`). Both report what they would do in
+the job summary until the repository variables `TRIAGE_RERUN` and
+`TRIAGE_FILE_ISSUES` are `true`. Dispatch the workflow with a `run_id` to
+replay it against a past run; it files only with `dry_run` unticked, and never
+re-runs.
+
 The MySQL state after migrations is cached per release/Tutor-version so most
 runs skip the ~20-minute migration step; delete the `tutor-mysql-*` cache from
 the Actions UI if it ever needs a clean rebuild.

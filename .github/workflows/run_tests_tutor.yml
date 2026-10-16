@@ -8,6 +8,7 @@ name: Tutor E2E Test
 # repo's main branch with the "main" Open edX release, to catch regressions
 # between manual runs. Scheduled runs always use those two defaults; the
 # domains/features inputs only apply to manual `workflow_dispatch` runs.
+# A failed scheduled run is picked up by triage_scheduled_run.yml.
 #
 # Also callable (`workflow_call`) so `ci.yml` can run it as a non-blocking,
 # Docker-based check against the "main" and last-released environments on
@@ -564,6 +565,17 @@ jobs:
           select_grep: ${{ matrix.grep }}
           run_id_suffix: ${{ matrix.runIdSuffix }}
           artifact_suffix: ${{ env.OPENEDX_RELEASE }}-${{ matrix.profile }}-${{ matrix.shard }}
+
+      # What this shard ran: this repo's commit, the Tutor packages, the image
+      # digests, and the edx-platform and MFE commits read from the images.
+      # Uploaded with the Tutor logs; triage_scheduled_run.yml diffs it
+      # against the last green run to tell upstream changes from suite ones.
+      - name: Record provenance
+        if: always()
+        env:
+          PROVENANCE_PROFILE: ${{ matrix.profile }}
+          PROVENANCE_SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+        run: .ci/provenance.sh tutor-logs/provenance.json
 
       # Collect the LMS/Studio logs whatever the outcome (`always()`, so they
       # survive a failed or cancelled run). `docker ps -a` catches the case
