@@ -91,6 +91,7 @@ measured, and issues are opened by hand from them.
 | `FP-001`    | `openedx/frontend-platform` (`<html lang>` never follows the chosen language) | open, `test.fail` on TC-00066's page-language test wherever a legacy header renders one of its pages (`KNOWN_CHROME_DEFECTS`)
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
 | `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
+| `EXAM-001`  | `openedx/frontend-lib-special-exams` 5.0.0 (CommonJS build bundles a second React Query; learning MFE crashes on `main`) | **filed** - [frontend-lib-special-exams#178](https://github.com/openedx/frontend-lib-special-exams/issues/178) (tracked here as [#148](https://github.com/openedx/end-to-end-tests/issues/148)), no `fixme` — regression on `main` since 2026-10-15; every learning-MFE page fails until a fixed build lands
 | `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | **filed** - [openedx-platform#39223](https://github.com/openedx/openedx-platform/issues/39223) (tracked here as [#123](https://github.com/openedx/end-to-end-tests/issues/123)), `test.fail` on TC-00038's take-a-note test
 | `FOOTER-001` | `openedx/frontend-component-footer` (no legal / copyright line) | open, no `fixme` — TC-00063 and TC-00064 run only where the shell renders the footer (`@frontend-base`)
 | `DEMO-003`  | `openedx/edx-platform` (no effort estimates for courses with external videos) | **filed** - [openedx-platform#39224](https://github.com/openedx/openedx-platform/issues/39224) (tracked here as [#124](https://github.com/openedx/end-to-end-tests/issues/124)), no `fixme` — TC-00027 runs on a video-free course of the suite's own
@@ -2232,6 +2233,45 @@ marked an expected failure at phone width (`test.fail` with the reason).
 `UnitPage.collapseSidebar` falls back to invoking the button's click handler
 when a real click cannot land, with a comment naming this finding, so the
 tray's open → collapse → navigate behaviour stays covered at phone width.
+
+### `EXAM-001` — special-exams 5.0.0 ships CommonJS, so the learning MFE bundles two React Query copies and crashes
+
+**Where:** `openedx/frontend-lib-special-exams` 5.0.0 (`f6ba3d0`), as
+`openedx/frontend-app-learning` `master` (`732a040`) consumes it since #2168
+(merged 2026-10-15). Tutor `main`, scheduled CI run 38878211476
+(2026-10-16). `verawood` is unaffected: `release/verawood` pins
+special-exams `^4.0.0`.
+
+**What happens:** every learning-MFE page (course home, courseware, progress,
+dates) renders its error page ("An unexpected error occurred") and logs
+`Error: No QueryClient set, use QueryClientProvider to set one` from
+`useActiveAttemptQuery`. The learning app does mount a `QueryClientProvider`;
+the hook reads a different React Query context.
+
+**Cause (measured):** special-exams compiles with `tsc` under
+`"module": "CommonJS"` (`tsconfig.json`), so `dist/` calls
+`require("@tanstack/react-query")`, although its `exports` map declares only an
+`import` condition. React Query's own `exports` map sends `require` to
+`build/modern/index.cjs` and `import` to `build/modern/index.js`. npm installs
+one copy (5.104.2, deduped), but a production webpack build of the learning MFE
+includes both: 45 React Query modules (22 `.js`, 23 `.cjs`), among them both
+`QueryClientProvider.js` and `QueryClientProvider.cjs`. The webpack stats show
+`index.js` imported by the app's `src/` and `index.cjs` by
+`@edx/frontend-lib-special-exams/dist` — two module instances, two contexts.
+
+**Suggested fix:** build special-exams as ES modules (`"module": "ESNext"` or
+`"ES2020"` in the build tsconfig), matching its `import`-only `exports`. A
+consumer-side workaround is a webpack `resolve.alias` pinning
+`@tanstack/react-query` to one entry point.
+
+**Coverage impact:** filed as
+[frontend-lib-special-exams#178](https://github.com/openedx/frontend-lib-special-exams/issues/178)
+(tracked here as [#148](https://github.com/openedx/end-to-end-tests/issues/148)),
+confirmed on the local `main` sandbox; no `fixme`. On `main` 59 learning-facing tests fail
+on the error page, and the four `advanced-modules.spec.ts` cases fail on
+retry ("… offered before it is listed") because the crashed first attempt had
+already added the module. Nothing is skipped: the failures are the regression,
+and they clear once a fixed build lands.
 
 ### `NOTES-001` — HTML components cannot be annotated: the extracted HTML block has no notes support
 
