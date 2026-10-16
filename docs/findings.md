@@ -32,7 +32,7 @@ measured, and issues are opened by hand from them.
 | `RBAC-002`  | `openedx/openedx-authz`                                  | **duplicate** - [openedx-authz#347](https://github.com/openedx/openedx-authz/issues/347) (tracked here as [#127](https://github.com/openedx/end-to-end-tests/issues/127)), `fixme` in `team-members.spec.ts` (TC-00568) |
 | `RBAC-003`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#259](https://github.com/openedx/frontend-app-admin-console/issues/259) (tracked here as [#138](https://github.com/openedx/end-to-end-tests/issues/138)), asserted as an empty Role cell (the sheet's own note on TC-00619) |
 | `RBAC-004`  | `openedx/frontend-app-admin-console`                     | **resolved — by design** (2026-10-13), test plan: [wg-build-test-release#619](https://github.com/openedx/wg-build-test-release/issues/619) (tracked here as [#137](https://github.com/openedx/end-to-end-tests/issues/137)); TC-00440/00441/00443 asserted against what it does render |
-| `RBAC-005`  | `openedx/frontend-app-admin-console`                     | open, pager located by position instead                                        |
+| `RBAC-005`  | `openedx/paragon` (`Pagination`'s Next button), seen in the admin console | **filed** - [paragon#4499](https://github.com/openedx/paragon/issues/4499) (tracked here as [#149](https://github.com/openedx/end-to-end-tests/issues/149)), pager located by position instead |
 | `RBAC-006`  | `openedx/frontend-app-admin-console`                     | open, three axe rules baselined for console scans                              |
 | `RBAC-007`  | `openedx/openedx-authz` + console                        | **filed** - [openedx-authz#526](https://github.com/openedx/openedx-authz/issues/526) (tracked here as [#126](https://github.com/openedx/end-to-end-tests/issues/126)), `knownGap` on TC-00567 |
 | `RBAC-008`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#260](https://github.com/openedx/frontend-app-admin-console/issues/260) (tracked here as [#139](https://github.com/openedx/end-to-end-tests/issues/139)), regression on `main`; TC-00442 gated on `rbac-error-view-action` |
@@ -82,11 +82,11 @@ measured, and issues are opened by hand from them.
 | `DISC-001`  | `openedx/frontend-app-discussions` (post list ARIA)           | open, no `fixme` — two axe rules baselined on the discussions scans only
 | `DISC-002`  | `openedx/edx-platform` (DELETE of a missing thread; forum v2 error not mapped) | **filed** - [openedx-platform#39225](https://github.com/openedx/openedx-platform/issues/39225) (tracked here as [#128](https://github.com/openedx/end-to-end-tests/issues/128)), no `fixme` — suite deletes each thread once
 | `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing and course About scans only (`SHELL_CHROME_A11Y_BASELINE`)
-| `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | open, `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
+| `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | **filed** - [frontend-base#322](https://github.com/openedx/frontend-base/issues/322) (tracked here as [#151](https://github.com/openedx/end-to-end-tests/issues/151)), `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
 | `BASE-006`  | `openedx/frontend-base` (`updateSiteLanguage` races its own two requests) | open, runtime `fixme` on TC-00066 where the Account page renders in the shell (`KNOWN_CHROME_DEFECTS`, intermittent)
 | `BASE-007`  | `openedx/frontend-base` + `frontend-app-learner-dashboard` (no primary links outside the dashboard) | open, no `fixme` — TC-00071 reaches the dashboard through the shell header's logo and asserts the profile's header offers no primary link
-| `CATALOG-001` | `openedx/frontend-app-catalog` (filter facet values camel-cased) | open, no `fixme` — TC-00017 compares organizations case-insensitively
-| `LEARN-002` | `openedx/frontend-component-header` (learning header Help link `href="null"`) | open, `test.fail` on the no-Help-link tests of TC-00020 / TC-00021 where the learning header renders (`KNOWN_CHROME_DEFECTS`)
+| `CATALOG-001` | `openedx/frontend-app-catalog` (filter facet values camel-cased) | **filed** - [frontend-app-catalog#171](https://github.com/openedx/frontend-app-catalog/issues/171) (tracked here as [#153](https://github.com/openedx/end-to-end-tests/issues/153)), no `fixme` — TC-00017 compares organizations case-insensitively
+| `LEARN-002` | `openedx/frontend-component-header` (learning header Help link `href="null"`) | **filed** - [frontend-component-header#685](https://github.com/openedx/frontend-component-header/issues/685) (tracked here as [#152](https://github.com/openedx/end-to-end-tests/issues/152)), `test.fail` on the no-Help-link tests of TC-00020 / TC-00021 where the learning header renders (`KNOWN_CHROME_DEFECTS`)
 | `BASE-004`  | `openedx/frontend-base` + legacy headers (logo sizes differ across generations) | open, `test.fail` on TC-00060 wherever its pages mix the shell with a legacy header (`KNOWN_CHROME_DEFECTS`)
 | `FP-001`    | `openedx/frontend-platform` (`<html lang>` never follows the chosen language) | open, `test.fail` on TC-00066's page-language test wherever a legacy header renders one of its pages (`KNOWN_CHROME_DEFECTS`)
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
@@ -119,7 +119,7 @@ measured, and issues are opened by hand from them.
 | `INSTR-009` | `openedx/edx-platform` + `openedx/frontend-app-instructor-dashboard` (allowance Delete: numeric id ignored, failure shown as success) | **filed** - [openedx-platform#39228](https://github.com/openedx/openedx-platform/issues/39228) and [frontend-app-instructor-dashboard#258](https://github.com/openedx/frontend-app-instructor-dashboard/issues/258) (tracked here as [#135](https://github.com/openedx/end-to-end-tests/issues/135)), `test.fail` on TC-00541's delete test
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | **resolved on `main`** — duplicate of [RecommenderXBlock#135](https://github.com/openedx/RecommenderXBlock/issues/135), fixed in 5.1.0 (tracked here as [#125](https://github.com/openedx/end-to-end-tests/issues/125)); `verawood` still pins 5.0.0; TC-00132 gated on `recommender-studio-settings`, declared for `main` only
-| `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | open, no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
+| `XBLOCK-001` | `openedx/RecommenderXBlock` (learner view loads its scripts from public CDNs) | **filed** - [RecommenderXBlock#153](https://github.com/openedx/RecommenderXBlock/issues/153) (tracked here as [#154](https://github.com/openedx/end-to-end-tests/issues/154)), no `fixme` — TC-00131 is judged in the Studio preview, where the block's markup is server-rendered
 | `ASPECTS-SEC-001` | `openedx/platform-plugin-aspects` (any signed-in user could get a Superset guest token) | **fixed** — [GHSA-hm6j-7x8q-5hqw](https://github.com/openedx/platform-plugin-aspects/security/advisories/GHSA-hm6j-7x8q-5hqw); TC-00552 asserts a learner is refused
 | `ASPECTS-001` | `openedx/frontend-app-aspects`, `openedx/frontend-plugin-aspects` (Reports tab and in-context controls distinguishable only by classes, labels or position) | open, shapes every anchor in `selectors/instructor-reports.ts` and `selectors/studio-analytics.ts`
 | `ASPECTS-005` | `openedx/tutor-contrib-aspects` (Course Comparison assets: Run Metrics "More details" files the org under the Course Run filter's id) | open, no `fixme` — TC-00559 asserts the link names the course and run
@@ -1564,6 +1564,13 @@ with a `name` or `value` naming the filter, row actions in a column of their
 own, and the error views as landmarks (`main` / `role="alert"`) with a stable
 `id`.
 
+
+**Re-checked (2026-10-16), moved to the accessibility queue.** On `master` the
+tabs are already `role="tab"` with `aria-controls`, so that ask is dropped.
+What holds is state shown only by colour: the matrix's Courses/Libraries switch
+and the filter toggles expose "active"/"applied" only through the button
+variant (no `aria-pressed`), and each filter's checkbox-group `name` is its
+translated label. WCAG 4.1.2.
 ### `RBAC-002` — openedx-authz exposes no assignment rows for superusers or global staff
 
 **Where:** `GET /api/authz/v1/users/<username>/assignments/` and
@@ -1642,8 +1649,14 @@ filed: the failed list's pager reads "of -1" (likely Paragon `Pagination` with
 **What happens:** the Previous and Next controls render with the same
 `previous` class, so the class cannot tell them apart.
 
-**Coverage impact:** open, no `fixme`. The pager is located by position
-(previous first, next second), which the selector module records.
+**Cause (2026-10-16):** Paragon, not the console. `Pagination`'s
+`NextPageButton.jsx` sets `className="previous page-link"` in both branches (a
+copy of `PreviousPageButton`), while Paragon's own SCSS styles `button.next`.
+Unchanged since paragon#2995 (2024-01).
+
+**Coverage impact:** filed as [paragon#4499](https://github.com/openedx/paragon/issues/4499) (tracked here as [#149](https://github.com/openedx/end-to-end-tests/issues/149)), no
+`fixme`. The pager is located by position (previous first, next second), which
+the selector module records.
 
 ### `RBAC-006` — accessibility debt in the console
 
@@ -2105,7 +2118,16 @@ primary links are not moved into it, so "Explore courses" — the only route fro
 the landing page to the catalog for a visitor who has not searched — cannot be
 reached at phone or tablet width.
 
-**Coverage impact:** open. TC-00061 (public-site responsiveness) runs at phone,
+**Cause (2026-10-16), filed as** [frontend-base#322](https://github.com/openedx/frontend-base/issues/322)
+(tracked here as [#151](https://github.com/openedx/end-to-end-tests/issues/151)): broader than "signed out". The wide layout renders
+the `header.primaryLinks.v1` slot, the narrow menu a separate
+`header.mobileMenuLinks.v1` slot that no app in the `openedx` org fills; since
+frontend-base#316 (2026-09-22) it holds only the language selector, so it is no
+longer empty, but every app's primary links (the catalog's signed-out "Explore
+courses" and signed-in Courses/Programs/Discover, learner-dashboard's) are
+missing below 768 px.
+
+**Coverage impact:** filed. TC-00061 (public-site responsiveness) runs at phone,
 tablet and desktop widths; its phone and tablet tests are marked `test.fail` by
 the `publicChrome` fixture wherever the shell renders the header
 (`KNOWN_CHROME_DEFECTS` in `src/steps/chrome.ts`). The marker is keyed to the
@@ -2126,7 +2148,12 @@ backend, which matched the mangled value, but the labels misname every
 organization whose code is not already camel case, and a case-sensitive search
 backend would find nothing.
 
-**Coverage impact:** open, no `fixme`. TC-00017 asserts that every course
+**Cause (2026-10-16), filed as** [frontend-app-catalog#171](https://github.com/openedx/frontend-app-catalog/issues/171)
+(tracked here as [#153](https://github.com/openedx/end-to-end-tests/issues/153)): `src/data/course-list-search/api.ts` returns
+`camelCaseObject(data)` for the whole search response, and `aggs.*.terms` keys
+are facet values, not field names.
+
+**Coverage impact:** filed, no `fixme`. TC-00017 asserts that every course
 shown under an organization filter belongs to it, comparing organization codes
 case-insensitively, so the case passes on the mangled values.
 
@@ -2143,7 +2170,13 @@ navigates to a relative `null` path. The header should leave the link out when
 there is nowhere to send it, as the shell's Help widget does. This is the
 "Help link does not redirect" half of wg-build-test-release#579 (TC-00021).
 
-**Coverage impact:** open. The Help-link tests of TC-00020, TC-00021 and TC-00023
+**Cause (2026-10-16), filed as** [frontend-component-header#685](https://github.com/openedx/frontend-component-header/issues/685)
+(tracked here as [#152](https://github.com/openedx/end-to-end-tests/issues/152)): `LearningHeaderHelpLink.jsx` builds the href as
+`` `${getConfig().SUPPORT_URL}` ``, so an unset value becomes `"null"` and the
+link always renders; unchanged since #545 (2024-10). A 2022 fix (#276) was
+closed unmerged.
+
+**Coverage impact:** filed. The Help-link tests of TC-00020, TC-00021 and TC-00023
 are split. "is absent without `SUPPORT_URL`" runs where `no-support-url` holds,
 which is the stock default and so on by default. "points at `SUPPORT_URL`" runs
 where a target declares `support-url`: in CI, that is the `extended` profile,
@@ -2451,7 +2484,15 @@ air-gapped, or whose Content Security Policy allows only its own origins,
 cannot run the block for learners, and every install sends its learners to
 two third parties.
 
-**Coverage impact:** open, no `fixme`. TC-00131 lists the module, adds it from
+**Filed (2026-10-16)** as [RecommenderXBlock#153](https://github.com/openedx/RecommenderXBlock/issues/153)
+(tracked here as [#154](https://github.com/openedx/end-to-end-tests/issues/154)). Re-checked on `master`: `studio_view` loads the
+same jQuery UI from the CDN (line 1031). The block's own scripts and templates
+make no jQuery UI calls — the only third-party call is `introJs().start()` — so
+jQuery UI 1.10.4's published XSS advisories (CVE-2016-7103,
+CVE-2021-41182/41183/41184) are not reachable through the recommender itself;
+the issue asks to drop jQuery UI and bundle a current intro.js.
+
+**Coverage impact:** filed, no `fixme`. TC-00131 lists the module, adds it from
 the Advanced tile and asserts its server-rendered markup in the Studio preview,
 never in the learner's courseware, so the suite never depends on the CDNs.
 
