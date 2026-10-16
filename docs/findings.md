@@ -1615,9 +1615,10 @@ cell as the measured behaviour.
 has ten roles; the user audit view's `RoleCell` still renders `''` for the
 three, while the Team Members table, redesigned in admin-console#222
 (2026-10-05), now falls back to the raw key (`course_beta_tester`). The issue
-also notes that the labels are hard-coded English, not `messages`. When TC-00619
-next runs against a console with #222, its Team Members `data-role` assertion
-may need to follow the redesign.
+also notes that the labels are hard-coded English, not `messages`. TC-00619
+already follows the redesign
+([end-to-end-tests#140](https://github.com/openedx/end-to-end-tests/pull/140)):
+it expects an empty Role cell on `verawood` and the bare key on `main`.
 ### `RBAC-004` — a failed list produces a toast with a retry, not a Server Error view
 
 **Where:** the console's Team Members tab, `main`.
