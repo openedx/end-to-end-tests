@@ -95,8 +95,8 @@ depending on strings the target renders: `getByText`, `getByLabel`,
 This rule is enforced by `tests/conventions/no-displayed-text.spec.ts`, which
 fails if any page object, step, or spec matches a literal UI string.
 
-One deliberate use of the last tier: legacy CAPA problems expose no test IDs and
-no useful roles, only server-rendered structural classes (`.problem`,
+One deliberate use of structural anchors alone: legacy CAPA problems expose no
+useful roles or attributes, only server-rendered structural classes (`.problem`,
 `button.submit`, `.status.correct`) that the platform's own scripts key off. Those
 are the anchors in `src/config/selectors/capa.ts`, and ADR-0002 already exempts
 course content from the text rule because problem copy does not localize.

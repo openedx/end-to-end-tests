@@ -187,7 +187,8 @@ export async function setNotificationPreference(
 
 /**
  * Sets one type's e-mail cadence. `notification_channel: 'email_cadence'` is
- * required: without it the platform answers 500 (`NOTIF-001`).
+ * required: without it the platform answers 500 (`NOTIF-001`,
+ * https://github.com/openedx/openedx-platform/issues/39221).
  */
 export async function setEmailCadence(
   request: APIRequestContext,
