@@ -59,8 +59,9 @@ export const ADMIN_CONSOLE_SELECTORS = {
   footer: '[data-testid="table-footer"]',
   /**
    * The pager's two buttons, by position: **both** carry the `previous` class
-   * on this build (`RBAC-005`), so the class cannot tell them apart and the
-   * list order does — previous first, next second.
+   * (Paragon's `NextPageButton` copies it, `RBAC-005`,
+   * https://github.com/openedx/paragon/issues/4499), so the class cannot tell
+   * them apart and the list order does — previous first, next second.
    */
   pagerButton: '.pagination li.page-item button',
 
