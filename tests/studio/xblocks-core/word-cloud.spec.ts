@@ -17,7 +17,7 @@ import { TIMEOUTS } from '../../../src/config';
 import { fetchWordCloudState } from '../../../src/api';
 import { ROUND_TRIP_TAGS, libraryToLearner, xml } from './round-trip';
 
-test.describe('xblocks-core: Word Cloud', { tag: ROUND_TRIP_TAGS }, () => {
+test.describe('xblocks-core: Word Cloud', { tag: [...ROUND_TRIP_TAGS] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
   test('library → Studio → learner submits words', async ({

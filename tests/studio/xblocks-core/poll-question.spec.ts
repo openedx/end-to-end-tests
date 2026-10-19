@@ -14,7 +14,7 @@ import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import { ROUND_TRIP_TAGS, libraryToLearner, xml } from './round-trip';
 
-test.describe('xblocks-core: Poll question', { tag: ROUND_TRIP_TAGS }, () => {
+test.describe('xblocks-core: Poll question', { tag: [...ROUND_TRIP_TAGS] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
   test('library → Studio → learner votes', async ({
