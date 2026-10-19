@@ -21,7 +21,7 @@ import { ROUND_TRIP_TAGS, libraryToLearner, xml } from './round-trip';
 
 const CLIP = readFileSync(path.join(__dirname, '../../../src/fixtures/assets/short-clip.webm'));
 
-test.describe('xblocks-core: Video', { tag: ROUND_TRIP_TAGS }, () => {
+test.describe('xblocks-core: Video', { tag: [...ROUND_TRIP_TAGS] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
   test('library → Studio → learner watches to completion', async ({

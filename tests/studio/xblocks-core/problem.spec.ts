@@ -16,7 +16,7 @@ import { TIMEOUTS } from '../../../src/config';
 import { ProblemBlock } from '../../../src/pages/lms/courseware/problem.block';
 import { ROUND_TRIP_TAGS, libraryToLearner, xml } from './round-trip';
 
-test.describe('xblocks-core: Problem', { tag: ROUND_TRIP_TAGS }, () => {
+test.describe('xblocks-core: Problem', { tag: [...ROUND_TRIP_TAGS] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
   test('library → Studio → learner answers correctly', async ({
