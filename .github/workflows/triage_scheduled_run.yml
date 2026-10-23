@@ -1,0 +1,368 @@
+name: Triage scheduled run
+
+# When a scheduled run of run_tests_tutor.yml ("Tutor E2E Test", the "main"
+# release, Mondays and Fridays) fails, collect what a triage needs into one
+# artifact, `triage-input`:
+#
+#   failed/     the failed attempt's reports, Tutor logs (with each shard's
+#               provenance.json) and failed jobs' runner logs, as
+#               skills/openedx-e2e/scripts/ci_artifacts.py fetches them
+#   baseline/   the last green scheduled run before it: suite reports, each
+#               shard's provenance.json, a traceback digest of its Tutor logs
+#               (logs-digest.txt) and every job's runner log (or a NONE marker)
+#   context.json, summary.txt, provenance.txt/.json
+#               which runs these are, the failure overview, and what changed
+#               upstream and in this repo between the two
+#
+# `gather` only reads: its token has `actions: read` and `contents: read`.
+# `triage` then diagnoses the failure with Claude Code, holding no GitHub
+# token at all, and uploads `claude-triage` (triage.json + issue.md). Only
+# then do jobs with write access act on that artifact, without Claude:
+# `rerun` (actions: write) re-runs a run judged spurious once, and
+# `file-issue` (issues: write) opens or updates an issue. Both stay in dry
+# run until the repository variables TRIAGE_RERUN / TRIAGE_FILE_ISSUES are
+# 'true'.
+#
+# Only scheduled runs are triaged; PR runs from ci.yml, and manual runs, are
+# not. `workflow_dispatch` replays the gathering for any run id, to test this
+# workflow against past failures.
+
+on:
+  workflow_run:
+    workflows: ['Tutor E2E Test']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run id of a "Tutor E2E Test" run to gather (replay).'
+        type: string
+        required: true
+      attempt:
+        description: 'Attempt of that run. Empty = the latest.'
+        type: string
+        default: ''
+      dry_run:
+        description: 'Only report the issue that would be filed. A replay never re-runs the run.'
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: triage-${{ github.event.workflow_run.id || inputs.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  gather:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'schedule' &&
+       github.event.workflow_run.conclusion == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+      ATTEMPT: ${{ github.event.workflow_run.run_attempt || inputs.attempt }}
+      CI_ARTIFACTS: skills/openedx-e2e/scripts/ci_artifacts.py
+    steps:
+      # The default branch's copy of the helper, whatever ref the failed run
+      # tested.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Gathered before anything can re-run it: a re-run replaces the earlier
+      # attempt's artifacts.
+      - name: Fetch the failed run
+        run: |
+          set -euo pipefail
+          python3 -I "$CI_ARTIFACTS" fetch "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --dest triage/failed ${ATTEMPT:+--attempt "$ATTEMPT"}
+
+      # The newest green scheduled run created before the failed one. Every
+      # job's runner log, so its `Resolved … to commit` lines are there for
+      # runs from before provenance.json existed.
+      - name: Fetch the baseline run
+        run: |
+          set -euo pipefail
+          CREATED=$(jq -r .created_at triage/failed/run.json)
+          BASELINE=$(gh run list -R "$GITHUB_REPOSITORY" --workflow run_tests_tutor.yml \
+              --event schedule --status success --limit 50 --json databaseId,createdAt \
+            | jq -r --arg c "$CREATED" '[.[] | select(.createdAt < $c)] | first | .databaseId // empty')
+          if [ -z "$BASELINE" ]; then
+            echo "::warning::No green scheduled run before ${CREATED}; triage has no baseline."
+            mkdir -p triage/baseline
+            touch triage/baseline/NONE
+            exit 0
+          fi
+          python3 -I "$CI_ARTIFACTS" fetch "$BASELINE" --repo "$GITHUB_REPOSITORY" \
+            --dest triage/baseline --only suite,tutor --job-logs all
+          # The green run's raw Tutor logs (~40 MB a shard) reduce to their
+          # traceback digest — what recurs in a healthy run is noise — and
+          # provenance.json, which stays.
+          python3 -I "$CI_ARTIFACTS" logs triage/baseline > triage/baseline/logs-digest.txt
+          rm -f triage/baseline/tutor-logs-*/*.log
+
+      - name: Summarize
+        run: |
+          set -euo pipefail
+          python3 -I "$CI_ARTIFACTS" summary triage/failed > triage/summary.txt
+          if [ -f triage/baseline/NONE ]; then
+            python3 -I "$CI_ARTIFACTS" provenance triage/failed > triage/provenance.txt
+            python3 -I "$CI_ARTIFACTS" provenance triage/failed --json > triage/provenance.json
+            BASE='null'
+          else
+            python3 -I "$CI_ARTIFACTS" provenance triage/failed --baseline triage/baseline > triage/provenance.txt
+            python3 -I "$CI_ARTIFACTS" provenance triage/failed --baseline triage/baseline --json > triage/provenance.json
+            BASE=$(jq '{run_id: (.run_id | tonumber), url, sha, attempt, created_at, conclusion}' triage/baseline/run.json)
+          fi
+          jq --argjson baseline "$BASE" '{
+              schema: 1,
+              failed: {run_id: (.run_id | tonumber), url, sha, attempt, created_at, conclusion, event},
+              baseline: $baseline
+            }' triage/failed/run.json > triage/context.json
+          {
+            echo '### Triage input'
+            echo '```json'
+            cat triage/context.json
+            echo '```'
+            echo '#### What changed since the baseline'
+            echo '```'
+            cat triage/provenance.txt
+            echo '```'
+            echo '#### Failure overview'
+            echo '```'
+            head -c 60000 triage/summary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload triage input
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: triage-input
+          path: triage/
+          retention-days: 14
+          if-no-files-found: error
+
+  # Claude Code, headless, diagnoses the failure from `triage-input` and the
+  # repo (the openedx-e2e skill, the specs, git history) and writes
+  # triage/out/triage.json + issue.md. It gets no GitHub token
+  # (`permissions: {}`, no GH_TOKEN; the checkout keeps no credentials) and,
+  # through .github/triage/claude-settings.json in `dontAsk` mode, only
+  # read-only tools: no network, no gh, writes only under triage/out/.
+  # validate.py then checks the output against triage.schema.json, recomputes
+  # the verdict and the re-run decision, redacts secret-shaped strings, and
+  # falls back to a `verdict: unknown` record built from the failure summary
+  # if the diagnosis is missing or invalid — so a later job can always act.
+  #
+  # Needs the ANTHROPIC_API_KEY secret; without it the job still produces the
+  # fallback. Repository variables TRIAGE_MODEL and TRIAGE_MAX_USD override
+  # the model and the spending cap.
+  triage:
+    needs: gather
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions: {}
+    env:
+      CLAUDE_CODE_VERSION: 2.1.285
+      TRIAGE_MODEL: ${{ vars.TRIAGE_MODEL || 'claude-opus-5-5' }}
+      TRIAGE_MAX_USD: ${{ vars.TRIAGE_MAX_USD || '10' }}
+    outputs:
+      verdict: ${{ steps.validate.outputs.verdict }}
+      rerun: ${{ steps.validate.outputs.rerun }}
+      fingerprint: ${{ steps.validate.outputs.fingerprint }}
+      status: ${{ steps.validate.outputs.status }}
+    steps:
+      # Full history for `git log <baseline>..<failed>`; no stored credentials.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download triage input
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: triage-input
+          path: triage
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Claude Code
+        run: |
+          set -euo pipefail
+          npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+          claude --version
+
+      # Never fails the job: a missing key, a crash or the spending cap leaves
+      # error.txt for validate.py, which falls back.
+      - name: Diagnose
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -uo pipefail
+          mkdir -p triage/out
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::warning::No ANTHROPIC_API_KEY secret; skipping the diagnosis."
+            echo "no ANTHROPIC_API_KEY secret configured" > triage/out/error.txt
+            exit 0
+          fi
+          claude -p --bare \
+            --model "$TRIAGE_MODEL" \
+            --max-budget-usd "$TRIAGE_MAX_USD" \
+            --permission-mode dontAsk \
+            --settings .github/triage/claude-settings.json \
+            --strict-mcp-config \
+            --no-session-persistence \
+            --output-format json \
+            < .github/triage/prompt.md \
+            > triage/out/session.json 2> triage/out/claude-stderr.txt
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            echo "claude exited ${code}" > triage/out/error.txt
+          fi
+          # The key must never leave the runner, whatever the artifacts said.
+          if grep -rqF -- "$ANTHROPIC_API_KEY" triage/out; then
+            rm -rf triage/out
+            mkdir -p triage/out
+            echo "the diagnosis output contained the API key and was discarded" > triage/out/error.txt
+          fi
+
+      - name: Validate
+        id: validate
+        run: python3 -I .github/triage/validate.py triage
+
+      - name: Summarize
+        run: |
+          set -euo pipefail
+          {
+            echo "### Triage: $(jq -r '.verdict + " (" + .confidence + ", " + .status + ")"' triage/out/triage.json)"
+            echo
+            echo "**$(jq -r .title triage/out/triage.json)**"
+            echo
+            jq -r '"re-run: \(.rerun) · fingerprint: \(.fingerprint) · cost: \(.cost_usd // "n/a") USD · turns: \(.turns // "n/a")"' triage/out/triage.json
+            jq -r '.problems[] | "- ⚠️ " + .' triage/out/triage.json
+            echo
+            cat triage/out/issue.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload diagnosis
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: claude-triage
+          path: triage/out/
+          retention-days: 30
+          if-no-files-found: error
+
+  # Every failure spurious (high confidence) on attempt 1, as validate.py
+  # decided: re-run the whole run once. Its completion triggers this workflow
+  # again; a second failure is never re-run (validate.py allows attempt 1
+  # only), so it becomes an issue. A pass leaves no issue, only this run's
+  # `claude-triage` artifact. Off until the TRIAGE_RERUN variable is 'true';
+  # while off, file-issue reports the failure instead.
+  rerun:
+    needs: triage
+    if: >
+      github.event_name == 'workflow_run' &&
+      needs.triage.outputs.rerun == 'true' &&
+      vars.TRIAGE_RERUN == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - name: Re-run the failed run
+        run: |
+          set -euo pipefail
+          gh run rerun "$RUN_ID" -R "$GITHUB_REPOSITORY"
+          echo "### Re-ran run [${RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}): every failure judged spurious" \
+            >> "$GITHUB_STEP_SUMMARY"
+
+  # Anything not re-run becomes an issue in this repository, labelled
+  # `scheduled-failure` and `triage:<verdict>`, or a comment on the open issue
+  # that already carries the same fingerprint (the same failing tests and
+  # categories). No Claude here: issue.py re-checks the artifact and writes
+  # the header, fingerprint marker and footer itself. Dry run (the job summary
+  # shows what would be filed) until the TRIAGE_FILE_ISSUES variable is
+  # 'true'; a manual replay files only with dry_run unticked.
+  file-issue:
+    needs: triage
+    if: >
+      !cancelled() && needs.triage.result == 'success' &&
+      !(github.event_name == 'workflow_run' &&
+        needs.triage.outputs.rerun == 'true' &&
+        vars.TRIAGE_RERUN == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DRY_RUN: ${{ (github.event_name == 'workflow_run' && vars.TRIAGE_FILE_ISSUES != 'true') || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+      TRIAGE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/triage
+          persist-credentials: false
+
+      - name: Download diagnosis
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: claude-triage
+          path: triage-out
+
+      - name: Compose the issue
+        run: python3 -I .github/triage/issue.py triage-out
+
+      - name: File the issue or comment on the open one
+        run: |
+          set -euo pipefail
+          FP=$(jq -r .fingerprint triage-out/triage.json)
+          MARKER="<!-- triage-fingerprint: ${FP} -->"
+          EXISTING=$(gh issue list -R "$GITHUB_REPOSITORY" --label scheduled-failure --state open \
+              --limit 200 --json number,body \
+            | jq -r --arg m "$MARKER" '[.[] | select(.body | contains($m))] | first | .number // empty')
+          TITLE=$(head -n 1 triage-out/issue-title.txt)
+          mapfile -t LABELS < triage-out/labels.txt
+
+          if [ "$DRY_RUN" = "true" ]; then
+            {
+              if [ -n "$EXISTING" ]; then
+                echo "### Dry run: would comment on #${EXISTING}"
+                echo
+                cat triage-out/comment.md
+              else
+                echo "### Dry run: would open \"${TITLE}\" (labels: ${LABELS[*]})"
+                echo
+                cat triage-out/issue-body.md
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ -n "$EXISTING" ]; then
+            URL=$(gh issue comment "$EXISTING" -R "$GITHUB_REPOSITORY" --body-file triage-out/comment.md)
+            echo "### Commented on #${EXISTING}: ${URL}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for label in "${LABELS[@]}"; do
+            gh label create "$label" -R "$GITHUB_REPOSITORY" --color d93f0b \
+              --description "Filed by triage_scheduled_run.yml" 2> /dev/null || true
+          done
+          ARGS=()
+          for label in "${LABELS[@]}"; do ARGS+=(--label "$label"); done
+          URL=$(gh issue create -R "$GITHUB_REPOSITORY" --title "$TITLE" \
+            --body-file triage-out/issue-body.md "${ARGS[@]}")
+          echo "### Opened ${URL}" >> "$GITHUB_STEP_SUMMARY"

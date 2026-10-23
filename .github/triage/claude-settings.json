@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(./**)",
+      "Glob",
+      "Grep",
+      "Bash(python3 skills/openedx-e2e/scripts/ci_artifacts.py summary:*)",
+      "Bash(python3 skills/openedx-e2e/scripts/ci_artifacts.py test:*)",
+      "Bash(python3 skills/openedx-e2e/scripts/ci_artifacts.py logs:*)",
+      "Bash(python3 skills/openedx-e2e/scripts/ci_artifacts.py provenance:*)",
+      "Bash(python3 skills/openedx-e2e/scripts/ci_artifacts.py shards:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git diff:*)",
+      "Edit(./triage/out/**)",
+      "Write(./triage/out/**)"
+    ],
+    "deny": [
+      "WebFetch",
+      "WebSearch",
+      "Task",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(gh:*)",
+      "Bash(python3 skills/openedx-e2e/scripts/ci_artifacts.py fetch:*)",
+      "Read(//proc/**)",
+      "Read(~/**)",
+      "Read(./.git/config)"
+    ]
+  }
+}
