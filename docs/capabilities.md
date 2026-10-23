@@ -103,7 +103,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `catalog-search` | declared | declared | declared | declared | declared | declared | |  |
 | `studio` | declared | declared | declared | declared | declared | declared | |  |
 | `taxonomies` | declared | declared | — | — | — | — | |  |
-| `authoring-sidebar` | declared | declared | — | — | — | — | |  |
+| `studio-sidebar` | declared | declared | — | — | — | — | |  |
 | `upload-agreements` | declared | declared | — | — | — | — | |  |
 | `ora` | declared | declared | declared | declared | declared | declared | |  |
 | `drag-and-drop-v2` | declared | declared | declared | declared | declared | declared | |  |
@@ -125,6 +125,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `rbac-error-view-action` | — | declared | — | — | — | — | |  |
 | `certificate-web-view` | — | declared | declared | declared | declared | declared | |  |
 | `recommender-studio-settings` | declared | — | — | — | — | — | |  |
+| `outline-unhide-draft` | declared | — | — | — | — | — | |  |
 | `authz-auto-migration` | declared | declared | — | — | — | — | − |  |
 | `authz-manual-migration` | replaced | replaced | default | default | default | default | + |  |
 | `support-url` | — | — | — | — | — | — | + |  |
@@ -195,7 +196,7 @@ A target that differs from the stock setting declares the other half.
 | `content-libraries` | Content libraries v2 (Learning Core): the library-authoring MFE, `/api/libraries/v2/`, and reuse of library content in courses. Team management is `rbac`, not this. | `tests/studio/library/`, and the library cases in `tests/rbac/`. | `main`, `verawood`. `ulmo` and earlier are not covered. |
 | `content-libraries-v1` | Legacy (modulestore) libraries and the migrator into v2. Hidden once `contentstore.new_studio_mfe.disable_legacy_libraries` is on. | The legacy-library and migration cases in `tests/studio/library/`. | `main`, `verawood` (a default install still creates them) |
 | `taxonomies` | Content tagging: the taxonomy pages (`ENABLE_TAGGING_TAXONOMY_PAGES`) and the tag drawers. Managing taxonomies needs the admin account. | `tests/studio/tagging/`, and tag filters in `tests/studio/library/`. | `main`, `verawood` |
-| `authoring-sidebar` | The Verawood authoring sidebar: the Info / Add / Align / Help rail on the outline and the Info / Add / Align rail on the unit page. | `tests/studio/sidebar/`, and the Align cases in `tests/studio/tagging/`. | `main`, `verawood`. Not rendered on `ulmo` and earlier. |
+| `studio-sidebar` | The Verawood authoring sidebar: the Info / Add / Align / Help rail on the outline and the Info / Add / Align rail on the unit page. | `tests/studio/sidebar/`, and the Align cases in `tests/studio/tagging/`. | `main`, `verawood`. Not rendered on `ulmo` and earlier. |
 | `upload-agreements` | Upload agreements gate the Files and Videos uploads (the `AGREEMENT_GATING` MFE-config map plus `/api/agreements/v1/`). Declared but with no gating map, the case fails. | `tests/studio/files/agreements.spec.ts` (TC-00501–00507). | `main`, `verawood` (CI sets the map in its Tutor plugin) |
 
 ### Optional XBlocks
@@ -233,6 +234,7 @@ permanently red case. Declare one where the behaviour is right.
 | `rbac-error-view-action` | The console's not-found view offers a working way back. On `main` the action does nothing (`RBAC-008`). | TC-00442. | `verawood` |
 | `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood`, `ulmo`, `teak`, `sumac`, `redwood` |
 | `recommender-studio-settings` | The recommender's Studio editor shows the settings it saved (recommender-xblock ≥ 5.1.0). `verawood` pins 5.0.0 (`XBLOCK-002`). | TC-00132. | `main` |
+| `outline-unhide-draft` | Un-hiding a unit in the outline's Configure dialog saves a draft; only hiding auto-publishes (frontend-app-authoring#3284). `verawood` auto-publishes every save. | TC-00161's draft case. | `main` |
 | `analytics-in-context-cards` | The outline cards' Analytics buttons open the element's own in-context analytics. frontend-plugin-aspects 3.0.1 reads the selection from the authoring MFE's `currentItemData`, which `master` removed, so on `main` they show the course's view (`ASPECTS-009`). Requires `analytics-in-context`. | TC-00314's card-opens-element case. | `verawood` (not yet run there) |
 | `analytics-staff-video-counts` | Course Comparison's video-count charts answer course staff. Superset 6.0.0 (tutor-contrib-aspects 4.x) aliases each table its row-level security filters as `schema.table`, so the charts' `dim_course_blocks.<column>` references fail for every RLS-limited user (`ASPECTS-011`); 6.1.0 (5.1+ and 6.x) does not. Requires `analytics`. | TC-00554's video-count case. | Superset 6.1 targets: tutor-contrib-aspects 5.1+ and 6.x (`main` and `verawood`); not the 4.x line |
 

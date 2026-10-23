@@ -13,12 +13,12 @@ import { SIDEBAR_A11Y_BASELINE } from './helpers';
  * tracks the unit's draft state. Structure is asserted structurally; the publish
  * state is read from the xblock outline API.
  *
- * Gated on `authoring-sidebar`; fixtures ordered so `studioAuthorSession` primes
+ * Gated on `studio-sidebar`; fixtures ordered so `studioAuthorSession` primes
  * the browser session last.
  */
 test.describe(
   'Authoring unit-page sidebar',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@authoring-sidebar'] },
+  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@studio-sidebar'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

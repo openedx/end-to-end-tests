@@ -13,11 +13,11 @@ import { SIDEBAR_A11Y_BASELINE } from './helpers';
  * status, child counts — is read from the xblock outline API, which decides
  * pass/fail.
  *
- * Gated on `authoring-sidebar`; `studioAuthorSession` resolves last.
+ * Gated on `studio-sidebar`; `studioAuthorSession` resolves last.
  */
 test.describe(
   'Authoring outline Info panel',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@authoring-sidebar'] },
+  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@studio-sidebar'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

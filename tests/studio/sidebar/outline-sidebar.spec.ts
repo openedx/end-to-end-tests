@@ -13,13 +13,13 @@ import { SIDEBAR_A11Y_BASELINE } from './helpers';
  * the panel's presence, a title equal to the item's own name, the set of Help
  * links' `href`s — never on localized copy.
  *
- * Gated on `authoring-sidebar` (main/verawood); `ulmo` and earlier render no
+ * Gated on `studio-sidebar` (main/verawood); `ulmo` and earlier render no
  * such sidebar. Fixtures are ordered so `studioAuthorSession` resolves last and
  * primes the browser session after the course is provisioned.
  */
 test.describe(
   'Authoring course-outline sidebar',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@authoring-sidebar'] },
+  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@studio-sidebar'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

@@ -10,7 +10,8 @@ can reuse — e.g.:
 
 - `studio.ts` — the Studio authoring flows: `createCourseThroughStudioHome` (open
   the New Course form, submit, follow the MFE to the new outline),
-  `grantCourseCreatorThroughAdmin`, and the Studio-SSO helpers
+  `grantCourseCreatorThroughAdmin`, `publishUnitIfDraft` (publish a unit from
+  its outline card only when a Configure save left a draft), and the Studio-SSO helpers
   (`establishStudioBrowserSession` / `signInToStudioThroughUi`).
 - `analytics.ts` — Aspects' analytics as course staff read them in the Reports
   tab: `openReportsDashboard` opens one of a course's dashboards by slug
