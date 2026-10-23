@@ -1,7 +1,7 @@
-import type { Page } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 import type { AccountCredentials } from '../accounts';
-import { studioOrigin, type CourseIdentity } from '../api';
+import { fetchXBlockOutline, studioOrigin, type CourseIdentity } from '../api';
 import type { AppConfig } from '../config';
 import { STUDIO_HOME_SELECTORS, TIMEOUTS } from '../config';
 import { signIn } from './auth';
@@ -46,6 +46,23 @@ export async function createCourseThroughStudioHome(
     await outlinePage.waitForCourse(courseKey);
   }
   return { response, courseKey };
+}
+
+/**
+ * Publishes a unit through its outline card when it has unpublished changes, as
+ * an author does after a Configure save that left a draft; a unit with nothing
+ * to publish is left alone. Whether a Configure save publishes depends on the
+ * release (`outline-unhide-draft`), so the hide/show round trip takes whichever
+ * route the target needs. `request` must carry the same author as the page.
+ */
+export async function publishUnitIfDraft(
+  outlinePage: StudioCourseOutlinePage,
+  request: APIRequestContext,
+  config: AppConfig,
+  unitKey: string,
+): Promise<void> {
+  if ((await fetchXBlockOutline(request, config, unitKey)).has_changes !== true) return;
+  await outlinePage.publish(outlinePage.unit(unitKey), 'unit');
 }
 
 /**

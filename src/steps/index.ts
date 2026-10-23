@@ -16,6 +16,7 @@ export {
 export {
   createCourseThroughStudioHome,
   grantCourseCreatorThroughAdmin,
+  publishUnitIfDraft,
   type StudioCourseCreation,
 } from './studio';
 export { satisfyPrerequisiteByScore, submitProblem } from './gating';

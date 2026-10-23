@@ -247,6 +247,14 @@ export const CAPABILITIES = [
   // renders the saved configuration. Declared where it does, so the gap is an
   // undeclared capability rather than a permanently red case.
   'recommender-studio-settings',
+  // **Un-hiding a unit leaves a draft.** From frontend-app-authoring#3284
+  // (`master`, 2026-10-22) the outline's unit Configure dialog auto-publishes
+  // only when it hides a unit from learners; un-hiding (and content-group or
+  // discussion changes) saves a draft the author must publish. `verawood` still
+  // auto-publishes every save. The hide/show round trip (TC-00161) publishes
+  // whatever draft remains and stays ungated; this gates the case that asserts
+  // the draft itself. Declared where the authoring MFE has the change.
+  'outline-unhide-draft',
   // --- Installation settings a test depends on -------------------------------
   // Each of these used to be a runtime probe that skipped the case it did not
   // describe. Declaring the setting instead makes the selection explicit (a CI
