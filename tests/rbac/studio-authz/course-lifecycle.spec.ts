@@ -179,11 +179,13 @@ test.describe(
             )
             .toBeGreaterThan(0);
 
-          // But **creating** one is refused. Once an organization is under an
-          // AuthZ override, Studio asks AuthZ for `create_course` in that
-          // organization, and the legacy course-creator group the account holds
-          // does not carry it across (`RBAC-015`). The case asks for creation to
-          // succeed; the held case below is that expectation.
+          // But **creating** one answers 403. The creator check passes (the
+          // account holds `course_creator_group`) and the course is written, but
+          // `add_instructor` then assigns the creator's instructor role through
+          // AuthZ and fails its own caller-authority check, which does not yet
+          // see that role (`RBAC-015`). The course is left half set up. The
+          // case asks for creation to succeed; the held case below is that
+          // expectation.
           const identity = newCourseIdentity(
             config,
             getRunId(),
@@ -212,8 +214,14 @@ test.describe(
     );
 
     test(
-      'copies a course’s team into the re-run',
-      { tag: '@authz-auto-migration', annotation: testId('TC-00632') },
+      'does not carry the source course’s team into a re-run',
+      {
+        tag: '@authz-auto-migration',
+        annotation: [
+          testId('TC-00632'),
+          issue('https://github.com/openedx/wg-build-test-release/issues/617'),
+        ],
+      },
       async (
         {
           page,
@@ -257,10 +265,11 @@ test.describe(
         });
 
         try {
-          // The re-run is taken by the superuser: once the organization is under
-          // an AuthZ override, Studio asks AuthZ for `create_course` there and
-          // refuses the course author, whose creator group is legacy
-          // (`RBAC-015`). What this case is about is what the copy inherits.
+          // The re-run is taken by the superuser: under an organization-level
+          // AuthZ override, a non-superuser's new course fails part-way with a
+          // 403 when `add_instructor` checks the creator's just-assigned role
+          // (`RBAC-015`); a superuser skips that check. What this case is about
+          // is what the copy inherits.
           await resyncStudioAuthor();
           const identity = newCourseIdentity(
             config,
@@ -311,10 +320,10 @@ test.describe(
           expect(copied.authz.length + copied.legacy.length).toBeGreaterThan(0);
 
           // …but the source's staff member is not in it. The case asks for the
-          // whole team to be carried across in both systems; on this build a
-          // re-run of an AuthZ course does not bring the AuthZ assignments with
-          // it (`RBAC-016`), which is why the sheet marks this row failed. The
-          // held case below is the behaviour that is wanted.
+          // whole team to be carried across in both systems, but a re-run has
+          // never copied the course team, with or without AuthZ: only the
+          // re-running user is added (`RBAC-016`, by design). The sheet marks
+          // this row failed; the held case below is the sheet's expectation.
           expect([...copied.authz, ...copied.legacy]).not.toContain(
             `${staff.identity.username}:course_staff`,
           );
@@ -411,10 +420,12 @@ test.describe(
         tag: '@authz-auto-migration',
         annotation: [
           testId('TC-00640'),
+          issue('https://github.com/openedx/openedx-authz/issues/521'),
           knownGap(
-            'Under an organization-level AuthZ override, Studio asks AuthZ for `create_course` in ' +
-              'that organization and refuses an account whose course-creator rights are legacy — ' +
-              'including the organization-wide instructor the migration just created (`RBAC-015`).',
+            'Under an organization-level AuthZ override, a non-superuser course creator gets a 403 ' +
+              'from course creation even though the course is created: `add_instructor` assigns the ' +
+              "creator's instructor role through AuthZ, then its caller-authority check does not " +
+              'see that role and raises PermissionDenied (`RBAC-015`).',
           ),
         ],
       },
@@ -485,10 +496,11 @@ test.describe(
         tag: '@authz-auto-migration',
         annotation: [
           testId('TC-00632'),
+          issue('https://github.com/openedx/wg-build-test-release/issues/617'),
           knownGap(
-            'A re-run of a course under AuthZ does not copy its AuthZ assignments to the new run: ' +
-              "the copy's team does not include the source's course staff in either system " +
-              '(`RBAC-016`). The sheet marks this row failed as well.',
+            'The sheet expects a re-run to copy the course team in both systems, but re-runs have ' +
+              'never copied the team, with or without AuthZ: only the re-running user is added ' +
+              '(`RBAC-016`, by design). Held until the feature is requested or the case is reworded.',
           ),
         ],
       },

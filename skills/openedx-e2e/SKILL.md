@@ -32,9 +32,11 @@ are not foundational and must not be referenced from code, docs, or commits.
 
 1. **Never match the platform's localized text.** No `getByText`, `getByLabel`,
    `getByRole(…, { name: '<literal>' })`, `toContainText('<literal>')`,
-   `hasText`, `:has-text()` against platform copy. Locator priority: test ID →
-   stable attribute/role (no localized name) → structural CSS. Matching data the
-   test itself supplied is fine. Enforced by
+   `hasText`, `:has-text()` against platform copy. Locator priority: stable
+   attribute/role (no localized name) → structural CSS → a test ID the app
+   already ships. Never ask upstream for new test IDs; when an element is
+   ambiguous, ask for a structural fix (role, landmark, unique `name`/`id`).
+   Matching data the test itself supplied is fine. Enforced by
    `tests/conventions/no-displayed-text.spec.ts`.
 2. **The UI drives the action; the API decides the outcome.** Assert on
    `src/api/` answers (numeric/enum/boolean) unless the rendering _is_ the thing
