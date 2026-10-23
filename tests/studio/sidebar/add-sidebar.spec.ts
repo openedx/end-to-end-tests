@@ -11,11 +11,11 @@ import { testId } from '../../../src/reporting';
  * (wg-build-test-release#587, the sheet's Failed note), so this asserts the
  * two-tab structure — the part that works — rather than driving a create.
  *
- * Gated on `authoring-sidebar`; `studioAuthorSession` resolves last.
+ * Gated on `studio-sidebar`; `studioAuthorSession` resolves last.
  */
 test.describe(
   'Authoring Add sidebar',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@authoring-sidebar'] },
+  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@studio-sidebar'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

@@ -9,11 +9,11 @@ import { testId } from '../../../src/reporting';
  * sidebar with a Back control and its own overflow menu; the menu's actions
  * (duplicate) change the unit's children, read from the container API.
  *
- * Gated on `authoring-sidebar`; `studioAuthorSession` resolves last.
+ * Gated on `studio-sidebar`; `studioAuthorSession` resolves last.
  */
 test.describe(
   'Authoring unit-page component cards',
-  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@authoring-sidebar'] },
+  { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@studio-sidebar'] },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

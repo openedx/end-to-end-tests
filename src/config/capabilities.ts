@@ -114,7 +114,7 @@ export const CAPABILITIES = [
   // and the sidebar specs skip. Not a version switch — the tag drawer opens from
   // the card kebab on every release and stays ungated beyond `taxonomies`; this
   // gates only the coverage that is *about* the sidebar rail and its panels.
-  'authoring-sidebar',
+  'studio-sidebar',
   // File/video upload agreements: the authoring MFE blocks the Files (and Videos)
   // upload controls behind a banner until the user accepts each configured
   // agreement, driven by the `AGREEMENT_GATING` MFE-config map

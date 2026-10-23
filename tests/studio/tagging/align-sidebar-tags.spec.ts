@@ -12,19 +12,12 @@ import { TAG } from '../../../src/steps';
  * `tag-drawer-{outline,unit}.spec.ts`; here the emphasis is the Align-rail access
  * and reload persistence, decided by the `object_tags` API and the reopened tree.
  *
- * Gated on `authoring-sidebar` (the rail) and `taxonomies`.
+ * Gated on `studio-sidebar` (the rail) and `taxonomies`.
  */
 test.describe(
   'Align sidebar tagging',
   {
-    tag: [
-      '@regression',
-      '@studio',
-      '@author',
-      '@mfe-authoring',
-      '@authoring-sidebar',
-      '@taxonomies',
-    ],
+    tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@studio-sidebar', '@taxonomies'],
   },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
