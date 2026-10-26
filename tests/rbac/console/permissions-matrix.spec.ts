@@ -128,7 +128,8 @@ test.describe(
         // at `xs` widths, and the scroll-to-top button (`AnchorButton`) renders
         // only after the window has scrolled 300 px, outside this panel. Both
         // clauses need a narrow viewport and a page scroll to assert
-        // (`RBAC-009`, resolved; see .private/coverage_gaps.md).
+        // (`RBAC-009`, resolved; its section in docs/findings.md lists what a
+        // rewrite needs).
         expect(await matrix.cellPosition(matrix.column(0).first())).toBe('sticky');
         await expect(matrix.panel.locator('button')).not.toHaveCount(
           await matrix.groupButtons.count(),

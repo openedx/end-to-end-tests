@@ -150,7 +150,7 @@ Avoid brittle selectors (deep CSS/XPath chains, nth-child, generated class names
 ## Authoring-to-learner round trips
 
 Studio specs that author content and then check what a learner sees follow one
-shape. Read `.private/studio-auth-resilience.md` for the session mechanics behind
+shape. Read `skills/openedx-e2e/references/studio-auth.md` for the session mechanics behind
 these rules.
 
 - **One test, both halves.** Author through `src/api/` (`buildSection`,

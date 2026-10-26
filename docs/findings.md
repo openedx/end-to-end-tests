@@ -91,7 +91,7 @@ measured, and issues are opened by hand from them.
 | `FP-001`    | `openedx/frontend-platform` (`<html lang>` never follows the chosen language) | open, `test.fail` on TC-00066's page-language test wherever a legacy header renders one of its pages (`KNOWN_CHROME_DEFECTS`)
 | `LMS-001`   | `openedx/edx-platform` (legacy course Bookmarks page breadcrumb link) | open, no `fixme` — `link-in-text-block` baselined on the `course-bookmarks` scan only
 | `LEARN-003` | `openedx/frontend-app-learning` (course tabs overflow a phone screen) | open, expected failure on TC-00056's "fits the screen" test; page-object workaround for the tray's collapse click
-| `EXAM-001`  | `openedx/frontend-lib-special-exams` 5.0.0 (CommonJS build bundles a second React Query; learning MFE crashes on `main`) | **filed** - [frontend-lib-special-exams#178](https://github.com/openedx/frontend-lib-special-exams/issues/178) (tracked here as [#148](https://github.com/openedx/end-to-end-tests/issues/148)), no `fixme` — regression on `main` since 2026-10-15; every learning-MFE page fails until a fixed build lands
+| `EXAM-001`  | `openedx/frontend-lib-special-exams` 5.0.0 (CommonJS build bundles a second React Query; learning MFE crashes on `main`) | **fixed** in 5.0.1 (2026-10-16) - [frontend-lib-special-exams#178](https://github.com/openedx/frontend-lib-special-exams/issues/178) (tracked here as [#148](https://github.com/openedx/end-to-end-tests/issues/148)); was a `main`-only regression from 2026-10-15, no `fixme`
 | `NOTES-001` | `openedx/edx-platform` / `openedx/xblocks-contrib` (HTML blocks not annotatable) | **filed** - [openedx-platform#39223](https://github.com/openedx/openedx-platform/issues/39223) (tracked here as [#123](https://github.com/openedx/end-to-end-tests/issues/123)), `test.fail` on TC-00038's take-a-note test
 | `FOOTER-001` | `openedx/frontend-component-footer` (no legal / copyright line) | open, no `fixme` — TC-00063 and TC-00064 run only where the shell renders the footer (`@frontend-base`)
 | `DEMO-003`  | `openedx/edx-platform` (no effort estimates for courses with external videos) | **filed** - [openedx-platform#39224](https://github.com/openedx/openedx-platform/issues/39224) (tracked here as [#124](https://github.com/openedx/end-to-end-tests/issues/124)), no `fixme` — TC-00027 runs on a video-free course of the suite's own
@@ -1734,6 +1734,13 @@ has scrolled more than 300 px, which the 2026-09-22 reading never did. And since
 and loses its row labels — only on `xs` (phone-width) screens. The accessibility
 residue is split out as `RBAC-018`.
 
+The `fixme` sibling on TC-00569 ("keeps the matrix headers in view while it is
+scrolled") still asserts the pre-#250 layout. A rewrite needs an `xs` viewport,
+where the card itself becomes the scroller (`max-height: 80vh`), to check the
+sticky column headers and, if wanted, the row labels (not sticky today); and a
+page scroll of more than 300 px, after which `AnchorButton` (a `fixed-bottom`
+up-arrow icon button) appears and returns to the top.
+
 ### `RBAC-018` — the permission matrix's row labels are not row headers
 
 **Where:** the console's Roles and Permissions tab
@@ -2272,7 +2279,8 @@ tray's open → collapse → navigate behaviour stays covered at phone width.
 
 **Where:** `openedx/frontend-lib-special-exams` 5.0.0 (`f6ba3d0`), as
 `openedx/frontend-app-learning` `master` (`732a040`) consumes it since #2168
-(merged 2026-10-15). Tutor `main`, scheduled CI run 38878211476
+(merged 2026-10-15). Tutor `main`, scheduled CI run 38878211476,
+[attempt 1](https://github.com/openedx/end-to-end-tests/actions/runs/38878211476/attempts/1)
 (2026-10-16). `verawood` is unaffected: `release/verawood` pins
 special-exams `^4.0.0`.
 
@@ -2301,11 +2309,17 @@ consumer-side workaround is a webpack `resolve.alias` pinning
 **Coverage impact:** filed as
 [frontend-lib-special-exams#178](https://github.com/openedx/frontend-lib-special-exams/issues/178)
 (tracked here as [#148](https://github.com/openedx/end-to-end-tests/issues/148)),
-confirmed on the local `main` sandbox; no `fixme`. On `main` 59 learning-facing tests fail
-on the error page, and the four `advanced-modules.spec.ts` cases fail on
+confirmed on the local `main` sandbox; no `fixme`. On `main` 59 learning-facing tests failed
+on the error page, and the four `advanced-modules.spec.ts` cases failed on
 retry ("… offered before it is listed") because the crashed first attempt had
-already added the module. Nothing is skipped: the failures are the regression,
-and they clear once a fixed build lands.
+already added the module. Nothing was skipped: the failures were the regression.
+
+**Resolution (2026-10-16): fixed upstream in special-exams 5.0.1.**
+[frontend-lib-special-exams#179](https://github.com/openedx/frontend-lib-special-exams/pull/179)
+removed the `"module": "CommonJS"` override, and `frontend-app-learning` `master`
+now locks 5.0.1. The re-run of the same scheduled run
+([attempt 2](https://github.com/openedx/end-to-end-tests/actions/runs/38878211476/attempts/2))
+is green.
 
 ### `NOTES-001` — HTML components cannot be annotated: the extracted HTML block has no notes support
 
