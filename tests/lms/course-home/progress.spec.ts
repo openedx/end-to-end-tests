@@ -126,9 +126,12 @@ test.describe('Course progress', () => {
   // falls short of the 0.5 pass mark, and the subsections that would close the
   // gap have no discoverable answers: Intermediate inherits the course default
   // (`finished`, unreachable with unlimited attempts) and Advanced is ORA and
-  // LTI content that cannot be driven at all. Hard-coding an answer key would
-  // tie the suite to one course. Nothing in the platform will flip this, so it is
-  // declared `fixme` and no fixtures (including a learner registration) are set up.
+  // LTI content that cannot be driven at all. A learner who knows the answers
+  // passes, so this is not a content defect (`DEMO-002`, resolved): the suite
+  // needs an answer key for the demo course, which
+  // github.com/bmtcril/demo_course_playwright already has (`UNIT_ANSWERS`). Until
+  // it is imported this is `fixme` and no fixtures (including a learner
+  // registration) are set up.
   test.fixme(
     'reaches a passing grade',
     {
@@ -136,7 +139,7 @@ test.describe('Course progress', () => {
       annotation: [
         testId('TC-00031'),
         knownGap(
-          'Demo course exposes too few revealable answers to reach the passing grade without a hard-coded answer key',
+          'The suite has no answer key for the demo course; Show Answer reveals too few answers to reach the passing grade',
         ),
       ],
     },

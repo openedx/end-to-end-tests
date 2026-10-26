@@ -98,7 +98,7 @@ export interface OraSubmission {
 /**
  * The ORA's submissions as course staff see them (the staff grader's
  * `initialize`), for the uuid a grade needs. A learner is answered 500, not 403
- * (`NOTIF-002`).
+ * (`NOTIF-002`, https://github.com/openedx/edx-ora2/issues/2460).
  */
 export async function listOraSubmissions(
   request: APIRequestContext,

@@ -177,10 +177,11 @@ test.describe('AuthZ library public reuse', { tag: ['@regression', ...RBAC_LIBRA
       annotation: [
         testId('TC-00575'),
         knownGap(
-          'Flipping the switch saves (the PATCH answers 200) but the MFE shows nothing at all: no ' +
-            'toast, alert or saving state, in either direction (`RBAC-013`). The case, and ' +
+          'Flipping the switch saves (the PATCH answers 200) but the MFE shows no success ' +
+            'message; only a failure is toasted (`RBAC-013`). The case, and ' +
             "openedx-authz#239's acceptance criteria, ask for a success message.",
         ),
+        issue('https://github.com/openedx/frontend-app-authoring/issues/3311'),
       ],
     },
     async ({ page, config, authoringLibrary, libraryPage, studioAuthorSession }) => {

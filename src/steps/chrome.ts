@@ -129,7 +129,7 @@ export const KNOWN_CHROME_DEFECTS: readonly KnownChromeDefect[] = [
       !signedIn &&
       viewportWidth <= SHELL_NARROW_MAX_WIDTH,
     reason:
-      'BASE-005: the frontend-base shell header menu opens empty for a signed-out visitor at narrow widths, so its primary links (the catalog) are unreachable',
+      'BASE-005: the frontend-base shell header menu never shows the apps’ primary links at narrow widths (frontend-base#322), so the catalog link is unreachable',
   },
   {
     id: 'LEARN-002',
@@ -137,7 +137,7 @@ export const KNOWN_CHROME_DEFECTS: readonly KnownChromeDefect[] = [
     applies: ({ generations, scenario }) =>
       scenario === 'no-help-link' && generations.includes('learning'),
     reason:
-      'LEARN-002: the learning header renders its Help link with href="null" when SUPPORT_URL is unset, instead of leaving it out',
+      'LEARN-002: the learning header renders its Help link with href="null" when SUPPORT_URL is unset, instead of leaving it out (frontend-component-header#685)',
   },
   {
     id: 'BASE-004',
