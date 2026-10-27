@@ -94,3 +94,8 @@ Rules for probing:
   against the intended behaviour (see `references/writing-tests.md`).
 
 Finish with `npm run check`, then re-run the affected specs.
+
+If the fix accommodates a platform change (new markup, a moved flow, a changed
+API, a new capability), also check whether the BTR cases those specs carry
+still describe the platform: `references/releases.md`, "Check the BTR test plan,
+too". Report the outcome with the fix.

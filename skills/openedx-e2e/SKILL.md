@@ -78,3 +78,7 @@ Load the reference file for the task at hand:
   (fetch + parse Playwright reports, suite reports and Tutor logs with
   `scripts/ci_artifacts.py`)
 - **Changing tests for platform changes across named releases** → `references/releases.md`
+- **Any fix that accommodates a platform change (including CI failures on `main`)**
+  → also run the BTR test plan check in `references/releases.md` and put a
+  **BTR test plan impact** section in the PR description, even when the answer
+  is "None"

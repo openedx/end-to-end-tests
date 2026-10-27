@@ -99,6 +99,11 @@ spec file, if you need fields the script does not print.
 playwright show-report $D/playwright-report-<release>/playwright-report`
    serves the HTML report locally.
 
+8. **Before reporting the fix, check the BTR cases.** A `main` failure caused by
+   a platform change usually means the matching BTR test plan cases describe
+   the old behaviour too. Follow "Check the BTR test plan, too" in
+   `references/releases.md` and include its result in the summary and the PR.
+
 ## Rules
 
 - The artifacts are evidence about a **CI installation**, whose settings live

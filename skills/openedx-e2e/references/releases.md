@@ -60,6 +60,30 @@ Pick the lowest-cost mechanism that fits:
 - Don't let `.ci/openedx-releases.json`, the workflow dropdown, `.env.example`'s
   capability list, and `src/config/capabilities.ts` drift apart.
 
+## Check the BTR test plan, too
+
+A fix that makes the suite pass on `main` can leave the BTR Release Test Plan
+describing the old platform. Manual testers follow the sheet's steps and
+expected results, so a stale case fails them even when the suite is green.
+Whenever a change absorbs a platform change (any of the mechanisms above, or a
+CI fix on `main`), check every BTR case the touched specs carry:
+
+1. List the case IDs: the `testId('TC-…')` annotations on every spec whose
+   behaviour, flow or assertions the change touches, plus any spec that uses a
+   changed page object, step or selector.
+2. Read each case's current text in the test plan sheet (the release's tab; the
+   sheet is linked from the release testing process in ADR-0002's references).
+3. Compare the case to what the platform now does. It needs a sheet change when
+   a step names a control, page, route or flow that moved or was replaced, when
+   the expected result no longer matches, or when the case now holds only from
+   some release onward (say which release the new wording applies to, and keep
+   the old wording for the releases that still behave that way).
+4. Surface the result; don't edit the sheet. Say it in the debugging summary and
+   add a **BTR test plan impact** section to the PR description: per case, the
+   ID, the release tab, the current wording, and the proposed wording. Write
+   "None: <case IDs checked>" when nothing changes, so a reviewer can see the
+   check happened. A spec with no `testId` gets "no BTR case".
+
 ## Before you call it done
 
 ```sh
