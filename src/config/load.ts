@@ -60,6 +60,12 @@ export interface AppConfig {
   /** Mailbox provider plugin modules to load (existing file paths). */
   readonly customMailProviderPlugins: ReadonlySet<string>;
   /**
+   * External test directories (`CUSTOM_TEST_DIRS`, existing paths). Each is
+   * mirrored onto the suite's tier projects so a provider's own specs run in the
+   * same `playwright test` invocation, tagged and gated like the built-in ones.
+   */
+  readonly customTestDirs: ReadonlySet<string>;
+  /**
    * Name of the mailbox provider the suite reads e-mail through (`src/mail/`),
    * a loaded plugin's `name`. Set whenever the `email-inbox` capability is.
    */
@@ -348,6 +354,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     raw.CUSTOM_MAIL_PROVIDER_PLUGINS,
     issues,
   );
+  const customTestDirs = parsePluginPaths('CUSTOM_TEST_DIRS', raw.CUSTOM_TEST_DIRS, issues);
   const mailProvider = raw.MAIL_PROVIDER;
   // The suite ships no built-in mailbox, so a provider name can only come from
   // a plugin; only the mail registry knows the plugins' names.
@@ -422,6 +429,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     customAccountBackendPlugins,
     accountBackend,
     customMailProviderPlugins,
+    customTestDirs,
     mailProvider,
     allowCrossSiteOrigins,
     scheme,

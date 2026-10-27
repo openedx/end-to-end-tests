@@ -1,10 +1,60 @@
 import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
+import path from 'node:path';
 
 import { authStateFile } from './src/auth';
 import { ciResultLabels, getConfigIfValid, resolveWorkerCount, TIMEOUTS } from './src/config';
 import { SUITE_REPORTERS } from './src/reporting/reporters';
 
 const isCI = Boolean(process.env.CI);
+
+/**
+ * External test directories declared via `CUSTOM_TEST_DIRS`. A provider points
+ * this at its own spec folder(s); each is mirrored onto the tier projects below
+ * so the external specs run through the same tiers, tags and capability gating
+ * in one `playwright test` run — no fork, no second Playwright setup.
+ */
+const externalTestDirs = [...(getConfigIfValid('playwright.config')?.customTestDirs ?? [])];
+
+/**
+ * Mirrors the browser/unit tiers onto one external directory. Names are suffixed
+ * with the dir's label so they stay unique; authenticated tiers reuse the
+ * built-in `setup` project's captured state via `dependencies`.
+ */
+function externalProjects(dir: string) {
+  const label = path.basename(dir.replace(/[/\\]+$/, '')) || dir;
+  const chrome = { ...devices['Desktop Chrome'] };
+  return [
+    { name: `unit [${label}]`, grep: /@unit/, testDir: dir },
+    {
+      name: `smoke [${label}]`,
+      grep: /@smoke/,
+      grepInvert: /@authenticated|@author/,
+      testDir: dir,
+      use: chrome,
+    },
+    {
+      name: `regression [${label}]`,
+      grep: /@regression/,
+      grepInvert: /@authenticated|@author/,
+      testDir: dir,
+      use: chrome,
+    },
+    {
+      name: `lms-learner [${label}]`,
+      grep: /@authenticated/,
+      dependencies: ['setup'],
+      testDir: dir,
+      use: { ...chrome, storageState: authStateFile('learner') },
+    },
+    {
+      name: `studio-author [${label}]`,
+      grep: /@author/,
+      dependencies: ['setup'],
+      testDir: dir,
+      use: { ...chrome, storageState: authStateFile('author') },
+    },
+  ];
+}
 
 /**
  * Resolves the LMS base URL from validated configuration.
@@ -128,6 +178,9 @@ export default defineConfig({
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], storageState: authStateFile('author') },
     },
+    // Provider specs declared via CUSTOM_TEST_DIRS: the tiers mirrored onto each
+    // external directory, so external coverage runs in the same invocation.
+    ...externalTestDirs.flatMap(externalProjects),
     // Additional browsers (Firefox, WebKit) can be added as parallel projects
     // once the suite is stable on Chromium.
   ],
