@@ -29,7 +29,9 @@
     "scripts/**/*.mts",
     "tests/**/*.ts",
     "plugins/**/*.ts",
+    "examples/**/*.ts",
     "playwright.config.ts",
+    "playwright.projects.ts",
     "merge.config.ts",
     "eslint.config.mjs"
   ],

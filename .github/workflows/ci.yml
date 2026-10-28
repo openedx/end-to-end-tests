@@ -81,7 +81,7 @@ jobs:
 
       - name: Unit tests (no browser or LMS required)
         if: ${{ !cancelled() }}
-        # Glob so external unit projects (unit [<dir>] from CUSTOM_TEST_DIRS) are
+        # Glob so external unit projects (unit/<dir> from CUSTOM_TEST_DIRS) are
         # included too; matches just `unit` when none are configured.
         run: npx playwright test --project='unit*'
 

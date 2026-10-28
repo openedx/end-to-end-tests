@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { test, expect } from '@playwright/test';
 
+import { resolveExternalTestDirs } from '../../src/config';
+
 /**
  * Guards the "locators never depend on displayed text" rule (see ARCHITECTURE.md).
  *
@@ -21,6 +23,18 @@ const ROOT = path.resolve(__dirname, '..', '..');
 
 /** Directories whose `.ts` files are scanned. */
 const SCAN_DIRS = ['src/pages', 'src/steps', 'tests'];
+
+/**
+ * External test directories (`CUSTOM_TEST_DIRS`) that live inside the checkout,
+ * as paths relative to the root, so provider specs vendored into the repo are
+ * held to the same conventions.
+ */
+function externalScanDirs(): string[] {
+  return resolveExternalTestDirs()
+    .filter((dir) => dir === ROOT || dir.startsWith(ROOT + path.sep))
+    .map((dir) => path.relative(ROOT, dir))
+    .filter((rel) => rel !== '' && !rel.startsWith('..'));
+}
 
 /** This file legitimately contains the forbidden patterns as strings. */
 const SELF = path.basename(__filename).replace(/\.js$/, '.ts');
@@ -76,7 +90,7 @@ const RULES: Rule[] = [
 
 function scannedFiles(): string[] {
   const files: string[] = [];
-  for (const dir of SCAN_DIRS) {
+  for (const dir of [...SCAN_DIRS, ...externalScanDirs()]) {
     const base = path.join(ROOT, dir);
     let entries: string[];
     try {

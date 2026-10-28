@@ -21,6 +21,12 @@ Contains:
   each capability, the releases known to support it and where CI declares it. `missingCapabilities()` is the decision the gate in
   `src/fixtures/` applies to every spec's tags.
 - The built-in account-backend names (`account-backends.ts`).
+- External test directories: `CUSTOM_TEST_DIRS` (comma-separated), parsed and
+  validated as existing directories by `parseCustomTestDirs`; `resolveExternalTestDirs`
+  reads them independently of the installation config and resolves each to an
+  absolute path. `playwright.config.ts` and `merge.config.ts` mirror the tier
+  projects onto each so a provider's own specs run in the same invocation (see
+  the README "Running your own tests").
 - The run id (`run-id.ts`): minted once per run and shared by every worker, with
   CI's per-shard `RUN_ID_SUFFIX`, and the CI labels (`ciResultLabels`: shard and
   `CI_PROFILE`) that `playwright.config.ts` puts in the config `metadata` for the

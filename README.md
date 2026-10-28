@@ -307,14 +307,15 @@ git submodule and keeps its specs beside it:
 CUSTOM_TEST_DIRS=../my-tests npx playwright test
 ```
 
-Each directory becomes a set of mirrored projects named `<tier> [<dir>]`, where
-`<dir>` is the directory relative to the working directory (so two providers'
-`tests/` folders stay distinct): `unit [../my-tests]`, `smoke [../my-tests]`, and
-so on. Select a tier **including** the external specs with a project glob:
+Each directory becomes a set of mirrored projects named `<tier>/<label>`, where
+`<label>` is a kebab-case slug of the directory relative to the working directory
+(so two providers' `tests/` folders stay distinct): `unit/my-tests`,
+`smoke/my-tests`, and so on. Select a tier **including** the external specs with a
+project glob:
 
 ```sh
-npx playwright test --project='smoke*'   # built-in smoke AND smoke [..]
-npx playwright test --project='unit*'    # built-in unit AND unit [..]
+npx playwright test --project='smoke*'   # built-in smoke AND smoke/<label>
+npx playwright test --project='unit*'    # built-in unit AND unit/<label>
 ```
 
 Your specs must import `test`/`expect` from this suite, not from a bare

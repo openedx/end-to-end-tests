@@ -20,9 +20,6 @@ export default tseslint.config(
       // Plain Node utility scripts (CI helpers); Prettier still formats them.
       // The TypeScript publisher under scripts/**/*.mts is linted.
       'scripts/**/*.mjs',
-      // Demo of the CUSTOM_TEST_DIRS extension point; real external specs live in
-      // a provider's own repo, not under this project's tsconfig roots.
-      'external-example/',
     ],
   },
   eslint.configs.recommended,

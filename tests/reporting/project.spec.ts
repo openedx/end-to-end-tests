@@ -11,8 +11,8 @@ test.describe('isInfrastructureProject', { tag: '@unit' }, () => {
   });
 
   test('excludes mirrored external unit projects (CUSTOM_TEST_DIRS)', () => {
-    expect(isInfrastructureProject('unit [external-example]', excluded)).toBe(true);
-    expect(isInfrastructureProject('unit [../provider-a/tests]', excluded)).toBe(true);
+    expect(isInfrastructureProject('unit/examples', excluded)).toBe(true);
+    expect(isInfrastructureProject('unit/provider-a-tests', excluded)).toBe(true);
   });
 
   test('keeps browser tiers, built-in and mirrored, as scenarios', () => {
@@ -21,8 +21,8 @@ test.describe('isInfrastructureProject', { tag: '@unit' }, () => {
       'regression',
       'lms-learner',
       'studio-author',
-      'smoke [external-example]',
-      'studio-author [../provider-b/tests]',
+      'smoke/examples',
+      'studio-author/provider-b-tests',
     ]) {
       expect(isInfrastructureProject(name, excluded)).toBe(false);
     }
