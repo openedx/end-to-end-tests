@@ -22,6 +22,22 @@ export function projectOf(test: TestCase): FullProject | undefined {
   return undefined;
 }
 
+/**
+ * Whether a project is infrastructure (node-only logic, not a BTR scenario) and
+ * so excluded from the coverage and run reports. `excluded` covers the built-in
+ * `setup` and `unit` projects; the prefix check also covers the mirrored
+ * external unit projects (`unit [<dir>]`, from `CUSTOM_TEST_DIRS`), which are
+ * likewise node-only. Name-based so it still holds on a merged report, where
+ * project names persist but a one-off metadata flag might not.
+ */
+export function isInfrastructureProject(
+  name: string | undefined,
+  excluded: ReadonlySet<string>,
+): boolean {
+  const projectName = name ?? '';
+  return excluded.has(projectName) || projectName.startsWith('unit [');
+}
+
 function metadataLabel(project: FullProject | undefined, key: string): string {
   const value: unknown = project?.metadata?.[key];
   return typeof value === 'string' ? value : '';

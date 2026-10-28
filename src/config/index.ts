@@ -1,7 +1,8 @@
 import * as dotenv from 'dotenv';
+import path from 'node:path';
 
 import { ConfigError } from './errors';
-import { loadConfig, type AppConfig } from './load';
+import { loadConfig, parseCustomTestDirs, type AppConfig } from './load';
 
 export type { AppConfig, AdminCredentials, BaseUrls, Env, Scheme } from './load';
 export { loadConfig, parseCapabilities } from './load';
@@ -251,6 +252,33 @@ export function resolveWorkerCount(isCI: boolean): number | string {
     ]);
   }
   return parsed;
+}
+
+/**
+ * Resolves the external test directories (`CUSTOM_TEST_DIRS`) independently of
+ * the installation configuration, failing fast on an invalid entry.
+ *
+ * `playwright.config.ts` and `merge.config.ts` mirror the tier projects onto
+ * these directories, and must do so even when installation settings (LMS/APPS
+ * URLs) are absent — e.g. a fresh checkout running only `--project=unit`. So,
+ * unlike {@link getConfigIfValid}, this does not require a full configuration;
+ * it only reads `CUSTOM_TEST_DIRS`. An entry that does not exist or is not a
+ * directory throws a {@link ConfigError} rather than silently dropping the
+ * external projects.
+ *
+ * Each accepted directory is returned as an absolute path: validation resolves
+ * paths against the working directory, but Playwright resolves a project's
+ * relative `testDir` against the config file's directory, so a run with
+ * `-c ../suite/playwright.config.ts` would otherwise validate one directory and
+ * discover another.
+ */
+export function resolveExternalTestDirs(env: NodeJS.ProcessEnv = process.env): string[] {
+  ensureDotenvLoaded();
+  const { dirs, issues } = parseCustomTestDirs(env.CUSTOM_TEST_DIRS);
+  if (issues.length > 0) {
+    throw new ConfigError(issues);
+  }
+  return dirs.map((dir) => path.resolve(dir));
 }
 
 export function getConfig(): AppConfig {

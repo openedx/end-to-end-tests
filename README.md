@@ -64,22 +64,23 @@ run the unit tests and the quality gates; browser projects fail on it fatally.
 
 The essentials:
 
-| Variable                            | Required | Description                                                         |
-| ----------------------------------- | -------- | ------------------------------------------------------------------- |
-| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                          |
-| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`                |
-| `CMS_BASE_URL`                      | —        | Studio origin; required when `studio` is in `CAPABILITIES`          |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`     |
-| `ORG`                               | —        | Organization short code, e.g. `OpenedX`                             |
-| `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip  |
-| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install                |
-| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments                          |
-| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)                 |
-| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                    |
-| `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`    |
-| `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)     |
-| `RUN_ID_SUFFIX`                     | —        | Up to 3 lowercase letters/digits appended to the run id (CI shards) |
-| `CI_PROFILE`                        | —        | The CI profile a job runs (`.ci/profiles.json`); set by CI          |
+| Variable                            | Required | Description                                                                  |
+| ----------------------------------- | -------- | ---------------------------------------------------------------------------- |
+| `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                                   |
+| `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`                         |
+| `CMS_BASE_URL`                      | —        | Studio origin; required when `studio` is in `CAPABILITIES`                   |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`              |
+| `ORG`                               | —        | Organization short code, e.g. `OpenedX`                                      |
+| `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip           |
+| `CAPABILITIES`                      | —        | Comma-separated capabilities enabled on your install                         |
+| `ALLOW_CROSS_SITE_ORIGINS`          | —        | Escape hatch for non-same-site deployments                                   |
+| `ACCOUNT_BACKEND`                   | —        | How new accounts clear email activation (see below)                          |
+| `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                             |
+| `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`             |
+| `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)              |
+| `CUSTOM_TEST_DIRS`                  | —        | Comma-separated dirs of your own specs to run (see “Running your own tests”) |
+| `RUN_ID_SUFFIX`                     | —        | Up to 3 lowercase letters/digits appended to the run id (CI shards)          |
+| `CI_PROFILE`                        | —        | The CI profile a job runs (`.ci/profiles.json`); set by CI                   |
 
 **Where values come from.** Configuration is read from `process.env`, with values
 from a local `.env` file layered in underneath. **Real environment variables take
@@ -291,6 +292,44 @@ after `npm install`:
 ```sh
 npx playwright test --project=unit
 ```
+
+### Running your own tests (`CUSTOM_TEST_DIRS`)
+
+Point `CUSTOM_TEST_DIRS` at one or more directories (comma-separated) of your own
+specs — outside this repo's `tests/` tree — and the suite mirrors its tier
+projects onto each, so they run in the same `playwright test` invocation, tagged
+and capability-gated like the built-in tests. No fork, no second Playwright
+install. The common layout is an orchestrator repo that consumes this suite as a
+git submodule and keeps its specs beside it:
+
+```sh
+# from inside the suite checkout, with your specs in a sibling directory
+CUSTOM_TEST_DIRS=../my-tests npx playwright test
+```
+
+Each directory becomes a set of mirrored projects named `<tier> [<dir>]`, where
+`<dir>` is the directory relative to the working directory (so two providers'
+`tests/` folders stay distinct): `unit [../my-tests]`, `smoke [../my-tests]`, and
+so on. Select a tier **including** the external specs with a project glob:
+
+```sh
+npx playwright test --project='smoke*'   # built-in smoke AND smoke [..]
+npx playwright test --project='unit*'    # built-in unit AND unit [..]
+```
+
+Your specs must import `test`/`expect` from this suite, not from a bare
+`@playwright/test`:
+
+```ts
+import { test, expect } from '../my-suite/src/fixtures';
+```
+
+This is required, not stylistic: the only `@playwright/test` is the one installed
+in this suite, and Playwright needs every `test()` to come from that single
+instance. A bare `@playwright/test` import resolves from your spec's own
+directory and fails there; installing your own copy instead makes Playwright
+reject the duplicate instance. Do **not** add `@playwright/test` to your own
+`package.json`.
 
 ## Studio coverage
 

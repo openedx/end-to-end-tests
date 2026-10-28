@@ -81,7 +81,9 @@ jobs:
 
       - name: Unit tests (no browser or LMS required)
         if: ${{ !cancelled() }}
-        run: npx playwright test --project=unit
+        # Glob so external unit projects (unit [<dir>] from CUSTOM_TEST_DIRS) are
+        # included too; matches just `unit` when none are configured.
+        run: npx playwright test --project='unit*'
 
       - name: Verify every spec compiles and is discoverable
         if: ${{ !cancelled() }}

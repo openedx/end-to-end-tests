@@ -2,7 +2,13 @@ import { defineConfig, devices, type ReporterDescription } from '@playwright/tes
 import path from 'node:path';
 
 import { authStateFile } from './src/auth';
-import { ciResultLabels, getConfigIfValid, resolveWorkerCount, TIMEOUTS } from './src/config';
+import {
+  ciResultLabels,
+  getConfigIfValid,
+  resolveExternalTestDirs,
+  resolveWorkerCount,
+  TIMEOUTS,
+} from './src/config';
 import { SUITE_REPORTERS } from './src/reporting/reporters';
 
 const isCI = Boolean(process.env.CI);
@@ -12,16 +18,23 @@ const isCI = Boolean(process.env.CI);
  * this at its own spec folder(s); each is mirrored onto the tier projects below
  * so the external specs run through the same tiers, tags and capability gating
  * in one `playwright test` run — no fork, no second Playwright setup.
+ *
+ * Resolved independently of the installation config so external projects (the
+ * node-only `unit` tier included) register even without LMS/APPS URLs; an
+ * invalid directory fails fast rather than silently disappearing.
  */
-const externalTestDirs = [...(getConfigIfValid('playwright.config')?.customTestDirs ?? [])];
+const externalTestDirs = resolveExternalTestDirs();
 
 /**
- * Mirrors the browser/unit tiers onto one external directory. Names are suffixed
- * with the dir's label so they stay unique; authenticated tiers reuse the
- * built-in `setup` project's captured state via `dependencies`.
+ * Mirrors the browser/unit tiers onto one external directory. The label is the
+ * directory relative to the working directory (not just its basename), so two
+ * providers' `tests/` folders don't collapse to the same project name;
+ * authenticated tiers reuse the built-in `setup` project's captured state via
+ * `dependencies`.
  */
 function externalProjects(dir: string) {
-  const label = path.basename(dir.replace(/[/\\]+$/, '')) || dir;
+  const relative = path.relative(process.cwd(), dir);
+  const label = (relative === '' ? path.basename(dir) : relative).split(path.sep).join('/');
   const chrome = { ...devices['Desktop Chrome'] };
   return [
     { name: `unit [${label}]`, grep: /@unit/, testDir: dir },
