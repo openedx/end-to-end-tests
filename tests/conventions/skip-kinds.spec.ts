@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { test, expect } from '@playwright/test';
 
+import { resolveExternalTestDirs } from '../../src/config';
+
 /**
  * Guards the rule that an installation setting is a capability, not a runtime
  * skip (see `src/fixtures/README.md`, "An installation setting is a
@@ -31,6 +33,18 @@ const ROOT = path.resolve(__dirname, '..', '..');
 /** Directories whose `.ts` files are scanned. */
 const SCAN_DIRS = ['src', 'tests'];
 
+/**
+ * External test directories (`CUSTOM_TEST_DIRS`) that live inside the checkout,
+ * as paths relative to the root, so provider specs vendored into the repo are
+ * held to the same conventions.
+ */
+function externalScanDirs(): string[] {
+  return resolveExternalTestDirs()
+    .filter((dir) => dir === ROOT || dir.startsWith(ROOT + path.sep))
+    .map((dir) => path.relative(ROOT, dir))
+    .filter((rel) => rel !== '' && !rel.startsWith('..'));
+}
+
 /** This directory's specs mention the pattern themselves. */
 const EXCLUDED_DIR = path.join(ROOT, 'tests', 'conventions');
 
@@ -54,7 +68,7 @@ function scannedFiles(): string[] {
       else if (entry.name.endsWith('.ts')) files.push(full);
     }
   };
-  for (const dir of SCAN_DIRS) walk(path.join(ROOT, dir));
+  for (const dir of [...SCAN_DIRS, ...externalScanDirs()]) walk(path.join(ROOT, dir));
   return files;
 }
 

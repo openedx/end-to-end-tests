@@ -51,6 +51,12 @@ const envShape = z.object({
   CUSTOM_MAIL_PROVIDER_PLUGINS: z.string().optional(),
   MAIL_PROVIDER: z.string().optional(),
 
+  // External test directories (comma-separated paths). A provider points this at
+  // its own spec folders; the suite mirrors the tier projects onto each so the
+  // external specs run through the same tiers, tags and capability gating in one
+  // `playwright test` run — no fork, no second Playwright setup.
+  CUSTOM_TEST_DIRS: z.string().optional(),
+
   // Escape hatch for providers whose origins are not same-site.
   ALLOW_CROSS_SITE_ORIGINS: booleanFromEnv.optional(),
 });

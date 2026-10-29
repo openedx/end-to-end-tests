@@ -256,6 +256,15 @@ collide. We never disable browser security to paper over cross-origin auth.
 | `lms-learner`   | Authenticated tests reusing the captured learner state. Tag: `@authenticated`.                     |
 | `studio-author` | Studio tests, each worker as an author of its own (LMS + Studio session). Tag: `@author`.          |
 
+These tiers are defined once in [`playwright.projects.ts`](playwright.projects.ts)
+and shared by `playwright.config.ts` and `merge.config.ts`. A provider can add
+its own spec directories with `CUSTOM_TEST_DIRS` (comma-separated); each is
+mirrored onto the same tiers as `<tier>/<label>` projects (e.g.
+`smoke/my-tests`), so external specs run in the same invocation, tagged and
+gated like the built-in ones. The mirrored `unit/<label>` projects are treated as
+infrastructure by the reporters, like the built-in `unit`. See the README
+"Running your own tests" section.
+
 ## Cross-cutting testing modules
 
 Two `src/` modules support specs across every domain rather than a single layer:

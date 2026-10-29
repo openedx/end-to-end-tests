@@ -1,10 +1,29 @@
-import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
+import { defineConfig, type ReporterDescription } from '@playwright/test';
 
-import { authStateFile } from './src/auth';
-import { ciResultLabels, getConfigIfValid, resolveWorkerCount, TIMEOUTS } from './src/config';
+import {
+  ciResultLabels,
+  getConfigIfValid,
+  resolveExternalTestDirs,
+  resolveWorkerCount,
+  TIMEOUTS,
+} from './src/config';
+import { buildProjects } from './playwright.projects';
 import { SUITE_REPORTERS } from './src/reporting/reporters';
 
 const isCI = Boolean(process.env.CI);
+
+/**
+ * External test directories declared via `CUSTOM_TEST_DIRS`. A provider points
+ * this at its own spec folder(s); each is mirrored onto the tier projects via
+ * `buildProjects` so the external specs run through the same tiers, tags and
+ * capability gating in one `playwright test` run — no fork, no second Playwright
+ * setup.
+ *
+ * Resolved independently of the installation config so external projects (the
+ * node-only `unit` tier included) register even without LMS/APPS URLs; an
+ * invalid directory fails fast rather than silently disappearing.
+ */
+const externalTestDirs = resolveExternalTestDirs();
 
 /**
  * Resolves the LMS base URL from validated configuration.
@@ -80,55 +99,9 @@ export default defineConfig({
     // users.
   },
 
-  projects: [
-    {
-      // Pure logic tests (config validation, etc.): no browser, no baseURL.
-      name: 'unit',
-      grep: /@unit/,
-    },
-    {
-      // Signs in once per role and writes .auth/<role>.json. Authenticated
-      // projects depend on this and consume the state via `use: { storageState }`.
-      // A role the target has no credentials for (instructor) skips rather than
-      // fails, so a partially configured install still runs the rest.
-      name: 'setup',
-      testMatch: /.*\.setup\.ts/,
-    },
-    {
-      // Critical-path stability tier. Drives the UI from a clean, anonymous
-      // state, so it excludes specs that require captured auth (`@authenticated`,
-      // `@author`).
-      name: 'smoke',
-      grep: /@smoke/,
-      grepInvert: /@authenticated|@author/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      // Broader-depth stability tier, likewise anonymous by default.
-      name: 'regression',
-      grep: /@regression/,
-      grepInvert: /@authenticated|@author/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      // Authenticated tier: depends on `setup` and loads the captured learner
-      // state, so `@authenticated` specs reuse a single sign-in without driving
-      // the login UI.
-      name: 'lms-learner',
-      grep: /@authenticated/,
-      dependencies: ['setup'],
-      use: { ...devices['Desktop Chrome'], storageState: authStateFile('learner') },
-    },
-    {
-      // Authoring tier: `@author` specs (the tests/studio/ tree) run with the
-      // captured author state, which holds both the LMS and the Studio session.
-      // The worker-scoped `authoredCourse` fixture reads the same state file.
-      name: 'studio-author',
-      grep: /@author/,
-      dependencies: ['setup'],
-      use: { ...devices['Desktop Chrome'], storageState: authStateFile('author') },
-    },
-    // Additional browsers (Firefox, WebKit) can be added as parallel projects
-    // once the suite is stable on Chromium.
-  ],
+  // Stock tiers + `setup`, then those tiers mirrored onto each CUSTOM_TEST_DIRS
+  // directory. Defined once in `playwright.projects.ts` and shared with
+  // `merge.config.ts`. Additional browsers (Firefox, WebKit) can be added there
+  // once the suite is stable on Chromium.
+  projects: buildProjects(externalTestDirs),
 });

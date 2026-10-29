@@ -388,6 +388,34 @@ test.describe('loadConfig — mailbox provider', { tag: '@unit' }, () => {
   });
 });
 
+test.describe('loadConfig — external test directories', { tag: '@unit' }, () => {
+  test('has no external directories by default', () => {
+    expect(loadConfig(validEnv()).customTestDirs.size).toBe(0);
+  });
+
+  test('accepts an existing directory', () => {
+    const config = loadConfig(validEnv({ CUSTOM_TEST_DIRS: './tests' }));
+    expect([...config.customTestDirs]).toEqual(['./tests']);
+  });
+
+  test('ignores blank entries', () => {
+    const config = loadConfig(validEnv({ CUSTOM_TEST_DIRS: './tests, ,' }));
+    expect([...config.customTestDirs]).toEqual(['./tests']);
+  });
+
+  test('rejects a directory that does not exist', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CUSTOM_TEST_DIRS: './no-such-dir' })));
+    expect(issues.join('\n')).toContain('CUSTOM_TEST_DIRS refers to "./no-such-dir"');
+  });
+
+  test('rejects a path that is a file, not a directory', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CUSTOM_TEST_DIRS: './package.json' })));
+    expect(issues.join('\n')).toContain(
+      'CUSTOM_TEST_DIRS refers to "./package.json", which is not a directory.',
+    );
+  });
+});
+
 test.describe('loadConfig — credentials', { tag: '@unit' }, () => {
   test('accepts a paired admin username and password', () => {
     const config = loadConfig(validEnv({ ADMIN_USERNAME: 'edx', ADMIN_PASSWORD: 'secret' }));

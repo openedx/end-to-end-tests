@@ -60,6 +60,12 @@ export interface AppConfig {
   /** Mailbox provider plugin modules to load (existing file paths). */
   readonly customMailProviderPlugins: ReadonlySet<string>;
   /**
+   * External test directories (`CUSTOM_TEST_DIRS`, existing paths). Each is
+   * mirrored onto the suite's tier projects so a provider's own specs run in the
+   * same `playwright test` invocation, tagged and gated like the built-in ones.
+   */
+  readonly customTestDirs: ReadonlySet<string>;
+  /**
    * Name of the mailbox provider the suite reads e-mail through (`src/mail/`),
    * a loaded plugin's `name`. Set whenever the `email-inbox` capability is.
    */
@@ -74,13 +80,19 @@ export interface AppConfig {
 }
 
 /**
- * Parses a plugin-path variable (`CUSTOM_ACCOUNT_BACKEND_PLUGINS`,
- * `CUSTOM_MAIL_PROVIDER_PLUGINS`: comma-separated file paths) and checks each
- * file exists, so a typo is reported at load time rather than as an import
- * failure mid-run. The modules themselves are loaded by
- * `src/accounts/plugin-loader.ts` and `src/mail/plugin-loader.ts`.
+ * Parses a comma-separated path variable and checks each path exists, so a typo
+ * is reported at load time rather than as an import or discovery failure
+ * mid-run. Used for plugin files (`CUSTOM_ACCOUNT_BACKEND_PLUGINS`,
+ * `CUSTOM_MAIL_PROVIDER_PLUGINS`, loaded by `src/accounts/plugin-loader.ts` and
+ * `src/mail/plugin-loader.ts`) and, with `mustBeDir`, for test directories
+ * (`CUSTOM_TEST_DIRS`). Entries that fail validation are reported and excluded.
  */
-function parsePluginPaths(source: string, raw: string | undefined, issues: string[]): Set<string> {
+function parsePluginPaths(
+  source: string,
+  raw: string | undefined,
+  issues: string[],
+  { mustBeDir = false }: { mustBeDir?: boolean } = {},
+): Set<string> {
   const paths = new Set<string>();
   if (raw === undefined) {
     return paths;
@@ -90,17 +102,38 @@ function parsePluginPaths(source: string, raw: string | undefined, issues: strin
     if (entry === '') {
       continue;
     }
-    if (fs.existsSync(entry)) {
-      paths.add(entry);
-    } else {
+    if (!fs.existsSync(entry)) {
       issues.push(
         `${source} refers to "${entry}", which does not exist ` +
           '(paths are resolved relative to the working directory).',
       );
+      continue;
     }
+    if (mustBeDir && !fs.statSync(entry).isDirectory()) {
+      issues.push(`${source} refers to "${entry}", which is not a directory.`);
+      continue;
+    }
+    paths.add(entry);
   }
 
   return paths;
+}
+
+/**
+ * Parses and validates `CUSTOM_TEST_DIRS` (comma-separated, existing
+ * directories) in isolation from the rest of the configuration. Returns the
+ * accepted directories and any validation issues, so a caller that needs the
+ * external directories without a full installation config (the Playwright
+ * config and `merge.config.ts`) can read them directly and decide how to surface
+ * problems.
+ */
+export function parseCustomTestDirs(raw: string | undefined): {
+  dirs: string[];
+  issues: string[];
+} {
+  const issues: string[] = [];
+  const dirs = [...parsePluginPaths('CUSTOM_TEST_DIRS', raw, issues, { mustBeDir: true })];
+  return { dirs, issues };
 }
 
 function parseUrl(source: string, value: string, issues: string[]): URL | undefined {
@@ -348,6 +381,11 @@ export function loadConfig(env: Env = process.env): AppConfig {
     raw.CUSTOM_MAIL_PROVIDER_PLUGINS,
     issues,
   );
+  const { dirs: customTestDirList, issues: customTestDirIssues } = parseCustomTestDirs(
+    raw.CUSTOM_TEST_DIRS,
+  );
+  issues.push(...customTestDirIssues);
+  const customTestDirs = new Set(customTestDirList);
   const mailProvider = raw.MAIL_PROVIDER;
   // The suite ships no built-in mailbox, so a provider name can only come from
   // a plugin; only the mail registry knows the plugins' names.
@@ -422,6 +460,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     customAccountBackendPlugins,
     accountBackend,
     customMailProviderPlugins,
+    customTestDirs,
     mailProvider,
     allowCrossSiteOrigins,
     scheme,
