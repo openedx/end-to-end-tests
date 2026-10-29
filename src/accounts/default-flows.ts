@@ -8,6 +8,7 @@ import {
   loginSession,
   requestCourseCreator,
 } from '../api';
+import { newCleanRequestContext } from '../auth';
 import { withAdminSession } from './admin-lock';
 import { AccountMenu } from '../pages/lms/auth/account-menu.page';
 import { LoginPage } from '../pages/lms/auth/login.page';
@@ -133,7 +134,7 @@ export async function defaultGrantCourseCreator({
         await reused.dispose();
       }
     }
-    const adminRequest = await playwrightRequest.newContext();
+    const adminRequest = await newCleanRequestContext(playwrightRequest);
     try {
       await loginSession(adminRequest, config, {
         emailOrUsername: admin.username,

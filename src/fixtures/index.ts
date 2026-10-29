@@ -96,6 +96,8 @@ import {
   AUTH_STATE_DIR,
   authStateFile,
   isUsableStateFile,
+  newCleanBrowserContext,
+  newCleanRequestContext,
   storedSessionNeedsRefresh,
   persistStorageState,
 } from '../auth';
@@ -1698,7 +1700,7 @@ async function provisionWorkerCourse(
       // and an `APIRequestContext` cannot clear them. So sign in fresh on a clean
       // context, persist it for the per-test contexts, and retry the create.
       await request.dispose();
-      request = await playwright.request.newContext();
+      request = await newCleanRequestContext(playwright.request);
       await reauthenticateStudioAuthor(request, config, credentials);
       persistStorageState(await request.storageState(), authorState);
       courseKey = await ensureCourse(request, config, identity);
@@ -1727,10 +1729,10 @@ async function provisionRoundTripLearner(
   courseKey: string,
   options: { readonly mode?: string; readonly identity?: Partial<LearnerIdentity> } = {},
 ): Promise<RoundTripLearner> {
-  const request = await playwright.request.newContext();
+  const request = await newCleanRequestContext(playwright.request);
   const identity = await provisionLearnerSession(request, config, options.identity);
   await enrollInCourseViaApi(request, config, courseKey, { mode: options.mode });
-  const context = await browser.newContext();
+  const context = await newCleanBrowserContext(browser);
   await context.addCookies((await request.storageState()).cookies);
   const page = await context.newPage();
   const unitPage = new UnitPage(page, config);
@@ -2129,7 +2131,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   signedOutVisitor: async ({ browser, config }, use) => {
-    const context = await browser.newContext();
+    const context = await newCleanBrowserContext(browser);
     const visitorPage = await context.newPage();
     await use({
       page: visitorPage,
@@ -2220,7 +2222,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     const requests: APIRequestContext[] = [];
     const contexts: BrowserContext[] = [];
     await use(async (options) => {
-      const request = await playwright.request.newContext();
+      const request = await newCleanRequestContext(playwright.request);
       requests.push(request);
       const identity = await provisionLearnerSession(request, config);
       if (options !== undefined) {
@@ -2232,7 +2234,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           options.role,
         );
       }
-      const context = await browser.newContext();
+      const context = await newCleanBrowserContext(browser);
       contexts.push(context);
       await context.addCookies((await request.storageState()).cookies);
       return { identity, request, context, page: await context.newPage() };
@@ -2326,7 +2328,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   profileViewer: async ({ playwright, config }, use) => {
-    const viewer = await playwright.request.newContext();
+    const viewer = await newCleanRequestContext(playwright.request);
     try {
       const identity = await provisionLearnerSession(viewer, config);
       await use({ request: viewer, username: identity.username });
@@ -2436,7 +2438,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       }
       const config = getConfig();
       const stateFile = path.join(AUTH_STATE_DIR, `author-worker-${workerInfo.parallelIndex}.json`);
-      const request = await playwright.request.newContext();
+      const request = await newCleanRequestContext(playwright.request);
       try {
         // Playwright replaces a worker after a failure, keeping its slot. The
         // replacement must carry on as the same author — it owns the slot's
@@ -2512,7 +2514,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       workerAuthor !== undefined &&
       (testInfo.retry > 0 || storedSessionNeedsRefresh(workerAuthor.stateFile))
     ) {
-      const fresh = await playwright.request.newContext();
+      const fresh = await newCleanRequestContext(playwright.request);
       try {
         await reauthenticateStudioAuthor(fresh, config, {
           emailOrUsername: workerAuthor.identity.username,
@@ -2741,7 +2743,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         await use({ gating: {}, types: [] });
         return;
       }
-      const probe = await playwright.request.newContext();
+      const probe = await newCleanRequestContext(playwright.request);
       let gating;
       try {
         gating = (await fetchAuthoringMfeConfig(probe, config)).agreementGating;
@@ -2759,7 +2761,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       // per worker rather than per test: the rows are global, and an admin
       // sign-in per test would trip the LMS login rate limit (30 / 5 min).
       await withAdminSession(async () => {
-        const session = await playwright.request.newContext();
+        const session = await newCleanRequestContext(playwright.request);
         try {
           await loginSession(session, config, {
             emailOrUsername: admin.username,
@@ -2815,7 +2817,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         const existing = cast.get(part);
         if (existing !== undefined) return existing;
 
-        const request = await playwright.request.newContext();
+        const request = await newCleanRequestContext(playwright.request);
         const staffState = authStateFile('staff');
         let identity: LearnerIdentity;
         try {
@@ -2829,7 +2831,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           }
           throw error;
         }
-        const context = await browser.newContext();
+        const context = await newCleanBrowserContext(browser);
         await context.addCookies((await request.storageState()).cookies);
         const castPage = await context.newPage();
         const member: StudioColleague = {
@@ -2863,7 +2865,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         while (roster.length < count) {
           // A context per account: registration signs the context in, and the
           // next registration on a signed-in context would be refused.
-          const request = await playwright.request.newContext();
+          const request = await newCleanRequestContext(playwright.request);
           try {
             roster.push(await provisionLearnerAccount(request, config));
           } finally {
@@ -2945,9 +2947,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       const cast = new Map<InstructorCastPart, Promise<InstructorCastMember>>();
       const made: InstructorCastMember[] = [];
       const provision = async (): Promise<InstructorCastMember> => {
-        const request = await playwright.request.newContext();
+        const request = await newCleanRequestContext(playwright.request);
         const identity = await provisionLearnerSession(request, config);
-        const context = await browser.newContext();
+        const context = await newCleanBrowserContext(browser);
         await context.addCookies((await request.storageState()).cookies);
         const page = await context.newPage();
         const member = {
@@ -3152,7 +3154,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   newLearner: async ({ playwright, config }, use) => {
     const contexts: APIRequestContext[] = [];
     await use(async () => {
-      const request = await playwright.request.newContext();
+      const request = await newCleanRequestContext(playwright.request);
       contexts.push(request);
       const identity = await provisionLearnerSession(request, config);
       return { identity, request };
@@ -3216,7 +3218,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   studioNewcomer: async ({ page, playwright, config, studio }, use, testInfo) => {
     void studio;
     requireCapabilityTag(testInfo, 'course-creator-group');
-    const request = await playwright.request.newContext();
+    const request = await newCleanRequestContext(playwright.request);
     try {
       const identity = await provisionLearnerSession(request, config);
       await accountSignInStudio({
@@ -3257,7 +3259,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     // Held under the admin-session lock for the whole test: another worker's
     // admin sign-in would end this browser's session (PREVENT_CONCURRENT_LOGINS).
     await withAdminSession(async () => {
-      const context = await browser.newContext();
+      const context = await newCleanBrowserContext(browser);
       try {
         const page = await context.newPage();
         await signInToStudioThroughUi(page, config, {
@@ -3522,7 +3524,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   inboxLearner: async ({ playwright, config }, use) => {
     const provider = await resolveMailProvider(config);
-    const request = await playwright.request.newContext();
+    const request = await newCleanRequestContext(playwright.request);
     try {
       const inbox = await provider.createInbox({ config, request });
       try {
@@ -3541,7 +3543,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     const made: MailboxLearner[] = [];
     try {
       await use(async (options = {}) => {
-        const setup = await playwright.request.newContext();
+        const setup = await newCleanRequestContext(playwright.request);
         let inbox: Inbox;
         try {
           inbox = await provider.createInbox({ config, request: setup });
@@ -3749,7 +3751,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         // A Django-admin write needs the admin's *session* cookie: sign in afresh on
         // a throwaway context, under the admin lock (PREVENT_CONCURRENT_LOGINS).
         await withAdminSession(async () => {
-          const session = await playwright.request.newContext();
+          const session = await newCleanRequestContext(playwright.request);
           try {
             await loginSession(session, config, credentials);
             await ensureCertificateGenerationEnabled(session, config, courseKey);
@@ -4094,7 +4096,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     // session (PREVENT_CONCURRENT_LOGINS). The page's own API context shares the
     // session, so the content-tagging oracles and cleanup run on `page.request`.
     await withAdminSession(async () => {
-      const context = await browser.newContext();
+      const context = await newCleanBrowserContext(browser);
       try {
         const page = await context.newPage();
         await signInToStudioThroughUi(page, config, {
@@ -4217,7 +4219,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   studioColleague: async ({ playwright, browser, page, config }, use) => {
     const made: StudioColleague[] = [];
     await use(async (options = {}) => {
-      const request = await playwright.request.newContext();
+      const request = await newCleanRequestContext(playwright.request);
       const staffState = authStateFile('staff');
       let identity: LearnerIdentity;
       try {
@@ -4242,7 +4244,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           options.libraryAccess.level,
         );
       }
-      const context = await browser.newContext();
+      const context = await newCleanBrowserContext(browser);
       await context.addCookies((await request.storageState()).cookies);
       const colleaguePage = await context.newPage();
       const colleague: StudioColleague = {
