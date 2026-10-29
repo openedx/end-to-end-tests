@@ -7,6 +7,7 @@ import {
   courseToolLink,
   subsectionEffort,
   type AppConfig,
+  mfeMountPath,
 } from '../../../config';
 
 /**
@@ -149,7 +150,12 @@ export class CourseOutlinePage {
 
   /** The course-home "Instructor" tab, present only for course and global staff. */
   instructorTab(courseKey: string): Locator {
-    return this.page.locator(COURSE_HOME_SELECTORS.instructorTab(courseKey));
+    return this.page.locator(
+      COURSE_HOME_SELECTORS.instructorTab(
+        courseKey,
+        mfeMountPath(this.config.mfeUrls.instructorDashboard),
+      ),
+    );
   }
 
   /** The absolute URLs the course's tabs link to, in order. */
