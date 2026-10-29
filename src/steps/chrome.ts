@@ -1,7 +1,7 @@
 import type { APIRequest, APIRequestContext, Page } from '@playwright/test';
 
 import { newCleanRequestContext } from '../auth';
-import { registrableDomain, type AppConfig } from '../config';
+import { mfeMountPath, registrableDomain, type AppConfig } from '../config';
 import {
   fetchChromeConfig,
   lmsServesLanguage,
@@ -40,9 +40,10 @@ export function chromeConfigSourceFor(
   // configured as `learning` there.
   const url = new URL(pageUrl);
   const learning = new URL(config.mfeUrls.learning);
+  const learningPath = mfeMountPath(config.mfeUrls.learning);
   const underLearning =
     url.origin === learning.origin &&
-    (url.pathname === learning.pathname || url.pathname.startsWith(`${learning.pathname}/`));
+    (url.pathname === learningPath || url.pathname.startsWith(`${learningPath}/`));
   const mfe = underLearning
     ? 'learning'
     : url.origin === new URL(config.baseUrls.apps).origin

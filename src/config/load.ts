@@ -148,6 +148,15 @@ export function parseCustomTestDirs(raw: string | undefined): {
   return { dirs, issues };
 }
 
+/**
+ * The path part of an MFE mount from {@link MfeUrls}, without a trailing slash:
+ * `/learning` for `https://apps.example.com/learning`, `''` for an MFE served
+ * from an origin's root. Prefix it to the MFE's own routes to match hrefs.
+ */
+export function mfeMountPath(mfeUrl: string): string {
+  return new URL(mfeUrl).pathname.replace(/\/+$/, '');
+}
+
 /** A configured MFE mount without its trailing slash, or the stock `<apps origin><path>`. */
 function mfeUrl(configured: URL | undefined, apps: URL, stockPath: string): string {
   if (configured === undefined) return `${apps.origin}${stockPath}`;

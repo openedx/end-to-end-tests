@@ -8,6 +8,7 @@ import {
   resetConfigCache,
   ConfigError,
   type Env,
+  mfeMountPath,
 } from '../../src/config';
 
 /**
@@ -547,5 +548,16 @@ test.describe('loadConfig — MFE mounts', { tag: '@unit' }, () => {
     );
 
     expect(issues.join('\n')).toContain('LEARNING_MFE_URL');
+  });
+});
+
+test.describe('mfeMountPath', { tag: '@unit' }, () => {
+  test('is the mount path without a trailing slash', () => {
+    expect(mfeMountPath('http://apps.local.openedx.io/learning')).toBe('/learning');
+    expect(mfeMountPath('http://local.openedx.io/learn/')).toBe('/learn');
+  });
+
+  test('is empty for an MFE served from an origin root', () => {
+    expect(mfeMountPath('http://learning.local.openedx.io')).toBe('');
   });
 });

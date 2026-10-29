@@ -13,6 +13,12 @@ const stock = loadConfig({
   APPS_BASE_URL: 'http://apps.local.openedx.io',
 });
 
+const learningAtRoot = loadConfig({
+  LMS_BASE_URL: 'http://local.openedx.io',
+  APPS_BASE_URL: 'http://apps.local.openedx.io',
+  LEARNING_MFE_URL: 'http://learning.local.openedx.io/',
+});
+
 const learningOnLms = loadConfig({
   LMS_BASE_URL: 'http://local.openedx.io',
   APPS_BASE_URL: 'http://local.openedx.io',
@@ -39,5 +45,15 @@ test.describe('chromeConfigSourceFor', { tag: '@unit' }, () => {
     expect(
       chromeConfigSourceFor('legacy', 'http://local.openedx.io/learner/x', learningOnLms),
     ).toEqual({ kind: 'legacy', mfe: 'learner' });
+  });
+
+  test('names the learning MFE "learning" when it is served from an origin root', () => {
+    expect(
+      chromeConfigSourceFor(
+        'legacy',
+        'http://learning.local.openedx.io/course/x/home',
+        learningAtRoot,
+      ),
+    ).toEqual({ kind: 'legacy', mfe: 'learning' });
   });
 });

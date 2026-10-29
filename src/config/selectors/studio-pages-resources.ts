@@ -15,8 +15,11 @@ export const STUDIO_PAGES_RESOURCES_SELECTORS = {
   page: 'main.container-mw-md',
   /** Shown instead of the grid when the session may not view this course's apps. */
   permissionDenied: '[data-testid="permissionDeniedAlert"]',
-  /** "View live" — links to the learner-facing course in the learning MFE. */
-  viewLiveLink: 'a[href*="/learning/course/"]',
+  /**
+   * "View live" — links to the learner-facing course in the learning MFE, under
+   * its mount path ({@link mfeMountPath}).
+   */
+  viewLiveLink: (learningPath: string) => `a[href*="${learningPath}/course/"]`,
   /** One app's enable/disable switch inside its settings modal, by app id. */
   enableToggle: (appId: string) => `#enable-${appId}-toggle`,
   /** The app-settings modal's "Save" — the primary action; Cancel/close is tertiary. */
