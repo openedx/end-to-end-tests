@@ -1,3 +1,6 @@
+import type { Page } from '@playwright/test';
+
+import { skipOwnCourseHomeTour } from '../../../src/api';
 import type { AppConfig } from '../../../src/config';
 
 /**
@@ -30,4 +33,20 @@ export function trayHostUrl(config: AppConfig, courseKey: string): string {
   return config.notificationTrayHost === 'course-home'
     ? `${config.mfeUrls.learning}/course/${courseKey}/home`
     : `${config.baseUrls.apps}/learner-dashboard/`;
+}
+
+/**
+ * Opens {@link trayHostUrl} as whoever `page` is signed in as. On the course
+ * home a first visit opens the welcome tour over the page, so that user's
+ * course-home tour is marked done first.
+ */
+export async function gotoTrayHost(
+  page: Page,
+  config: AppConfig,
+  courseKey: string,
+): Promise<void> {
+  if (config.notificationTrayHost === 'course-home') {
+    await skipOwnCourseHomeTour(page.request, config);
+  }
+  await page.goto(trayHostUrl(config, courseKey));
 }

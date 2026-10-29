@@ -4,7 +4,7 @@ import { GENERAL_TOPIC_ID, createThread, deleteThread, uniquePostTitle } from '.
 import { aboutThread, waitForNotification } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
+import { NOTIFICATION_TAGS, gotoTrayHost } from './helpers';
 
 /**
  * New-post notifications (TC-00457, TC-00458, TC-00459): another actor posts in
@@ -56,7 +56,7 @@ test.describe(
             expect(found!.course_id).toBe(forumCourse.courseKey);
 
             // The tray shows it under Discussions, linking to the post.
-            await recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
+            await gotoTrayHost(recipient.page, config, forumCourse.courseKey);
             await recipient.notificationTray.open('discussion');
             const row = recipient.notificationTray.row(found!.id);
             await expect(row).toBeVisible();
@@ -96,7 +96,7 @@ test.describe(
           );
           expect(found).toBeDefined();
 
-          await recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
+          await gotoTrayHost(recipient.page, config, forumCourse.courseKey);
           await recipient.notificationTray.open('discussion');
           await expect(recipient.notificationTray.row(found!.id)).toBeVisible();
         } finally {

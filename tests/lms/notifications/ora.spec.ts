@@ -8,7 +8,7 @@ import {
 } from '../../../src/api';
 import { aboutOra, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
+import { NOTIFICATION_TAGS, gotoTrayHost } from './helpers';
 
 /**
  * Grading notifications (TC-00468, TC-00469) on an ORA whose only step is a
@@ -57,7 +57,7 @@ test.describe(
         ).toBeDefined();
         expect(found!.content_context.ora_name).toBe(oraUnit.displayName);
 
-        await page.goto(trayHostUrl(config, oraUnit.courseKey));
+        await gotoTrayHost(page, config, oraUnit.courseKey);
         await notificationTray.open('discussion');
         await notificationTray.openTab('grading');
         await expect(notificationTray.row(found!.id)).toBeVisible();
@@ -104,7 +104,7 @@ test.describe(
           points_possible: ORA_POINTS_POSSIBLE,
         });
 
-        await learner.page.goto(trayHostUrl(config, oraUnit.courseKey));
+        await gotoTrayHost(learner.page, config, oraUnit.courseKey);
         await learner.notificationTray.open('discussion');
         await learner.notificationTray.openTab('grading');
         await expect(learner.notificationTray.row(found!.id)).toBeVisible();

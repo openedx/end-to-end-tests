@@ -10,7 +10,7 @@ import {
 } from '../../../src/api';
 import { aboutThread, checkNotificationAbsent, turnOffEveryNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
+import { NOTIFICATION_TAGS, gotoTrayHost } from './helpers';
 
 /**
  * No notifications when every preference is off (TC-00477, in the tray): a
@@ -86,7 +86,7 @@ test.describe(
           expect(update).toEqual({ delivered: true, subjectRows: [] });
 
           // The subject's tray is empty in both tabs.
-          await subject.page.goto(trayHostUrl(config, courseKey));
+          await gotoTrayHost(subject.page, config, courseKey);
           await subject.notificationTray.open('discussion');
           await expect(subject.notificationTray.emptyList).toBeVisible();
           await expect(subject.notificationTray.rows('discussion')).toHaveCount(0);

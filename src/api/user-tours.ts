@@ -55,3 +55,16 @@ export async function skipCourseHomeTour(
     );
   }
 }
+
+/** As {@link skipCourseHomeTour}, for whoever `request` is signed in as. */
+export async function skipOwnCourseHomeTour(
+  request: APIRequestContext,
+  config: AppConfig,
+): Promise<void> {
+  const me = await lmsGet<{ readonly username: string }>(
+    request,
+    `${config.baseUrls.lms}/api/user/v1/me`,
+    'Reading the signed-in user',
+  );
+  await skipCourseHomeTour(request, config, me.username);
+}

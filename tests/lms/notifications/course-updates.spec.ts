@@ -5,7 +5,7 @@ import { TIMEOUTS } from '../../../src/config';
 import { createCourseUpdate } from '../../../src/api';
 import { waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
+import { NOTIFICATION_TAGS, gotoTrayHost } from './helpers';
 
 /**
  * Course-update notifications (TC-00467): the course's staff posts an update in
@@ -50,7 +50,7 @@ test.describe(
           `/courses/${contentCourse.courseKey}/course/updates`,
         );
 
-        await recipient.page.goto(trayHostUrl(config, contentCourse.courseKey));
+        await gotoTrayHost(recipient.page, config, contentCourse.courseKey);
         await recipient.notificationTray.open('discussion');
         await recipient.notificationTray.openTab('updates');
         await expect(recipient.notificationTray.row(found!.id)).toBeVisible();

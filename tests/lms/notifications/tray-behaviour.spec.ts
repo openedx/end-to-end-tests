@@ -14,7 +14,7 @@ import {
 } from '../../../src/api';
 import { aboutOra, aboutThread, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
+import { NOTIFICATION_TAGS, gotoTrayHost } from './helpers';
 
 /**
  * How the tray behaves (TC-00474, TC-00475, TC-00476): grouping, unseen
@@ -80,7 +80,7 @@ test.describe('Notifications tray', { tag: ['@regression', ...NOTIFICATION_TAGS]
         expect(posts).toHaveLength(1);
         expect(posts[0]!.content_context.grouped).toBe(true);
 
-        await recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
+        await gotoTrayHost(recipient.page, config, forumCourse.courseKey);
         await recipient.notificationTray.open('discussion');
         await expect(recipient.notificationTray.rows('discussion')).toHaveCount(1);
       } finally {
@@ -146,7 +146,7 @@ test.describe('Notifications tray', { tag: ['@regression', ...NOTIFICATION_TAGS]
 
         // The bell shows the unseen count.
         const { notificationTray: tray } = recipient;
-        await recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
+        await gotoTrayHost(recipient.page, config, forumCourse.courseKey);
         await expect
           .poll(async () => ({
             badge: await tray.bellBadge.textContent(),

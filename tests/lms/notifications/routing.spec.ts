@@ -13,7 +13,7 @@ import {
 } from '../../../src/api';
 import { aboutOra, aboutThread, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
+import { NOTIFICATION_TAGS, gotoTrayHost } from './helpers';
 
 /**
  * Click-through routing (TC-00470, from the tray): each kind of notification
@@ -102,7 +102,7 @@ test.describe(
           expect(grade.found).toBeDefined();
 
           const { notificationTray: tray } = learner;
-          await learner.page.goto(trayHostUrl(config, courseKey));
+          await gotoTrayHost(learner.page, config, courseKey);
 
           await tray.open('discussion');
           const post = await tray.openRow(response.found!.id);
@@ -157,7 +157,7 @@ test.describe(
         );
         expect(found).toBeDefined();
 
-        await page.goto(trayHostUrl(config, oraUnit.courseKey));
+        await gotoTrayHost(page, config, oraUnit.courseKey);
         await notificationTray.open('discussion');
         await notificationTray.openTab('grading');
         const grader = await notificationTray.openRow(found!.id);

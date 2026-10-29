@@ -11,7 +11,7 @@ import {
 } from '../../../src/api';
 import { aboutThread, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
+import { NOTIFICATION_TAGS, gotoTrayHost } from './helpers';
 
 /**
  * Activity notifications (TC-00461–TC-00465): responses and comments on the
@@ -148,7 +148,7 @@ test.describe(
               `rows seen: ${JSON.stringify(rows.map((row) => row.notification_type))}`,
             ).toBeDefined();
 
-            await actors.recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
+            await gotoTrayHost(actors.recipient.page, config, forumCourse.courseKey);
             await actors.recipient.notificationTray.open('discussion');
             await expect(actors.recipient.notificationTray.row(found!.id)).toBeVisible();
           } finally {

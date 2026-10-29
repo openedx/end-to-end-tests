@@ -8,7 +8,7 @@ import {
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_PREFERENCES_A11Y_BASELINE, NOTIFICATION_TAGS, trayHostUrl } from './helpers';
+import { NOTIFICATION_PREFERENCES_A11Y_BASELINE, NOTIFICATION_TAGS, gotoTrayHost } from './helpers';
 
 /**
  * The notification preference centre (TC-00472, TC-00473): where it is
@@ -44,7 +44,7 @@ test.describe(
 
         // The tray gear opens it — in a new tab from a legacy MFE, in place from
         // the frontend-base shell, whose gear is a site-relative link.
-        await learner.page.goto(trayHostUrl(config, contentCourse.courseKey));
+        await gotoTrayHost(learner.page, config, contentCourse.courseKey);
         await learner.notificationTray.open();
         await expect(learner.notificationTray.gearLink).toHaveJSProperty(
           'href',

@@ -13,7 +13,7 @@ import {
 } from '../../../src/api';
 import { aboutThread, waitForNotification } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
-import { NOTIFICATION_TAGS, trayHostUrl } from './helpers';
+import { NOTIFICATION_TAGS, gotoTrayHost } from './helpers';
 
 /**
  * Notifications that involve the forum's moderators (TC-00460, TC-00466):
@@ -76,7 +76,7 @@ test.describe(
             `rows seen: ${JSON.stringify(rows.map((row) => row.notification_type))}`,
           ).toBeDefined();
 
-          await recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
+          await gotoTrayHost(recipient.page, config, forumCourse.courseKey);
           await recipient.notificationTray.open('discussion');
           await expect(recipient.notificationTray.row(found!.id)).toBeVisible();
         } finally {
