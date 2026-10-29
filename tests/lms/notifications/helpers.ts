@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { skipOwnCourseHomeTour } from '../../../src/api';
+import { skipCourseHomeTour } from '../../../src/api';
 import type { AppConfig } from '../../../src/config';
 
 /**
@@ -46,7 +46,7 @@ export async function gotoTrayHost(
   courseKey: string,
 ): Promise<void> {
   if (config.notificationTrayHost === 'course-home') {
-    await skipOwnCourseHomeTour(page.request, config);
+    await skipCourseHomeTour(page.request, config);
   }
   await page.goto(trayHostUrl(config, courseKey));
 }

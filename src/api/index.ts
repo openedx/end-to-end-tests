@@ -646,7 +646,6 @@ export {
 export {
   fetchUserTours,
   skipCourseHomeTour,
-  skipOwnCourseHomeTour,
   type CourseHomeTourStatus,
   type UserTours,
 } from './user-tours';

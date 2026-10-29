@@ -31,15 +31,20 @@ export async function fetchUserTours(
 }
 
 /**
- * Marks the course-home tour done for `username`, as finishing or skipping it
- * does, so the learning MFE's course home opens without its first-visit dialog.
- * The view answers an accepted change with an empty 200, so this reads no body.
+ * Marks the course-home tour done for whoever `request` is signed in as, as
+ * finishing or skipping it does, so the learning MFE's course home opens
+ * without its first-visit dialog. The view answers an accepted change with an
+ * empty 200, so this reads no body.
  */
 export async function skipCourseHomeTour(
   request: APIRequestContext,
   config: AppConfig,
-  username: string,
 ): Promise<void> {
+  const { username } = await lmsGet<{ readonly username: string }>(
+    request,
+    `${config.baseUrls.lms}/api/user/v1/me`,
+    'Reading the signed-in user',
+  );
   const url = `${config.baseUrls.lms}/api/user_tours/v1/${username}`;
   const response = await request.patch(url, {
     headers: {
@@ -54,17 +59,4 @@ export async function skipCourseHomeTour(
       { status: response.status(), url, body: await response.text() },
     );
   }
-}
-
-/** As {@link skipCourseHomeTour}, for whoever `request` is signed in as. */
-export async function skipOwnCourseHomeTour(
-  request: APIRequestContext,
-  config: AppConfig,
-): Promise<void> {
-  const me = await lmsGet<{ readonly username: string }>(
-    request,
-    `${config.baseUrls.lms}/api/user/v1/me`,
-    'Reading the signed-in user',
-  );
-  await skipCourseHomeTour(request, config, me.username);
 }
