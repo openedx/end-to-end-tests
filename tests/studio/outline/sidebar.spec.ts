@@ -1,4 +1,5 @@
 import { expect, test } from '../../../src/fixtures';
+import { newCleanRequestContext } from '../../../src/auth';
 import { TIMEOUTS } from '../../../src/config';
 import {
   addToCohort,
@@ -185,7 +186,7 @@ test.describe(
         // and all the browser's Studio writes are already done. A cohort linked to
         // the content group, with the in-cohort learner placed in it.
         const authorUsername = await fetchStudioUsername(api, config);
-        const cohortApi = await playwright.request.newContext();
+        const cohortApi = await newCleanRequestContext(playwright.request);
         try {
           await loginSession(cohortApi, config, {
             emailOrUsername: authorUsername,

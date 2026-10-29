@@ -14,6 +14,7 @@ import { provisionLearnerSession, withAdminSession } from '../../../src/accounts
 import { STUDIO_FILES_SELECTORS, TIMEOUTS, type AppConfig } from '../../../src/config';
 import { FilesPage } from '../../../src/pages/studio/files/files.page';
 import { expect, test } from '../../../src/fixtures';
+import { newCleanRequestContext } from '../../../src/auth';
 import { testId } from '../../../src/reporting';
 
 /**
@@ -51,7 +52,7 @@ async function withFreshUser(
   config: AppConfig,
   work: (session: APIRequestContext) => Promise<void>,
 ): Promise<void> {
-  const session = await request.newContext();
+  const session = await newCleanRequestContext(request);
   try {
     await provisionLearnerSession(session, config);
     await work(session);
@@ -67,7 +68,7 @@ async function withAdmin(
 ): Promise<void> {
   const admin = config.credentials.admin as NonNullable<typeof config.credentials.admin>;
   await withAdminSession(async () => {
-    const session = await request.newContext();
+    const session = await newCleanRequestContext(request);
     try {
       await loginSession(session, config, {
         emailOrUsername: admin.username,

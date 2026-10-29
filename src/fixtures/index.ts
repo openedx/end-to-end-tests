@@ -96,6 +96,7 @@ import {
   AUTH_STATE_DIR,
   authStateFile,
   isUsableStateFile,
+  EMPTY_STORAGE_STATE,
   newCleanBrowserContext,
   newCleanRequestContext,
   storedSessionNeedsRefresh,
@@ -1629,7 +1630,9 @@ async function withAdminLmsSession<T>(
   return withAdminSession(async () => {
     const run = async (signIn: boolean): Promise<T> => {
       const reuse = !signIn && isUsableStateFile(stateFile);
-      const session = await playwright.request.newContext(reuse ? { storageState: stateFile } : {});
+      const session = await playwright.request.newContext({
+        storageState: reuse ? stateFile : EMPTY_STORAGE_STATE,
+      });
       try {
         if (!reuse) {
           await loginSession(session, config, credentials);
@@ -1673,9 +1676,9 @@ async function provisionWorkerCourse(
     password: DEFAULT_PASSWORD,
   };
 
-  let request = await playwright.request.newContext(
-    isUsableStateFile(authorState) ? { storageState: authorState } : {},
-  );
+  let request = await playwright.request.newContext({
+    storageState: isUsableStateFile(authorState) ? authorState : EMPTY_STORAGE_STATE,
+  });
   try {
     // Best-effort: give this context a Studio session off the captured LMS
     // session (the silent SSO handshake; a no-op when it already has one) and

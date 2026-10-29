@@ -1,5 +1,6 @@
 import type { APIRequest, APIRequestContext, Page } from '@playwright/test';
 
+import { newCleanRequestContext } from '../auth';
 import { registrableDomain, type AppConfig } from '../config';
 import {
   fetchChromeConfig,
@@ -259,7 +260,7 @@ export async function switchableLanguage(
   offered: readonly string[],
 ): Promise<string | undefined> {
   const primary = (code: string) => code.split(/[-_]/)[0]!.toLowerCase();
-  const anonymous = await apiRequest.newContext();
+  const anonymous = await newCleanRequestContext(apiRequest);
   try {
     for (const code of offered) {
       if (primary(code) === primary(current)) continue;

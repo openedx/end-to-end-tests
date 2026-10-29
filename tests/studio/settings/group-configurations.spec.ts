@@ -10,6 +10,7 @@ import {
 } from '../../../src/api';
 import { getRunId } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
+import { newCleanRequestContext } from '../../../src/auth';
 import { testId } from '../../../src/reporting';
 
 /**
@@ -98,7 +99,7 @@ test.describe('Group Configurations', { tag: ['@studio', '@author', '@mfe-author
       // author is this worker's own account, so this evicts no session another test
       // still needs. Enable cohorts, create one and link it to the content group.
       const authorUsername = await fetchStudioUsername(api, config);
-      const cohortApi = await playwright.request.newContext();
+      const cohortApi = await newCleanRequestContext(playwright.request);
       try {
         await loginSession(cohortApi, config, {
           emailOrUsername: authorUsername,

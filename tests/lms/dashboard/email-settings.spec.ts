@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
+import { newCleanRequestContext } from '../../../src/auth';
 import { TIMEOUTS } from '../../../src/config';
 import {
   DEFAULT_PASSWORD,
@@ -94,7 +95,7 @@ test.describe(
         // Course e-mail is an LMS session-auth view: the instructor signs in
         // afresh on a throwaway context, as for the cohort views.
         const title = `E2E course e-mail ${randomUUID().slice(0, 8)}`;
-        const instructor = await playwright.request.newContext();
+        const instructor = await newCleanRequestContext(playwright.request);
         try {
           await loginSession(instructor, config, {
             emailOrUsername: workerAuthor!.identity.username,
