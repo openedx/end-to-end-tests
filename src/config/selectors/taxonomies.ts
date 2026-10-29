@@ -20,6 +20,19 @@ export const TAXONOMY_SELECTORS = {
   templateCsv: '[data-testid="taxonomy-download-template-csv"]',
   templateJson: '[data-testid="taxonomy-download-template-json"]',
 
+  /** Every taxonomy card on the list page, whatever its id. */
+  cardAny: '[data-testid^="taxonomy-card-"]',
+  /** A taxonomy's card on the list page (the whole card links to `/taxonomy/<id>`). */
+  card: (id: number): string => `[data-testid="taxonomy-card-${id}"]`,
+  /**
+   * A card's type icon, whose screen-reader text is "Competency taxonomy" for
+   * `competency` and "Tags taxonomy" for `tags`. A card without a known type
+   * shows the `tags` icon.
+   */
+  typeIcon: (type: 'competency' | 'tags'): string => `[data-testid="taxonomy-type-icon-${type}"]`,
+  /** Either type icon ("Competency taxonomy" or "Tags taxonomy"); a card holds exactly one. */
+  anyTypeIcon: '[data-testid^="taxonomy-type-icon-"]',
+
   /** A taxonomy's kebab menu button (scoped to a card, or the detail SubHeader). */
   menuButton: '[data-testid="taxonomy-menu-button"]',
   menuImport: '[data-testid="taxonomy-menu-import"]',
@@ -39,6 +52,12 @@ export const TAXONOMY_SELECTORS = {
   /** The new taxonomy's name (text input) and description (textarea) fields. */
   populateNameInput: '[data-testid="populate-step"] input',
   populateDescInput: '[data-testid="populate-step"] textarea',
+  /**
+   * The populate step's "Taxonomy Type" dropdown. A
+   * native `<select>` whose option values (`tags`, `competency`) are not
+   * translated, so `selectOption(value)` is language-independent.
+   */
+  typeSelect: '[data-testid="taxonomy-type-select"]',
   /** Testid'd wizard buttons. */
   wizardNext: '[data-testid="next-button"]',
   wizardContinue: '[data-testid="continue-button"]',

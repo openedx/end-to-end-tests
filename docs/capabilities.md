@@ -27,8 +27,9 @@ it, and `tests/config/capabilities-doc.spec.ts` keeps the two in step.
   is a configuration error.
 - **Required partners.** A few capabilities describe part of another's
   deployment (`analytics-in-context`, `analytics-pii` and
-  `analytics-staff-video-counts` are parts of `analytics`, and
-  `analytics-in-context-cards` of `analytics-in-context`).
+  `analytics-staff-video-counts` are parts of `analytics`,
+  `analytics-in-context-cards` of `analytics-in-context`, and `competencies` of
+  `taxonomies`).
   Declaring one without its partner fails validation.
 - **Mutually exclusive pairs.** Some capabilities are two implementations or two
   configurations of one surface; declaring both fails validation. Where one half
@@ -103,6 +104,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `catalog-search` | declared | declared | declared | declared | declared | declared | |  |
 | `studio` | declared | declared | declared | declared | declared | declared | |  |
 | `taxonomies` | declared | declared | — | — | — | — | |  |
+| `competencies` | declared | — | — | — | — | — | |  |
 | `studio-sidebar` | declared | declared | — | — | — | — | |  |
 | `upload-agreements` | declared | declared | — | — | — | — | |  |
 | `ora` | declared | declared | declared | declared | declared | declared | |  |
@@ -198,6 +200,7 @@ A target that differs from the stock setting declares the other half.
 | `content-libraries` | Content libraries v2 (Learning Core): the library-authoring MFE, `/api/libraries/v2/`, and reuse of library content in courses. Team management is `rbac`, not this. | `tests/studio/library/`, and the library cases in `tests/rbac/`. | `main`, `verawood`. `ulmo` and earlier are not covered. |
 | `content-libraries-v1` | Legacy (modulestore) libraries and the migrator into v2. Hidden once `contentstore.new_studio_mfe.disable_legacy_libraries` is on. | The legacy-library and migration cases in `tests/studio/library/`. | `main`, `verawood` (a default install still creates them) |
 | `taxonomies` | Content tagging: the taxonomy pages (`ENABLE_TAGGING_TAXONOMY_PAGES`) and the tag drawers. Managing taxonomies needs the admin account. | `tests/studio/tagging/`, and tag filters in `tests/studio/library/`. | `main`, `verawood` |
+| `competencies` | Competency taxonomies: the import wizard's Taxonomy Type select (Tags or Competency) and the type icon on each taxonomy card. Needs openedx-core `taxonomy_type` support, frontend-app-authoring #3208 / #3255, and openedx-platform #39086 / #39110 (the list and detail responses serve `taxonomy_type`); `verawood` pins openedx-core 1.0.3 and has none of them. Requires `taxonomies`. | `tests/studio/tagging/taxonomy-type.spec.ts`. | `main` |
 | `studio-sidebar` | The Verawood authoring sidebar: the Info / Add / Align / Help rail on the outline and the Info / Add / Align rail on the unit page. | `tests/studio/sidebar/`, and the Align cases in `tests/studio/tagging/`. | `main`, `verawood`. Not rendered on `ulmo` and earlier. |
 | `upload-agreements` | Upload agreements gate the Files and Videos uploads (the `AGREEMENT_GATING` MFE-config map plus `/api/agreements/v1/`). Declared but with no gating map, the case fails. | `tests/studio/files/agreements.spec.ts` (TC-00501–00507). | `main`, `verawood` (CI sets the map in its Tutor plugin) |
 

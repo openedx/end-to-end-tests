@@ -22,6 +22,9 @@ import { studioJson, studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from
  */
 export const TAGGING_BASE = '/api/content_tagging/v1';
 
+/** The types an import can create (`taxonomy_type` on the import request). */
+export type ImportableTaxonomyType = 'tags' | 'competency';
+
 /** One taxonomy as the list/detail endpoints return it. */
 export interface Taxonomy {
   readonly id: number;
@@ -39,6 +42,13 @@ export interface Taxonomy {
   readonly canTagObject: boolean;
   readonly canChangeTaxonomy: boolean;
   readonly canDeleteTaxonomy: boolean;
+  /**
+   * The backend's `taxonomy_type`: `competency` when a `CompetencyTaxonomy`
+   * record (openedx-core's competency app) backs the taxonomy, `tags` otherwise.
+   * `undefined` when the backend predates the field (no `competencies`
+   * capability); any other value is passed through as served.
+   */
+  readonly taxonomyType: string | undefined;
 }
 
 interface RawTaxonomy {
@@ -56,6 +66,7 @@ interface RawTaxonomy {
   readonly can_tag_object?: boolean;
   readonly can_change_taxonomy?: boolean;
   readonly can_delete_taxonomy?: boolean;
+  readonly taxonomy_type?: string;
 }
 
 function toTaxonomy(raw: RawTaxonomy): Taxonomy {
@@ -74,6 +85,7 @@ function toTaxonomy(raw: RawTaxonomy): Taxonomy {
     canTagObject: raw.can_tag_object ?? false,
     canChangeTaxonomy: raw.can_change_taxonomy ?? false,
     canDeleteTaxonomy: raw.can_delete_taxonomy ?? false,
+    taxonomyType: raw.taxonomy_type,
   };
 }
 
@@ -142,6 +154,8 @@ export interface ImportTaxonomyOptions {
   readonly description?: string;
   /** The tag file contents and its format (a checked-in JSON/CSV fixture). */
   readonly file: { readonly name: string; readonly mimeType: string; readonly buffer: Buffer };
+  /** Sent as `taxonomy_type`; omitted from the request when unset, so the backend's default applies. */
+  readonly taxonomyType?: ImportableTaxonomyType;
 }
 
 /**
@@ -161,6 +175,7 @@ export async function importTaxonomy(
       taxonomy_name: options.name,
       taxonomy_description: options.description ?? '',
       file: options.file,
+      ...(options.taxonomyType === undefined ? {} : { taxonomy_type: options.taxonomyType }),
     },
   });
   return toTaxonomy(
