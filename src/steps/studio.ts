@@ -121,9 +121,13 @@ export async function establishStudioBrowserSession(
     timeout: TIMEOUTS.studioSetup,
   });
   // Whichever settles first decides; the other is left to time out unobserved.
+  // When both time out, rethrow the header wait's own TimeoutError (which names
+  // the locator) rather than the AggregateError Promise.any rejects with.
   settled.catch(() => undefined);
   leftInstall.catch(() => undefined);
-  await Promise.any([settled, leftInstall]);
+  await Promise.any([settled, leftInstall]).catch((error: unknown) => {
+    throw error instanceof AggregateError ? error.errors[0] : error;
+  });
   return (await header.count()) > 0;
 }
 
