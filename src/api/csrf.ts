@@ -27,8 +27,8 @@ interface CsrfTokenResponse {
  * origin you are about to post to, and send that origin as the `Referer`.
  *
  * Redirects are not followed: an installation that sends anonymous visitors to
- * an external sign-in (MIT OL's `MITX_REDIRECT_ENABLED`, whose allow-list has
- * no `/csrf`) answers 302, and following it would land on that provider's HTML.
+ * an external sign-in, exempting only some paths (say `/api`, but not `/csrf`),
+ * answers 302, and following it would land on that provider's HTML.
  *
  * @returns the token to send in the {@link CSRF_HEADER} header.
  * @throws {ApiError} when the endpoint does not return a token.
