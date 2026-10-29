@@ -31,6 +31,10 @@ const envShape = z.object({
   INSTRUCTOR_DASHBOARD_MFE_URL: z.string().optional(),
   DISCUSSIONS_MFE_URL: z.string().optional(),
 
+  // Where the notification specs open the tray (see tests/lms/notifications/
+  // helpers.ts), defaults to 'learner-dashboard'.
+  NOTIFICATION_TRAY_HOST: z.enum(['learner-dashboard', 'course-home']).optional(),
+
   // Credentials (paired admin/staff account; validated together in load.ts).
   ADMIN_USERNAME: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),

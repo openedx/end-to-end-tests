@@ -148,7 +148,7 @@ test.describe(
               `rows seen: ${JSON.stringify(rows.map((row) => row.notification_type))}`,
             ).toBeDefined();
 
-            await actors.recipient.page.goto(trayHostUrl(config));
+            await actors.recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
             await actors.recipient.notificationTray.open('discussion');
             await expect(actors.recipient.notificationTray.row(found!.id)).toBeVisible();
           } finally {

@@ -50,7 +50,7 @@ test.describe(
           `/courses/${contentCourse.courseKey}/course/updates`,
         );
 
-        await recipient.page.goto(trayHostUrl(config));
+        await recipient.page.goto(trayHostUrl(config, contentCourse.courseKey));
         await recipient.notificationTray.open('discussion');
         await recipient.notificationTray.openTab('updates');
         await expect(recipient.notificationTray.row(found!.id)).toBeVisible();

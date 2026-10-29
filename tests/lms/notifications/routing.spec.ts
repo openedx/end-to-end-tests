@@ -102,7 +102,7 @@ test.describe(
           expect(grade.found).toBeDefined();
 
           const { notificationTray: tray } = learner;
-          await learner.page.goto(trayHostUrl(config));
+          await learner.page.goto(trayHostUrl(config, courseKey));
 
           await tray.open('discussion');
           const post = await tray.openRow(response.found!.id);
@@ -157,7 +157,7 @@ test.describe(
         );
         expect(found).toBeDefined();
 
-        await page.goto(trayHostUrl(config));
+        await page.goto(trayHostUrl(config, oraUnit.courseKey));
         await notificationTray.open('discussion');
         await notificationTray.openTab('grading');
         const grader = await notificationTray.openRow(found!.id);

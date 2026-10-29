@@ -56,7 +56,7 @@ test.describe(
             expect(found!.course_id).toBe(forumCourse.courseKey);
 
             // The tray shows it under Discussions, linking to the post.
-            await recipient.page.goto(trayHostUrl(config));
+            await recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
             await recipient.notificationTray.open('discussion');
             const row = recipient.notificationTray.row(found!.id);
             await expect(row).toBeVisible();
@@ -96,7 +96,7 @@ test.describe(
           );
           expect(found).toBeDefined();
 
-          await recipient.page.goto(trayHostUrl(config));
+          await recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
           await recipient.notificationTray.open('discussion');
           await expect(recipient.notificationTray.row(found!.id)).toBeVisible();
         } finally {

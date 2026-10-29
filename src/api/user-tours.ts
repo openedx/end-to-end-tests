@@ -1,6 +1,8 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
+import { CSRF_HEADER, fetchCsrfToken } from './csrf';
+import { ApiError } from './errors';
 import { lmsGet } from './lms-json';
 
 /**
@@ -26,4 +28,30 @@ export async function fetchUserTours(
     `${config.baseUrls.lms}/api/user_tours/v1/${username}`,
     `Reading the tours of "${username}"`,
   );
+}
+
+/**
+ * Marks the course-home tour done for `username`, as finishing or skipping it
+ * does, so the learning MFE's course home opens without its first-visit dialog.
+ * The view answers an accepted change with an empty 200, so this reads no body.
+ */
+export async function skipCourseHomeTour(
+  request: APIRequestContext,
+  config: AppConfig,
+  username: string,
+): Promise<void> {
+  const url = `${config.baseUrls.lms}/api/user_tours/v1/${username}`;
+  const response = await request.patch(url, {
+    headers: {
+      [CSRF_HEADER]: await fetchCsrfToken(request, config),
+      Referer: config.baseUrls.lms,
+    },
+    data: { course_home_tour_status: 'no-tour' satisfies CourseHomeTourStatus },
+  });
+  if (!response.ok()) {
+    throw new ApiError(
+      `Skipping the course-home tour of "${username}" failed (HTTP ${response.status()}).`,
+      { status: response.status(), url, body: await response.text() },
+    );
+  }
 }

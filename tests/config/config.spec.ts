@@ -561,3 +561,21 @@ test.describe('mfeMountPath', { tag: '@unit' }, () => {
     expect(mfeMountPath('http://learning.local.openedx.io')).toBe('');
   });
 });
+
+test.describe('loadConfig — notification tray host', { tag: '@unit' }, () => {
+  test('opens the tray on the learner dashboard by default', () => {
+    expect(loadConfig(validEnv()).notificationTrayHost).toBe('learner-dashboard');
+  });
+
+  test('takes the course home where configured', () => {
+    const config = loadConfig(validEnv({ NOTIFICATION_TRAY_HOST: 'course-home' }));
+
+    expect(config.notificationTrayHost).toBe('course-home');
+  });
+
+  test('rejects an unknown host', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ NOTIFICATION_TRAY_HOST: 'dashboard' })));
+
+    expect(issues.join('\n')).toContain('NOTIFICATION_TRAY_HOST');
+  });
+});

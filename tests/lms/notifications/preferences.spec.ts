@@ -30,7 +30,7 @@ test.describe(
     test(
       'is reached from Account Settings and from the tray gear',
       { annotation: testId('TC-00472') },
-      async ({ config, notificationRecipient }) => {
+      async ({ config, contentCourse, notificationRecipient }) => {
         const learner = await notificationRecipient();
 
         // Account Settings carries the section.
@@ -44,7 +44,7 @@ test.describe(
 
         // The tray gear opens it — in a new tab from a legacy MFE, in place from
         // the frontend-base shell, whose gear is a site-relative link.
-        await learner.page.goto(trayHostUrl(config));
+        await learner.page.goto(trayHostUrl(config, contentCourse.courseKey));
         await learner.notificationTray.open();
         await expect(learner.notificationTray.gearLink).toHaveJSProperty(
           'href',

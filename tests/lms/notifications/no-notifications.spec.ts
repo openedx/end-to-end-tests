@@ -86,7 +86,7 @@ test.describe(
           expect(update).toEqual({ delivered: true, subjectRows: [] });
 
           // The subject's tray is empty in both tabs.
-          await subject.page.goto(trayHostUrl(config));
+          await subject.page.goto(trayHostUrl(config, courseKey));
           await subject.notificationTray.open('discussion');
           await expect(subject.notificationTray.emptyList).toBeVisible();
           await expect(subject.notificationTray.rows('discussion')).toHaveCount(0);

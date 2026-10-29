@@ -80,7 +80,7 @@ test.describe('Notifications tray', { tag: ['@regression', ...NOTIFICATION_TAGS]
         expect(posts).toHaveLength(1);
         expect(posts[0]!.content_context.grouped).toBe(true);
 
-        await recipient.page.goto(trayHostUrl(config));
+        await recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
         await recipient.notificationTray.open('discussion');
         await expect(recipient.notificationTray.rows('discussion')).toHaveCount(1);
       } finally {
@@ -146,7 +146,7 @@ test.describe('Notifications tray', { tag: ['@regression', ...NOTIFICATION_TAGS]
 
         // The bell shows the unseen count.
         const { notificationTray: tray } = recipient;
-        await recipient.page.goto(trayHostUrl(config));
+        await recipient.page.goto(trayHostUrl(config, forumCourse.courseKey));
         await expect
           .poll(async () => ({
             badge: await tray.bellBadge.textContent(),
@@ -199,7 +199,11 @@ test.describe('Notifications tray', { tag: ['@regression', ...NOTIFICATION_TAGS]
 
   test(
     'puts the bell on Studio, the dashboard, course home, discussions and account pages',
-    { annotation: testId('TC-00476'), tag: '@discussions' },
+    {
+      annotation: testId('TC-00476'),
+      // Walks the learner dashboard and the account MFE, so it needs both.
+      tag: ['@discussions', '@mfe-learner-dashboard', '@mfe-account'],
+    },
     async ({
       page,
       config,

@@ -203,6 +203,7 @@ import {
   ORA_TEAM_SUBMISSIONS_SWITCH,
   enableCourseEmail,
   setWaffleSwitch,
+  skipCourseHomeTour,
   updateAccount,
 } from '../api';
 import {
@@ -3524,6 +3525,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         );
         made.push(learner);
         await applyNotificationOptions(learner.request, config, options);
+        // The specs open the tray on the course home there, where a new
+        // learner's first-visit tour dialog sits over the page.
+        if (config.notificationTrayHost === 'course-home') {
+          await skipCourseHomeTour(learner.request, config, learner.identity.username);
+        }
         return learner;
       });
     } finally {

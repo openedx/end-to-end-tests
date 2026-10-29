@@ -643,7 +643,12 @@ export {
   type LearnerHomeCourse,
   type LearnerHomeEnrollment,
 } from './learner-home';
-export { fetchUserTours, type CourseHomeTourStatus, type UserTours } from './user-tours';
+export {
+  fetchUserTours,
+  skipCourseHomeTour,
+  type CourseHomeTourStatus,
+  type UserTours,
+} from './user-tours';
 export {
   courseTool,
   fetchCourseHomeOutline,
