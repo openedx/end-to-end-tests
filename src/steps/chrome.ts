@@ -36,9 +36,16 @@ export function chromeConfigSourceFor(
   if (generation === 'shell') return { kind: 'shell' };
   // A legacy MFE is served under its own path on the MFE host (`/learning/…`,
   // `/profile/…`); that path segment is the `mfe` its config is requested for.
+  // The learning MFE may be mounted elsewhere (LEARNING_MFE_URL), and is still
+  // configured as `learning` there.
   const url = new URL(pageUrl);
-  const mfe =
-    url.origin === new URL(config.baseUrls.apps).origin
+  const learning = new URL(config.mfeUrls.learning);
+  const underLearning =
+    url.origin === learning.origin &&
+    (url.pathname === learning.pathname || url.pathname.startsWith(`${learning.pathname}/`));
+  const mfe = underLearning
+    ? 'learning'
+    : url.origin === new URL(config.baseUrls.apps).origin
       ? (url.pathname.split('/').find((segment) => segment !== '') ?? '')
       : '';
   return { kind: 'legacy', mfe };

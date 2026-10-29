@@ -42,7 +42,10 @@ export class InstructorDashboardPage {
   }
 
   url(courseKey: string, tabId?: InstructorTabId): string {
-    return `${this.config.baseUrls.apps}${instructorTabPath(courseKey, tabId)}`;
+    // instructorTabPath carries the stock mount; the configured one replaces it
+    // (a frontend-base site project serves the dashboard under `/apps`).
+    const tabPath = instructorTabPath(courseKey, tabId).replace(/^\/instructor-dashboard/, '');
+    return `${this.config.mfeUrls.instructorDashboard}${tabPath}`;
   }
 
   /**

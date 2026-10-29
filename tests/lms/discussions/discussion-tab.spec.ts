@@ -153,7 +153,7 @@ test.describe(
           await learner.discussions.openPost(thread.id);
           const link = await learner.discussions.copyPostLink(thread.id);
           expect(new URL(link).pathname).toBe(
-            `/discussions/${forumCourse.courseKey}/posts/${thread.id}`,
+            `${new URL(config.mfeUrls.discussions).pathname}/${forumCourse.courseKey}/posts/${thread.id}`,
           );
           await learner.page.goto(link);
           await expect(learner.discussions.post(thread.id)).toBeVisible();

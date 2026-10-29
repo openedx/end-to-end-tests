@@ -102,7 +102,7 @@ export class UnitPage {
   }
 
   url(courseKey: string, sequentialId: string, unitId: string): string {
-    return `${this.config.baseUrls.apps}/learning/course/${courseKey}/${sequentialId}/${unitId}`;
+    return `${this.config.mfeUrls.learning}/course/${courseKey}/${sequentialId}/${unitId}`;
   }
 
   /** Opens a unit by ID and waits for its content to finish loading. */

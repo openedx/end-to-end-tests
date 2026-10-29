@@ -42,7 +42,7 @@ export class CourseOutlinePage {
   }
 
   url(courseKey: string): string {
-    return `${this.config.baseUrls.apps}/learning/course/${courseKey}/home`;
+    return `${this.config.mfeUrls.learning}/course/${courseKey}/home`;
   }
 
   async goto(courseKey: string): Promise<void> {

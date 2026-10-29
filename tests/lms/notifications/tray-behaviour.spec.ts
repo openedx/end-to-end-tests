@@ -214,8 +214,8 @@ test.describe('Notifications tray', { tag: ['@regression', ...NOTIFICATION_TAGS]
 
       for (const url of [
         `${apps}/learner-dashboard/`,
-        `${apps}/learning/course/${forumCourse.courseKey}/home`,
-        `${apps}/discussions/${forumCourse.courseKey}/posts`,
+        `${config.mfeUrls.learning}/course/${forumCourse.courseKey}/home`,
+        `${config.mfeUrls.discussions}/${forumCourse.courseKey}/posts`,
         `${apps}/account/`,
       ]) {
         await learner.page.goto(url);

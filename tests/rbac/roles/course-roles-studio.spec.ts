@@ -65,7 +65,7 @@ test.describe(
         await updateXBlock(staff.request, config, writableBlock, {
           metadata: { display_name: `E2E renamed by staff ${testInfo.testId.slice(-6)}` },
         });
-        await staff.page.goto(`${config.baseUrls.apps}/authoring/course/${courseKey}`, {
+        await staff.page.goto(`${config.mfeUrls.authoring}/course/${courseKey}`, {
           waitUntil: 'domcontentloaded',
         });
         await expect(
@@ -166,7 +166,7 @@ test.describe(
         await expect(fetchCourseIndex(outsider.request, config, courseKey)).rejects.toMatchObject({
           status: 403,
         });
-        await outsider.page.goto(`${config.baseUrls.apps}/authoring/course/${courseKey}`, {
+        await outsider.page.goto(`${config.mfeUrls.authoring}/course/${courseKey}`, {
           waitUntil: 'domcontentloaded',
         });
         await expect(outsider.page.locator(STUDIO_OUTLINE_PAGE_SELECTORS.sectionCard)).toHaveCount(
