@@ -26,6 +26,10 @@ interface CsrfTokenResponse {
  * an LMS token does not authorize a Studio write or vice versa — fetch from the
  * origin you are about to post to, and send that origin as the `Referer`.
  *
+ * Redirects are not followed: an installation that sends anonymous visitors to
+ * an external sign-in (MIT OL's `MITX_REDIRECT_ENABLED`, whose allow-list has
+ * no `/csrf`) answers 302, and following it would land on that provider's HTML.
+ *
  * @returns the token to send in the {@link CSRF_HEADER} header.
  * @throws {ApiError} when the endpoint does not return a token.
  */
@@ -35,7 +39,7 @@ export async function fetchCsrfToken(
   origin: string = config.baseUrls.lms,
 ): Promise<string> {
   const url = `${origin}${CSRF_TOKEN_PATH}`;
-  const response = await request.get(url);
+  const response = await request.get(url, { maxRedirects: 0 });
 
   if (!response.ok()) {
     throw new ApiError(`Failed to fetch a CSRF token (HTTP ${response.status()}).`, {
