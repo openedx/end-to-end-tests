@@ -5,6 +5,26 @@ import { CSRF_HEADER, fetchCsrfToken } from './csrf';
 import { ApiError } from './errors';
 
 /**
+ * The `csrftoken` value, among `cookies`, that a request to `url` would carry,
+ * domain-matched as the cookie jar does it (RFC 6265): a host-only cookie, stored
+ * under its bare host, for that host alone; a `Domain` cookie, stored with a
+ * leading dot, for that domain and its subdomains. A jar can also hold a
+ * parent-domain host's own `csrftoken` (an identity provider's, say), which the
+ * LMS never receives.
+ */
+export function csrfTokenFromCookies(
+  cookies: readonly { name: string; domain: string; value: string }[],
+  url: string,
+): string | undefined {
+  const host = new URL(url).hostname;
+  return cookies.find(
+    ({ name, domain }) =>
+      name === 'csrftoken' &&
+      (domain === host || (domain.startsWith('.') && `.${host}`.endsWith(domain))),
+  )?.value;
+}
+
+/**
  * A CSRF token for a signed-out `request`: the token endpoint's, or — where that
  * endpoint is closed to anonymous visitors (see {@link fetchCsrfToken}) — the
  * `csrftoken` cookie a `GET` on the login-session endpoint itself sets.
@@ -20,11 +40,8 @@ async function anonymousCsrfToken(
     if (!(error instanceof ApiError)) throw error;
   }
   const response = await request.get(url);
-  const host = new URL(config.baseUrls.lms).hostname;
   const { cookies } = await request.storageState();
-  const token = cookies.find(
-    (cookie) => cookie.name === 'csrftoken' && host.endsWith(cookie.domain.replace(/^\./, '')),
-  )?.value;
+  const token = csrfTokenFromCookies(cookies, url);
   if (token === undefined) {
     throw new ApiError('Neither the CSRF endpoint nor the login-session endpoint gave a token.', {
       status: response.status(),

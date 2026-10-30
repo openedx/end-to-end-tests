@@ -3,7 +3,12 @@ export { ApiError, isStudioSignInBounce, StudioSessionExpiredError } from './err
 export { CSRF_HEADER, CSRF_TOKEN_PATH, fetchCsrfToken } from './csrf';
 export { REGISTRATION_PATH, registerLearnerAccount } from './registration';
 export { ACTIVATE_PATH, activateAccount, extractActivationKey } from './activation';
-export { LOGIN_SESSION_PATH, loginSession, type LoginCredentials } from './login';
+export {
+  LOGIN_SESSION_PATH,
+  csrfTokenFromCookies,
+  loginSession,
+  type LoginCredentials,
+} from './login';
 export {
   DEFAULT_PASSWORD,
   learnerIdentityFor,
