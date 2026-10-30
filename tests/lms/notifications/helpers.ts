@@ -1,3 +1,6 @@
+import type { Page } from '@playwright/test';
+
+import { skipCourseHomeTour } from '../../../src/api';
 import type { AppConfig } from '../../../src/config';
 
 /**
@@ -22,8 +25,28 @@ export const NOTIFICATION_PREFERENCES_A11Y_BASELINE = ['label'] as const;
 
 /**
  * Where the notification specs open the tray: the learner dashboard, whose
- * header every learner sees first (TC-00476 walks the other surfaces).
+ * header every learner sees first (TC-00476 walks the other surfaces), or —
+ * on an installation without one (`NOTIFICATION_TRAY_HOST=course-home`) — the
+ * learning MFE's home for `courseKey`, the course the spec's learner is in.
  */
-export function trayHostUrl(config: AppConfig): string {
-  return `${config.baseUrls.apps}/learner-dashboard/`;
+export function trayHostUrl(config: AppConfig, courseKey: string): string {
+  return config.notificationTrayHost === 'course-home'
+    ? `${config.mfeUrls.learning}/course/${courseKey}/home`
+    : `${config.baseUrls.apps}/learner-dashboard/`;
+}
+
+/**
+ * Opens {@link trayHostUrl} as whoever `page` is signed in as. On the course
+ * home a first visit opens the welcome tour over the page, so that user's
+ * course-home tour is marked done first.
+ */
+export async function gotoTrayHost(
+  page: Page,
+  config: AppConfig,
+  courseKey: string,
+): Promise<void> {
+  if (config.notificationTrayHost === 'course-home') {
+    await skipCourseHomeTour(page.request, config);
+  }
+  await page.goto(trayHostUrl(config, courseKey));
 }

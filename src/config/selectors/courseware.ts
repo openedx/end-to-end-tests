@@ -94,7 +94,7 @@ export const COURSEWARE_SELECTORS = {
 
   /**
    * The open discussions sidebar: an iframe of the discussions MFE's in-context
-   * view (`/discussions/<course>/category/<unit>?inContextSidebar`).
+   * view (`{DISCUSSIONS_MFE}/<course>/category/<unit>?inContextSidebar`).
    */
   discussionsSidebar: '.discussions-sidebar-frame',
 

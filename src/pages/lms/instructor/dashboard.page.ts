@@ -5,6 +5,7 @@ import {
   TIMEOUTS,
   instructorTabLink,
   instructorTabPath,
+  mfeMountPath,
   type AppConfig,
   type InstructorTabId,
 } from '../../../config';
@@ -16,7 +17,7 @@ import { waitForWrite, type WriteMatch } from '../../studio/wait-for-write';
  * nav, and the Paragon modal / dropdown plumbing every tab shares. Each tab has
  * its own page object built on this one.
  *
- * Tabs are reached by **URL** (`/instructor-dashboard/<key>/<tab_id>`), never by
+ * Tabs are reached by **URL** (`{INSTRUCTOR_DASHBOARD_MFE}/<key>/<tab_id>`), never by
  * clicking a localized title; the nav link for a tab id is how a spec asserts
  * the tab is offered. Actions wait for the exact instructor-API request they
  * fire — the MFE ships no test ids, so the request is what proves the right
@@ -42,7 +43,9 @@ export class InstructorDashboardPage {
   }
 
   url(courseKey: string, tabId?: InstructorTabId): string {
-    return `${this.config.baseUrls.apps}${instructorTabPath(courseKey, tabId)}`;
+    const dashboard = this.config.mfeUrls.instructorDashboard;
+    const tabPath = instructorTabPath(courseKey, tabId, mfeMountPath(dashboard));
+    return `${new URL(dashboard).origin}${tabPath}`;
   }
 
   /**
@@ -72,7 +75,9 @@ export class InstructorDashboardPage {
 
   /** The nav link for a tab — present only when the user may see that tab. */
   tabLink(courseKey: string, tabId: InstructorTabId): Locator {
-    return this.page.locator(instructorTabLink(courseKey, tabId));
+    return this.page.locator(
+      instructorTabLink(courseKey, tabId, mfeMountPath(this.config.mfeUrls.instructorDashboard)),
+    );
   }
 
   /**

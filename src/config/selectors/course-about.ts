@@ -57,6 +57,6 @@ export const COURSE_ABOUT_SELECTORS = {
  * enrolled-state signal, replacing the sheet's "You are enrolled in this course"
  * copy. Corroborate with the enrollment API, which is authoritative.
  */
-export function courseAboutCoursewareLink(courseKey: string): string {
-  return `main a[href*="/learning/course/${courseKey}"]`;
+export function courseAboutCoursewareLink(courseKey: string, learningPath = '/learning'): string {
+  return `main a[href*="${learningPath}/course/${courseKey}"]`;
 }

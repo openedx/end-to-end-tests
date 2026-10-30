@@ -1,5 +1,5 @@
 /**
- * The discussions MFE (`frontend-app-discussions`, `{APPS}/discussions/<course>/`).
+ * The discussions MFE (`frontend-app-discussions`, `{DISCUSSIONS_MFE}/<course>/`).
  * Measured on local `main` 2026-09-23.
  *
  * The MFE ships test ids for posts, comments and the actions menu but not for

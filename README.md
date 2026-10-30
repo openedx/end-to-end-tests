@@ -69,6 +69,10 @@ The essentials:
 | `LMS_BASE_URL`                      | ✅       | LMS origin, e.g. `http://local.openedx.io`                          |
 | `APPS_BASE_URL`                     | ✅       | MFE host origin, e.g. `http://apps.local.openedx.io`                |
 | `CMS_BASE_URL`                      | —        | Studio origin; required when `studio` is in `CAPABILITIES`          |
+| `LEARNING_MFE_URL`                  | —        | Learning MFE URL; unset ⇒ `${APPS_BASE_URL}/learning`               |
+| `AUTHORING_MFE_URL`                 | —        | Authoring MFE URL; unset ⇒ `${APPS_BASE_URL}/authoring`             |
+| `INSTRUCTOR_DASHBOARD_MFE_URL`      | —        | Instructor MFE URL; unset ⇒ `${APPS_BASE_URL}/instructor-dashboard` |
+| `DISCUSSIONS_MFE_URL`               | —        | Discussions MFE URL; unset ⇒ `${APPS_BASE_URL}/discussions`         |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`     |
 | `ORG`                               | —        | Organization short code, e.g. `OpenedX`                             |
 | `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip  |

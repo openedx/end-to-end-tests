@@ -85,15 +85,16 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'view live links to the learner-facing course',
     { tag: '@regression', annotation: testId('TC-00238') },
-    async ({ authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
+    async ({ config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
       void studioAuthorSession;
       const { courseKey } = authoredCourse;
       await pagesResourcesPage.goto(courseKey);
 
-      // "View live" points at the learner-facing course home; the key is in the URL.
+      // "View live" points at the learner-facing course home in the configured
+      // learning MFE; the key is in the URL.
       await expect(pagesResourcesPage.viewLiveLink).toHaveAttribute(
         'href',
-        new RegExp(`/learning/course/${courseKey.replace(/[+:]/g, '\\$&')}`),
+        new RegExp(`^${escapeRegExp(`${config.mfeUrls.learning}/course/${courseKey}`)}`),
       );
     },
   );
@@ -127,3 +128,5 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
     },
   );
 });
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

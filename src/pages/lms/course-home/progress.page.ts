@@ -25,7 +25,7 @@ export class ProgressPage {
   }
 
   url(courseKey: string): string {
-    return `${this.config.baseUrls.apps}/learning/course/${courseKey}/progress`;
+    return `${this.config.mfeUrls.learning}/course/${courseKey}/progress`;
   }
 
   async goto(courseKey: string): Promise<void> {

@@ -3,8 +3,8 @@ import * as dotenv from 'dotenv';
 import { ConfigError } from './errors';
 import { loadConfig, type AppConfig } from './load';
 
-export type { AppConfig, AdminCredentials, BaseUrls, Env, Scheme } from './load';
-export { loadConfig, parseCapabilities } from './load';
+export type { AppConfig, AdminCredentials, BaseUrls, Env, MfeUrls, Scheme } from './load';
+export { loadConfig, mfeMountPath, parseCapabilities } from './load';
 export { ConfigError };
 export {
   CAPABILITIES,
