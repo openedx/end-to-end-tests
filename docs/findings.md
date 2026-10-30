@@ -1519,15 +1519,18 @@ without failing it, exactly as the library MFE's debt is handled.
 
 **Where:** the console's user audit view, and `PUT /api/authz/v1/roles/users/`.
 
-**What happens:** the console omits the delete control on your own admin row
-(rather than disabling it with an explanatory tooltip, as the sheet describes),
-and in a course-scope audit view the Actions cell is empty for your own row. The
-platform does not enforce the rule at all: a library admin revoking its own
-`library_admin` is answered `207 role_removed`.
+**What happens:** on `verawood` the console omits the delete control on your
+own admin row (rather than disabling it with an explanatory tooltip, as the
+sheet describes), and in a course-scope audit view the Actions cell is empty for
+your own row. On `main` the console now greys the control out with a tooltip, as
+the sheet asks (frontend-app-admin-console#255). The platform does not enforce
+the rule at all: a library admin revoking its own `library_admin` is answered
+`207 role_removed`.
 
-**Coverage impact:** open. TC-00567 asserts the console's behaviour and carries
-a `knownGap` recording that the API does not enforce it. Upstream ask: refuse
-the self-revoke server-side.
+**Coverage impact:** open. TC-00567 asserts the console's behaviour on both
+releases (the greyed control and its tooltip under `rbac-audit-team-layout`)
+and carries a `knownGap` recording that the API does not enforce it. Upstream
+ask: refuse the self-revoke server-side.
 
 ### `RBAC-008` — the 404 view's only action does nothing (a regression on `main`)
 

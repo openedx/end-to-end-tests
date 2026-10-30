@@ -122,6 +122,8 @@ profile. Each profile's column shows what that profile changes on top.
 | `rbac` | declared | declared | — | — | — | — | |  |
 | `rbac-global` | — | — | — | — | — | — | |  |
 | `rbac-matrix-parity` | declared | — | — | — | — | — | |  |
+| `rbac-course-editor-auditor` | declared | — | — | — | — | — | |  |
+| `rbac-audit-team-layout` | declared | — | — | — | — | — | |  |
 | `rbac-error-view-action` | — | declared | — | — | — | — | |  |
 | `certificate-web-view` | — | declared | declared | declared | declared | declared | |  |
 | `recommender-studio-settings` | declared | — | — | — | — | — | |  |
@@ -231,6 +233,8 @@ permanently red case. Declare one where the behaviour is right.
 | Capability | What it means | Tag | Known to support |
 | --- | --- | --- | --- |
 | `rbac-matrix-parity` | The console's library permission matrix matches the API's own permission list. `verawood` (openedx-authz 1.21) renders 14 rows for 11 permissions (wg-build-test-release#609). | The fidelity half of the permission-matrix case. | `main` |
+| `rbac-course-editor-auditor` | The console offers Course Editor and Course Auditor like the other course roles (frontend-app-admin-console#209). `verawood` greys them out in the permission matrix as "coming soon". | The live-roles half of the permission-matrix case (TC-00569). | `main` |
+| `rbac-audit-team-layout` | The user audit view is laid out like the Team Members table (frontend-app-admin-console#255): Role, Scope, Organization, Permissions, Actions, and a greyed delete control with a tooltip on your own admin row. `verawood` has the older six-column table and omits that control. | The layout halves of TC-00565 and TC-00567. | `main` |
 | `rbac-error-view-action` | The console's not-found view offers a working way back. On `main` the action does nothing (`RBAC-008`). | TC-00442. | `verawood` |
 | `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood`, `ulmo`, `teak`, `sumac`, `redwood` |
 | `recommender-studio-settings` | The recommender's Studio editor shows the settings it saved (recommender-xblock ≥ 5.1.0). `verawood` pins 5.0.0 (`XBLOCK-002`). | TC-00132. | `main` |

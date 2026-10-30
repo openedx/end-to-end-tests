@@ -9,9 +9,9 @@ import { AUTHZ_BASE } from '../../api';
  *
  * Two facts from the probe shape this object. Rows are addressed by **position
  * and structure**, never by role name — the Role cell's label is localized copy.
- * And the delete control is *absent* on the viewer's own admin row rather than
- * disabled, so "can I remove this?" is asked by counting controls, not by
- * reading a tooltip (`RBAC-007`).
+ * And "can I remove this?" is asked by counting live delete controls, not by
+ * reading a tooltip: on the viewer's own admin row `main` greys the control
+ * out and `verawood` omits it (`RBAC-007`), so neither counts as live.
  */
 export class UserAuditPage {
   private readonly s = ADMIN_CONSOLE_SELECTORS;
@@ -27,6 +27,8 @@ export class UserAuditPage {
   readonly permissionDetailRows: Locator;
   readonly confirmDialog: Locator;
   readonly toast: Locator;
+  /** Paragon's tooltip — asserted by presence, never by its copy. */
+  readonly tooltip: Locator;
 
   constructor(
     readonly page: Page,
@@ -43,6 +45,7 @@ export class UserAuditPage {
     this.permissionDetailRows = this.table.locator(this.s.auditPermissionDetailRow);
     this.confirmDialog = page.locator(this.s.confirmDialog);
     this.toast = page.locator(this.s.toast);
+    this.tooltip = page.locator(this.s.tooltip);
   }
 
   url(username: string): string {
@@ -65,9 +68,9 @@ export class UserAuditPage {
     return this.rows.nth(index);
   }
 
-  /** The scope a row is about — a course or library key, which is our own data. */
-  scopeCell(row: Locator): Locator {
-    return row.locator(this.s.cell).nth(2);
+  /** A row's cell at `index` (0-based), in column order. */
+  cell(row: Locator, index: number): Locator {
+    return row.locator(this.s.cell).nth(index);
   }
 
   /** The role marker, present only for a role the console can name (`RBAC-003`). */
@@ -75,7 +78,7 @@ export class UserAuditPage {
     return row.locator(this.s.roleCell);
   }
 
-  /** A row's delete control, which is absent where the console forbids removal. */
+  /** A row's live delete control, which is absent or greyed where the console forbids removal. */
   deleteControl(row: Locator): Locator {
     return row.locator(this.s.auditDeleteRole);
   }
@@ -88,6 +91,11 @@ export class UserAuditPage {
    */
   get deleteControls(): Locator {
     return this.table.locator(this.s.auditDeleteRole);
+  }
+
+  /** Every greyed delete control, each in the wrapper that carries its tooltip. */
+  get disabledDeleteControls(): Locator {
+    return this.table.locator(this.s.auditDisabledDeleteRole);
   }
 
   /** Expands a row's permission list. The console closes whichever was open. */

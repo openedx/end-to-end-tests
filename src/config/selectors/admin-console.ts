@@ -109,8 +109,18 @@ export const ADMIN_CONSOLE_SELECTORS = {
    * these rows is how "opening another closes the first" is asserted.
    */
   auditPermissionDetailRow: 'tbody tr:not(.pgn__data-table-row)',
-  /** Remove this assignment. Absent, not disabled, on your own admin row (`RBAC-007`). */
-  auditDeleteRole: 'button.btn-icon-danger',
+  /**
+   * Remove this assignment — the live control only. On `main` a row you may not
+   * change (your own admin role, a scope you cannot manage) carries the same
+   * danger-variant button, disabled; on `verawood` your own admin row has none.
+   */
+  auditDeleteRole: 'button.btn-icon-danger:not(:disabled)',
+  /**
+   * A greyed delete control (`main`): the disabled button sits in a wrapper
+   * that carries its tooltip, because Paragon gives a disabled button
+   * `pointer-events: none` and it cannot be hovered itself.
+   */
+  auditDisabledDeleteRole: 'span.d-inline-block:has(> button.btn-icon-danger:disabled)',
 
   // --- the remove-role confirmation and its toast -------------------------------------------
 
@@ -164,10 +174,10 @@ export const ADMIN_CONSOLE_SELECTORS = {
   /** Header cells: the row-label column first, then one per role. */
   matrixHeader: 'table.permission-table thead th',
   /**
-   * A role column the build offers but has not implemented — "Course Editor"
-   * and "Course Auditor", the sheet's *coming soon* pair. They are greyed
-   * (`text-gray-200`) and their label carries a help cursor that opens the
-   * explanatory tooltip.
+   * A role column the build offers but has not implemented — on `verawood`,
+   * "Course Editor" and "Course Auditor", the sheet's *coming soon* pair. They
+   * are greyed (`text-gray-200`) and their label carries a help cursor that
+   * opens the explanatory tooltip. `main` has none (`rbac-course-editor-auditor`).
    */
   matrixHeaderComingSoon: 'table.permission-table thead th.text-gray-200',
   matrixHelpCursor: 'span[style*="cursor: help"]',

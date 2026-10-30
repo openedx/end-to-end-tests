@@ -6,6 +6,8 @@ import { checkA11y } from '../../../src/a11y';
 import { knownGap, testId } from '../../../src/reporting';
 import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
  * The console's **user audit view**: every role one account holds, what each
  * role may do, and taking a role away.
@@ -52,11 +54,14 @@ test.describe(
         const audit = adminConsole.userAudit;
         await audit.goto(subject.identity.username);
 
-        // The view is about this account, and lists one row per assignment.
+        // The view is about this account, and lists one row per assignment, each
+        // naming our library — by its key on `verawood`, by its title on `main`
+        // (whose column layout `rbac-audit-team-layout` asserts).
         await expect(audit.subjectHeading).toHaveText(subject.identity.username);
-        await expect(audit.columnHeaders).toHaveCount(6);
         await expect(audit.rows).toHaveCount(assignments.count);
-        await expect(audit.scopeCell(audit.row(0))).toContainText(library);
+        await expect(audit.row(0)).toContainText(
+          new RegExp(`${escapeRegExp(library)}|${escapeRegExp(authoringLibrary.title)}`),
+        );
 
         // Expanding a row shows its permissions; expanding another closes the
         // first, so exactly one list is open at any time.
@@ -181,9 +186,9 @@ test.describe(
         annotation: [
           testId('TC-00567'),
           knownGap(
-            'The console omits the control rather than disabling it with a tooltip, and the API ' +
-              'does not enforce the rule at all: a library admin revoking its own library_admin ' +
-              'is answered 207 role_removed (RBAC-007).',
+            'The API does not enforce the rule at all: a library admin revoking its own ' +
+              'library_admin is answered 207 role_removed (RBAC-007). On verawood the console ' +
+              'also omits the control rather than greying it out with a tooltip.',
           ),
         ],
       },
@@ -216,12 +221,68 @@ test.describe(
         await audit.goto(admin.identity.username);
         await expect(audit.rows).toHaveCount(mine.count);
 
-        // Exactly the admin assignment is unremovable, and it is unremovable by
-        // having no control at all — the sheet's greyed-out icon with a tooltip
-        // is not what this build renders.
+        // Exactly the admin assignment is unremovable: every other row has a live
+        // delete control. (`main` greys the admin row's control out, which
+        // `rbac-audit-team-layout` asserts; `verawood` renders none.)
         const adminAssignments = mine.assignments.filter((row) => row.role.endsWith('_admin'));
         expect(adminAssignments).toHaveLength(1);
         await expect(audit.deleteControls).toHaveCount(mine.count - adminAssignments.length);
+      },
+    );
+
+    test(
+      'lays the table out as Team Members does, greying out your own admin role',
+      {
+        tag: '@rbac-audit-team-layout',
+        annotation: [
+          testId('TC-00565'),
+          testId('TC-00567'),
+          knownGap(
+            'The API does not enforce the rule at all: a library admin revoking its own ' +
+              'library_admin is answered 207 role_removed (RBAC-007).',
+          ),
+        ],
+      },
+      async ({
+        page,
+        config,
+        adminConsole,
+        authoringLibrary,
+        studioAuthorSession,
+        studioColleague,
+      }) => {
+        void studioAuthorSession;
+        // As in the case above, the subject is the viewer, so its admin row gets
+        // the self-protection treatment.
+        const admin = await studioColleague();
+        await seedScopeAssignments(
+          page.request,
+          config,
+          authoringLibrary.id,
+          [admin.identity.username],
+          ['library_admin', 'library_author'],
+        );
+        const mine = await listUserAssignments(admin.request, config, admin.identity.username);
+        expect(mine.count).toBe(2);
+
+        const audit = adminConsole.auditFor(admin.page);
+        await audit.goto(admin.identity.username);
+        await expect(audit.rows).toHaveCount(mine.count);
+
+        // Role, Scope, Organization, Permissions, Actions — the Team Members
+        // order (frontend-app-admin-console#255). The scope is named by the
+        // library's title and the organization by its key, both our own data.
+        await expect(audit.columnHeaders).toHaveCount(5);
+        await expect(audit.cell(audit.row(0), 1)).toContainText(authoringLibrary.title);
+        await expect(audit.cell(audit.row(0), 2)).toHaveText(authoringLibrary.org);
+
+        // Your own admin role keeps its delete control, greyed out, and hovering
+        // it explains why; the other row's control is live.
+        await expect(audit.deleteControls).toHaveCount(1);
+        await expect(audit.disabledDeleteControls).toHaveCount(1);
+        await expect(audit.tooltip).toHaveCount(0);
+        await audit.disabledDeleteControls.hover();
+        await expect(audit.tooltip).toHaveCount(1);
       },
     );
   },
