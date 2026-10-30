@@ -16,5 +16,10 @@ export {
   storedSessionNeedsRefresh,
   persistStorageState,
 } from './storage';
+export {
+  EMPTY_STORAGE_STATE,
+  newCleanBrowserContext,
+  newCleanRequestContext,
+} from './clean-context';
 export { ApiAuthProvider } from './api-provider';
 export { defaultAuthProvider } from './default-provider';

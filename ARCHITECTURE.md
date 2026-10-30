@@ -136,13 +136,18 @@ session where it is still alive.
 
 A `studio-author` round-trip test carries **two actors in two contexts**: the
 author on the worker's `page` (and `page.request`), and a learner the test
-provisions as a separate user with its own `browser.newContext()` plus `request`
+provisions as a separate user with its own browser context plus `request`
 (`roundTripLearner`, `futureCourseLearner`, `authoringCourseLearner`). The author
 publishes; the learner reads. They never share a context — a session cookie for
 one user replayed with a JWT for another forces a logout — so a learner is never
 signed in on the author's `page`. Cohort and other LMS session-auth writes, which
 a JWT-only context cannot make, run on a third throwaway context signed in afresh
 as the author (see [`.private/studio-auth-resilience.md`](.private/studio-auth-resilience.md)).
+A context for a different user, or for no user, starts from
+`newCleanBrowserContext` / `newCleanRequestContext` (`src/auth/clean-context.ts`):
+Playwright fills the options a bare `newContext()` leaves out from the project's
+`use` block, so in a signed-in project it would start with that role's cookies
+(enforced by `tests/conventions/clean-contexts.spec.ts`).
 
 The **instructor** persona is the same worker author: a course's creator holds
 the `instructor` and `staff` course roles on it (course-team membership is data,

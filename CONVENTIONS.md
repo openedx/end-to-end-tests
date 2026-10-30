@@ -165,8 +165,8 @@ these rules.
 - **LMS session-auth views (cohorts, instructor dashboard) need a fresh login.**
   They are Django session-auth, so a JWT-only context is redirected to login and
   the write surfaces as **HTTP 405**. After the browser authoring is done, open a
-  throwaway `playwright.request.newContext()`, `loginSession` as the worker author,
-  drive those calls there, and dispose it.
+  throwaway `newCleanRequestContext(playwright.request)`, `loginSession` as the
+  worker author, drive those calls there, and dispose it.
 - **Poll every learner reading after a publish.** The block-structure rebuild runs
   on a delay (`COURSE_PUBLISH_TASK_DELAY`, ~30 s locally and longer on a shared CI
   worker), so a learner read taken right after a publish can precede it. Poll under
