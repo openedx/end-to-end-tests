@@ -279,13 +279,28 @@ export class StudioCourseOutlinePage {
     // The edit field renders in a portal outside the card's DOM subtree, so it is
     // located at page scope; only one card is ever in edit mode at a time.
     const field = this.page.locator(EDIT_FIELD[level]);
-    // A just-created card can open in edit mode already; clicking the pencil then
-    // would toggle the field shut. Only click it when the field is not open.
-    if (!(await field.isVisible().catch(() => false))) {
-      await card.locator(EDIT_BUTTON[level]).click();
+    // Opening the field races the outline's own refetches: saving a rename
+    // refetches the section (twice, in a CI trace), so a refetch that lands after
+    // the click re-renders the card and closes its field — before it opens, or
+    // between opening and typing. Retry the open-and-type until the field holds
+    // the name.
+    let typed = false;
+    for (let attempt = 0; attempt < 3 && !typed; attempt += 1) {
+      // A just-created card can open in edit mode already; clicking the pencil then
+      // would toggle the field shut. Only click it when the field is not open.
+      if (!(await field.isVisible().catch(() => false))) {
+        await card.locator(EDIT_BUTTON[level]).click();
+      }
+      typed = await field
+        .fill(name, { timeout: TIMEOUTS.optionalOverlay })
+        .then(async () => (await field.inputValue()) === name)
+        .catch(() => false);
     }
-    await field.waitFor();
-    await field.fill(name);
+    if (!typed) {
+      throw new Error(
+        `The ${level} edit field did not stay open to take "${name}" after three attempts.`,
+      );
+    }
     await waitForWrite(
       this.page,
       {
