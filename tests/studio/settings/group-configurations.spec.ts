@@ -8,9 +8,9 @@ import {
   linkCohortToGroup,
   loginSession,
 } from '../../../src/api';
+import { newCleanRequestContext } from '../../../src/auth';
 import { getRunId } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
-import { newCleanRequestContext } from '../../../src/auth';
 import { testId } from '../../../src/reporting';
 
 /**

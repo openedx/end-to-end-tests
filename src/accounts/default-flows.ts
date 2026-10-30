@@ -8,7 +8,7 @@ import {
   loginSession,
   requestCourseCreator,
 } from '../api';
-import { newCleanRequestContext } from '../auth';
+import { newCleanRequestContext } from '../auth/clean-context';
 import { withAdminSession } from './admin-lock';
 import { AccountMenu } from '../pages/lms/auth/account-menu.page';
 import { LoginPage } from '../pages/lms/auth/login.page';

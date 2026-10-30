@@ -108,10 +108,14 @@ that signs in, or any `src/api/` client that hits a legacy (non-DRF) view.
    `roundTripLearner`(s) with their own browser context and request context.
    Admins come from `adminPage` / `adminApi`. Never `clearCookies()` and sign
    someone else in on the author's `page`. Mixing one user's session cookie with
-   another's JWT triggers a safe-sessions user-mismatch logout.
+   another's JWT triggers a safe-sessions user-mismatch logout. A context you
+   open yourself for another user starts from `newCleanBrowserContext` /
+   `newCleanRequestContext` (`src/auth`): a bare `newContext()` inherits the
+   project's `storageState`, so it would start as the worker author.
 4. **LMS session-auth views (cohorts, instructor dashboard, Django admin) → a
-   fresh `loginSession` on a throwaway `playwright.request.newContext()`**, after
-   the browser authoring is done, as the worker author
+   fresh `loginSession` on a throwaway
+   `newCleanRequestContext(playwright.request)`**, after the browser authoring
+   is done, as the worker author
    (`fetchStudioUsername(page.request)` + `DEFAULT_PASSWORD`). Dispose it in
    `finally`. Pattern: `tests/studio/outline/sidebar.spec.ts`,
    `tests/studio/settings/group-configurations.spec.ts`, client in

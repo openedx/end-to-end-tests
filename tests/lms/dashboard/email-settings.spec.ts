@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
 import { checkA11y } from '../../../src/a11y';
-import { expect, test } from '../../../src/fixtures';
 import { newCleanRequestContext } from '../../../src/auth';
+import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import {
   DEFAULT_PASSWORD,

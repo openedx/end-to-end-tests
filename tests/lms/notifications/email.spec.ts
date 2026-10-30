@@ -1,5 +1,5 @@
-import { expect, test, type NotificationRecipientOptions } from '../../../src/fixtures';
 import { newCleanBrowserContext } from '../../../src/auth';
+import { expect, test, type NotificationRecipientOptions } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import {
   GENERAL_TOPIC_ID,

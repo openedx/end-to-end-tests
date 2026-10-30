@@ -11,10 +11,10 @@ import {
   type AgreementGating,
 } from '../../../src/api';
 import { provisionLearnerSession, withAdminSession } from '../../../src/accounts';
+import { newCleanRequestContext } from '../../../src/auth';
 import { STUDIO_FILES_SELECTORS, TIMEOUTS, type AppConfig } from '../../../src/config';
 import { FilesPage } from '../../../src/pages/studio/files/files.page';
 import { expect, test } from '../../../src/fixtures';
-import { newCleanRequestContext } from '../../../src/auth';
 import { testId } from '../../../src/reporting';
 
 /**
