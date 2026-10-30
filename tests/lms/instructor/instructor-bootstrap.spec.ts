@@ -1,5 +1,5 @@
 import { expect, test } from '../../../src/fixtures';
-import { INSTRUCTOR_TAB_IDS, instructorTabPath } from '../../../src/config';
+import { INSTRUCTOR_TAB_IDS, instructorTabPath, mfeMountPath } from '../../../src/config';
 import { fetchInstructorCourse } from '../../../src/api';
 import { INSTRUCTOR_TAGS } from './helpers';
 
@@ -43,13 +43,17 @@ test.describe(
       for (const tabId of covered) {
         expect(tabIds).toContain(tabId);
       }
-      // The tabs this tree covers are the dashboard MFE's own routes. Others can
-      // live in another MFE — "Course e-mail", once a course has e-mail on,
-      // links to the communications MFE — so only the covered ones are checked.
+      // The tabs this tree covers are the dashboard MFE's own routes, under its
+      // mount path. Others can live in another MFE — "Course e-mail", once a
+      // course has e-mail on, links to the communications MFE — so only the
+      // covered ones are checked.
+      const dashboardPath = mfeMountPath(config.mfeUrls.instructorDashboard);
       for (const tab of course.tabs.filter((t) =>
         (covered as readonly string[]).includes(t.tab_id),
       )) {
-        expect(tab.url).toBe(instructorTabPath(contentCourse.courseKey, tab.tab_id as never));
+        expect(tab.url).toBe(
+          instructorTabPath(contentCourse.courseKey, tab.tab_id as never, dashboardPath),
+        );
       }
     });
   },

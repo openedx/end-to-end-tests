@@ -19,6 +19,12 @@ const learningAtRoot = loadConfig({
   LEARNING_MFE_URL: 'http://learning.local.openedx.io/',
 });
 
+const learningAtAppsRoot = loadConfig({
+  LMS_BASE_URL: 'http://local.openedx.io',
+  APPS_BASE_URL: 'http://apps.local.openedx.io',
+  LEARNING_MFE_URL: 'http://apps.local.openedx.io/',
+});
+
 const learningOnLms = loadConfig({
   LMS_BASE_URL: 'http://local.openedx.io',
   APPS_BASE_URL: 'http://local.openedx.io',
@@ -55,5 +61,22 @@ test.describe('chromeConfigSourceFor', { tag: '@unit' }, () => {
         learningAtRoot,
       ),
     ).toEqual({ kind: 'legacy', mfe: 'learning' });
+  });
+
+  test('keeps naming the other MFEs when learning is at the root of the apps origin', () => {
+    expect(
+      chromeConfigSourceFor(
+        'legacy',
+        'http://apps.local.openedx.io/profile/u/someone',
+        learningAtAppsRoot,
+      ),
+    ).toEqual({ kind: 'legacy', mfe: 'profile' });
+    expect(
+      chromeConfigSourceFor(
+        'legacy',
+        'http://apps.local.openedx.io/learner-dashboard/',
+        learningAtAppsRoot,
+      ),
+    ).toEqual({ kind: 'legacy', mfe: 'learner-dashboard' });
   });
 });

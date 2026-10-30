@@ -1,6 +1,5 @@
 import { checkA11y } from '../../../src/a11y';
 import { fetchCourseApps, fetchCourseMetadata } from '../../../src/api';
-import { mfeMountPath } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -91,12 +90,11 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
       const { courseKey } = authoredCourse;
       await pagesResourcesPage.goto(courseKey);
 
-      // "View live" points at the learner-facing course home; the key is in the URL.
+      // "View live" points at the learner-facing course home in the configured
+      // learning MFE; the key is in the URL.
       await expect(pagesResourcesPage.viewLiveLink).toHaveAttribute(
         'href',
-        new RegExp(
-          `${mfeMountPath(config.mfeUrls.learning)}/course/${courseKey}`.replace(/[+:]/g, '\\$&'),
-        ),
+        new RegExp(`^${escapeRegExp(`${config.mfeUrls.learning}/course/${courseKey}`)}`),
       );
     },
   );
@@ -130,3 +128,5 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
     },
   );
 });
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { STUDIO_PAGES_RESOURCES_SELECTORS, mfeMountPath, type AppConfig } from '../../../config';
+import { STUDIO_PAGES_RESOURCES_SELECTORS, type AppConfig } from '../../../config';
 import { COURSE_APPS_PATH } from '../../../api';
 import { authoringCourseBaseUrl } from '../authoring-base';
 import { waitForWrite } from '../wait-for-write';
@@ -52,9 +52,7 @@ export class StudioPagesResourcesPage {
   /** The "View live" link to the learner-facing course. */
   get viewLiveLink(): Locator {
     return this.page
-      .locator(
-        STUDIO_PAGES_RESOURCES_SELECTORS.viewLiveLink(mfeMountPath(this.config.mfeUrls.learning)),
-      )
+      .locator(STUDIO_PAGES_RESOURCES_SELECTORS.viewLiveLink(this.config.mfeUrls.learning))
       .first();
   }
 

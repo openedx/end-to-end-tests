@@ -16,10 +16,11 @@ export const STUDIO_PAGES_RESOURCES_SELECTORS = {
   /** Shown instead of the grid when the session may not view this course's apps. */
   permissionDenied: '[data-testid="permissionDeniedAlert"]',
   /**
-   * "View live" — links to the learner-facing course in the learning MFE, under
-   * its mount path ({@link mfeMountPath}).
+   * "View live" — links to the learner-facing course in the learning MFE: an
+   * absolute URL starting with the learning MFE's configured URL
+   * (`mfeUrls.learning`), so the authoring MFE's own `/course/` links never match.
    */
-  viewLiveLink: (learningPath: string) => `a[href*="${learningPath}/course/"]`,
+  viewLiveLink: (learningUrl: string) => `a[href^="${learningUrl}/course/"]`,
   /** One app's enable/disable switch inside its settings modal, by app id. */
   enableToggle: (appId: string) => `#enable-${appId}-toggle`,
   /** The app-settings modal's "Save" — the primary action; Cancel/close is tertiary. */
