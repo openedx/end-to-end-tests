@@ -1676,11 +1676,13 @@ without failing it, exactly as the library MFE's debt is handled.
 
 **Where:** the console's user audit view, and `DELETE /api/authz/v1/roles/users/`.
 
-**What happens:** the console omits the delete control on your own admin row
-(rather than disabling it with an explanatory tooltip, as the sheet describes),
-and in a course-scope audit view the Actions cell is empty for your own row. The
-platform does not enforce the rule at all: a library admin revoking its own
-`library_admin` is answered `207 role_removed`.
+**What happens:** on `verawood` the console omits the delete control on your
+own admin row (rather than disabling it with an explanatory tooltip, as the
+sheet describes), and in a course-scope audit view the Actions cell is empty for
+your own row. On `main` the console now greys the control out with a tooltip, as
+the sheet asks (frontend-app-admin-console#255). The platform does not enforce
+the rule at all: a library admin revoking its own `library_admin` is answered
+`207 role_removed`.
 
 **Coverage impact:** filed as
 [openedx-authz#526](https://github.com/openedx/openedx-authz/issues/526)
