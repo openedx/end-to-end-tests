@@ -104,8 +104,8 @@ export class PermissionsMatrix {
   }
 
   /** Hovers a coming-soon column's label, whose help cursor carries the tooltip. */
-  async hoverComingSoonHeader(): Promise<void> {
-    await this.comingSoonHeaders.first().locator(this.s.matrixHelpCursor).hover();
+  async hoverComingSoonHeader(index = 0): Promise<void> {
+    await this.comingSoonHeaders.nth(index).locator(this.s.matrixHelpCursor).hover();
   }
 
   /** Hovers the first functional-area heading's info icon. */

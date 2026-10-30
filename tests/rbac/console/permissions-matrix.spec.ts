@@ -50,31 +50,35 @@ test.describe(
         expect(await matrix.shownGroup()).toBe('courses');
         await expect(matrix.headers).toHaveCount(5);
 
-        // Two of those four are offered but not implemented — the sheet's
-        // "coming soon" pair. They are greyed and their labels carry a help
-        // cursor that opens an explanation on hover.
-        await expect(matrix.comingSoonHeaders).toHaveCount(2);
+        // A role the build offers but has not implemented is greyed — its header
+        // and every one of its cells — and its label carries a help cursor that
+        // opens an explanation on hover. `verawood` holds back Course Editor and
+        // Course Auditor this way; `main` holds back none
+        // (`rbac-course-editor-auditor`, asserted below).
+        const courseRows = await matrix.rows.count();
+        expect(courseRows).toBeGreaterThan(0);
+        let heldBack = 0;
+        for (const column of [1, 2, 3, 4]) {
+          const states = await matrix.columnStates(column);
+          // No cell is left blank: each column states something for every row,
+          // whether that is granted, not granted, or greyed out.
+          expect(states.marked).toBe(courseRows);
+          expect([0, courseRows]).toContain(states.comingSoon);
+          heldBack += Number(states.comingSoon > 0);
+        }
+        // Course Admin is always live.
+        expect((await matrix.columnStates(1)).comingSoon).toBe(0);
+        await expect(matrix.comingSoonHeaders).toHaveCount(heldBack);
         await expect(matrix.tooltip).toHaveCount(0);
-        await matrix.hoverComingSoonHeader();
-        await expect(matrix.tooltip).toHaveCount(1);
+        for (let index = 0; index < heldBack; index += 1) {
+          await matrix.hoverComingSoonHeader(index);
+          await expect(matrix.tooltip).toHaveCount(1);
+        }
 
         // Every functional area carries an info icon with its own tooltip.
         await expect(matrix.groupRows.first()).toBeVisible();
         await matrix.hoverGroupInfo();
         await expect(matrix.tooltip).toHaveCount(1);
-
-        // No cell is left blank: each of the four columns states something for
-        // every row, whether that is granted, not granted, or greyed out.
-        const courseRows = await matrix.rows.count();
-        expect(courseRows).toBeGreaterThan(0);
-        for (const column of [1, 2, 3, 4]) {
-          const states = await matrix.columnStates(column);
-          expect(states.marked).toBe(courseRows);
-        }
-        // The two live columns say granted or not granted; the coming-soon pair
-        // renders both states greyed, so only their presence is assertable.
-        expect((await matrix.columnStates(1)).comingSoon).toBe(0);
-        expect((await matrix.columnStates(3)).comingSoon).toBe(courseRows);
 
         // The Libraries half: the four library roles, none of them held back.
         await matrix.showGroup('libraries');
@@ -99,6 +103,30 @@ test.describe(
           label: 'admin-console-permission-matrix',
           additionalBaseline: ADMIN_CONSOLE_A11Y_BASELINE,
         });
+      },
+    );
+
+    test(
+      'offers every course role, none of them held back',
+      { tag: '@rbac-course-editor-auditor', annotation: testId('TC-00569') },
+      async ({ adminConsole, authoringLibrary, studioAuthorSession }) => {
+        void studioAuthorSession;
+        const matrix = adminConsole.matrix;
+        await adminConsole.console.goto(authoringLibrary.id);
+        await matrix.open();
+        expect(await matrix.shownGroup()).toBe('courses');
+
+        // Course Editor and Course Auditor are live like the other two
+        // (frontend-app-admin-console#209): no greyed header, and every cell of
+        // every column says granted or not granted.
+        await expect(matrix.headers).toHaveCount(5);
+        await expect(matrix.comingSoonHeaders).toHaveCount(0);
+        const courseRows = await matrix.rows.count();
+        for (const column of [1, 2, 3, 4]) {
+          const states = await matrix.columnStates(column);
+          expect(states.comingSoon, `column ${column} greyed cells`).toBe(0);
+          expect(states.granted + states.denied, `column ${column} stated cells`).toBe(courseRows);
+        }
       },
     );
 
