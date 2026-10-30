@@ -57,10 +57,11 @@ export const COURSE_HOME_SELECTORS = {
   courseTab: '#courseTabsNavigation a.nav-link[href]',
   /**
    * The "Instructor" tab, shown to course staff and global staff: it links to
-   * the instructor dashboard for this course.
+   * the instructor dashboard for this course, under the dashboard's mount path
+   * ({@link mfeMountPath}).
    */
-  instructorTab: (courseKey: string) =>
-    `#courseTabsNavigation a.nav-link[href$="/instructor-dashboard/${courseKey}"]`,
+  instructorTab: (courseKey: string, dashboardPath = '/instructor-dashboard') =>
+    `#courseTabsNavigation a.nav-link[href$="${dashboardPath}/${courseKey}"]`,
 } as const;
 
 /**

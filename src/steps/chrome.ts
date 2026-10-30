@@ -1,6 +1,6 @@
 import type { APIRequest, APIRequestContext, Page } from '@playwright/test';
 
-import { registrableDomain, type AppConfig } from '../config';
+import { mfeMountPath, registrableDomain, type AppConfig } from '../config';
 import {
   fetchChromeConfig,
   lmsServesLanguage,
@@ -35,9 +35,21 @@ export function chromeConfigSourceFor(
   if (generation === 'shell') return { kind: 'shell' };
   // A legacy MFE is served under its own path on the MFE host (`/learning/…`,
   // `/profile/…`); that path segment is the `mfe` its config is requested for.
+  // The learning MFE may be mounted elsewhere (LEARNING_MFE_URL), and is still
+  // configured as `learning` there. At the root of the apps origin it shares,
+  // its path cannot tell it from the other MFEs, so a root mount counts only
+  // on an origin of its own.
   const url = new URL(pageUrl);
-  const mfe =
-    url.origin === new URL(config.baseUrls.apps).origin
+  const appsOrigin = new URL(config.baseUrls.apps).origin;
+  const learning = new URL(config.mfeUrls.learning);
+  const learningPath = mfeMountPath(config.mfeUrls.learning);
+  const underLearning =
+    url.origin === learning.origin &&
+    (learningPath !== '' || learning.origin !== appsOrigin) &&
+    (url.pathname === learningPath || url.pathname.startsWith(`${learningPath}/`));
+  const mfe = underLearning
+    ? 'learning'
+    : url.origin === appsOrigin
       ? (url.pathname.split('/').find((segment) => segment !== '') ?? '')
       : '';
   return { kind: 'legacy', mfe };

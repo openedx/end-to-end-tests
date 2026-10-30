@@ -1,7 +1,7 @@
 /**
  * The instructor dashboard MFE (`frontend-app-instructor-dashboard`), served at
- * `${APPS_BASE_URL}/instructor-dashboard/<course key>/<tab id>` and driven by the
- * LMS `/api/instructor/v2/` API.
+ * `{INSTRUCTOR_DASHBOARD_MFE}/<course key>/<tab id>` and driven by the LMS
+ * `/api/instructor/v2/` API.
  *
  * Measured on Tutor `main` (2026-09-15, MFE `v2.0.0-alpha` build). The MFE ships
  * almost no test ids of its own — the ones below belong to Paragon (`DataTable`,
@@ -35,14 +35,25 @@ export const INSTRUCTOR_TAB_IDS = {
 
 export type InstructorTabId = (typeof INSTRUCTOR_TAB_IDS)[keyof typeof INSTRUCTOR_TAB_IDS];
 
-/** Path (on the MFE host) of one dashboard tab; the bare course path redirects to `course_info`. */
-export function instructorTabPath(courseKey: string, tabId?: InstructorTabId): string {
-  return `/instructor-dashboard/${courseKey}${tabId ? `/${tabId}` : ''}`;
+/**
+ * Path (on the MFE host) of one dashboard tab, under the dashboard's mount path
+ * ({@link mfeMountPath}); the bare course path redirects to `course_info`.
+ */
+export function instructorTabPath(
+  courseKey: string,
+  tabId?: InstructorTabId,
+  dashboardPath = '/instructor-dashboard',
+): string {
+  return `${dashboardPath}/${courseKey}${tabId ? `/${tabId}` : ''}`;
 }
 
 /** The nav link for one tab — present only when the user may see that tab. */
-export function instructorTabLink(courseKey: string, tabId: InstructorTabId): string {
-  const path = instructorTabPath(courseKey, tabId);
+export function instructorTabLink(
+  courseKey: string,
+  tabId: InstructorTabId,
+  dashboardPath = '/instructor-dashboard',
+): string {
+  const path = instructorTabPath(courseKey, tabId, dashboardPath);
   // A plugin's tab (Aspects' `aspects`) carries the URL its filter gives it,
   // with a trailing slash; the dashboard's own tabs have none.
   return [path, `${path}/`]

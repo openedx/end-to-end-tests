@@ -91,7 +91,7 @@ test.describe(
         ).toContain(component);
 
         // And the surface renders for that role.
-        await staff.page.goto(`${config.baseUrls.apps}/authoring/course/${courseKey}`, {
+        await staff.page.goto(`${config.mfeUrls.authoring}/course/${courseKey}`, {
           waitUntil: 'domcontentloaded',
         });
         await expect(

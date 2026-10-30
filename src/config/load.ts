@@ -41,11 +41,29 @@ export interface BaseUrls {
 }
 
 /**
+ * Where an MFE is mounted, as an origin plus path with no trailing slash. Stock
+ * installs serve every MFE from the apps origin under its own name; some serve
+ * one elsewhere (the learning MFE on the LMS host at `/learn`, the authoring MFE
+ * on the Studio host).
+ */
+export interface MfeUrls {
+  /** Learning MFE, e.g. `https://apps.example.com/learning`. */
+  readonly learning: string;
+  /** Course-authoring MFE, e.g. `https://apps.example.com/authoring`. */
+  readonly authoring: string;
+  /** Instructor dashboard, e.g. `https://apps.example.com/instructor-dashboard`. */
+  readonly instructorDashboard: string;
+  /** Discussions MFE, e.g. `https://apps.example.com/discussions`. */
+  readonly discussions: string;
+}
+
+/**
  * Validated, immutable configuration derived from the environment. Everything
  * outside `src/config/` consumes this object rather than reading `process.env`.
  */
 export interface AppConfig {
   readonly baseUrls: BaseUrls;
+  readonly mfeUrls: MfeUrls;
   readonly credentials: { readonly admin?: AdminCredentials };
   readonly org?: string;
   readonly courseKey?: string;
@@ -101,6 +119,21 @@ function parsePluginPaths(source: string, raw: string | undefined, issues: strin
   }
 
   return paths;
+}
+
+/**
+ * The path part of an MFE mount from {@link MfeUrls}, without a trailing slash:
+ * `/learning` for `https://apps.example.com/learning`, `''` for an MFE served
+ * from an origin's root. Prefix it to the MFE's own routes to match hrefs.
+ */
+export function mfeMountPath(mfeUrl: string): string {
+  return new URL(mfeUrl).pathname.replace(/\/+$/, '');
+}
+
+/** A configured MFE mount without its trailing slash, or the stock `<apps origin><path>`. */
+function mfeUrl(configured: URL | undefined, apps: URL, stockPath: string): string {
+  if (configured === undefined) return `${apps.origin}${stockPath}`;
+  return `${configured.origin}${configured.pathname}`.replace(/\/+$/, '');
 }
 
 function parseUrl(source: string, value: string, issues: string[]): URL | undefined {
@@ -309,6 +342,22 @@ export function loadConfig(env: Env = process.env): AppConfig {
   const appsUrl = parseUrl('APPS_BASE_URL', raw.APPS_BASE_URL, issues);
   const studioUrl =
     raw.CMS_BASE_URL === undefined ? undefined : parseUrl('CMS_BASE_URL', raw.CMS_BASE_URL, issues);
+  const learningUrl =
+    raw.LEARNING_MFE_URL === undefined
+      ? undefined
+      : parseUrl('LEARNING_MFE_URL', raw.LEARNING_MFE_URL, issues);
+  const authoringUrl =
+    raw.AUTHORING_MFE_URL === undefined
+      ? undefined
+      : parseUrl('AUTHORING_MFE_URL', raw.AUTHORING_MFE_URL, issues);
+  const instructorDashboardUrl =
+    raw.INSTRUCTOR_DASHBOARD_MFE_URL === undefined
+      ? undefined
+      : parseUrl('INSTRUCTOR_DASHBOARD_MFE_URL', raw.INSTRUCTOR_DASHBOARD_MFE_URL, issues);
+  const discussionsUrl =
+    raw.DISCUSSIONS_MFE_URL === undefined
+      ? undefined
+      : parseUrl('DISCUSSIONS_MFE_URL', raw.DISCUSSIONS_MFE_URL, issues);
 
   const capabilities = parseCapabilities(raw.CAPABILITIES, issues);
 
@@ -388,6 +437,18 @@ export function loadConfig(env: Env = process.env): AppConfig {
     if (studioUrl) {
       origins.push({ source: 'CMS_BASE_URL', url: studioUrl });
     }
+    if (learningUrl) {
+      origins.push({ source: 'LEARNING_MFE_URL', url: learningUrl });
+    }
+    if (authoringUrl) {
+      origins.push({ source: 'AUTHORING_MFE_URL', url: authoringUrl });
+    }
+    if (instructorDashboardUrl) {
+      origins.push({ source: 'INSTRUCTOR_DASHBOARD_MFE_URL', url: instructorDashboardUrl });
+    }
+    if (discussionsUrl) {
+      origins.push({ source: 'DISCUSSIONS_MFE_URL', url: discussionsUrl });
+    }
     registrable = validateOriginRelationship(origins, allowCrossSiteOrigins, issues, warnings);
 
     if (lmsUrl.protocol === 'http:') {
@@ -414,6 +475,12 @@ export function loadConfig(env: Env = process.env): AppConfig {
       lms: lmsUrl.origin,
       apps: appsUrl.origin,
       studio: studioUrl?.origin,
+    }),
+    mfeUrls: Object.freeze({
+      learning: mfeUrl(learningUrl, appsUrl, '/learning'),
+      authoring: mfeUrl(authoringUrl, appsUrl, '/authoring'),
+      instructorDashboard: mfeUrl(instructorDashboardUrl, appsUrl, '/instructor-dashboard'),
+      discussions: mfeUrl(discussionsUrl, appsUrl, '/discussions'),
     }),
     credentials: Object.freeze({ admin }),
     org: raw.ORG,

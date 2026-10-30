@@ -48,7 +48,7 @@ export type LibraryContainerType = (typeof LIBRARY_CONTAINER_TYPES)[number];
  * every supported release; the API's `upstream_link` uses that form too.
  */
 export function libraryPath(config: AppConfig, libraryKey: string, tab?: LibraryTab): string {
-  const base = `${config.baseUrls.apps}/authoring/library/${libraryKey}`;
+  const base = `${config.mfeUrls.authoring}/library/${libraryKey}`;
   return tab ? `${base}/${tab}` : base;
 }
 
@@ -73,12 +73,12 @@ export function libraryCollectionPath(
 
 /** The create-library form (Studio Home's "New library" link). */
 export function createLibraryPath(config: AppConfig): string {
-  return `${config.baseUrls.apps}/authoring/library/create`;
+  return `${config.mfeUrls.authoring}/library/create`;
 }
 
 /** The legacy-library migration stepper (Studio Home → Legacy Libraries → Migrate). */
 export function legacyMigrationPath(config: AppConfig): string {
-  return `${config.baseUrls.apps}/authoring/libraries-v1/migrate`;
+  return `${config.mfeUrls.authoring}/libraries-v1/migrate`;
 }
 
 /** The course's Libraries page (`course-libraries`), optionally on its Review tab. */
@@ -87,7 +87,7 @@ export function courseLibrariesPath(
   courseKey: string,
   tab?: 'all' | 'review',
 ): string {
-  const base = `${config.baseUrls.apps}/authoring/course/${courseKey}/libraries`;
+  const base = `${config.mfeUrls.authoring}/course/${courseKey}/libraries`;
   return tab ? `${base}?tab=${tab}` : base;
 }
 

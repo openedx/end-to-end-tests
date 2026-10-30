@@ -7,6 +7,7 @@ import {
   resetConfigCache,
   ConfigError,
   type Env,
+  mfeMountPath,
 } from '../../src/config';
 
 /**
@@ -480,5 +481,56 @@ test.describe('getConfigIfValid', { tag: '@unit' }, () => {
     expect(warnings[0]).toContain('LMS_BASE_URL');
     // Names the escape hatch the message exists for.
     expect(warnings[0]).toContain('unit');
+  });
+});
+
+test.describe('loadConfig — MFE mounts', { tag: '@unit' }, () => {
+  test('mounts the learning and authoring MFEs on the apps origin by default', () => {
+    const config = loadConfig(validEnv());
+
+    expect(config.mfeUrls.learning).toBe('http://apps.local.openedx.io/learning');
+    expect(config.mfeUrls.authoring).toBe('http://apps.local.openedx.io/authoring');
+    expect(config.mfeUrls.instructorDashboard).toBe(
+      'http://apps.local.openedx.io/instructor-dashboard',
+    );
+    expect(config.mfeUrls.discussions).toBe('http://apps.local.openedx.io/discussions');
+  });
+
+  test('takes the configured MFE mounts, without a trailing slash', () => {
+    const config = loadConfig(
+      validEnv({
+        CMS_BASE_URL: 'http://studio.local.openedx.io',
+        LEARNING_MFE_URL: 'http://local.openedx.io/learn/',
+        AUTHORING_MFE_URL: 'http://studio.local.openedx.io/authoring',
+        INSTRUCTOR_DASHBOARD_MFE_URL: 'http://local.openedx.io/apps/instructor-dashboard/',
+        DISCUSSIONS_MFE_URL: 'http://local.openedx.io/discuss/',
+      }),
+    );
+
+    expect(config.mfeUrls.learning).toBe('http://local.openedx.io/learn');
+    expect(config.mfeUrls.authoring).toBe('http://studio.local.openedx.io/authoring');
+    expect(config.mfeUrls.instructorDashboard).toBe(
+      'http://local.openedx.io/apps/instructor-dashboard',
+    );
+    expect(config.mfeUrls.discussions).toBe('http://local.openedx.io/discuss');
+  });
+
+  test('rejects an MFE mount on another registrable domain', () => {
+    const issues = issuesFrom(() =>
+      loadConfig(validEnv({ LEARNING_MFE_URL: 'http://learn.example.com/learn' })),
+    );
+
+    expect(issues.join('\n')).toContain('LEARNING_MFE_URL');
+  });
+});
+
+test.describe('mfeMountPath', { tag: '@unit' }, () => {
+  test('is the mount path without a trailing slash', () => {
+    expect(mfeMountPath('http://apps.local.openedx.io/learning')).toBe('/learning');
+    expect(mfeMountPath('http://local.openedx.io/learn/')).toBe('/learn');
+  });
+
+  test('is empty for an MFE served from an origin root', () => {
+    expect(mfeMountPath('http://learning.local.openedx.io')).toBe('');
   });
 });
