@@ -103,12 +103,31 @@ export async function establishStudioBrowserSession(
   // waiting for a header that will never come.
   const header = page.locator(STUDIO_HOME_SELECTORS.header);
   const loginField = page.locator('input[name="emailOrUsername"]');
+  // An install whose sign-in is an external identity provider (SSO-only) never
+  // shows the authn MFE's field: a decayed session ends on the provider's origin
+  // instead. Leaving every origin the install serves is that same outcome.
+  const installOrigins = new Set(
+    [config.baseUrls.lms, config.baseUrls.apps, studioOrigin(config)].map(
+      (url) => new URL(url).origin,
+    ),
+  );
   // Studio Home is a heavy first render, and this runs while several workers are
   // authoring against the same installation: a session that is perfectly fine
   // can take longer than a navigation budget to prove it. Waiting like a setup
   // step (rather than the default 15 s) is what stops a slow render from being
   // reported as a dead session.
-  await header.or(loginField).first().waitFor({ timeout: TIMEOUTS.studioSetup });
+  const settled = header.or(loginField).first().waitFor({ timeout: TIMEOUTS.studioSetup });
+  const leftInstall = page.waitForURL((url) => !installOrigins.has(url.origin), {
+    timeout: TIMEOUTS.studioSetup,
+  });
+  // Whichever settles first decides; the other is left to time out unobserved.
+  // When both time out, rethrow the header wait's own TimeoutError (which names
+  // the locator) rather than the AggregateError Promise.any rejects with.
+  settled.catch(() => undefined);
+  leftInstall.catch(() => undefined);
+  await Promise.any([settled, leftInstall]).catch((error: unknown) => {
+    throw error instanceof AggregateError ? error.errors[0] : error;
+  });
   return (await header.count()) > 0;
 }
 

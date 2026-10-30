@@ -5,6 +5,54 @@ import { CSRF_HEADER, fetchCsrfToken } from './csrf';
 import { ApiError } from './errors';
 
 /**
+ * The `csrftoken` value, among `cookies`, that a request to `url` would carry,
+ * domain-matched as the cookie jar does it (RFC 6265): a host-only cookie, stored
+ * under its bare host, for that host alone; a `Domain` cookie, stored with a
+ * leading dot, for that domain and its subdomains. A jar can also hold a
+ * parent-domain host's own `csrftoken` (an identity provider's, say), which the
+ * LMS never receives.
+ */
+export function csrfTokenFromCookies(
+  cookies: readonly { name: string; domain: string; value: string }[],
+  url: string,
+): string | undefined {
+  const host = new URL(url).hostname;
+  return cookies.find(
+    ({ name, domain }) =>
+      name === 'csrftoken' &&
+      (domain === host || (domain.startsWith('.') && `.${host}`.endsWith(domain))),
+  )?.value;
+}
+
+/**
+ * A CSRF token for a signed-out `request`: the token endpoint's, or — where that
+ * endpoint is closed to anonymous visitors (see {@link fetchCsrfToken}) — the
+ * `csrftoken` cookie a `GET` on the login-session endpoint itself sets.
+ */
+async function anonymousCsrfToken(
+  request: APIRequestContext,
+  config: AppConfig,
+  url: string,
+): Promise<string> {
+  try {
+    return await fetchCsrfToken(request, config);
+  } catch (error) {
+    if (!(error instanceof ApiError)) throw error;
+  }
+  const response = await request.get(url);
+  const { cookies } = await request.storageState();
+  const token = csrfTokenFromCookies(cookies, url);
+  if (token === undefined) {
+    throw new ApiError('Neither the CSRF endpoint nor the login-session endpoint gave a token.', {
+      status: response.status(),
+      url,
+      body: await response.text(),
+    });
+  }
+  return token;
+}
+
+/**
  * LMS login-session endpoint the authn MFE posts to. The v2 endpoint accepts
  * `email_or_username`, so a single call works whether the caller signs in with an
  * email or a username.
@@ -44,7 +92,7 @@ export async function loginSession(
   const maxAttempts = 2;
   let lastResponse: Awaited<ReturnType<APIRequestContext['post']>> | undefined;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const csrfToken = await fetchCsrfToken(request, config);
+    const csrfToken = await anonymousCsrfToken(request, config, url);
     lastResponse = await request.post(url, {
       form: {
         email_or_username: credentials.emailOrUsername,
