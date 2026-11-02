@@ -17,7 +17,10 @@ import { ROUND_TRIP_TAGS, libraryToLearner, xml } from './round-trip';
 test.describe('xblocks-core: Poll question', { tag: [...ROUND_TRIP_TAGS] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
-  test('library → Studio → learner votes', async ({
+  // FIXME: fails reliably on master (2026-11-02) and Verawood: the block never
+  // appears in the course's library picker (the library search index), so this
+  // can't tell a refactor regression apart. Re-enable once that's fixed.
+  test.fixme('library → Studio → learner votes', async ({
     page,
     config,
     studioAuthorSession,

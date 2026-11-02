@@ -26,13 +26,17 @@ import { expect, test } from '../../../../src/fixtures';
 import { TIMEOUTS } from '../../../../src/config';
 import { PROBLEM_TAGS, openProblem, type ProblemRuntime } from './problem-runtimes';
 
+// Text the test authors, asserted on below.
+const HINT_ONE = 'E2E hint one';
+const SOLUTION = 'E2E solution text';
+
 const BODY =
   `<multiplechoiceresponse><label>Which is right?</label>` +
   `<choicegroup type="MultipleChoice">` +
   `<choice correct="false">E2E wrong</choice><choice correct="true">E2E right</choice>` +
   `</choicegroup></multiplechoiceresponse>` +
-  `<solution><div class="detailed-solution"><p>E2E solution text</p></div></solution>` +
-  `<demandhint><hint>E2E hint one</hint><hint>E2E hint two</hint></demandhint>`;
+  `<solution><div class="detailed-solution"><p>${SOLUTION}</p></div></solution>` +
+  `<demandhint><hint>${HINT_ONE}</hint><hint>E2E hint two</hint></demandhint>`;
 
 const SETTINGS = { showanswer: 'always', show_reset_button: true, max_attempts: 10 };
 
@@ -70,7 +74,7 @@ test.describe('xblocks-core: Problem controls', { tag: [...PROBLEM_TAGS] }, () =
       // 1. Hint.
       await problem.hint();
       await expect(root.locator('.notification-hint')).toBeVisible();
-      await expect(root.locator('.notification-hint')).toContainText('E2E hint one');
+      await expect(root.locator('.notification-hint')).toContainText(HINT_ONE);
 
       // 2. Save.
       await problem.radios.nth(0).check();
@@ -93,7 +97,7 @@ test.describe('xblocks-core: Problem controls', { tag: [...PROBLEM_TAGS] }, () =
 
       // 6. Show answer.
       await problem.showAnswer();
-      await expect(root.getByText('E2E solution text')).toBeVisible();
+      await expect(root.getByText(SOLUTION)).toBeVisible();
     });
   }
 });

@@ -169,7 +169,8 @@ export class CapaProblem {
     this.saveButton = root.locator('button.save');
     this.resetButton = root.locator('button.reset');
     this.showAnswerButton = root.locator('button.show');
-    this.hintButton = root.locator('button.hint-button');
+    // The action bar's Hint; the hint notification adds its own "Next hint" `button.hint-button`.
+    this.hintButton = root.locator('button.hint-button.problem-action-btn');
     this.radios = root.locator('input[type="radio"]');
   }
 
