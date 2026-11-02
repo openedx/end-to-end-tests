@@ -126,6 +126,27 @@ Most branch tests share one of two harnesses:
 
 Covered only by the export/import test under All blocks (a poll with a question and answers). Its library round trip is broken on master (see below).
 
+## Also run on `tutor dev` (editable install)
+
+#244 makes the dev and prod asset paths the same, and developers get xblocks-core
+as an editable install rather than a wheel, so a slim subset also runs against
+`tutor dev`:
+
+- **Setup:** `tutor mounts add <xblocks-core checkout>` (Tutor installs mounted
+  `*xblock*` directories with `pip install -e /mnt/<name>` and bind-mounts them at
+  runtime); no wheel. The webpack bundles are served straight from the checkout's
+  `src/*/public/`, so `npm run build` must have been run there; collected-static
+  files are served by Django's static finders from the checkout, with no
+  `collectstatic`. A git **worktree** checkout also needs a `PKG-INFO` with a
+  version at its root, because its `.git` file points outside the mount and
+  setuptools-scm can't read a version.
+- **Tests:** [Problem controls](../tests/studio/xblocks-core/problem/actions.spec.ts#L49)
+  (LMS, Studio, library), [numerical preview](../tests/studio/xblocks-core/problem/static-inputs.spec.ts#L73)
+  (LMS, Studio), the [Video round trip](../tests/studio/xblocks-core/video.spec.ts#L27),
+  [Text templates](../tests/studio/xblocks-core/studio-and-library.spec.ts#L87) and
+  [Discussion in a course](../tests/studio/xblocks-core/discussion.spec.ts#L76).
+- **Result:** pending.
+
 ## Could not test / broken on master
 
 Not validated on either target, so none of these can show a regression:
