@@ -31,6 +31,12 @@ Most branch tests share one of two harnesses:
   open the same problem in the LMS (learner), the Studio unit preview, or the
   library preview, which each serve the block's assets their own way.
 
+## All blocks
+
+| Test | What it checks | Origin |
+| --- | --- | --- |
+| [every core block survives export and import into a new course](../tests/studio/xblocks-core/olx-export-import.spec.ts#L75) | A unit holding one of each core block, each with a distinctive field, is exported to OLX and imported into a fresh course; every block arrives with its category and field intact (the blocks' XML handling now lives in `xblocks_core.legacy_utils`). | branch |
+
 ## Problem (`problem`)
 
 | Test | What it checks | Origin |
@@ -55,6 +61,8 @@ Most branch tests share one of two harnesses:
 | Test | What it checks | Origin |
 |---|---|---|
 | [library → Studio → learner watches to completion](../tests/studio/xblocks-core/video.spec.ts#L27) | Library round trip of an HTML5-only video (source stubbed); the player (`video-xblock.js`, the webpack bundle) loads it and watching records completion. | branch |
+| [Video: the player initializes in the Studio unit preview](../tests/studio/xblocks-core/studio-and-library.spec.ts#L106) | `video-xblock.js` initializes the player in the Studio preview (CMS runtime). | branch |
+| [Video: the player initializes in the library preview](../tests/studio/xblocks-core/studio-and-library.spec.ts#L134) | Same, in the library preview (Learning Core runtime). | branch |
 | [adds a YouTube video and sets an advanced download option](../tests/studio/components/video.spec.ts#L27) | Studio video editor saves a YouTube ID and the download option. | main |
 | [creates a video block from a YouTube URL](../tests/studio/library/components.spec.ts#L74) | Library UI adds a video block. | main |
 | [sets custom start and stop times on a library video](../tests/studio/library/components.spec.ts#L140) | Library video editor saves start and stop times. | main |
@@ -64,6 +72,7 @@ Most branch tests share one of two harnesses:
 | Test | What it checks | Origin |
 |---|---|---|
 | [library → Studio → learner reads the text](../tests/studio/xblocks-core/html.spec.ts#L18) | Library round trip; the learner sees the text, and a `/static/` image URL is rewritten. | branch |
+| [Text: the Add component data lists the packaged templates](../tests/studio/xblocks-core/studio-and-library.spec.ts#L87) | Studio's Add component data lists the Text variants shipped in `src/xblock_html/templates/html/` (announcement, anonymous user ID, iframe, raw HTML, zooming image). | branch |
 | [authors bold and italic text in the editor](../tests/studio/components/text.spec.ts#L27) | Studio text editor saves formatted HTML. | main |
 | [copies a component and pastes it into the unit](../tests/studio/components/clipboard.spec.ts#L23) | Copy/paste of a text component within a unit. | main |
 | [creates a text block with the rich-text editor](../tests/studio/library/components.spec.ts#L34) | Library UI adds a text block. | main |
@@ -96,6 +105,7 @@ Most branch tests share one of two harnesses:
 | Test | What it checks | Origin |
 |---|---|---|
 | [library → Studio → learner sees annotations](../tests/studio/xblocks-core/annotatable.spec.ts#L17) | Library round trip; instructions render exactly once and both annotations render. | branch |
+| [Annotatable: its own Studio editor opens and saves](../tests/studio/xblocks-core/studio-and-library.spec.ts#L164) | Edit opens the block's own `studio_view` (`annotatable_editor.js` + CodeMirror); an edit to the XML saves. | branch |
 | [lists annotatable in Advanced Settings, adds it from the tile and renders it](../tests/studio/components/advanced-modules.spec.ts#L306) | Enabled in Advanced Settings and added from the tile; the learner sees the annotation spans. | main |
 
 ## LTI 1.1 (`lti`)
@@ -110,9 +120,11 @@ Most branch tests share one of two harnesses:
 |---|---|---|
 | [in a course: learner sees the inline discussion and a post](../tests/studio/xblocks-core/discussion.spec.ts#L76) | With the course on the `legacy` provider, a discussion block in a unit renders, and `discussion_bundle.js` lists a post made to its topic and toggles it. Needs the in-process forum (Tutor's `forum` plugin, initialized). | branch |
 
+| [Discussion: the Studio preview renders its placeholder](../tests/studio/xblocks-core/studio-and-library.spec.ts#L206) | The Studio preview renders the block's Studio template, found through the discussion app's registration. | branch |
+
 ## Poll question (`poll_question`)
 
-No runnable test (see below).
+Covered only by the export/import test under All blocks (a poll with a question and answers). Its library round trip is broken on master (see below).
 
 ---
 
@@ -121,6 +133,7 @@ No runnable test (see below).
 **Could not test / broken on master.** Not validated on either target, so none of these can show a regression:
 
 - *Broken on master, set aside as `test.fixme`:* [Poll question round trip](../tests/studio/xblocks-core/poll-question.spec.ts#L23) and [Discussion round trip](../tests/studio/xblocks-core/discussion.spec.ts#L157) (block never appears in the course's library picker); [custom JavaScript input](../tests/studio/xblocks-core/problem/static-inputs.spec.ts#L145) (master aborts Submit with `t(...).data(...) is not a function`; passes in the LMS on the refactor); [drag and drop v1 in Studio](../tests/studio/xblocks-core/problem/static-inputs.spec.ts#L215) (`requirejs.config is not a function`).
+- *Broken on both:* an empty `poll_question` (no answers, a new poll's default) is dropped when its course is imported: its OLX parser requires an `<answer>`.
 - *Fails on master only:* [uploads a transcript to a library video](../tests/studio/library/components.spec.ts#L101) (transcript never listed; passes on the refactor).
 - *Target lacks the setup:* the demo-course tests in [unit-completion](../tests/lms/course-home/unit-completion.spec.ts) and [progress](../tests/lms/course-home/progress.spec.ts) (no `COURSE_KEY`), [Notes on text](../tests/lms/courseware/notes.spec.ts#L66) (no notes service), [custom Python grader](../tests/studio/unit/python-grader.spec.ts#L27) (no codejail).
 - *Not implemented:* [Studio video transcript upload](../tests/studio/components/video.spec.ts#L63).
