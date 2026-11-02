@@ -114,6 +114,7 @@ measured, and issues are opened by hand from them.
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy detail breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` scan only |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
+| `STUDIO-011` | `openedx/frontend-app-authoring` (`verawood`: an outline rename is saved twice) | open, no `fixme` — fixed on `master`; `rename()` in `course-outline.page.ts` retries opening the next field |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
 | `PLAT-011`  | `openedx/openedx-platform` (problem previews: MathJax renders an empty math element as an unlabelled `svg[role=img]`) | open, no `fixme` — the in-context Analytics scans cover only their panel; no other scan reaches a problem preview yet
 | `INSTR-009` | `openedx/edx-platform` + `openedx/frontend-app-instructor-dashboard` (allowance Delete: numeric id ignored, failure shown as success) | **filed** - [openedx-platform#39228](https://github.com/openedx/openedx-platform/issues/39228) and [frontend-app-instructor-dashboard#258](https://github.com/openedx/frontend-app-instructor-dashboard/issues/258) (tracked here as [#135](https://github.com/openedx/end-to-end-tests/issues/135)), `test.fail` on TC-00541's delete test
@@ -791,6 +792,32 @@ family with any write method (`isSettingsWrite` in
 `src/pages/studio/wait-for-write.ts`), so the same spec passes on both the old and
 new endpoints. If `main`'s endpoints settle differently again, widen those two
 predicates rather than pinning a single version.
+
+### `STUDIO-011` — `verawood`'s course outline saves a rename twice
+
+**Where:** the course outline's inline rename field
+(`src/course-outline/card-header/CardHeader.tsx` on `release/verawood`).
+
+**What happens:** the field saves the new name from both its Enter handler and
+its `onBlur`, through the same `handleEditSubmit`, and stays open until the save
+settles. When the field loses focus while the first save is in flight, the
+title the handler compares against has not updated yet, so it saves again. In
+CI run [41491636742](https://github.com/openedx/end-to-end-tests/actions/runs/41491636742)
+the TC-00143 course on `verawood` received the unit and subsection renames as
+pairs of `POST /xblock/<usage key>` 33 ms and 67 ms apart (the section rename was
+single); on `main` each rename was one POST. Each save refetches the section,
+so the second refetch re-renders the outline after the caller has moved on —
+closing an edit field the next rename has just opened (TC-00143 failed all
+three attempts this way in [41080370536](https://github.com/openedx/end-to-end-tests/actions/runs/41080370536)).
+
+`master`'s `handleEditSubmit` adds a guard that closes the field without saving
+on a blur with no preceding pointer interaction and no `relatedTarget`, which
+removes the second save; `release/verawood` does not have it.
+
+**Coverage impact:** open, no `fixme`. `rename()` in
+`src/pages/studio/course-outline.page.ts` retries opening and typing into the
+field until it holds the name, so the outline specs pass on both releases. Upstream
+ask: backport the blur guard to `release/verawood`.
 
 ### `PLAT-007` — the Blocks API returns 500 to a learner enrolled in a course that has not started
 

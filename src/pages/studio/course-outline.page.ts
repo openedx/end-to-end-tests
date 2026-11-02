@@ -280,10 +280,10 @@ export class StudioCourseOutlinePage {
     // located at page scope; only one card is ever in edit mode at a time.
     const field = this.page.locator(EDIT_FIELD[level]);
     // Opening the field races the outline's own refetches: saving a rename
-    // refetches the section (twice, in a CI trace), so a refetch that lands after
-    // the click re-renders the card and closes its field — before it opens, or
-    // between opening and typing. Retry the open-and-type until the field holds
-    // the name.
+    // refetches the section, and `verawood` saves a rename twice (`STUDIO-011`),
+    // so a refetch that lands after the click re-renders the card and closes its
+    // field — before it opens, or between opening and typing. Retry the
+    // open-and-type until the field holds the name.
     let typed = false;
     for (let attempt = 0; attempt < 3 && !typed; attempt += 1) {
       // A just-created card can open in edit mode already; clicking the pencil then
