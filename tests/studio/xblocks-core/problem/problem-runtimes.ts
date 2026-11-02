@@ -83,6 +83,16 @@ export async function openProblem(
 ): Promise<OpenedProblem> {
   const { page, config } = fx;
   const displayName = label(`problem ${runtime}`, testInfo.testId);
+  // On a dev stack the Django Debug Toolbar overlays the Studio and library
+  // previews and covers the problem's action bar: hide it in every frame. Does
+  // nothing where the toolbar isn't rendered.
+  await page.context().addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const style = document.createElement('style');
+      style.textContent = '#djDebug { display: none !important; }';
+      document.head.append(style);
+    });
+  });
   const settings = spec.settings ?? {};
 
   if (runtime === 'library') {
