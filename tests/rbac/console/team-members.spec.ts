@@ -139,9 +139,10 @@ test.describe(
     );
 
     // The console can only show a platform-level row that the API returns, and
-    // openedx-authz stopped returning them: a superuser's own assignments read
-    // back as `count: 0` (measured on 1.23.0, `RBAC-002`). There is nothing to
-    // render, so the case has no subject on this target.
+    // openedx-authz stopped returning them (#345, a short-term fix; #347 brings
+    // them back): a superuser's own assignments read back as `count: 0`
+    // (measured on 1.23.0, `RBAC-002`). There is nothing to render, so the case
+    // has no subject on this target.
     test.fixme(
       'marks Super Admin and Global Staff rows as platform-managed',
       {
@@ -151,6 +152,7 @@ test.describe(
             'openedx-authz 1.23 exposes no assignment rows for superusers or global staff, so ' +
               'the console has no platform-level row to mark; re-check on a release that does.',
           ),
+          issue('https://github.com/openedx/openedx-authz/issues/347'),
         ],
       },
       async ({ page, config, adminConsole }) => {

@@ -197,9 +197,11 @@ We also adopt a set of technical principles:
 - **Stability rules:** web-first auto-retrying assertions always; no fixed sleeps;
   deterministic, unique-per-run test data; parallel-safe isolation (each test owns
   its context and identity); centralized, individually justified timeouts; and a
-  locator priority of test-id → stable attribute or role without a localized
-  name → structural CSS containers only (never the platform's displayed text, per
-  the localization principle above).
+  locator priority of stable attribute or role without a localized name →
+  structural CSS → a test-id the app already ships (never the platform's
+  displayed text, per the localization principle above). The suite does not ask
+  for test-ids in the platform's frontend code; an element it cannot tell apart is
+  an upstream ask for a structural fix (amended 2026-10-13).
 - **Type-safety and secrets hygiene:** the strict ``tsc`` gate above, plus
   committing only ``.env.example`` and never committing real secrets or auth state.
 

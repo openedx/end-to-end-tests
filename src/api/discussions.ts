@@ -153,7 +153,9 @@ export async function updateThread(
 
 /**
  * Deletes a thread. Not idempotent: deleting one that is already gone answers
- * 500, not 404 (`DISC-002`), so callers delete each thread once.
+ * 500, not 404 (`DISC-002`,
+ * https://github.com/openedx/openedx-platform/issues/39225), so callers delete
+ * each thread once.
  */
 export async function deleteThread(
   request: APIRequestContext,

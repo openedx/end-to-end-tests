@@ -103,8 +103,10 @@ Recipe in full: [CONVENTIONS › Adding a Feature spec](CONVENTIONS.md#adding-a-
 
 1. **Never match the platform's localized text.** No `getByText`, `getByLabel`,
    `getByRole(…, { name: '<literal>' })`, `toContainText('<literal>')`, `hasText`,
-   `:has-text()`. Priority: test ID, then stable attribute or role without a
-   name, then structural CSS. Data the test itself typed is fine. Enforced by
+   `:has-text()`. Priority: stable attribute or role without a name, then
+   structural CSS, then a test ID the app already ships. Never ask upstream for a
+   new test ID; ask for a structural fix that disambiguates the element.
+   Data the test itself typed is fine. Enforced by
    `tests/conventions/no-displayed-text.spec.ts`. If nothing non-localized exists,
    read the state from the API instead.
 2. **The UI drives the action; the API decides the outcome.** UI assertions only

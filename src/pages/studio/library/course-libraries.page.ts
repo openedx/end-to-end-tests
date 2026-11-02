@@ -48,10 +48,12 @@ export class CourseLibrariesPage {
 
   /**
    * Opens the Review tab and waits for the card titled `title`, reloading the
-   * tab as it polls. The tab is populated from the course-content search index,
-   * which lags the downstream's own `ready_to_sync` under load; a page loaded
-   * before the index caught up shows "All components are up to date" and does
-   * not refresh itself, so a reload is the only way to see the card arrive.
+   * tab as it polls. The tab counts the course's entity links, whose row for a
+   * newly added library block is created by a Celery task, and fills its cards
+   * from the course search index; both can lag the downstream's own
+   * `ready_to_sync` under load (`LIB-002`, by design). A page loaded before they
+   * caught up shows "All components are up to date" and does not refresh
+   * itself, so a reload is the only way to see the card arrive.
    */
   async waitForReviewCard(courseKey: string, title: string): Promise<void> {
     const card = this.reviewCardFor(title).first();

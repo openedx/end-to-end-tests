@@ -80,11 +80,13 @@ breaks the moment the site language changes. The suite therefore **never selects
 or asserts on the platform's localized text**. Locate and verify elements by, in
 order of preference:
 
-1. **Test IDs** — `getByTestId(...)`.
-2. **Stable attributes / roles** — `name` / `id` / `href` attributes, or
+1. **Stable attributes / roles** — `name` / `id` / `href` attributes, or
    `getByRole('<role>')` with no localized `name`.
-3. **Structural CSS** — last resort, language-independent structure (e.g. a
-   section `id` plus position).
+2. **Structure** — language-independent CSS scoped from a stable container (e.g.
+   a section `id` plus position).
+3. **Existing test IDs** — `getByTestId(...)` only where the app already ships
+   one and nothing above identifies the element. The suite never asks upstream
+   for new ones (see `CONVENTIONS.md`).
 
 Matching a value the **test itself supplied** (a generated username, a name we
 typed) is fine — that is our own data, not localized. What's forbidden is
@@ -95,8 +97,8 @@ depending on strings the target renders: `getByText`, `getByLabel`,
 This rule is enforced by `tests/conventions/no-displayed-text.spec.ts`, which
 fails if any page object, step, or spec matches a literal UI string.
 
-One deliberate use of the last tier: legacy CAPA problems expose no test IDs and
-no useful roles, only server-rendered structural classes (`.problem`,
+One deliberate use of structural anchors alone: legacy CAPA problems expose no
+useful roles or attributes, only server-rendered structural classes (`.problem`,
 `button.submit`, `.status.correct`) that the platform's own scripts key off. Those
 are the anchors in `src/config/selectors/capa.ts`, and ADR-0002 already exempts
 course content from the text rule because problem copy does not localize.
@@ -142,7 +144,7 @@ publishes; the learner reads. They never share a context — a session cookie fo
 one user replayed with a JWT for another forces a logout — so a learner is never
 signed in on the author's `page`. Cohort and other LMS session-auth writes, which
 a JWT-only context cannot make, run on a third throwaway context signed in afresh
-as the author (see [`.private/studio-auth-resilience.md`](.private/studio-auth-resilience.md)).
+as the author (see [`skills/openedx-e2e/references/studio-auth.md`](skills/openedx-e2e/references/studio-auth.md)).
 
 The **instructor** persona is the same worker author: a course's creator holds
 the `instructor` and `staff` course roles on it (course-team membership is data,

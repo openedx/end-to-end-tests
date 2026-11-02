@@ -3,10 +3,10 @@
  * `${APPS_BASE_URL}/instructor-dashboard/<course key>/<tab id>` and driven by the
  * LMS `/api/instructor/v2/` API.
  *
- * Measured on Tutor `main` (2026-09-15, MFE `v2.0.0-alpha` build). The MFE ships
- * almost no test ids of its own — the ones below belong to Paragon (`DataTable`,
- * `Dropdown`) — and every tab title, button label and column header is
- * localized, so anchors are the tab ids and URLs the API hands out, the `id`s,
+ * Measured on Tutor `main` (2026-09-15, MFE `v2.0.0-alpha` build). Few controls
+ * have a `name`, `id` or distinguishing structure (`INSTR-001`; the test ids
+ * below belong to Paragon's `DataTable` and `Dropdown`), and every tab title,
+ * button label and column header is localized, so anchors are the tab ids and URLs the API hands out, the `id`s,
  * `name`s and Paragon structural classes that exist, and the **request an action
  * fires**: a page object clicks by position and then waits for the exact v2 URL
  * the action must call, so a mis-located button fails loudly instead of running

@@ -2,7 +2,7 @@ import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import { listAllowances } from '../../../src/api';
-import { testId } from '../../../src/reporting';
+import { issue, testId } from '../../../src/reporting';
 import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS } from './helpers';
 
 /**
@@ -65,7 +65,13 @@ test.describe(
 
     test(
       'deletes a learner’s allowance',
-      { annotation: testId('TC-00541') },
+      {
+        annotation: [
+          testId('TC-00541'),
+          issue('https://github.com/openedx/openedx-platform/issues/39228'),
+          issue('https://github.com/openedx/frontend-app-instructor-dashboard/issues/258'),
+        ],
+      },
       async ({ page, config, timedExam, instructorSpecialExams, authoringCourseLearnerLater }) => {
         test.fail(
           true,

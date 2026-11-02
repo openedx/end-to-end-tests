@@ -24,8 +24,10 @@ import { RBAC_LIBRARY_TAGS, authorBlock, libraryLabel, statusOf } from './helper
  * role and then asks the v2 API what actually happened, because the MFE offers
  * some controls to roles the API refuses. Two of those gaps are findings of this
  * epic: a `library_contributor` is shown an item's publish control although
- * `POST <block>/publish/` answers 403 (`RBAC-011`), and a `library_user` sees
- * draft items the sheet expects to be hidden (`RBAC-010`).
+ * `POST <block>/publish/` answers 403 (`RBAC-011`). A `library_user` also sees
+ * draft items the sheet expects to be hidden, but that is the role as defined
+ * (`view_library` serves drafts to every role that has it), not a defect
+ * (`RBAC-010`, by design).
  *
  * The roles are assigned through the authz API rather than the library's legacy
  * team endpoint so the case is about the authz vocabulary itself, and no waffle
@@ -157,6 +159,7 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
       annotation: [
         testId('TC-00572'),
         issue('https://github.com/openedx/wg-build-test-release/issues/589'),
+        issue('https://github.com/openedx/frontend-app-authoring/issues/3310'),
       ],
     },
     async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {
@@ -320,10 +323,12 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
     {
       annotation: [
         testId('TC-00573'),
+        issue('https://github.com/openedx/wg-build-test-release/issues/618'),
         knownGap(
-          'A `library_user` sees drafts exactly as an author does: a never-published block is listed ' +
-            "to them, and a published block's unpublished title is what the card shows (`RBAC-010`). " +
-            'The case asks for draft items to be invisible to this role.',
+          'The sheet expects drafts to be invisible to a `library_user`, but the role has no ' +
+            'published-only view: `view_library` serves drafts to every role that has it, so a ' +
+            "never-published block is listed and a published block's draft title is shown " +
+            '(`RBAC-010`, by design). Held until the feature is requested or the case is reworded.',
         ),
       ],
     },

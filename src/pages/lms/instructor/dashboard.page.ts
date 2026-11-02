@@ -19,8 +19,8 @@ import { waitForWrite, type WriteMatch } from '../../studio/wait-for-write';
  * Tabs are reached by **URL** (`/instructor-dashboard/<key>/<tab_id>`), never by
  * clicking a localized title; the nav link for a tab id is how a spec asserts
  * the tab is offered. Actions wait for the exact instructor-API request they
- * fire — the MFE ships no test ids, so the request is what proves the right
- * control was pressed.
+ * fire — few controls have a `name`, `id` or distinguishing structure
+ * (`INSTR-001`), so the request is what proves the right control was pressed.
  */
 export class InstructorDashboardPage {
   protected readonly s = INSTRUCTOR_DASHBOARD_SELECTORS;

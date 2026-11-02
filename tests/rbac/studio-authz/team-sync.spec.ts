@@ -39,7 +39,12 @@ test.describe(
 
     test(
       'lands a legacy role added from the instructor dashboard in AuthZ',
-      { annotation: testId('TC-00619') },
+      {
+        annotation: [
+          testId('TC-00619'),
+          issue('https://github.com/openedx/frontend-app-admin-console/issues/259'),
+        ],
+      },
       async ({
         page,
         config,
@@ -246,6 +251,7 @@ test.describe(
               'holds `courses.manage_course_team` and can remove the same assignment through ' +
               "Studio's own endpoint (`RBAC-014`).",
           ),
+          issue('https://github.com/openedx/frontend-app-admin-console/issues/258'),
         ],
       },
       async ({

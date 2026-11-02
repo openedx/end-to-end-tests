@@ -2,8 +2,8 @@
  * Legacy CAPA problem markup, as rendered inside the unit iframe.
  *
  * **This module is the ADR's documented CSS-selector exception.** The locator
- * priority puts CSS containers last, but CAPA problems expose no test IDs and no
- * useful roles; what they do expose is server-rendered, non-localized structural
+ * priority prefers attributes and roles to CSS, but CAPA problems expose no
+ * useful roles or attributes; what they do expose is server-rendered, non-localized structural
  * class markup (`.problem`, `.choicegroup`, `button.submit`, `.status.correct`).
  * That markup is part of the platform's own JS contract — its scripts key off the
  * same classes — so it is considerably more stable than the alternative of

@@ -3,7 +3,7 @@ import { TIMEOUTS } from '../../../src/config';
 import { LIBRARY_ROLES, listUserAssignments } from '../../../src/api';
 import { seedScopeAssignments } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
-import { knownGap, testId } from '../../../src/reporting';
+import { issue, knownGap, testId } from '../../../src/reporting';
 import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
 
 /**
@@ -185,6 +185,7 @@ test.describe(
               'does not enforce the rule at all: a library admin revoking its own library_admin ' +
               'is answered 207 role_removed (RBAC-007).',
           ),
+          issue('https://github.com/openedx/openedx-authz/issues/526'),
         ],
       },
       async ({

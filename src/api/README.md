@@ -154,7 +154,7 @@ Everything Studio-side goes through `studio-origin.ts` (`studioOrigin`,
   **session**-auth LMS views, not JWT: a JWT-only context is redirected to login
   and the write surfaces as **HTTP 405**, so drive them from a fresh
   `loginSession` on a throwaway context
-  (see `.private/studio-auth-resilience.md` §2.4). The v1 cohorts API the
+  (see rule 4 in `skills/openedx-e2e/references/studio-auth.md`). The v1 cohorts API the
   instructor-dashboard MFE writes through (`listCohortsV1`, `createCohortV1`,
   `enableCohortsV1`) accepts the JWT and rides `page.request`.
 - `search.ts` — `searchCourseDiscovery` (the LMS catalog-search index the

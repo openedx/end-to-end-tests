@@ -10,11 +10,13 @@
  */
 export const COURSE_ABOUT_SELECTORS = {
   /**
-   * The enroll call to action — the sheet's "Enroll Now" button. The MFE gives it
-   * no test ID and posts through the enrollment API rather than a form, so the
-   * best available anchor is Paragon's stateful-button class scoped to the page's
-   * main landmark (the only other button is the header account menu). Weak by our
-   * standards; an upstream test-ID request is filed as plan §4 item 5.
+   * The enroll call to action — the sheet's "Enroll Now" button. It is not part
+   * of a form and nothing but its label identifies it (it posts through the
+   * enrollment API from JavaScript), so the best available anchor is Paragon's
+   * stateful-button class scoped to the page's main landmark (the only other
+   * button is the header account menu). Weak by our standards; the upstream ask
+   * is structural — e.g. an enrollment `form`, or a `name`/`value` naming the
+   * action — not a test ID.
    */
   enrollButton: 'main button.pgn__stateful-btn',
 
