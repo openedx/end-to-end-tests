@@ -36,7 +36,16 @@
  */
 import { expect, test } from '../../../../src/fixtures';
 import { TIMEOUTS } from '../../../../src/config';
+import {
+  clearCourseFlagOverride,
+  setCourseFlagOverride,
+  studioOrigin,
+  uploadAsset,
+} from '../../../../src/api';
 import { PROBLEM_TAGS, openProblem, type ProblemRuntime } from './problem-runtimes';
+
+/** Course waffle flag that serves course assets without the CSP sandbox. */
+const ALLOW_UNSAFE_ASSET_RENDERING = 'course_assets.allow_unsafe_asset_rendering';
 
 const RUNTIMES: readonly ProblemRuntime[] = ['lms', 'studio'];
 
@@ -122,9 +131,17 @@ test.describe('xblocks-core: Problem static-asset inputs', { tag: [...PROBLEM_TA
       });
     });
 
-    // FIXME: fails reliably on master (2026-11-02) in both runtimes: the iframe page
-    // loads, but Submit never sends `problem_check` (likely jsinput's `waitfor` hook
-    // aborting the submission). Re-enable once it passes on master.
+    // Course assets are served with `Content-Security-Policy: sandbox` (platform
+    // 7708201d216, 2026-09), which stops an uploaded jsinput page from running its
+    // script — so jsinput can't read `getGrade` and aborts the submission. Courses
+    // that host jsinput pages as assets must turn ALLOW_UNSAFE_ASSET_RENDERING on;
+    // this test does that for its own course and turns it off again afterwards.
+    //
+    // FIXME: fails reliably on master (2026-11-02) in both runtimes even with the flag
+    // on: Submit throws `t(...).data(...) is not a function` (jsinput's `waitfor` hook
+    // isn't visible to display.js — likely two jQuery copies) and aborts with "Could
+    // not grade your answer". On the refactor (local tutor, 2.0.0.dev1) the LMS case
+    // passes and only the Studio preview fails. Re-enable once it passes on master.
     test.fixme(`custom JavaScript input (${runtime})`, async ({
       page,
       config,
@@ -133,6 +150,7 @@ test.describe('xblocks-core: Problem static-asset inputs', { tag: [...PROBLEM_TA
       contentCourse,
       roundTripLearnerLater,
       studioUnitPage,
+      adminLms,
     }, testInfo) => {
       void studioAuthorSession;
       const fx = {
@@ -143,19 +161,55 @@ test.describe('xblocks-core: Problem static-asset inputs', { tag: [...PROBLEM_TA
         roundTripLearnerLater,
         studioUnitPage,
       };
+      const { courseKey } = contentCourse;
       const asset = `e2e-jsinput-${testInfo.testId.slice(-8)}.html`;
-      const { problem } = await openProblem(runtime, fx, testInfo, {
-        assets: [{ name: asset, mimeType: 'text/html', body: JSINPUT_HTML }],
-        body:
-          `<customresponse><label>Custom JS</label>` +
-          `<jsinput gradefn="getGrade" get_statefn="getState" set_statefn="setState"` +
-          ` html_file="/static/${asset}" width="400" height="100"/>${PYTHON_ANSWER}</customresponse>`,
-      });
-      const frame = problem.root.frameLocator('iframe[name^="iframe_"]');
-      await expect(frame.locator('#e2e-jsinput')).toBeVisible();
+      await adminLms((session) =>
+        setCourseFlagOverride(session, config, courseKey, {
+          flag: ALLOW_UNSAFE_ASSET_RENDERING,
+          choice: 'on',
+          enabled: true,
+          note: `e2e jsinput ${testInfo.testId}`,
+        }),
+      );
+      try {
+        await resyncStudioAuthor();
+        await uploadAsset(page.request, config, courseKey, {
+          name: asset,
+          mimeType: 'text/html',
+          buffer: Buffer.from(JSINPUT_HTML),
+        });
+        // The override may be cached briefly: wait until both the LMS and Studio serve
+        // the page unsandboxed (the Studio preview loads it from the CMS).
+        const assetPath =
+          `/${courseKey.replace(/^course-v1:/, 'asset-v1:')}` + `+type@asset+block/${asset}`;
+        for (const origin of [config.baseUrls.lms, studioOrigin(config)]) {
+          await expect
+            .poll(
+              async () =>
+                (await page.request.get(`${origin}${assetPath}`)).headers()[
+                  'content-security-policy'
+                ] ?? '',
+              { timeout: TIMEOUTS.navigation * 4 },
+            )
+            .not.toContain('sandbox');
+        }
 
-      const request = await problem.submitCapturingRequest();
-      expect(decodeURIComponent(request.postData() ?? '')).toContain('"answer":"42"');
+        const { problem } = await openProblem(runtime, fx, testInfo, {
+          body:
+            `<customresponse><label>Custom JS</label>` +
+            `<jsinput gradefn="getGrade" get_statefn="getState" set_statefn="setState"` +
+            ` html_file="/static/${asset}" width="400" height="100"/>${PYTHON_ANSWER}</customresponse>`,
+        });
+        const frame = problem.root.frameLocator('iframe[name^="iframe_"]');
+        await expect(frame.locator('#e2e-jsinput')).toBeVisible();
+
+        const request = await problem.submitCapturingRequest();
+        expect(decodeURIComponent(request.postData() ?? '')).toContain('"answer":"42"');
+      } finally {
+        await adminLms((session) =>
+          clearCourseFlagOverride(session, config, courseKey, ALLOW_UNSAFE_ASSET_RENDERING),
+        );
+      }
     });
 
     test(`drag and drop v1 (${runtime})`, async ({
@@ -170,7 +224,8 @@ test.describe('xblocks-core: Problem static-asset inputs', { tag: [...PROBLEM_TA
       test.fixme(
         runtime === 'studio',
         'Fails reliably on master (2026-11-02) in the Studio preview: drag_and_drop.js ' +
-          'never builds its UI there (it does in the LMS). Re-enable once it passes on master.',
+          'throws "requirejs.config is not a function" there, so its UI never builds (it does ' +
+          'in the LMS). Re-enable once it passes on master.',
       );
       void studioAuthorSession;
       const fx = {
