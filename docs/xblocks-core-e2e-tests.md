@@ -145,7 +145,11 @@ as an editable install rather than a wheel, so a slim subset also runs against
   (LMS, Studio), the [Video round trip](../tests/studio/xblocks-core/video.spec.ts#L27),
   [Text templates](../tests/studio/xblocks-core/studio-and-library.spec.ts#L87) and
   [Discussion in a course](../tests/studio/xblocks-core/discussion.spec.ts#L76).
-- **Result:** pending.
+- **Result (2026-11-02):** all 9 pass (Problem controls in all three runtimes,
+  numerical preview in LMS and Studio, Video, Text templates, Discussion), with
+  xblocks-core editable from `/mnt/xblocks-core` and its bundles and `js/capa/…`
+  files served straight from the checkout. On dev, the Django Debug Toolbar
+  overlays the Studio and library previews, so the Problem harness hides it.
 
 ## Could not test / broken on master
 
