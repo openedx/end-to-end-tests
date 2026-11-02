@@ -225,6 +225,20 @@ export const CAPABILITIES = [
   // reported against that release. So the matrix's **structure** is asserted
   // everywhere and its **fidelity to the API** only where the fix has landed.
   'rbac-matrix-parity',
+  // The console offers **Course Editor and Course Auditor** like any other
+  // course role. `verawood` holds them back as a greyed "coming soon" pair in
+  // the permission matrix (the sheet's TC-00569 as first written);
+  // frontend-app-admin-console#209 made them assignable on `main`. The matrix's
+  // structure is asserted everywhere and the pair being live only where it is.
+  'rbac-course-editor-auditor',
+  // The console's **user audit view is laid out like the Team Members table**
+  // (frontend-app-admin-console#255): Role, Scope, Organization, Permissions and
+  // Actions, the scope named by its title, the permission count doubling as the
+  // row's expander, and your own admin row carrying a greyed delete control
+  // with an explanatory tooltip. `verawood` orders Organization before Scope,
+  // shows the scope key, adds a separate expander column and omits the control
+  // on your own admin row altogether. Declared where the new layout ships.
+  'rbac-audit-team-layout',
   // The console's **not-found view offers a working way back**. On `verawood`
   // its "Back to Studio" action carries a URL and leaves the route; on `main`
   // the same anchor has no `href` and its handler does nothing (`RBAC-008`), so
