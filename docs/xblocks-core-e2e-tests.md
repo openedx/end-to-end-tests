@@ -126,11 +126,9 @@ Most branch tests share one of two harnesses:
 
 Covered only by the export/import test under All blocks (a poll with a question and answers). Its library round trip is broken on master (see below).
 
----
+## Could not test / broken on master
 
-<sub>
-
-**Could not test / broken on master.** Not validated on either target, so none of these can show a regression:
+Not validated on either target, so none of these can show a regression:
 
 - *Broken on master, set aside as `test.fixme`:* [Poll question round trip](../tests/studio/xblocks-core/poll-question.spec.ts#L23) and [Discussion round trip](../tests/studio/xblocks-core/discussion.spec.ts#L157) (block never appears in the course's library picker); [custom JavaScript input](../tests/studio/xblocks-core/problem/static-inputs.spec.ts#L145) (master aborts Submit with `t(...).data(...) is not a function`; passes in the LMS on the refactor); [drag and drop v1 in Studio](../tests/studio/xblocks-core/problem/static-inputs.spec.ts#L215) (`requirejs.config is not a function`).
 - *Broken on both:* an empty `poll_question` (no answers, a new poll's default) is dropped when its course is imported: its OLX parser requires an `<answer>`.
@@ -138,4 +136,3 @@ Covered only by the export/import test under All blocks (a poll with a question 
 - *Target lacks the setup:* the demo-course tests in [unit-completion](../tests/lms/course-home/unit-completion.spec.ts) and [progress](../tests/lms/course-home/progress.spec.ts) (no `COURSE_KEY`), [Notes on text](../tests/lms/courseware/notes.spec.ts#L66) (no notes service), [custom Python grader](../tests/studio/unit/python-grader.spec.ts#L27) (no codejail).
 - *Not implemented:* [Studio video transcript upload](../tests/studio/components/video.spec.ts#L63).
 
-</sub>
