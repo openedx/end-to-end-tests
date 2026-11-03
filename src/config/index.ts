@@ -5,7 +5,7 @@ import { ConfigError } from './errors';
 import { loadConfig, parseCustomTestDirs, type AppConfig } from './load';
 
 export type { AppConfig, AdminCredentials, BaseUrls, Env, Scheme } from './load';
-export { loadConfig, parseCapabilities } from './load';
+export { loadConfig, parseCapabilities, parseCustomTestDirs } from './load';
 export { ConfigError };
 export {
   CAPABILITIES,
@@ -279,6 +279,18 @@ export function resolveExternalTestDirs(env: NodeJS.ProcessEnv = process.env): s
     throw new ConfigError(issues);
   }
   return dirs.map((dir) => path.resolve(dir));
+}
+
+/**
+ * The external test directories (`CUSTOM_TEST_DIRS`) that live under `root`,
+ * returned as paths relative to it. The convention scans use this to hold
+ * in-checkout provider specs to the same rules as the suite's own.
+ */
+export function externalTestDirsUnder(root: string): string[] {
+  return resolveExternalTestDirs()
+    .filter((dir) => dir === root || dir.startsWith(root + path.sep))
+    .map((dir) => path.relative(root, dir))
+    .filter((rel) => rel !== '' && !rel.startsWith('..'));
 }
 
 export function getConfig(): AppConfig {

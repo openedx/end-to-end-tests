@@ -32,15 +32,28 @@ interface TierSpec {
  * a tier (it has no external mirror) and is inserted in {@link buildProjects}.
  */
 const TIERS: readonly TierSpec[] = [
+  // Pure logic (config validation, etc.): no browser, no baseURL.
   { name: 'unit', grep: /@unit/, browser: false },
+  // Critical-path stability tier, driven from a clean anonymous state, so it
+  // excludes specs that require captured auth (`@authenticated`, `@author`).
   { name: 'smoke', grep: /@smoke/, grepInvert: /@authenticated|@author/, browser: true },
+  // Broader-depth stability tier, likewise anonymous by default.
   { name: 'regression', grep: /@regression/, grepInvert: /@authenticated|@author/, browser: true },
+  // Authenticated tier: loads the captured learner state, so `@authenticated`
+  // specs reuse a single sign-in without driving the login UI.
   { name: 'lms-learner', grep: /@authenticated/, role: 'learner', browser: true },
+  // Authoring tier: `@author` specs (the `tests/studio/` tree) run with the
+  // captured author state, which holds both the LMS and the Studio session; the
+  // worker-scoped `authoredCourse` fixture reads the same state file.
   { name: 'studio-author', grep: /@author/, role: 'author', browser: true },
 ];
 
-/** Signs in once per role and writes `.auth/<role>.json`; a dependency of the
- * authenticated tiers. Not a tier: it has no external mirror. */
+/**
+ * Signs in once per role and writes `.auth/<role>.json`; the authenticated tiers
+ * depend on it and consume the state via `use: { storageState }`. A role the
+ * target has no credentials for (e.g. instructor) skips rather than fails, so a
+ * partially configured install still runs the rest. Not a tier: no external mirror.
+ */
 const SETUP_PROJECT: PlaywrightTestProject = {
   name: 'setup',
   testMatch: /.*\.setup\.ts/,
@@ -94,6 +107,20 @@ export function buildProjects(externalDirs: readonly string[]): PlaywrightTestPr
     if (tier.name === 'unit') {
       projects.push(SETUP_PROJECT);
     }
+  }
+  // Two directories that slug to the same label would produce duplicate project
+  // names (e.g. `a_b` and `a-b`); fail fast rather than silently merging them.
+  const seen = new Map<string, string>();
+  for (const dir of externalDirs) {
+    const label = externalLabel(dir);
+    const clash = seen.get(label);
+    if (clash !== undefined) {
+      throw new Error(
+        `CUSTOM_TEST_DIRS entries "${clash}" and "${dir}" both map to the project ` +
+          `label "${label}". Rename one so the mirrored project names stay unique.`,
+      );
+    }
+    seen.set(label, dir);
   }
   for (const dir of externalDirs) {
     for (const tier of TIERS) {
