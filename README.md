@@ -318,19 +318,17 @@ npx playwright test --project='smoke*'   # built-in smoke AND smoke/<label>
 npx playwright test --project='unit*'    # built-in unit AND unit/<label>
 ```
 
-Your specs must import `test`/`expect` from this suite, not from a bare
-`@playwright/test`:
+Specs that use the suite's fixtures (a browser `page`, `config`, the capability
+gate) import `test`/`expect` from this suite:
 
 ```ts
 import { test, expect } from '../my-suite/src/fixtures';
 ```
 
-This is required, not stylistic: the only `@playwright/test` is the one installed
-in this suite, and Playwright needs every `test()` to come from that single
-instance. A bare `@playwright/test` import resolves from your spec's own
-directory and fails there; installing your own copy instead makes Playwright
-reject the duplicate instance. Do **not** add `@playwright/test` to your own
-`package.json`.
+A pure node-only `@unit` spec needs none of that and imports `@playwright/test`
+directly. Either way the import must resolve to the **one** `@playwright/test`
+installed in this suite — Playwright needs every `test()` to come from a single
+instance — so do **not** add `@playwright/test` to your own `package.json`.
 
 ## Studio coverage
 
