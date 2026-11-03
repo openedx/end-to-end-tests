@@ -1,3 +1,4 @@
+import { newCleanBrowserContext } from '../../../src/auth';
 import { expect, test, type NotificationRecipientOptions } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import {
@@ -105,7 +106,7 @@ test.describe(
           // One-click unsubscribe needs no session: follow it signed out.
           const unsubscribe = linkIn(found!, toUnsubscribe);
           expect(unsubscribe).toBeDefined();
-          const anonymous = await browser.newContext();
+          const anonymous = await newCleanBrowserContext(browser);
           try {
             const page = await anonymous.newPage();
             await page.goto(unsubscribe!);
