@@ -13,7 +13,7 @@ import type {
 import { A11Y_ATTACHMENT_PREFIX, describeA11yViolation, parseA11yAttachment } from './a11y';
 import { ciMetaFromEnv, summarizeRun, type RunAttempt, type RunMeta } from './btr-run';
 import { normalizeStatus } from './coverage';
-import { profileOf, projectOf, shardOf } from './project';
+import { isInfrastructureProject, profileOf, projectOf, shardOf } from './project';
 import { testIdsFromAnnotations } from './test-id';
 
 export interface BtrRunReporterOptions {
@@ -90,7 +90,7 @@ export default class BtrRunReporter implements Reporter {
   /** Fires once per **attempt**; `summarizeRun` collapses retries per `test.id`. */
   onTestEnd(test: TestCase, result: TestResult): void {
     const project = projectOf(test);
-    if (this.excluded.has(project?.name ?? '')) {
+    if (isInfrastructureProject(project?.name, this.excluded)) {
       return;
     }
 

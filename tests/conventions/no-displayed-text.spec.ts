@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { test, expect } from '@playwright/test';
 
+import { externalTestDirsUnder } from '../../src/config';
+
 /**
  * Guards the "locators never depend on displayed text" rule (see ARCHITECTURE.md).
  *
@@ -76,7 +78,7 @@ const RULES: Rule[] = [
 
 function scannedFiles(): string[] {
   const files: string[] = [];
-  for (const dir of SCAN_DIRS) {
+  for (const dir of [...SCAN_DIRS, ...externalTestDirsUnder(ROOT)]) {
     const base = path.join(ROOT, dir);
     let entries: string[];
     try {

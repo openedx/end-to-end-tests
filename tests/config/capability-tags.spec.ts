@@ -17,10 +17,10 @@ import { CAPABILITIES } from '../../src/config';
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (file: string) => readFileSync(path.join(ROOT, file), 'utf8');
 
-/** The tags in `playwright.config.ts`'s project `grep` / `grepInvert` patterns. */
+/** The tags in the tier projects' `grep` / `grepInvert` patterns (`playwright.projects.ts`). */
 function projectTags(): Set<string> {
   const tags = new Set<string>();
-  for (const [, source] of read('playwright.config.ts').matchAll(
+  for (const [, source] of read('playwright.projects.ts').matchAll(
     /grep(?:Invert)?:\s*\/(.+?)\/,/g,
   )) {
     for (const [, tag] of (source ?? '').matchAll(/@([a-z0-9-]+)/g)) tags.add(tag ?? '');

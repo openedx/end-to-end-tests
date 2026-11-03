@@ -81,7 +81,12 @@ jobs:
 
       - name: Unit tests (no browser or LMS required)
         if: ${{ !cancelled() }}
-        run: npx playwright test --project=unit
+        # Point at the in-repo examples/ dir so `unit/examples` runs here and the
+        # convention scans cover it, exercising CUSTOM_TEST_DIRS on every PR. The
+        # glob includes the mirrored external unit projects alongside `unit`.
+        env:
+          CUSTOM_TEST_DIRS: ./examples
+        run: npx playwright test --project='unit*'
 
       - name: Verify every spec compiles and is discoverable
         if: ${{ !cancelled() }}

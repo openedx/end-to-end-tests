@@ -4,6 +4,7 @@ import {
   ENV_KEYS,
   loadConfig,
   getConfigIfValid,
+  parseCustomTestDirs,
   resetConfigCache,
   ConfigError,
   type Env,
@@ -385,6 +386,32 @@ test.describe('loadConfig — mailbox provider', { tag: '@unit' }, () => {
     expect(config.capabilities.has('email-inbox')).toBe(true);
     expect(config.mailProvider).toBe('mailpit');
     expect([...config.customMailProviderPlugins]).toEqual([MAILPIT_PLUGIN]);
+  });
+});
+
+test.describe('parseCustomTestDirs', { tag: '@unit' }, () => {
+  test('has no external directories by default', () => {
+    expect(parseCustomTestDirs(undefined)).toEqual({ dirs: [], issues: [] });
+  });
+
+  test('accepts an existing directory', () => {
+    expect(parseCustomTestDirs('./tests').dirs).toEqual(['./tests']);
+  });
+
+  test('ignores blank entries', () => {
+    expect(parseCustomTestDirs('./tests, ,').dirs).toEqual(['./tests']);
+  });
+
+  test('rejects a directory that does not exist', () => {
+    expect(parseCustomTestDirs('./no-such-dir').issues.join('\n')).toContain(
+      'CUSTOM_TEST_DIRS refers to "./no-such-dir"',
+    );
+  });
+
+  test('rejects a path that is a file, not a directory', () => {
+    expect(parseCustomTestDirs('./package.json').issues.join('\n')).toContain(
+      'CUSTOM_TEST_DIRS refers to "./package.json", which is not a directory.',
+    );
   });
 });
 

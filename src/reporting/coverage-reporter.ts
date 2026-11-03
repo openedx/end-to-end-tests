@@ -4,7 +4,7 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 import type { FullConfig, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 
 import { finalAttempts, normalizeStatus, summarizeCoverage, type TestAttempt } from './coverage';
-import { profileOf, projectOf } from './project';
+import { isInfrastructureProject, profileOf, projectOf } from './project';
 import { testIdsFromAnnotations } from './test-id';
 
 export interface CoverageReporterOptions {
@@ -50,7 +50,7 @@ export default class CoverageReporter implements Reporter {
    */
   onTestEnd(test: TestCase, result: TestResult): void {
     const project = projectOf(test);
-    if (this.excluded.has(project?.name ?? '')) {
+    if (isInfrastructureProject(project?.name, this.excluded)) {
       return;
     }
     this.attempts.push({
