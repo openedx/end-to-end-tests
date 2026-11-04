@@ -186,6 +186,7 @@ import {
   listLibraryBlocks,
   deleteTaxonomy,
   importTaxonomy,
+  listTaxonomies,
   setTaxonomyOrgs,
   type ContentLibrary,
   type LibraryAccessLevel,
@@ -4086,7 +4087,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use({ taxonomy: seeded, org });
   },
 
-  taxonomyAdmin: async ({ browser, config }, use) => {
+  taxonomyAdmin: async ({ browser, config }, use, testInfo) => {
     const org = requireTaxonomyAdmin(config);
     const admin = config.credentials.admin as NonNullable<typeof config.credentials.admin>;
     // A fresh browser signed in through the UI, held under the admin lock for the
@@ -4101,6 +4102,17 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           emailOrUsername: admin.username,
           password: admin.password,
         });
+        if (testInfo.tags.includes('@competencies')) {
+          // A declaration against a backend that serves no `taxonomy_type` would
+          // otherwise surface as `storedType: undefined` after a poll timeout.
+          const { taxonomies } = await listTaxonomies(page.request, config);
+          if (taxonomies.length > 0 && taxonomies[0]?.taxonomyType === undefined) {
+            throw capabilityContradicted(
+              'competencies',
+              'the content-tagging API serves no `taxonomy_type`',
+            );
+          }
+        }
         await use({
           list: new TaxonomyListPage(page, config),
           detail: new TaxonomyDetailPage(page, config),
