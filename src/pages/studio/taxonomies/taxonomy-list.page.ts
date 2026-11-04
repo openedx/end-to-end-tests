@@ -74,7 +74,7 @@ export class TaxonomyListPage {
   }
 
   /**
-   * Reads every card on the page in one browser call: its `data-testid` and how
+   * Reads every card on the page in one browser call: its link (`href`) and how
    * many type icons it holds. One read, so cards that another test adds or
    * deletes meanwhile cannot make the card list and the icon counts disagree.
    */
@@ -82,7 +82,7 @@ export class TaxonomyListPage {
     return this.cards.evaluateAll(
       (cards, iconSelector) =>
         cards.map((card) => ({
-          card: card.getAttribute('data-testid') ?? '',
+          card: card.getAttribute('href') ?? '',
           icons: card.querySelectorAll(iconSelector).length,
         })),
       this.s.anyTypeIcon,

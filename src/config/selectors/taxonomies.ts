@@ -3,7 +3,7 @@
  * taxonomy's detail page (`/taxonomy/<id>`), plus the import wizard, export and
  * delete dialogs and the manage-orgs modal reached from a taxonomy's menu.
  * Measured against `frontend-app-authoring` source (Epic 11, 2026-09-16); every
- * anchor is a `data-testid`, an id or a Paragon structural class, never a
+ * anchor is a `data-testid`, an id, an `href` or a Paragon structural class, never a
  * localized string. These pages are staff-only, so only the admin drives them.
  *
  * The import wizard is a Paragon `Stepper` in a `ModalDialog`. Most action-row
@@ -20,17 +20,30 @@ export const TAXONOMY_SELECTORS = {
   templateCsv: '[data-testid="taxonomy-download-template-csv"]',
   templateJson: '[data-testid="taxonomy-download-template-json"]',
 
-  /** Every taxonomy card on the list page, whatever its id. */
-  cardAny: '[data-testid^="taxonomy-card-"]',
-  /** A taxonomy's card on the list page (the whole card links to `/taxonomy/<id>`). */
-  card: (id: number): string => `[data-testid="taxonomy-card-${id}"]`,
+  /**
+   * Every taxonomy card on the list page, whatever its id. A card is a link, so it
+   * is reached by its `href` (a stable attribute) and not by its localized title.
+   * The `taxonomy-card` class keeps another link to a taxonomy from matching.
+   */
+  cardAny: 'a.taxonomy-card[href*="/taxonomy/"]',
+  /**
+   * A taxonomy's card on the list page, reached by its link rather than its
+   * localized title. The `$=` match with a leading slash keeps id 5 from matching
+   * `/taxonomy/15`.
+   */
+  card: (id: number): string => `a.taxonomy-card[href$="/taxonomy/${id}"]`,
   /**
    * A card's type icon, whose screen-reader text is "Competency taxonomy" for
    * `competency` and "Tags taxonomy" for `tags`. A card without a known type
-   * shows the `tags` icon.
+   * shows the `tags` icon. Both icons render the same Paragon `Icon` markup and
+   * differ only by svg path and that localized text, so nothing structural tells
+   * them apart and the test id is the only anchor.
    */
   typeIcon: (type: 'competency' | 'tags'): string => `[data-testid="taxonomy-type-icon-${type}"]`,
-  /** Either type icon ("Competency taxonomy" or "Tags taxonomy"); a card holds exactly one. */
+  /**
+   * Either type icon ("Competency taxonomy" or "Tags taxonomy"); a card holds
+   * exactly one. Test id for the same reason as {@link typeIcon}.
+   */
   anyTypeIcon: '[data-testid^="taxonomy-type-icon-"]',
 
   /** A taxonomy's kebab menu button (scoped to a card, or the detail SubHeader). */
@@ -53,11 +66,11 @@ export const TAXONOMY_SELECTORS = {
   populateNameInput: '[data-testid="populate-step"] input',
   populateDescInput: '[data-testid="populate-step"] textarea',
   /**
-   * The populate step's "Taxonomy Type" dropdown. A
-   * native `<select>` whose option values (`tags`, `competency`) are not
-   * translated, so `selectOption(value)` is language-independent.
+   * The populate step's "Taxonomy Type" dropdown, the only `<select>` in the step.
+   * Its option values (`tags`, `competency`) are not translated, so
+   * `selectOption(value)` is language-independent.
    */
-  typeSelect: '[data-testid="taxonomy-type-select"]',
+  typeSelect: '[data-testid="populate-step"] select',
   /** Testid'd wizard buttons. */
   wizardNext: '[data-testid="next-button"]',
   wizardContinue: '[data-testid="continue-button"]',

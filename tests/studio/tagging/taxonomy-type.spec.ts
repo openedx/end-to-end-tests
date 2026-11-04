@@ -120,7 +120,7 @@ test.describe(
         // Every card the page shows, seeded or not, holds exactly one type icon. The
         // cards and their icon counts come from one read, so the cards another run
         // adds or deletes meanwhile cannot skew the comparison; the cards that break
-        // the rule are listed by test id.
+        // the rule are listed by their link.
         const cards = await list.cardIconCounts();
         expect(cards.length).toBeGreaterThanOrEqual(seeded.size);
         expect(cards.filter(({ icons }) => icons !== 1)).toEqual([]);
