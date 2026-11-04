@@ -19,11 +19,11 @@ import {
  * card in the taxonomy list (openedx-core `taxonomy_type`, frontend-app-authoring
  * #3208 and #3255). No BTR case maps to these.
  *
- * The admin drives the import wizard under the admin lock ({@link taxonomyAdmin});
- * the content-tagging API decides the stored type, and the list page's card is read
- * next to it in one `expect.poll`. Every wizard run starts from `list.goto()`: after
- * a wizard is closed, selecting the same file again in the same page session leaves
- * Continue doing nothing (`TAG-005`,
+ * The admin ({@link competencyTaxonomyAdmin}, which wraps `taxonomyAdmin`) drives the
+ * import wizard under the admin lock; the content-tagging API decides the stored
+ * type, and the list page's card is read next to it in one `expect.poll`. Every
+ * wizard run starts from `list.goto()`: after a wizard is closed, selecting the same
+ * file again in the same page session leaves Continue doing nothing (`TAG-005`,
  * https://github.com/openedx/openedx-core/issues/827), so a reload separates the
  * runs. Gated on `competencies`, which only `main` declares.
  */
@@ -34,9 +34,9 @@ test.describe(
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
     test('offers Tags and Competency on the populate step, Tags selected', async ({
-      taxonomyAdmin,
+      competencyTaxonomyAdmin,
     }) => {
-      const { list, page } = taxonomyAdmin;
+      const { list, page } = competencyTaxonomyAdmin;
       await list.goto();
       await list.openImportToPopulate(taxonomyImportFile());
 
@@ -53,39 +53,39 @@ test.describe(
 
     test('imports a taxonomy as Competency and shows the Competency icon', async ({
       config,
-      taxonomyAdmin,
+      competencyTaxonomyAdmin,
     }) => {
       const created: number[] = [];
       try {
-        const id = await importAs(taxonomyAdmin, 'competency', 'competency', created);
-        await taxonomyAdmin.list.goto();
-        await expectTypeAndIcon(taxonomyAdmin, config, id, 'competency');
-        await checkA11y(taxonomyAdmin.page, { label: 'studio-taxonomy-list-types' });
+        const id = await importAs(competencyTaxonomyAdmin, 'competency', 'competency', created);
+        await competencyTaxonomyAdmin.list.goto();
+        await expectTypeAndIcon(competencyTaxonomyAdmin, config, id, 'competency');
+        await checkA11y(competencyTaxonomyAdmin.page, { label: 'studio-taxonomy-list-types' });
       } finally {
-        await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
+        await deleteTaxonomiesBestEffort(competencyTaxonomyAdmin.request, config, created);
       }
     });
 
     test('imports a taxonomy with the default type as Tags and shows the Tags icon', async ({
       config,
-      taxonomyAdmin,
+      competencyTaxonomyAdmin,
     }) => {
       const created: number[] = [];
       try {
-        const id = await importAs(taxonomyAdmin, 'default', undefined, created);
-        await taxonomyAdmin.list.goto();
-        await expectTypeAndIcon(taxonomyAdmin, config, id, 'tags');
-        await checkA11y(taxonomyAdmin.page, { label: 'studio-taxonomy-list-types' });
+        const id = await importAs(competencyTaxonomyAdmin, 'default', undefined, created);
+        await competencyTaxonomyAdmin.list.goto();
+        await expectTypeAndIcon(competencyTaxonomyAdmin, config, id, 'tags');
+        await checkA11y(competencyTaxonomyAdmin.page, { label: 'studio-taxonomy-list-types' });
       } finally {
-        await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
+        await deleteTaxonomiesBestEffort(competencyTaxonomyAdmin.request, config, created);
       }
     });
 
     test('shows exactly one type icon on every card of the list', async ({
       config,
-      taxonomyAdmin,
+      competencyTaxonomyAdmin,
     }) => {
-      const { list, request, page } = taxonomyAdmin;
+      const { list, request, page } = competencyTaxonomyAdmin;
       const created: number[] = [];
       try {
         const suffix = test.info().testId.slice(-6);
@@ -104,7 +104,7 @@ test.describe(
         // `expectTypeAndIcon` needs each seeded card on the list, so an empty list
         // cannot pass.
         for (const [id, type] of seeded) {
-          await expectTypeAndIcon(taxonomyAdmin, config, id, type);
+          await expectTypeAndIcon(competencyTaxonomyAdmin, config, id, type);
         }
         // Every card the page shows, seeded or not, holds exactly one type icon. The
         // cards and their icon counts come from one read, so the cards another run
@@ -122,9 +122,9 @@ test.describe(
 
     test('imports with the type last chosen when Competency is switched back to Tags', async ({
       config,
-      taxonomyAdmin,
+      competencyTaxonomyAdmin,
     }) => {
-      const { list } = taxonomyAdmin;
+      const { list } = competencyTaxonomyAdmin;
       const created: number[] = [];
       try {
         await list.goto();
@@ -138,21 +138,21 @@ test.describe(
         created.push(id);
 
         await list.goto();
-        await expectTypeAndIcon(taxonomyAdmin, config, id, 'tags');
+        await expectTypeAndIcon(competencyTaxonomyAdmin, config, id, 'tags');
       } finally {
-        await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
+        await deleteTaxonomiesBestEffort(competencyTaxonomyAdmin.request, config, created);
       }
     });
 
     test('shows the Tags icon for a taxonomy imported without a type', async ({
       config,
-      taxonomyAdmin,
+      competencyTaxonomyAdmin,
     }) => {
       const created: number[] = [];
       try {
         // No `taxonomyType`: the request carries no `taxonomy_type` field, so the
         // backend's own default is what is read back.
-        const taxonomy = await importTaxonomy(taxonomyAdmin.request, config, {
+        const taxonomy = await importTaxonomy(competencyTaxonomyAdmin.request, config, {
           name: `E2E ${getRunId()} type unset ${test.info().testId.slice(-6)}`,
           file: taxonomyImportFile(),
         });
@@ -160,18 +160,18 @@ test.describe(
         // The import response already carries the backend's default.
         expect(taxonomy.taxonomyType).toBe('tags');
 
-        await taxonomyAdmin.list.goto();
-        await expectTypeAndIcon(taxonomyAdmin, config, taxonomy.id, 'tags');
+        await competencyTaxonomyAdmin.list.goto();
+        await expectTypeAndIcon(competencyTaxonomyAdmin, config, taxonomy.id, 'tags');
       } finally {
-        await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
+        await deleteTaxonomiesBestEffort(competencyTaxonomyAdmin.request, config, created);
       }
     });
 
     test('keeps the Competency type when the taxonomy is re-imported', async ({
       config,
-      taxonomyAdmin,
+      competencyTaxonomyAdmin,
     }) => {
-      const { detail, request } = taxonomyAdmin;
+      const { detail, request } = competencyTaxonomyAdmin;
       const created: number[] = [];
       try {
         const taxonomy = await importTaxonomy(request, config, {

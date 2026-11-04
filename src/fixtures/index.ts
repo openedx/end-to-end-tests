@@ -885,6 +885,13 @@ export interface TestFixtures {
    */
   taxonomyAdmin: TaxonomyAdmin;
   /**
+   * {@link taxonomyAdmin} for cases tagged `@competencies`: fails when the
+   * content-tagging API serves no `taxonomy_type`, where a declaration against
+   * such a backend would otherwise surface as `storedType: undefined` after a
+   * poll timeout. Refuses an untagged test.
+   */
+  competencyTaxonomyAdmin: TaxonomyAdmin;
+  /**
    * The upload-agreement gating declared for this installation, with its
    * `UserAgreement` rows seeded (see {@link WorkerFixtures.seededUploadAgreements},
    * which does the work once per worker). Skips without a configured admin or
@@ -4087,7 +4094,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use({ taxonomy: seeded, org });
   },
 
-  taxonomyAdmin: async ({ browser, config }, use, testInfo) => {
+  taxonomyAdmin: async ({ browser, config }, use) => {
     const org = requireTaxonomyAdmin(config);
     const admin = config.credentials.admin as NonNullable<typeof config.credentials.admin>;
     // A fresh browser signed in through the UI, held under the admin lock for the
@@ -4102,17 +4109,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           emailOrUsername: admin.username,
           password: admin.password,
         });
-        if (testInfo.tags.includes('@competencies')) {
-          // A declaration against a backend that serves no `taxonomy_type` would
-          // otherwise surface as `storedType: undefined` after a poll timeout.
-          const { taxonomies } = await listTaxonomies(page.request, config);
-          if (taxonomies.length > 0 && taxonomies[0]?.taxonomyType === undefined) {
-            throw capabilityContradicted(
-              'competencies',
-              'the content-tagging API serves no `taxonomy_type`',
-            );
-          }
-        }
         await use({
           list: new TaxonomyListPage(page, config),
           detail: new TaxonomyDetailPage(page, config),
@@ -4124,6 +4120,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         await context.close();
       }
     });
+  },
+
+  competencyTaxonomyAdmin: async ({ taxonomyAdmin, config }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'competencies');
+    const { taxonomies } = await listTaxonomies(taxonomyAdmin.request, config);
+    if (taxonomies[0] !== undefined && taxonomies[0].taxonomyType === undefined) {
+      throw capabilityContradicted(
+        'competencies',
+        'the content-tagging API serves no `taxonomy_type`',
+      );
+    }
+    await use(taxonomyAdmin);
   },
 
   uploadAgreements: async ({ config, seededUploadAgreements }, use) => {
