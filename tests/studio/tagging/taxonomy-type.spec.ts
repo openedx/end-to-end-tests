@@ -230,19 +230,19 @@ async function importAs(
   created: number[],
 ): Promise<number> {
   await list.goto();
-  await list.openImportToPopulate(taxonomyImportFile());
-  await list.fillPopulate(`E2E ${getRunId()} type ${variant} ${test.info().testId.slice(-6)}`, {
+  const id = await list.importNewTaxonomy(
+    taxonomyImportFile(),
+    `E2E ${getRunId()} type ${variant} ${test.info().testId.slice(-6)}`,
     type,
-  });
-  const id = await list.submitImport();
+  );
   created.push(id);
   return id;
 }
 
 /**
  * The stored type (API) and the card's icons (list page) are read together in one
- * poll, on the list page the caller has already opened: the API reports the expected type for the taxonomy, and its card shows
- * exactly one type icon, of that type.
+ * poll, on the list page the caller has already opened: the API reports the expected
+ * type for the taxonomy, and its card shows exactly one type icon, of that type.
  */
 async function expectTypeAndIcon(
   { list, request }: TaxonomyAdmin,
