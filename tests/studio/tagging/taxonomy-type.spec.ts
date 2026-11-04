@@ -1,7 +1,4 @@
-import type { APIRequestContext } from '@playwright/test';
-
 import {
-  deleteTaxonomy,
   fetchTaxonomy,
   importTaxonomy,
   listTaxonomyTags,
@@ -12,6 +9,7 @@ import { TAXONOMY_SELECTORS, TIMEOUTS, getRunId, type AppConfig } from '../../..
 import { expect, test, type TaxonomyAdmin } from '../../../src/fixtures';
 import {
   IMPORT_EXTRA_TAG,
+  deleteTaxonomiesBestEffort,
   taxonomyImportFile,
   taxonomyImportFileExtended,
 } from '../../../src/steps';
@@ -75,7 +73,7 @@ test.describe(
         await expectTypeAndIcon(taxonomyAdmin, config, id, 'competency');
         await checkA11y(taxonomyAdmin.page, { label: 'studio-taxonomy-list-types' });
       } finally {
-        await cleanup(taxonomyAdmin.request, config, created);
+        await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
       }
     });
 
@@ -90,7 +88,7 @@ test.describe(
         await expectTypeAndIcon(taxonomyAdmin, config, id, 'tags');
         await checkA11y(taxonomyAdmin.page, { label: 'studio-taxonomy-list-types' });
       } finally {
-        await cleanup(taxonomyAdmin.request, config, created);
+        await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
       }
     });
 
@@ -129,7 +127,7 @@ test.describe(
 
         await checkA11y(page, { label: 'studio-taxonomy-list-types' });
       } finally {
-        await cleanup(request, config, created);
+        await deleteTaxonomiesBestEffort(request, config, created);
       }
     });
 
@@ -153,7 +151,7 @@ test.describe(
         await list.goto();
         await expectTypeAndIcon(taxonomyAdmin, config, id, 'tags');
       } finally {
-        await cleanup(taxonomyAdmin.request, config, created);
+        await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
       }
     });
 
@@ -176,7 +174,7 @@ test.describe(
         await taxonomyAdmin.list.goto();
         await expectTypeAndIcon(taxonomyAdmin, config, taxonomy.id, 'tags');
       } finally {
-        await cleanup(taxonomyAdmin.request, config, created);
+        await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
       }
     });
 
@@ -213,7 +211,7 @@ test.describe(
           )
           .toEqual({ storedType: 'competency', hasNewTag: true });
       } finally {
-        await cleanup(request, config, created);
+        await deleteTaxonomiesBestEffort(request, config, created);
       }
     });
   },
@@ -260,19 +258,4 @@ async function expectTypeAndIcon(
       { timeout: TIMEOUTS.action },
     )
     .toEqual({ storedType: type, iconsOfType: 1, iconsOnCard: 1 });
-}
-
-/** Best-effort teardown of taxonomies a test imported through the UI. */
-async function cleanup(
-  request: APIRequestContext,
-  config: AppConfig,
-  ids: readonly number[],
-): Promise<void> {
-  for (const id of ids) {
-    try {
-      await deleteTaxonomy(request, config, id);
-    } catch {
-      // A run-unique name means a leftover never collides with a later run.
-    }
-  }
 }

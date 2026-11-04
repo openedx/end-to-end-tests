@@ -1,14 +1,15 @@
 import { readFileSync } from 'node:fs';
 
-import type { APIRequestContext, Download } from '@playwright/test';
+import type { Download } from '@playwright/test';
 
-import { deleteTaxonomy, fetchTaxonomy, listTaxonomies, listTaxonomyTags } from '../../../src/api';
-import { TIMEOUTS, type AppConfig } from '../../../src/config';
+import { fetchTaxonomy, listTaxonomies, listTaxonomyTags } from '../../../src/api';
+import { TIMEOUTS } from '../../../src/config';
 import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 import {
   IMPORT_EXTRA_TAG,
+  deleteTaxonomiesBestEffort,
   TAG,
   taxonomyImportFile,
   taxonomyImportFileCsv,
@@ -63,7 +64,7 @@ test.describe(
 
           await checkA11y(taxonomyAdmin.page, { label: 'studio-taxonomy-list' });
         } finally {
-          await cleanup(taxonomyAdmin.request, config, created);
+          await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
         }
       },
     );
@@ -102,7 +103,7 @@ test.describe(
             )
             .toContain(id);
         } finally {
-          await cleanup(taxonomyAdmin.request, config, created);
+          await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
         }
       },
     );
@@ -129,7 +130,7 @@ test.describe(
           expect(json.suggestedFilename()).toMatch(/\.json$/);
           expect((await readFirstLine(json)).length).toBeGreaterThan(0);
         } finally {
-          await cleanup(taxonomyAdmin.request, config, created);
+          await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
         }
       },
     );
@@ -157,7 +158,7 @@ test.describe(
             )
             .toContain(IMPORT_EXTRA_TAG);
         } finally {
-          await cleanup(taxonomyAdmin.request, config, created);
+          await deleteTaxonomiesBestEffort(taxonomyAdmin.request, config, created);
         }
       },
     );
@@ -214,19 +215,4 @@ async function readFirstLine(download: Download): Promise<string> {
   const path = await download.path();
   if (path === null) return '';
   return readFileSync(path, 'utf8').split('\n')[0] ?? '';
-}
-
-/** Best-effort teardown of taxonomies a test imported through the UI. */
-async function cleanup(
-  request: APIRequestContext,
-  cfg: AppConfig,
-  ids: readonly number[],
-): Promise<void> {
-  for (const id of ids) {
-    try {
-      await deleteTaxonomy(request, cfg, id);
-    } catch {
-      // A run-unique name means a leftover never collides with a later run.
-    }
-  }
 }

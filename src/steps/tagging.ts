@@ -1,7 +1,13 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
-import { importTaxonomy, listTaxonomies, setTaxonomyOrgs, type Taxonomy } from '../api';
+import {
+  deleteTaxonomy,
+  importTaxonomy,
+  listTaxonomies,
+  setTaxonomyOrgs,
+  type Taxonomy,
+} from '../api';
 
 /**
  * The suite's own taxonomy tag values — our data, not localized platform copy,
@@ -121,4 +127,22 @@ export async function seedTaxonomy(
   });
   await setTaxonomyOrgs(request, config, taxonomy.id, [options.org]);
   return taxonomy;
+}
+
+/**
+ * Best-effort teardown of taxonomies a test imported through the UI. A failed
+ * delete is swallowed so one leftover never hides the test's own result.
+ */
+export async function deleteTaxonomiesBestEffort(
+  request: APIRequestContext,
+  config: AppConfig,
+  ids: readonly number[],
+): Promise<void> {
+  for (const id of ids) {
+    try {
+      await deleteTaxonomy(request, config, id);
+    } catch {
+      // A run-unique name means a leftover never collides with a later run.
+    }
+  }
 }
