@@ -18,9 +18,10 @@ export type MatrixGroup = keyof typeof MATRIX_GROUPS;
  * by being greyed, and which half is shown by which switch button is Paragon's
  * primary variant.
  *
- * The tab is not flag-gated, but `roles/?scope=` is permission-gated, so the
- * viewer must hold a role in the scope the console was opened on (§1.8.12 of
- * the plan): a library's admin, or a migrated course's `course_admin`.
+ * The tab is not flag-gated, but the role catalog (`roles/`) is
+ * permission-gated, so the viewer must hold a role in the scope the console was
+ * opened on (§1.8.12 of the plan): a library's admin, or a migrated course's
+ * `course_admin`.
  */
 export class PermissionsMatrix {
   private readonly s = ADMIN_CONSOLE_SELECTORS;

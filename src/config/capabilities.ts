@@ -219,7 +219,7 @@ export const CAPABILITIES = [
   // The console's **library permission matrix matches the API's own permission
   // list**, one row per permission. On `main` (openedx-authz 1.23) it does:
   // eleven rows for eleven library permissions, and each role column's ticks
-  // equal that role's `roles/?scope=` permission count. On `verawood` (1.21) the
+  // equal that role's permission count in the role catalog. On `verawood` (1.21) the
   // same tab renders fourteen rows — the inaccuracy
   // [wg-build-test-release#609](https://github.com/openedx/wg-build-test-release/issues/609)
   // reported against that release. So the matrix's **structure** is asserted
