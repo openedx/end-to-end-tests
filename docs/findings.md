@@ -113,6 +113,7 @@ measured, and issues are opened by hand from them.
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy detail breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` scan only |
+| `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` (a page load before each wizard run, a different file on re-import) |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `STUDIO-011` | `openedx/frontend-app-authoring` (`verawood`: an outline rename is saved twice) | open, no `fixme` — fixed on `master`; `rename()` in `course-outline.page.ts` retries opening the next field |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
@@ -1549,6 +1550,24 @@ review, and axe reports `list` (serious, 1 node): the breadcrumb's
 **Coverage impact:** open, no `fixme`. `list` is baselined on the
 `studio-taxonomy-detail` scan only, as the rules above are, so the page is gated
 against everything else.
+
+### `TAG-005` — the taxonomy import wizard's Continue does nothing when a used file is selected again
+
+**Where:** the authoring MFE's taxonomy import wizard, opened from the list page's
+Import button and from the detail page's re-import. Reported on the Master
+Sandbox and filed as
+[openedx-core#827](https://github.com/openedx/openedx-core/issues/827); the suite
+works around it on local Tutor `main` since 2026-10-29.
+
+**What happens:** after a wizard is closed without finishing, opening it again in
+the same page session and selecting the same file leaves Continue doing nothing.
+The button looks enabled, no request is sent, and only a page reload restores it.
+
+**Coverage impact:** open, no `fixme`. Every wizard run in
+`tests/studio/tagging/taxonomy-type.spec.ts` starts from a fresh page load
+(`list.goto()` or `detail.goto()`), and TT-07's re-import uses
+`taxonomyImportFileExtended()` so the file differs. The workaround comes out once
+#827 is fixed.
 
 ### The upload-agreement bump raced its own acceptance (suite-side)
 

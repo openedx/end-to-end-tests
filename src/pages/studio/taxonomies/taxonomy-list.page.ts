@@ -1,7 +1,7 @@
 import type { Download, Locator, Page } from '@playwright/test';
 
 import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
-import { TAGGING_BASE } from '../../../api';
+import { TAGGING_BASE, type ImportableTaxonomyType } from '../../../api';
 import { authoringMfeBaseFromHome } from '../authoring-base';
 
 /** A file the import wizard uploads (Playwright's `setInputFiles` payload shape). */
@@ -53,12 +53,67 @@ export class TaxonomyListPage {
     }
   }
 
+  /** Every taxonomy card on the list page. */
+  get cards(): Locator {
+    return this.page.locator(this.s.cardAny);
+  }
+
+  /** A taxonomy's card on the list page, by id. */
+  card(id: number): Locator {
+    return this.page.locator(this.s.card(id));
+  }
+
+  /** The icons of the given type on one taxonomy's card. */
+  cardTypeIcon(id: number, type: ImportableTaxonomyType): Locator {
+    return this.card(id).locator(this.s.typeIcon(type));
+  }
+
+  /** Every type icon inside one taxonomy's card (a card holds exactly one). */
+  cardTypeIcons(id: number): Locator {
+    return this.card(id).locator(this.s.anyTypeIcon);
+  }
+
   /**
-   * Imports a new taxonomy from `file`, naming it `name`. Opens the wizard, drops
-   * the file, advances upload → populate, types the name and imports. Returns the
-   * created taxonomy's id from the `POST import/` response.
+   * Reads every card on the page in one browser call: its link (`href`) and how
+   * many type icons it holds. One read, so cards that another test adds or
+   * deletes meanwhile cannot make the card list and the icon counts disagree.
    */
-  async importNewTaxonomy(file: ImportFile, name: string): Promise<number> {
+  async cardIconCounts(): Promise<{ card: string; icons: number }[]> {
+    return this.cards.evaluateAll(
+      (cards, iconSelector) =>
+        cards.map((card) => ({
+          card: card.getAttribute('href') ?? '',
+          icons: card.querySelectorAll(iconSelector).length,
+        })),
+      this.s.anyTypeIcon,
+    );
+  }
+
+  /** The populate step's Taxonomy Type `<select>`; the spec reads its value and options. */
+  get typeSelect(): Locator {
+    return this.page.locator(this.s.typeSelect);
+  }
+
+  /** The populate step's Taxonomy Type `<option>` elements. */
+  get typeOptions(): Locator {
+    return this.typeSelect.locator('option');
+  }
+
+  /** The populate step's name input. */
+  private get populateNameInput(): Locator {
+    return this.page.locator(this.s.populateNameInput);
+  }
+
+  /** The populate step's description textarea. */
+  private get populateDescInput(): Locator {
+    return this.page.locator(this.s.populateDescInput);
+  }
+
+  /**
+   * Opens the import wizard, drops `file` and advances upload → populate. Leaves
+   * the wizard on the populate step.
+   */
+  async openImportToPopulate(file: ImportFile): Promise<void> {
     await this.importButton.click();
     await this.page.locator(this.s.uploadStep).waitFor();
     await this.page.locator(this.s.dropzoneInput).setInputFiles({
@@ -70,9 +125,32 @@ export class TaxonomyListPage {
     // Upload step's advance button (populateData) has no test id: the footer primary.
     await this.page.locator(this.s.wizardPrimaryButton).click();
     await this.page.locator(this.s.populateStep).waitFor();
-    await this.page.locator(this.s.populateNameInput).fill(name);
+  }
+
+  /**
+   * Fills the populate step: name, description and, when given, the Taxonomy Type
+   * (chosen after the description, the order the fields appear in).
+   */
+  async fillPopulate(
+    name: string,
+    options: { readonly description?: string; readonly type?: ImportableTaxonomyType } = {},
+  ): Promise<void> {
+    await this.populateNameInput.fill(name);
     // The Import button stays disabled until both name and description are set.
-    await this.page.locator(this.s.populateDescInput).fill('E2E suite taxonomy');
+    await this.populateDescInput.fill(options.description ?? 'E2E suite taxonomy');
+    if (options.type !== undefined) await this.chooseType(options.type);
+  }
+
+  /** Picks the Taxonomy Type on the populate step; the last choice is what the import sends. */
+  async chooseType(type: ImportableTaxonomyType): Promise<void> {
+    await this.typeSelect.selectOption(type);
+  }
+
+  /**
+   * Clicks Import on the populate step and returns the created taxonomy's id from
+   * the `POST import/` response.
+   */
+  async submitImport(): Promise<number> {
     const [response] = await Promise.all([
       this.page.waitForResponse(
         (r) =>
@@ -86,6 +164,21 @@ export class TaxonomyListPage {
     }
     const body = (await response.json()) as { id: number };
     return body.id;
+  }
+
+  /**
+   * Imports a new taxonomy from `file`, naming it `name` and, when `type` is
+   * given, choosing that Taxonomy Type. Returns the created taxonomy's id from the
+   * `POST import/` response.
+   */
+  async importNewTaxonomy(
+    file: ImportFile,
+    name: string,
+    type?: ImportableTaxonomyType,
+  ): Promise<number> {
+    await this.openImportToPopulate(file);
+    await this.fillPopulate(name, { type });
+    return this.submitImport();
   }
 
   /** Downloads an import template, returning the browser download event. */

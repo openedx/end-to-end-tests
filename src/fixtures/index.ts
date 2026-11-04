@@ -189,6 +189,7 @@ import {
   listLibraryBlocks,
   deleteTaxonomy,
   importTaxonomy,
+  listTaxonomies,
   setTaxonomyOrgs,
   type ContentLibrary,
   type LibraryAccessLevel,
@@ -886,6 +887,13 @@ export interface TestFixtures {
    * (shared session), for the content-tagging API oracles and cleanup.
    */
   taxonomyAdmin: TaxonomyAdmin;
+  /**
+   * {@link taxonomyAdmin} for cases tagged `@competencies`: fails when the
+   * content-tagging API serves no `taxonomy_type`, where a declaration against
+   * such a backend would otherwise surface as `storedType: undefined` after a
+   * poll timeout. Refuses an untagged test.
+   */
+  competencyTaxonomyAdmin: TaxonomyAdmin;
   /**
    * The upload-agreement gating declared for this installation, with its
    * `UserAgreement` rows seeded (see {@link WorkerFixtures.seededUploadAgreements},
@@ -4117,6 +4125,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         await context.close();
       }
     });
+  },
+
+  competencyTaxonomyAdmin: async ({ taxonomyAdmin, config }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'competencies');
+    const { taxonomies } = await listTaxonomies(taxonomyAdmin.request, config);
+    if (taxonomies[0] !== undefined && taxonomies[0].taxonomyType === undefined) {
+      throw capabilityContradicted(
+        'competencies',
+        'the content-tagging API serves no `taxonomy_type`',
+      );
+    }
+    await use(taxonomyAdmin);
   },
 
   uploadAgreements: async ({ config, seededUploadAgreements }, use) => {

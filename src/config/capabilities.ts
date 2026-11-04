@@ -106,6 +106,15 @@ export const CAPABILITIES = [
   // a course's creator at creation, so the worker author tags only courses it
   // created this run.
   'taxonomies',
+  // Competency taxonomies: an import chooses a taxonomy type (Tags or
+  // Competency) and each card on the taxonomy list shows its type's icon. Needs
+  // the openedx-core `taxonomy_type` support and frontend-app-authoring #3208
+  // (the import wizard's type select) and #3255 (the card icon), plus
+  // openedx-platform #39086 / #39110 (the taxonomy list and detail responses
+  // serve `taxonomy_type`; without them every card shows the Tags icon). Present
+  // on `main` only: `verawood` pins openedx-core 1.0.3, which predates the field,
+  // and has none of these changes. Requires `taxonomies` (`CAPABILITY_REQUIRES`).
+  'competencies',
   // The Verawood authoring sidebar: the Info / Add / Align / Help rail on the
   // course-outline page and the Info / Add / Align rail on the unit page
   // (`src/generic/sidebar`, the `CourseAuthoring*SidebarSlot`s). Present on
@@ -410,6 +419,7 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   'analytics-pii': 'analytics',
   'analytics-in-context-cards': 'analytics-in-context',
   'analytics-staff-video-counts': 'analytics',
+  competencies: 'taxonomies',
 };
 
 export function isCapability(value: string): value is Capability {

@@ -410,6 +410,7 @@ export {
   setTaxonomyOrgs,
   tagCountFor,
   type AppliedTag,
+  type ImportableTaxonomyType,
   type ImportTaxonomyOptions,
   type ListTaxonomiesOptions,
   type ObjectTaxonomyTags,

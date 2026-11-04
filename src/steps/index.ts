@@ -67,6 +67,7 @@ export { pollUntil, type PollOutcome } from './poll';
 export {
   TAG,
   IMPORT_EXTRA_TAG,
+  deleteTaxonomiesBestEffort,
   seedTaxonomy,
   taxonomyImportFile,
   taxonomyImportFileCsv,
