@@ -24,9 +24,10 @@ import {
  * The admin drives the import wizard under the admin lock ({@link taxonomyAdmin});
  * the content-tagging API decides the stored type, and the list page's card is read
  * next to it in one `expect.poll`. Every wizard run starts from `list.goto()`: after
- * a wizard is closed, selecting the same file again in the same page session does
- * not enable Continue (https://github.com/openedx/openedx-core/issues/827), so a
- * reload separates the runs. Gated on `competencies`, which only `main` declares.
+ * a wizard is closed, selecting the same file again in the same page session leaves
+ * Continue doing nothing (`TAG-005`,
+ * https://github.com/openedx/openedx-core/issues/827), so a reload separates the
+ * runs. Gated on `competencies`, which only `main` declares.
  */
 test.describe(
   'Taxonomy type',
@@ -194,7 +195,7 @@ test.describe(
         created.push(taxonomy.id);
 
         // A fresh page load, and a file with different content, before the wizard:
-        // https://github.com/openedx/openedx-core/issues/827
+        // `TAG-005`: https://github.com/openedx/openedx-core/issues/827
         await detail.goto(taxonomy.id);
         // `TAG-004`: the breadcrumb's `ol.list-inline` holds non-`<li>` children.
         await checkA11y(page, { label: 'studio-taxonomy-detail', additionalBaseline: ['list'] });
