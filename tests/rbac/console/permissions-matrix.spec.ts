@@ -12,7 +12,7 @@ import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
  * Nothing here reads a label: the columns, the functional-area headings and the
  * per-cell "Permission granted in <Role> role" are all localized copy
  * (`RBAC-001`). The matrix's *content* is checked against the platform instead:
- * `roles/?scope=<library>` publishes each library role's permission list, and
+ * the library role catalog (`roles/`) publishes each library role's permission list, and
  * the Libraries half renders exactly one row per permission, so each column's
  * granted cells must equal that role's permission count. The Courses half is
  * curated rather than one row per permission — 32 rows against `course_admin`'s
@@ -20,10 +20,11 @@ import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
  * so it is asserted structurally and its counts are recorded in the plan
  * instead of encoded here.
  *
- * The tab is not flag-gated, but `roles/?scope=` is permission-gated, so the
- * viewer must hold a role in the scope the console was opened on (§1.8.12): the
- * worker author is its library's `library_admin`, which is why these run on a
- * library scope.
+ * The tab is not flag-gated, but the role catalog is permission-gated: the
+ * viewer must hold a role in the scope the console was opened on (§1.8.12;
+ * openedx-authz 2.x wants the scope type's view-team permission in any scope).
+ * The worker author is its library's `library_admin`, which satisfies both, and
+ * is why these run on a library scope.
  */
 test.describe(
   'Roles and Permissions console — permission matrix',
@@ -181,7 +182,7 @@ test.describe(
         await matrix.open();
         await matrix.showGroup('libraries');
 
-        // The Libraries half is a rendering of `roles/?scope=`: one row per
+        // The Libraries half is a rendering of the role catalog: one row per
         // library permission, and each role column's ticks are exactly the
         // permissions that role holds. (`verawood` renders three rows more than
         // the API advertises — wg#609 — which is why this is capability-gated.)

@@ -53,14 +53,11 @@ test.describe('AuthZ API bootstrap', { tag: ['@regression', ...RBAC_TAGS] }, () 
     expect(libraryUser?.permissions).not.toContain('content_libraries.manage_library_team');
     expect(libraryUser?.permissions).toContain('content_libraries.view_library');
 
-    // Course scope is refused, and that is the contract, not a defect: the
-    // endpoint answers for a scope the caller holds an authz role in, and with
-    // `authz.enable_course_authoring` off for this course nobody holds one —
-    // not even the author who created it. The course vocabulary is asserted
-    // below, as the superuser.
-    await expect(listRoles(page.request, config, authoredCourse.courseKey)).rejects.toMatchObject({
-      status: 403,
-    });
+    // The course vocabulary is asserted below, as the superuser, and its
+    // refusal to a user with no course role in the last test: from
+    // openedx-authz 2.0 a course role in *any* scope opens the course catalog,
+    // and this worker author holds one wherever a transition spec migrated one
+    // of its courses.
 
     // The three listings the console's filters are built from, answered to the
     // account itself: the scopes it holds a role in (its library among them),
@@ -90,10 +87,16 @@ test.describe('AuthZ API bootstrap', { tag: ['@regression', ...RBAC_TAGS] }, () 
   }) => {
     // A superuser is not scope-limited, so this is where the course roles can
     // be read on a target whose courses are still on legacy permissions.
-    // Permission *sets* differ by release (1.23 added four `courses.view_*`),
-    // so the assertion is the role list plus one permission both carry.
+    // Which roles are listed differs by release: 1.x lists all seven, 2.x only
+    // those its schema does not hide (2.2: `course_admin` and `course_staff`).
+    // So is each permission *set* (1.23 added four `courses.view_*`), so the
+    // assertion is a known role list with the admin and staff pair in it, plus
+    // one permission both carry.
     const courseRoles = await listRoles(adminApi, config, authoredCourse.courseKey);
-    expect(courseRoles.map((role) => role.role).sort()).toEqual([...COURSE_ROLES].sort());
+    const listed = courseRoles.map((role) => role.role);
+    const known: readonly string[] = COURSE_ROLES;
+    expect(listed.filter((role) => !known.includes(role))).toEqual([]);
+    expect(listed).toEqual(expect.arrayContaining(['course_admin', 'course_staff']));
     const courseAdmin = courseRoles.find((role) => role.role === 'course_admin');
     const courseStaff = courseRoles.find((role) => role.role === 'course_staff');
     expect(courseAdmin?.permissions).toContain('courses.manage_course_team');
@@ -192,8 +195,9 @@ test.describe('AuthZ API bootstrap', { tag: ['@regression', ...RBAC_TAGS] }, () 
     ).toBe(false);
   });
 
-  test('a user with no role in a scope is refused its team list', async ({
+  test('a user with no role is refused the team list and the role catalog', async ({
     config,
+    authoredCourse,
     authoringLibrary,
     studioAuthorSession,
     studioColleague,
@@ -204,6 +208,15 @@ test.describe('AuthZ API bootstrap', { tag: ['@regression', ...RBAC_TAGS] }, () 
     await expect(
       listRoleUsers(outsider.request, config, authoringLibrary.id),
     ).rejects.toMatchObject({ status: 403 });
+
+    // Neither role catalog is open to it: 1.x wants the view permission in the
+    // scope asked about, 2.x the scope type's view-team permission in any scope,
+    // and a fresh colleague holds neither.
+    for (const scope of [authoringLibrary.id, authoredCourse.courseKey]) {
+      await expect(listRoles(outsider.request, config, scope)).rejects.toMatchObject({
+        status: 403,
+      });
+    }
 
     // The refusal is scoped, not global: the same context reads the flag
     // document, which carries no permission decorator.

@@ -14,7 +14,9 @@ import { nonJsonPreview } from './studio-origin';
  * Measured on Tutor `main` (openedx-authz 1.23.0, 2026-09-17, Epic 12 plan §1.2
  * and §1.8); `release/verawood` pins 1.21.0, which answers the same routes with
  * four fewer course permissions and an unscoped `orgs/` list — no spec hard-codes
- * a permission list, so both are served by this one client.
+ * a permission list, so both are served by this one client. `main` moved to
+ * openedx-authz 2.x on 2026-11-03 (edx-platform#39335), which serves the role
+ * catalog by scope type ({@link listRoles}); the other routes answer as before.
  *
  * Three facts shape it:
  *
@@ -29,7 +31,12 @@ import { nonJsonPreview } from './studio-origin';
  */
 export const AUTHZ_BASE = '/api/authz/v1';
 
-/** Course-scope roles, as `GET roles/?scope=<course key>` lists them. */
+/**
+ * Course-scope roles. openedx-authz 1.x lists all seven in the `course-v1`
+ * role catalog; from 2.0 the catalog leaves out the ones its schema marks
+ * hidden (2.2 lists only `course_admin` and `course_staff`), so check a listing
+ * against this set rather than for equality with it.
+ */
 export const COURSE_ROLES = [
   'course_admin',
   'course_staff',
@@ -41,7 +48,7 @@ export const COURSE_ROLES = [
 ] as const;
 export type CourseRole = (typeof COURSE_ROLES)[number];
 
-/** Library-scope roles, as `GET roles/?scope=<library key>` lists them. */
+/** Library-scope roles, as the `lib` role catalog lists them. */
 export const LIBRARY_ROLES = [
   'library_admin',
   'library_author',
@@ -138,22 +145,31 @@ const pagingParams = (query: AuthzListQuery): Record<string, string | number | u
 export interface AuthzRoleDefinition {
   readonly role: string;
   readonly permissions: readonly string[];
-  readonly userCount: number;
 }
 
 interface RawRoleDefinition {
   readonly role: string;
   readonly permissions?: readonly string[];
-  readonly user_count?: number;
 }
 
+/** The scope type of a scope key — its namespace: `lib` or `course-v1`. */
+export const authzScopeType = (key: string): string => key.split(':', 1)[0]!;
+
 /**
- * The roles available in a scope, with their permission lists — the data behind
- * the console's permission matrix, and the reason no spec hard-codes a
+ * The roles available in a scope's type, with their permission lists — the data
+ * behind the console's permission matrix, and the reason no spec hard-codes a
  * permission set: releases differ (1.23 added four `courses.view_*`).
  *
- * `scope` is required by the API; a course key or a library key decides which
- * vocabulary comes back.
+ * The two major versions query the catalog differently, and the request names
+ * both parameters, each version ignoring the other's:
+ *
+ * - **1.x** reads `scope=<key>` and needs the view permission in that scope.
+ * - **2.x** (openedx-authz#510) reads only `scope_types=<lib|course-v1>`,
+ *   answers 400 without it, and needs `content_libraries.view_library_team` /
+ *   `courses.view_course_team` held in **any** scope. Its catalog lists only the
+ *   roles its schema does not hide and drops `user_count`.
+ *
+ * Superusers and staff pass the permission check in both.
  */
 export async function listRoles(
   request: APIRequestContext,
@@ -163,13 +179,12 @@ export async function listRoles(
   const page = await authzGet<AuthzPage<RawRoleDefinition>>(
     request,
     config,
-    `roles/?scope=${authzScopeKey(scope)}&page_size=100`,
+    `roles/?scope_types=${authzScopeType(scope)}&scope=${authzScopeKey(scope)}&page_size=100`,
     `Listing authz roles in ${scope}`,
   );
   return page.results.map((raw) => ({
     role: raw.role,
     permissions: raw.permissions ?? [],
-    userCount: raw.user_count ?? 0,
   }));
 }
 
