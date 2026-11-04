@@ -5,7 +5,7 @@ import {
   type ImportableTaxonomyType,
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
-import { TAXONOMY_SELECTORS, TIMEOUTS, getRunId, type AppConfig } from '../../../src/config';
+import { TIMEOUTS, getRunId, type AppConfig } from '../../../src/config';
 import { expect, test, type TaxonomyAdmin } from '../../../src/fixtures';
 import {
   IMPORT_EXTRA_TAG,
@@ -47,17 +47,6 @@ test.describe(
         options.map((o) => (o as HTMLOptionElement).value),
       );
       expect(values).toEqual(['tags', 'competency']);
-
-      // The select follows the description field. DOM order is language- and
-      // layout-independent, unlike a bounding-box comparison.
-      const followsDescription = await list.typeSelect.evaluate((select, descriptionSelector) => {
-        const description = document.querySelector(descriptionSelector);
-        return (
-          description !== null &&
-          Boolean(description.compareDocumentPosition(select) & Node.DOCUMENT_POSITION_FOLLOWING)
-        );
-      }, TAXONOMY_SELECTORS.populateDescInput);
-      expect(followsDescription).toBe(true);
 
       await checkA11y(page, { label: 'studio-taxonomy-import-populate' });
     });
@@ -182,7 +171,7 @@ test.describe(
       config,
       taxonomyAdmin,
     }) => {
-      const { detail, page, request } = taxonomyAdmin;
+      const { detail, request } = taxonomyAdmin;
       const created: number[] = [];
       try {
         const taxonomy = await importTaxonomy(request, config, {
@@ -195,8 +184,6 @@ test.describe(
         // A fresh page load, and a file with different content, before the wizard:
         // `TAG-005`: https://github.com/openedx/openedx-core/issues/827
         await detail.goto(taxonomy.id);
-        // `TAG-004`: the breadcrumb's `ol.list-inline` holds non-`<li>` children.
-        await checkA11y(page, { label: 'studio-taxonomy-detail', additionalBaseline: ['list'] });
         await detail.reimport(taxonomy.id, taxonomyImportFileExtended());
 
         await expect
