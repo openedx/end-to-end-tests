@@ -131,7 +131,7 @@ test.describe(
 
     test(
       "staff's submission notification opens the ORA staff grader",
-      { annotation: testId('TC-00470') },
+      { tag: '@mfe-ora-grading', annotation: testId('TC-00470') },
       async ({
         page,
         config,

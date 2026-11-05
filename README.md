@@ -73,6 +73,7 @@ The essentials:
 | `AUTHORING_MFE_URL`                 | —        | Authoring MFE URL; unset ⇒ `${APPS_BASE_URL}/authoring`                      |
 | `INSTRUCTOR_DASHBOARD_MFE_URL`      | —        | Instructor MFE URL; unset ⇒ `${APPS_BASE_URL}/instructor-dashboard`          |
 | `DISCUSSIONS_MFE_URL`               | —        | Discussions MFE URL; unset ⇒ `${APPS_BASE_URL}/discussions`                  |
+| `NOTIFICATION_TRAY_HOST`            | —        | Notification tray page: `learner-dashboard` (default) or `course-home`       |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | —        | Admin/staff account (set both or neither); also grants `author`              |
 | `ORG`                               | —        | Organization short code, e.g. `OpenedX`                                      |
 | `COURSE_KEY`                        | —        | Course the course-completion specs work through; unset ⇒ they skip           |
