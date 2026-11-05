@@ -13,11 +13,14 @@ which may have failed or been skipped) plus what the gather job wrote
   the fields the workflow owns rather than the model: `run`, `baseline`,
   `upstream_changes`, `fingerprint`, `rerun`, `status`, `problems`.
   The model's own file is kept as out/triage.raw.json.
-- out/issue.md — the issue body, secret-shaped strings redacted and capped.
+- out/issue.md — the issue body, secret-shaped strings redacted, bare
+  @mentions put in code spans, capped.
 - $GITHUB_OUTPUT — verdict, rerun, fingerprint, status.
 
-The verdict and the re-run decision are recomputed from the per-test
-categories here, so neither rests on the model's say-so alone. Standard
+The verdict is recomputed from the per-test categories; the re-run decision
+also requires every failing test in summary.txt to be listed as spurious with
+high confidence; the fingerprint comes from summary.txt alone. None of them
+rests on the model's say-so or its spelling. Standard
 library only; never exits non-zero for a bad diagnosis, only for a broken
 gather (no context.json).
 """
@@ -44,18 +47,41 @@ SECRETS = [
     re.compile(r'(?i)\b(sessionid|csrftoken|edx-jwt-cookie[\w-]*|[\w-]*sessionid)=[^\s;"\']+'),
     re.compile(r'(?i)(password|passwd|secret|token|api[_-]?key)(["\']?\s*[:=]\s*["\']?)[^\s"\',;]{4,}'),
     re.compile(r'https?://[^/\s:@]+:[^/\s@]+@'),
-    re.compile(r'\b[\w.+-]+@[\w-]+\.[\w.-]+\b'),
+    # Ends in a letters-only TLD, so `claude-code@2.1.285` and `image@sha256:…` survive.
+    re.compile(r'\b[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}\b'),
 ]
 
 
 def redact(text: str) -> str:
+    """Secret-shaped strings → [redacted]. Safe for any text, JSON fields included."""
     for pattern in SECRETS:
         if pattern.groups >= 2:
             text = pattern.sub(lambda m: f'{m.group(1)}{m.group(2)}[redacted]', text)
         else:
             text = pattern.sub('[redacted]', text)
-    # @mentions would notify people; break them without changing how they read.
-    return re.sub(r'(?<![\w`])@(?=[A-Za-z0-9])', '@​', text)
+    return text
+
+
+# Fenced blocks and inline code spans, where GitHub never turns @name into a
+# mention, so they are left exactly as written.
+CODE = re.compile(r'(^[ \t]*(`{3,}|~{3,}).*?(?:^[ \t]*\2[ \t]*$|\Z)|(`+)[^\n]*?\3)', re.MULTILINE | re.DOTALL)
+MENTION = re.compile(r'(?<![\w`/.@])@[A-Za-z0-9][\w-]*(?:/[\w-]+(?:\.[\w-]+)*)?')
+
+
+def break_mentions(markdown: str) -> str:
+    """Put a bare @name or @org/team outside code into a code span, so the issue
+    notifies nobody and `--grep @rbac-global` still copies as typed."""
+    out, pos = [], 0
+    for m in CODE.finditer(markdown):
+        out.append(MENTION.sub(lambda t: f'`{t.group(0)}`', markdown[pos:m.start()]))
+        out.append(m.group(0))
+        pos = m.end()
+    out.append(MENTION.sub(lambda t: f'`{t.group(0)}`', markdown[pos:]))
+    return ''.join(out)
+
+
+def markdown_safe(text: str) -> str:
+    return break_mentions(redact(text))
 
 
 def redact_all(value):
@@ -127,10 +153,19 @@ def derive_verdict(failures: list[dict], fallback: str) -> str:
     return real.pop() if len(real) == 1 else 'mixed'
 
 
-def fingerprint(failures: list[dict]) -> str:
-    """Stable id for 'the same breakage': the failing tests and their categories."""
-    lines = sorted({f"{f['test']}|{f['category']}" for f in failures})
-    return hashlib.sha256('\n'.join(lines).encode()).hexdigest()[:16]
+def fingerprint(root: Path, summary_tests: list[str], run_id) -> str:
+    """Stable id for 'the same breakage', taken from the run, never the model:
+    the failing tests in summary.txt; when no test failed (a shard died before
+    the suite ran), the failed jobs' names; else the run id, which matches
+    nothing later."""
+    keys = sorted(set(summary_tests))
+    if not keys:
+        run_json = root / 'failed' / 'run.json'
+        jobs = json.loads(run_json.read_text()).get('jobs', []) if run_json.exists() else []
+        keys = sorted({f'job:{j["name"]}' for j in jobs if j.get('conclusion') in ('failure', 'cancelled', 'timed_out')})
+    if not keys:
+        return f'run-{run_id}'
+    return hashlib.sha256('\n'.join(keys).encode()).hexdigest()[:16]
 
 
 SUMMARY_FAILURE = re.compile(r'^\s+\[unexpected\] (.+?) › (.+?)  \(.*?, \d+ attempt')
@@ -225,6 +260,16 @@ def main() -> None:
         problems.append(f'verdict {diagnosis["verdict"]!r} does not follow from the per-test categories; using {derived!r}')
         diagnosis['verdict'] = derived
 
+    # The run's own list of failing tests, not the model's: a re-run needs
+    # every one of them judged spurious with high confidence.
+    summary_tests = [f['test'] for f in failures_from_summary(summary)]
+    spurious = {f['test'] for f in failures if f['category'] == 'spurious' and f['confidence'] == 'high'}
+    listed = {f['test'] for f in failures}
+    omitted = [t for t in summary_tests if t not in listed]
+    if status == 'ok' and omitted:
+        problems.append(f'the diagnosis does not list {len(omitted)} of the {len(summary_tests)} failing tests: '
+                        + '; '.join(omitted[:5]))
+
     attempt = int(context['failed'].get('attempt') or 1)
     rerun = (
         status == 'ok'
@@ -232,7 +277,8 @@ def main() -> None:
         and diagnosis['rerun_recommended'] is True
         and diagnosis['verdict'] == 'spurious'
         and diagnosis['confidence'] == 'high'
-        and bool(failures)
+        and bool(summary_tests)
+        and set(summary_tests) <= spurious
         and all(f['category'] == 'spurious' and f['confidence'] == 'high' for f in failures)
     )
 
@@ -242,7 +288,7 @@ def main() -> None:
         'run': context['failed'],
         'baseline': context.get('baseline'),
         'upstream_changes': prov.get('changed', []) if isinstance(prov, dict) else [],
-        'fingerprint': fingerprint(failures) if failures else f'run-{context["failed"]["run_id"]}',
+        'fingerprint': fingerprint(root, summary_tests, context['failed']['run_id']),
         'rerun': rerun,
     })
     session = out / 'session.json'
@@ -254,7 +300,7 @@ def main() -> None:
         except json.JSONDecodeError:
             pass
 
-    issue = redact(issue)
+    issue = markdown_safe(issue)
     if len(issue) > ISSUE_LIMIT:
         issue = issue[:ISSUE_LIMIT] + '\n\n_(truncated)_\n'
     (out / 'issue.md').write_text(issue)

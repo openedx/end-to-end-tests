@@ -168,7 +168,7 @@ def fetch(args: argparse.Namespace) -> None:
                 by_name[a['name']] = a
         chosen = list(by_name.values())
     kinds = set(args.only.split(',')) if args.only else None
-    kind_of = lambda name: name.split('-')[0] if name.split('-')[0] in ('tutor', 'suite', 'playwright', 'blob') else name
+    kind_of = lambda name: name.split('-')[0] if name.split('-')[0] in ('tutor', 'suite', 'playwright', 'blob', 'provenance') else name
 
     for a in sorted(chosen, key=lambda a: a['name']):
         # Per-shard blob reports are what the merged playwright-report/suite-reports
@@ -507,6 +507,12 @@ def github_url(url: str | None) -> str | None:
     return f'https://github.com/{m.group(1)}/{m.group(2)}' if m else None
 
 
+def provenance_files(root: Path) -> list[Path]:
+    """Each shard's provenance.json: its own `provenance-*` artifact, or, in runs
+    from before that existed, inside the shard's `tutor-logs-*` artifact."""
+    return sorted(root.glob('provenance-*/provenance.json')) or sorted(root.glob('tutor-logs*/provenance.json'))
+
+
 def run_components(root: Path) -> dict[str, dict]:
     """Component name → {'value', 'repository', 'source'} for one fetched run.
 
@@ -525,7 +531,7 @@ def run_components(root: Path) -> dict[str, dict]:
             c['values'].append(value)
         c['repository'] = c['repository'] or repository
 
-    for path in sorted(root.glob('tutor-logs*/provenance.json')):
+    for path in provenance_files(root):
         p = json.loads(path.read_text())
         suite = p.get('suite') or {}
         repo = suite.get('repository')
@@ -567,16 +573,24 @@ def provenance(args: argparse.Namespace) -> None:
             print(json.dumps(current, indent=2))
             return
         if not current:
-            print('no provenance.json in any tutor-logs* artifact and no "Resolved" lines in job logs')
+            print('no provenance.json in any provenance-*/tutor-logs-* artifact and no "Resolved" lines in job logs')
         for name, c in current.items():
             print(f'  {name:<48} {short(c["value"]):<26} {c["repository"] or ""}  [{c["source"]}]')
         return
 
     base = run_components(Path(args.baseline))
-    changes = []
+    # A part one run lists and the other lacks is a real addition or removal
+    # only when both runs recorded provenance.json. Otherwise the other run
+    # just never recorded it (its artifacts expired, or it predates
+    # provenance.json), so the two cannot be compared.
+    both_recorded = bool(provenance_files(Path(args.dir))) and bool(provenance_files(Path(args.baseline)))
+    changes, not_comparable = [], []
     for name in sorted(set(current) | set(base)):
         a, b = base.get(name), current.get(name)
         if a and b and a['value'] == b['value']:
+            continue
+        if not (a and b) and not both_recorded:
+            not_comparable.append(name)
             continue
         repo = (b or a)['repository']
         compare = None
@@ -591,9 +605,9 @@ def provenance(args: argparse.Namespace) -> None:
         })
     unchanged = sorted((set(current) & set(base)) - {c['component'] for c in changes})
     if args.json:
-        print(json.dumps({'changed': changes, 'unchanged': unchanged}, indent=2))
+        print(json.dumps({'changed': changes, 'unchanged': unchanged, 'not_comparable': not_comparable}, indent=2))
         return
-    print(f'{len(changes)} changed, {len(unchanged)} unchanged since the baseline')
+    print(f'{len(changes)} changed, {len(unchanged)} unchanged, {len(not_comparable)} not comparable since the baseline')
     for c in changes:
         frm = short(c['from']) if c['from'] else '(absent)'
         to = short(c['to']) if c['to'] else '(absent)'
@@ -602,6 +616,8 @@ def provenance(args: argparse.Namespace) -> None:
             print(f'      {c["compare_url"]}')
     if unchanged:
         print('unchanged: ' + ', '.join(unchanged))
+    if not_comparable:
+        print('not comparable (recorded by only one of the runs): ' + ', '.join(not_comparable))
 
 
 # ------------------------------------------------------------------------- main
@@ -615,7 +631,7 @@ def main() -> None:
     f.add_argument('ref', help='run URL, run id, PR URL or PR number')
     f.add_argument('--dest', help='directory to write into (default $TMPDIR/ci-run-<id>)')
     f.add_argument('--repo', default=DEFAULT_REPO)
-    f.add_argument('--only', help='comma list of kinds: playwright,suite,tutor,blob (blob only when named)')
+    f.add_argument('--only', help='comma list of kinds: playwright,suite,tutor,provenance,blob (blob only when named)')
     f.add_argument('--all-attempts', action='store_true', help='keep every attempt\'s copy of each artifact')
     f.add_argument('--attempt', type=int, help='only this attempt\'s jobs and artifacts (default: the latest)')
     f.add_argument(

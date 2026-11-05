@@ -4,12 +4,13 @@ name: Triage scheduled run
 # release, Mondays and Fridays) fails, collect what a triage needs into one
 # artifact, `triage-input`:
 #
-#   failed/     the failed attempt's reports, Tutor logs (with each shard's
-#               provenance.json) and failed jobs' runner logs, as
+#   failed/     the failed attempt's reports, Tutor logs, each shard's
+#               provenance.json and failed jobs' runner logs, as
 #               skills/openedx-e2e/scripts/ci_artifacts.py fetches them
 #   baseline/   the last green scheduled run before it: suite reports, each
 #               shard's provenance.json, a traceback digest of its Tutor logs
-#               (logs-digest.txt) and every job's runner log (or a NONE marker)
+#               if they have not expired (logs-digest.txt) and every job's
+#               runner log (or a NONE marker)
 #   context.json, summary.txt, provenance.txt/.json
 #               which runs these are, the failure overview, and what changed
 #               upstream and in this repo between the two
@@ -24,8 +25,11 @@ name: Triage scheduled run
 # 'true'.
 #
 # Only scheduled runs are triaged; PR runs from ci.yml, and manual runs, are
-# not. `workflow_dispatch` replays the gathering for any run id, to test this
-# workflow against past failures.
+# not. `workflow_dispatch` replays the triage for a past run, to test this
+# workflow. Either way `gather` first checks the run is this repository's own
+# run_tests_tutor.yml: the reports and logs of any other run (a `ci-tests`
+# run of a fork PR) come from code nobody here reviewed, and they are what
+# Claude reads in a job holding the API key.
 
 on:
   workflow_run:
@@ -73,6 +77,27 @@ jobs:
       # tested.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Only this repository's own run_tests_tutor.yml runs, made from a
+      # branch of this repository: a `ci-tests` run calls the same workflow
+      # but records ci.yml as its path, and a fork PR's run has the fork as
+      # its head repository.
+      - name: Check the run
+        run: |
+          set -euo pipefail
+          if ! [[ "$RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::run_id must be a number, got '${RUN_ID}'."
+            exit 1
+          fi
+          RUN=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")
+          WORKFLOW=$(jq -r '.path | sub("@.*$"; "")' <<< "$RUN")
+          HEAD_REPO=$(jq -r '.head_repository.full_name' <<< "$RUN")
+          if [ "$WORKFLOW" != ".github/workflows/run_tests_tutor.yml" ] || [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::Run ${RUN_ID} is ${WORKFLOW} from ${HEAD_REPO}; only ${GITHUB_REPOSITORY}'s own run_tests_tutor.yml runs are triaged."
+            exit 1
+          fi
 
       # Gathered before anything can re-run it: a re-run replaces the earlier
       # attempt's artifacts.
@@ -99,10 +124,10 @@ jobs:
             exit 0
           fi
           python3 -I "$CI_ARTIFACTS" fetch "$BASELINE" --repo "$GITHUB_REPOSITORY" \
-            --dest triage/baseline --only suite,tutor --job-logs all
-          # The green run's raw Tutor logs (~40 MB a shard) reduce to their
-          # traceback digest — what recurs in a healthy run is noise — and
-          # provenance.json, which stays.
+            --dest triage/baseline --only suite,tutor,provenance --job-logs all
+          # The green run's raw Tutor logs (~40 MB a shard, and gone after 14
+          # days) reduce to their traceback digest: what recurs in a healthy
+          # run is noise.
           python3 -I "$CI_ARTIFACTS" logs triage/baseline > triage/baseline/logs-digest.txt
           rm -f triage/baseline/tutor-logs-*/*.log
 
@@ -140,7 +165,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload triage input
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: triage-input
           path: triage/
@@ -184,13 +209,13 @@ jobs:
           persist-credentials: false
 
       - name: Download triage input
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: triage-input
           path: triage
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
 
@@ -253,7 +278,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload diagnosis
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: claude-triage
           path: triage/out/
@@ -318,7 +343,7 @@ jobs:
           persist-credentials: false
 
       - name: Download diagnosis
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: claude-triage
           path: triage-out

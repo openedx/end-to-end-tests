@@ -19,10 +19,11 @@ combines the blobs into one report per release:
 | `suite-reports-<release>`                | `btr-coverage.json` (test_id → outcome), `btr-run.json` (per-case specs/notes/timing + run metadata; input to the BTR results-sheet publisher) and `a11y-violations.json` (failing / baselined rules).                                                        |
 | `tutor-logs-<release>-<profile>-<shard>` | `docker ps -a` plus `tutor local logs <service>` for `lms`, `cms`, `lms-worker`, `cms-worker`, `mfe`, `caddy` (and, in the `aspects` profile, `superset`, `superset-worker`, `superset-worker-beat`, `clickhouse`, `vector`). Lines are prefixed `<service>-1 | `.  |
 
-Each `tutor-logs-*` artifact also holds `provenance.json`: what that shard
-ran (this repo's commit, Tutor packages, image digests, edx-platform and MFE
-commits). Runs from before it existed have only the job logs' `Resolved … to
-commit` lines.
+Each shard also uploads `provenance-<release>-<profile>-<shard>` (kept 90
+days, against 14 for the Tutor logs): `provenance.json`, what that shard ran
+(this repo's commit, Tutor packages, image digests, edx-platform and MFE
+commits). For a short while it lived inside `tutor-logs-*`; runs from before
+that have only the job logs' `Resolved … to commit` lines.
 
 Two things bite when reading them by hand: a **re-run attempt re-uploads
 artifacts under the same names** (so `gh run download` mixes attempts, and
@@ -66,8 +67,9 @@ python3 $S logs $D --service cms --grep 'course-v1:OpenedX\+E2EMTVIZQ6LW2' -C 2
 python3 $S logs $D --grep 'POST /api/contentstore/v1/course_grading' -C 0
 
 # 5. New code or the tests? Diff what the run tested against the last green run
-#    (fetch that one with --only suite,tutor --job-logs all): changed upstream
-#    commits and this repo's range, each with a compare URL
+#    (fetch that one with --only suite,provenance --job-logs all): changed upstream
+#    commits and this repo's range, each with a compare URL; parts only one run
+#    recorded are listed as not comparable rather than changed
 python3 $S provenance $D --baseline $BASE
 python3 $S provenance $D --baseline $BASE --json
 ```

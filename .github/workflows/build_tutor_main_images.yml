@@ -209,3 +209,13 @@ jobs:
             jq '{edx_platform, mfes, tutor_packages}' build-provenance.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          # Tutor drops a patch whose name no longer exists without a word, so
+          # an upstream rename in tutor-mfe would silently leave every MFE
+          # commit unknown. A warning, not a failure: the images are still good.
+          MFES=$(jq '.mfes | length' build-provenance.json)
+          UNKNOWN=$(jq -r '[.mfes[] | select(.commit == null) | .name] | join(", ")' build-provenance.json)
+          if [ "$MFES" -eq 0 ]; then
+            echo "::warning::No MFE commits recorded in the MFE image; has a patch name in .ci/tutor/e2e_provenance.py changed upstream?"
+          elif [ -n "$UNKNOWN" ]; then
+            echo "::warning::MFE commits unknown for: ${UNKNOWN}"
+          fi

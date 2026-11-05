@@ -11,10 +11,11 @@ and copy them into the final image under /openedx/e2e-revisions/, where
 `.ci/provenance.sh` reads them. Nothing is written under /openedx/dist, so
 Caddy never serves them.
 
-The build stages have no `git`, so HEAD is resolved by reading `.git` by hand
-(detached HEAD, a loose ref or a packed ref). A source without `.git` (a
-local `file://` site) is skipped; the reader reports what is missing as
-unknown.
+The stages these patches run in derive from tutor-mfe's `base` stage, which
+installs `git` (on main and on the verawood line alike). A source without
+`.git` (a local `file://` site) is skipped, and a commit `git` cannot read is
+written as `unknown`; the reader reports both as unknown, and
+build_tutor_main_images.yml warns when that happens.
 
 Not a CI profile plugin: no test job enables it, and it changes no setting.
 """
@@ -22,10 +23,8 @@ Not a CI profile plugin: no test job enables it, and it changes no setting.
 from tutor import hooks
 
 # Print "<name> <commit> <url>" for the checkout in $d, named $n.
-_REVISION = r'''h=$(cat "$d/.git/HEAD" 2>/dev/null); \
-case "$h" in "ref: "*) r="${h#ref: }"; \
-  h=$(cat "$d/.git/$r" 2>/dev/null || grep " $r\$" "$d/.git/packed-refs" 2>/dev/null | cut -d' ' -f1);; esac; \
-u=$(sed -n 's/^[[:space:]]*url = //p' "$d/.git/config" 2>/dev/null | head -n 1); \
+_REVISION = r'''h=$(git -c safe.directory='*' -C "$d" rev-parse HEAD 2>/dev/null); \
+u=$(git -c safe.directory='*' -C "$d" remote get-url origin 2>/dev/null); \
 echo "$n ${h:-unknown} $u"'''
 
 hooks.Filters.ENV_PATCHES.add_items(

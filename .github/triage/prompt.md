@@ -114,7 +114,11 @@ Must validate against `.github/triage/triage.schema.json` (read it). Example:
 ```
 
 List every failing (`unexpected`) test. Leave `flaky` tests out unless they
-explain something. Use the test's `file › title` form from the summary.
+explain something. Copy each test's `file › title` exactly as
+`triage/summary.txt` prints it after `[unexpected]` (without the project and
+attempt count that follow): the workflow matches these names against the
+run's own list, and a run with any failing test missing or renamed is never
+re-run.
 
 ## Output 2 — `triage/out/issue.md`
 

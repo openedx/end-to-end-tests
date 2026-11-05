@@ -568,14 +568,25 @@ jobs:
 
       # What this shard ran: this repo's commit, the Tutor packages, the image
       # digests, and the edx-platform and MFE commits read from the images.
-      # Uploaded with the Tutor logs; triage_scheduled_run.yml diffs it
-      # against the last green run to tell upstream changes from suite ones.
+      # triage_scheduled_run.yml diffs it against the last green scheduled
+      # run to tell upstream changes from suite ones. Its own small artifact,
+      # kept far longer than the Tutor logs, because that green run can be
+      # weeks old.
       - name: Record provenance
         if: always()
         env:
           PROVENANCE_PROFILE: ${{ matrix.profile }}
           PROVENANCE_SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
-        run: .ci/provenance.sh tutor-logs/provenance.json
+        run: .ci/provenance.sh provenance/provenance.json
+
+      - name: Upload provenance
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: provenance-${{ env.OPENEDX_RELEASE }}-${{ matrix.profile }}-${{ matrix.shard }}
+          path: provenance/
+          retention-days: 90
+          if-no-files-found: warn
 
       # Collect the LMS/Studio logs whatever the outcome (`always()`, so they
       # survive a failed or cancelled run). `docker ps -a` catches the case

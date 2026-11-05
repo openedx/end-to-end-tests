@@ -507,8 +507,9 @@ MFE, Aspects and Superset images. A variant job pulls it; if the pull fails it
 stops (a variant cannot be rebuilt on the runner, where the profile's plugins
 are enabled only after launch), so run the build workflow and retry.
 
-**Provenance.** Each shard writes `provenance.json` into its `tutor-logs-*`
-artifact (`.ci/provenance.sh`): this repo's commit, the Tutor packages (with
+**Provenance.** Each shard uploads `provenance.json` as its own
+`provenance-<release>-<profile>-<shard>` artifact, kept 90 days
+(`.ci/provenance.sh`): this repo's commit, the Tutor packages (with
 the commit pip resolved for a git install), every image digest, edx-platform's
 commit read from the openedx image, and each MFE's commit read from the MFE
 image. The last needs `.ci/tutor/e2e_provenance.py`, which

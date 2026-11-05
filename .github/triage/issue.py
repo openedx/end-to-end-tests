@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from validate import ISSUE_LIMIT, SCHEMA, check, redact  # noqa: E402
+from validate import ISSUE_LIMIT, SCHEMA, check, markdown_safe, redact  # noqa: E402
 
 LABEL = 'scheduled-failure'
 VERDICTS = {'spurious', 'platform-regression', 'test-defect', 'environment', 'mixed', 'unknown'}
@@ -56,9 +56,17 @@ def safe_sha(value) -> str:
 
 
 def clean_body(text: str) -> str:
-    text = re.sub(r'<!--.*?(-->|$)', '', text, flags=re.DOTALL)  # no hidden content, no fake markers
+    """Any model-derived text bound for the issue or a comment: no HTML
+    comments (no hidden content, no planted fingerprint marker), secrets
+    redacted, bare @mentions in code spans."""
+    text = re.sub(r'<!--.*?(-->|$)', '', text, flags=re.DOTALL)
     text = text.replace('<!--', '')
-    return redact(text).strip()
+    return markdown_safe(text).strip()
+
+
+def clean_inline(text: str, limit: int) -> str:
+    """clean_body, on one line, at most `limit` characters."""
+    return re.sub(r'\s+', ' ', clean_body(str(text))).strip()[:limit]
 
 
 def main() -> None:
@@ -108,7 +116,7 @@ def main() -> None:
     changes = [c for c in t.get('upstream_changes') or [] if isinstance(c, dict)]
     change_lines = []
     for c in changes[:40]:
-        name = redact(str(c.get('component', '?')))[:80].replace('|', '\\|')
+        name = clean_inline(c.get('component', '?'), 80).replace('`', '').replace('|', '\\|')
         frm, to = safe_sha(c.get('from')), safe_sha(c.get('to'))
         url = safe_url(c.get('compare_url') or '')
         change_lines.append(f'| `{name}` | `{frm[:12]}` → `{to[:12]}` | {f"[compare]({url})" if url else ""} |')
@@ -126,7 +134,9 @@ def main() -> None:
             ]
         )
 
-    problems = [redact(str(p))[:300] for p in t.get('problems') or []]
+    # Problems quote the model's output (an unexpected key's name, say), so
+    # they are cleaned like the body.
+    problems = [clean_inline(p, 300) for p in t.get('problems') or []]
     problem_text = '\n'.join(['**Triage problems:**', *[f'- {p}' for p in problems]]) if problems else ''
 
     footer = (
@@ -140,7 +150,7 @@ def main() -> None:
         body_md = body_md[:budget] + '\n\n_(truncated)_'
     body = '\n\n'.join(part for part in (header, body_md, problem_text, upstream, footer) if part) + '\n'
 
-    summary = re.sub(r'\s+', ' ', redact(t['summary'])).strip()[:600]
+    summary = clean_inline(t['summary'], 600)
     comment = '\n'.join(
         [
             f'Failed again in run {link(run)} — **{t["verdict"]}** ({t["confidence"]} confidence).',
