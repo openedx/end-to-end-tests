@@ -27,7 +27,7 @@ function isDiscussionWrite(
 }
 
 /**
- * The discussions MFE (`{APPS}/discussions/<course>/…`): the post list, its
+ * The discussions MFE (`{DISCUSSIONS_MFE}/<course>/…`): the post list, its
  * search and views, one open post, and the new-post editor.
  *
  * The same MFE renders inside the learning MFE's discussions sidebar (an iframe
@@ -60,7 +60,7 @@ export class DiscussionsPage {
   }
 
   url(courseKey: string, view: DiscussionsView = 'posts'): string {
-    return `${this.config.baseUrls.apps}/discussions/${courseKey}/${view}`;
+    return `${this.config.mfeUrls.discussions}/${courseKey}/${view}`;
   }
 
   /** Opens a view and waits for the thread list (or topics) it loads. */
@@ -77,7 +77,7 @@ export class DiscussionsPage {
   /** Switches view through its nav link. */
   async openView(courseKey: string, view: DiscussionsView): Promise<void> {
     await this.viewLink(courseKey, view).click();
-    await this.page.waitForURL(`**/discussions/${courseKey}/${view}**`);
+    await this.page.waitForURL(`${this.config.mfeUrls.discussions}/${courseKey}/${view}**`);
   }
 
   /** Searches the posts, waiting for the `text_search` query the MFE sends. */

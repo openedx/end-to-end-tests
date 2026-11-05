@@ -51,7 +51,9 @@ export class StudioPagesResourcesPage {
 
   /** The "View live" link to the learner-facing course. */
   get viewLiveLink(): Locator {
-    return this.page.locator(STUDIO_PAGES_RESOURCES_SELECTORS.viewLiveLink).first();
+    return this.page
+      .locator(STUDIO_PAGES_RESOURCES_SELECTORS.viewLiveLink(this.config.mfeUrls.learning))
+      .first();
   }
 
   /**

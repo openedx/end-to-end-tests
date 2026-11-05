@@ -26,6 +26,10 @@ const envShape = z.object({
   LMS_BASE_URL: z.string(),
   APPS_BASE_URL: z.string(),
   CMS_BASE_URL: z.string().optional(),
+  LEARNING_MFE_URL: z.string().optional(),
+  AUTHORING_MFE_URL: z.string().optional(),
+  INSTRUCTOR_DASHBOARD_MFE_URL: z.string().optional(),
+  DISCUSSIONS_MFE_URL: z.string().optional(),
 
   // Credentials (paired admin/staff account; validated together in load.ts).
   ADMIN_USERNAME: z.string().optional(),

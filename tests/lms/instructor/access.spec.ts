@@ -1,7 +1,7 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 
 import { expect, test } from '../../../src/fixtures';
-import { TIMEOUTS, type AppConfig } from '../../../src/config';
+import { TIMEOUTS, mfeMountPath, type AppConfig } from '../../../src/config';
 import {
   ApiError,
   fetchCourseMetadata,
@@ -39,12 +39,18 @@ async function accessOf(request: APIRequestContext, config: AppConfig, courseKey
 }
 
 /** Clicks the course home's Instructor tab and waits to land on the dashboard. */
-async function openDashboardFromCourseHome(home: CourseOutlinePage, page: Page, courseKey: string) {
+async function openDashboardFromCourseHome(
+  home: CourseOutlinePage,
+  page: Page,
+  config: AppConfig,
+  courseKey: string,
+) {
   await home.gotoHome(courseKey);
   // A first visit opens the course-home welcome tour over the tabs.
   await home.dismissTourDialog();
   await home.instructorTab(courseKey).click();
-  await page.waitForURL((url) => url.pathname.startsWith(`/instructor-dashboard/${courseKey}`));
+  const dashboard = mfeMountPath(config.mfeUrls.instructorDashboard);
+  await page.waitForURL((url) => url.pathname.startsWith(`${dashboard}/${courseKey}`));
 }
 
 test.describe('Instructor dashboard access', { tag: ['@regression', ...INSTRUCTOR_TAGS] }, () => {
@@ -72,7 +78,7 @@ test.describe('Instructor dashboard access', { tag: ['@regression', ...INSTRUCTO
             status: 200,
             permissions: { staff: true, admin: false },
           });
-        await openDashboardFromCourseHome(staff.courseOutlinePage, staff.page, courseKey);
+        await openDashboardFromCourseHome(staff.courseOutlinePage, staff.page, config, courseKey);
         await expect(staff.instructorDashboardPage.tabNav).toBeVisible();
       } finally {
         await grantCourseTeamRole(
@@ -101,6 +107,7 @@ test.describe('Instructor dashboard access', { tag: ['@regression', ...INSTRUCTO
       await openDashboardFromCourseHome(
         new CourseOutlinePage(adminPage, config),
         adminPage,
+        config,
         courseKey,
       );
     },

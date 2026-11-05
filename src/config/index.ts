@@ -4,8 +4,8 @@ import path from 'node:path';
 import { ConfigError } from './errors';
 import { loadConfig, parseCustomTestDirs, type AppConfig } from './load';
 
-export type { AppConfig, AdminCredentials, BaseUrls, Env, Scheme } from './load';
-export { loadConfig, parseCapabilities, parseCustomTestDirs } from './load';
+export type { AppConfig, AdminCredentials, BaseUrls, Env, MfeUrls, Scheme } from './load';
+export { loadConfig, mfeMountPath, parseCapabilities, parseCustomTestDirs } from './load';
 export { ConfigError };
 export {
   CAPABILITIES,

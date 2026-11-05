@@ -13,29 +13,31 @@ import { studioOrigin } from '../../api';
  * Custom Pages): the Settings pages just `goto` their Studio URL and follow the
  * redirect, but these have no Studio alias, so their page objects build the URL
  * from this base. `waitUntil: 'commit'` returns as soon as the 302 chain settles
- * on the apps origin, without waiting for the outline MFE to finish loading.
+ * on the authoring MFE's origin, without waiting for the outline MFE to finish loading.
  */
 export async function authoringCourseBaseUrl(
   page: Page,
   config: AppConfig,
   courseKey: string,
 ): Promise<string> {
-  const appsOrigin = new URL(config.baseUrls.apps).origin;
+  const authoringOrigin = new URL(config.mfeUrls.authoring).origin;
   await page.goto(`${studioOrigin(config)}/course/${courseKey}`, { waitUntil: 'commit' });
-  await page.waitForURL((url) => url.origin === appsOrigin && url.pathname.includes('/course/'));
+  await page.waitForURL(
+    (url) => url.origin === authoringOrigin && url.pathname.includes('/course/'),
+  );
   return page.url().replace(/#.*$/, '').replace(/\/+$/, '');
 }
 
 /**
  * The authoring MFE's mount base derived from the Studio-home redirect rather
  * than a course — for the taxonomy pages, whose only actor is the admin (who owns
- * no course). Studio `/home` redirects to the MFE home on the apps origin; this
+ * no course). Studio `/home` redirects to the MFE home on the authoring origin; this
  * returns everything up to that mount (e.g. `${APPS}/authoring`).
  */
 export async function authoringMfeBaseFromHome(page: Page, config: AppConfig): Promise<string> {
-  const appsOrigin = new URL(config.baseUrls.apps).origin;
+  const authoringOrigin = new URL(config.mfeUrls.authoring).origin;
   await page.goto(`${studioOrigin(config)}/home`, { waitUntil: 'commit' });
-  await page.waitForURL((url) => url.origin === appsOrigin && url.pathname.endsWith('/home'));
+  await page.waitForURL((url) => url.origin === authoringOrigin && url.pathname.endsWith('/home'));
   return page
     .url()
     .replace(/#.*$/, '')

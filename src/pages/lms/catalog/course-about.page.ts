@@ -1,6 +1,11 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { COURSE_ABOUT_SELECTORS, courseAboutCoursewareLink, type AppConfig } from '../../../config';
+import {
+  COURSE_ABOUT_SELECTORS,
+  courseAboutCoursewareLink,
+  mfeMountPath,
+  type AppConfig,
+} from '../../../config';
 
 /**
  * A course's About page in the catalog MFE. Locators and single-surface actions
@@ -101,7 +106,9 @@ export class CourseAboutPage {
    * page: dashboard course cards link to the same href.
    */
   coursewareLink(courseKey: string): Locator {
-    return this.page.locator(courseAboutCoursewareLink(courseKey));
+    return this.page.locator(
+      courseAboutCoursewareLink(courseKey, mfeMountPath(this.config.mfeUrls.learning)),
+    );
   }
 
   /**
