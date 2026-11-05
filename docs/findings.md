@@ -116,6 +116,7 @@ measured, and issues are opened by hand from them.
 | `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` (a page load before each wizard run, a different file on re-import) |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `STUDIO-011` | `openedx/frontend-app-authoring` (`verawood`: an outline rename is saved twice) | open, no `fixme` — fixed on `master`; `rename()` in `course-outline.page.ts` retries opening the next field |
+| `STUDIO-012` | `openedx/frontend-app-authoring` (TinyMCE 8 editor iframe has no title in Chromium) | open, no `fixme` — `frame-title` baselined on the `studio-schedule-details` scan only |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
 | `PLAT-011`  | `openedx/openedx-platform` (problem previews: MathJax renders an empty math element as an unlabelled `svg[role=img]`) | open, no `fixme` — the in-context Analytics scans cover only their panel; no other scan reaches a problem preview yet
 | `INSTR-009` | `openedx/edx-platform` + `openedx/frontend-app-instructor-dashboard` (allowance Delete: numeric id ignored, failure shown as success) | **filed** - [openedx-platform#39228](https://github.com/openedx/openedx-platform/issues/39228) and [frontend-app-instructor-dashboard#258](https://github.com/openedx/frontend-app-instructor-dashboard/issues/258) (tracked here as [#135](https://github.com/openedx/end-to-end-tests/issues/135)), `test.fail` on TC-00541's delete test
@@ -819,6 +820,28 @@ removes the second save; `release/verawood` does not have it.
 `src/pages/studio/course-outline.page.ts` retries opening and typing into the
 field until it holds the name, so the outline specs pass on both releases. Upstream
 ask: backport the blur guard to `release/verawood`.
+
+### `STUDIO-012` — from TinyMCE 8, the editor's iframe has no title in Chromium
+
+**Where:** the authoring MFE on `master` since
+[frontend-app-authoring#3340](https://github.com/openedx/frontend-app-authoring/pull/3340)
+(merged 2026-11-04) moved `tinymce` from 7.9.3 to 8.9.3; seen on Schedule &
+Details, whose course overview is a TinyMCE editor.
+
+**What happens:** TinyMCE 8's `createIframeElement` sets the editor iframe's
+`title` only in Firefox; elsewhere it puts the `iframe_aria_text` on the iframe's
+`body` as an `aria-label` instead. 7.9.3 set the `title` in every browser. axe
+reports the untitled iframe in Chromium as a serious `frame-title`, so the
+TC-00293 scan failed all three attempts on the first `main` images built with
+8.9.3 (CI run [41988414989](https://github.com/openedx/end-to-end-tests/actions/runs/41988414989)).
+A bare TinyMCE editor under the suite's WCAG 2.2 AA tags reproduces it in
+Chromium: 7.9.3 gives the iframe `title="Rich Text Area"` and no `frame-title`,
+8.9.3 no title and one `frame-title` node. `verawood` still ships TinyMCE 7.
+
+**Coverage impact:** open, no `fixme`. `frame-title` is baselined on the
+`studio-schedule-details` scan only. Upstream ask: give the iframe a title in
+every browser, e.g. through TinyMCE's `iframe_attrs` option in the MFE's
+`editorConfig`.
 
 ### `PLAT-007` — the Blocks API returns 500 to a learner enrolled in a course that has not started
 
