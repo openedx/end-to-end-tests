@@ -6,7 +6,7 @@
 #
 # Usage: .ci/provenance.sh <output.json>
 #
-# run_tests_tutor.yml writes it into each shard's tutor-logs artifact, and
+# run_tests_tutor.yml uploads it as each shard's provenance artifact, and
 # build_tutor_main_images.yml into its job summary. Comparing the files of a
 # green and a red run (`ci_artifacts.py provenance --baseline`) tells upstream
 # changes from changes to the suite.
