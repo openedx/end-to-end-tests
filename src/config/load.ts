@@ -75,6 +75,11 @@ export interface AppConfig {
    * sign in — a built-in name (see `account-backends.ts`) or a custom plugin's.
    */
   readonly accountBackend: string;
+  /**
+   * Where the notification specs open the tray: the learner dashboard, or the
+   * learning MFE's course home on an installation without one.
+   */
+  readonly notificationTrayHost: 'learner-dashboard' | 'course-home';
   /** Mailbox provider plugin modules to load (existing file paths). */
   readonly customMailProviderPlugins: ReadonlySet<string>;
   /**
@@ -515,6 +520,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     capabilities,
     customAccountBackendPlugins,
     accountBackend,
+    notificationTrayHost: raw.NOTIFICATION_TRAY_HOST ?? 'learner-dashboard',
     customMailProviderPlugins,
     mailProvider,
     allowCrossSiteOrigins,
