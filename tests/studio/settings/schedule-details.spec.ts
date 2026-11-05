@@ -98,10 +98,13 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // course-card image drop zone's hidden file input has no label. The serious
       // `link-in-text-block` is the demo overview's own content (the `DEMO-001`
       // theming class) rendered in the TinyMCE preview, not this page's markup.
-      // Tolerated on this screen only; remove `label` when STUDIO-004 lands.
+      // `STUDIO-012`: from TinyMCE 8 (the MFE's `master`), the overview editor's
+      // iframe has a title only in Firefox, so Chromium reports a serious
+      // `frame-title`. Tolerated on this screen only; remove `label` when
+      // STUDIO-004 lands, and `frame-title` when STUDIO-012 does.
       await checkA11y(page, {
         label: 'studio-schedule-details',
-        additionalBaseline: ['label', 'link-in-text-block'],
+        additionalBaseline: ['label', 'link-in-text-block', 'frame-title'],
       });
     },
   );
