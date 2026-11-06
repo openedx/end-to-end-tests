@@ -34,20 +34,22 @@ async function anonymousCsrfToken(
   config: AppConfig,
   url: string,
 ): Promise<string> {
+  let endpointStatus: number;
   try {
     return await fetchCsrfToken(request, config);
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
+    endpointStatus = error.status;
   }
   const response = await request.get(url);
   const { cookies } = await request.storageState();
   const token = csrfTokenFromCookies(cookies, url);
   if (token === undefined) {
-    throw new ApiError('Neither the CSRF endpoint nor the login-session endpoint gave a token.', {
-      status: response.status(),
-      url,
-      body: await response.text(),
-    });
+    throw new ApiError(
+      `Neither the CSRF endpoint (HTTP ${endpointStatus}) nor the login-session endpoint ` +
+        `(HTTP ${response.status()}) gave a token.`,
+      { status: response.status(), url, body: await response.text() },
+    );
   }
   return token;
 }

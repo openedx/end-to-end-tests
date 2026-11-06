@@ -13,6 +13,11 @@ import { loadConfig } from '../../src/config';
 
 const LMS_LOGIN = 'https://lms.example.com/api/user/v2/account/login_session/';
 const csrftoken = (domain: string, value = domain) => ({ name: 'csrftoken', domain, value });
+/** A fake response with an empty body: `failure` when `failing`, otherwise 200. */
+const answer = (failing: boolean, failure: number) => {
+  const status = failing ? failure : 200;
+  return { ok: () => status === 200, status: () => status, text: () => Promise.resolve('') };
+};
 
 test.describe('csrfTokenFromCookies', { tag: '@unit' }, () => {
   test('takes a host-only cookie for exactly the LMS host', () => {
@@ -72,5 +77,22 @@ test.describe('loginSession — CSRF cookie fallback', { tag: '@unit' }, () => {
     await loginSession(request, config, { emailOrUsername: 'learner', password: 'pw' });
 
     expect(sent).toEqual(['lms']);
+  });
+
+  test("names the token endpoint's status when neither source gives a token", async () => {
+    const config = loadConfig({
+      LMS_BASE_URL: 'https://lms.example.com',
+      APPS_BASE_URL: 'https://apps.example.com',
+    });
+    // The token endpoint fails outright (503), and the login-session endpoint
+    // sets no cookie, so there is nothing to fall back on either.
+    const request = {
+      get: (url: string) => Promise.resolve(answer(url.includes('/csrf/'), 503)),
+      storageState: () => Promise.resolve({ cookies: [], origins: [] }),
+    } as unknown as APIRequestContext;
+
+    await expect(
+      loginSession(request, config, { emailOrUsername: 'learner', password: 'pw' }),
+    ).rejects.toThrow(/CSRF endpoint \(HTTP 503\)/);
   });
 });

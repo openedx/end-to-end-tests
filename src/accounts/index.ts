@@ -16,10 +16,12 @@ export {
   accountSignIn,
   accountSignInStudio,
   accountSignInThroughUi,
+  accountSignInUrlMatcher,
   accountSignOutThroughUi,
 } from './auth-flows';
 export {
   defaultGrantCourseCreator,
+  defaultIsSignInUrl,
   defaultSignIn,
   defaultSignInStudio,
   defaultSignInThroughUi,

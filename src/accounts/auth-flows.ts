@@ -1,5 +1,7 @@
+import type { AppConfig } from '../config';
 import {
   defaultGrantCourseCreator,
+  defaultIsSignInUrl,
   defaultSignIn,
   defaultSignInStudio,
   defaultSignInThroughUi,
@@ -56,6 +58,17 @@ export async function accountSignOutThroughUi(context: UiSignOutContext): Promis
   await (backend.signOutThroughUi
     ? backend.signOutThroughUi(context)
     : defaultSignOutThroughUi(context));
+}
+
+/**
+ * The install's test for "this URL is the sign-in page", resolved once so a
+ * caller can hand it to a synchronous URL wait (`page.waitForURL`).
+ */
+export async function accountSignInUrlMatcher(config: AppConfig): Promise<(url: URL) => boolean> {
+  const backend = await resolveAccountBackend(config);
+  if (!backend.isSignInUrl) return defaultIsSignInUrl;
+  const isSignInUrl = backend.isSignInUrl.bind(backend);
+  return (url) => isSignInUrl(url, config);
 }
 
 /** Grants course-creator status to the account whose session `context.request` holds. */
