@@ -341,13 +341,17 @@ deployment-agnostic and stable.
 
 - **The admin owns taxonomies.** Managing a taxonomy (import, assign to an org,
   export, delete) is staff-only, so it runs under the admin-session lock
-  (`withAdminSession`). Two fixtures serve it: `workerTaxonomy` seeds a shared
-  taxonomy for the tag-drawer specs, and `taxonomyAdmin` signs the admin into
-  Studio in its own browser (its `page.request` is the same session, used for the
-  content-tagging API and cleanup). Never combine `taxonomyAdmin` with a fixture
-  that re-takes the admin lock (`workerTaxonomy`, `authoringTaxonomy`) in one
-  test — the lock is not reentrant and the two deadlock; the taxonomy-page cases
-  seed their own taxonomies through the UI instead.
+  (`withAdminSession`). `workerTaxonomy` seeds a shared taxonomy for the
+  tag-drawer specs, and `taxonomyAdmin` signs the admin into Studio in its own
+  browser and holds the lock for the whole test (its `page.request` is the same
+  session, used for the content-tagging API and cleanup; `competencyTaxonomyAdmin`
+  wraps it). Other fixtures take the lock only briefly: `workerTaxonomy`,
+  `authoringTaxonomy` and `competencyTaxonomySeeder` for each seed and
+  teardown, and `staffTaxonomyColleague` through `adminLms` for each staff
+  grant and revoke.
+  Never combine `taxonomyAdmin` with any of them in one test — the lock is not
+  reentrant and the two deadlock; the taxonomy-page cases seed their own
+  taxonomies through the UI or through `taxonomyAdmin.seed`.
 
 - **`object_tags` is the tag oracle.** The UI drives the tag drawer; the
   `content_tagging/v1/object_tags/` API decides whether a tag stuck. A course is
