@@ -32,6 +32,14 @@ import type {
 const onAuthnRoute = (url: URL): boolean => url.pathname.includes('/authn/');
 
 /**
+ * Whether `url` is the stock sign-in page: an authn MFE route, where the LMS sends
+ * a browser that has no session.
+ */
+export function defaultIsSignInUrl(url: URL): boolean {
+  return onAuthnRoute(url);
+}
+
+/**
  * Signs in against the LMS login-session API the authn MFE itself posts to,
  * leaving `request` holding the parent-domain session and JWT cookies.
  */

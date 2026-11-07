@@ -13,6 +13,13 @@ interface CsrfTokenResponse {
   readonly csrfToken: string;
 }
 
+/** Whether `landed` is the same origin and path as `requested`, ignoring a trailing slash. */
+function isSameEndpoint(landed: string, requested: string): boolean {
+  const a = new URL(landed);
+  const b = new URL(requested);
+  return a.origin === b.origin && a.pathname.replace(/\/$/, '') === b.pathname.replace(/\/$/, '');
+}
+
 /**
  * Fetches a CSRF token from an Open edX origin — the LMS by default, the same
  * call the authn MFE makes before posting to the login-session API. Studio
@@ -26,6 +33,13 @@ interface CsrfTokenResponse {
  * an LMS token does not authorize a Studio write or vice versa — fetch from the
  * origin you are about to post to, and send that origin as the `Referer`.
  *
+ * An installation that sends anonymous visitors to an external sign-in,
+ * exempting only some paths (say `/api`, but not `/csrf`), redirects a request
+ * with no live session here. Following that redirect once is how a context that
+ * still holds the provider's session is signed straight back in, landing on this
+ * endpoint again with a token. A redirect that ends anywhere else (the provider's
+ * sign-in page) is reported with the redirect's own status.
+ *
  * @returns the token to send in the {@link CSRF_HEADER} header.
  * @throws {ApiError} when the endpoint does not return a token.
  */
@@ -35,7 +49,12 @@ export async function fetchCsrfToken(
   origin: string = config.baseUrls.lms,
 ): Promise<string> {
   const url = `${origin}${CSRF_TOKEN_PATH}`;
-  const response = await request.get(url);
+  let response = await request.get(url, { maxRedirects: 0 });
+
+  if (response.status() >= 300 && response.status() < 400) {
+    const followed = await request.get(url);
+    if (followed.ok() && isSameEndpoint(followed.url(), url)) response = followed;
+  }
 
   if (!response.ok()) {
     throw new ApiError(`Failed to fetch a CSRF token (HTTP ${response.status()}).`, {

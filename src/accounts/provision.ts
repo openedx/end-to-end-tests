@@ -1,12 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 
-import {
-  establishStudioSession,
-  fetchCourseCreatorStatus,
-  loginSession,
-  registerLearnerAccount,
-  type LearnerIdentity,
-} from '../api';
+import { fetchCourseCreatorStatus, registerLearnerAccount, type LearnerIdentity } from '../api';
 import { hasAuthenticatedSession } from '../auth/preflight';
 import type { AppConfig } from '../config';
 import type { AccountCredentials } from './types';
@@ -137,12 +131,17 @@ export async function provisionAuthorSession(
  *
  * Wired into {@link ensureCourse} as its `onSessionExpired` hook and used to
  * confirm a freshly provisioned author can actually author.
+ *
+ * Both halves go through the account backend (`accountSignIn`,
+ * `accountSignInStudio`), so an install whose sign-in is not the LMS login API
+ * (an SSO-only target) can re-authenticate too; on a stock install they are the
+ * same `loginSession` and `establishStudioSession` calls as before.
  */
 export async function reauthenticateStudioAuthor(
   request: APIRequestContext,
   config: AppConfig,
   credentials: AccountCredentials,
 ): Promise<void> {
-  await loginSession(request, config, credentials);
-  await establishStudioSession(request, config);
+  await accountSignIn({ config, request, credentials });
+  await accountSignInStudio({ config, request, credentials });
 }
