@@ -1,11 +1,12 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, TestInfo } from '@playwright/test';
 
-import type { AppConfig } from '../config';
+import { getRunId, type AppConfig } from '../config';
 import {
   deleteTaxonomy,
   importTaxonomy,
   listTaxonomies,
   setTaxonomyOrgs,
+  type ImportableTaxonomyType,
   type Taxonomy,
 } from '../api';
 
@@ -145,4 +146,53 @@ export async function deleteTaxonomiesBestEffort(
       // A run-unique name means a leftover never collides with a later run.
     }
   }
+}
+
+/**
+ * Imports a run-unique taxonomy of `type` (the eight-tag file, no org assignment)
+ * and records its id in `created` for the caller's teardown. The name carries the
+ * run id, `label`, a slice of the test id and the retry number, so parallel tests
+ * and retries never share one; two imports in one test differ by `label`.
+ * Admin-only: call on an admin request context.
+ */
+export async function importTypedTaxonomy(
+  request: APIRequestContext,
+  config: AppConfig,
+  options: {
+    readonly type: ImportableTaxonomyType;
+    readonly label: string;
+    readonly testInfo: TestInfo;
+    readonly created: number[];
+  },
+): Promise<Taxonomy> {
+  const taxonomy = await importTaxonomy(request, config, {
+    name: `E2E entry ${getRunId()} ${options.label} ${options.testInfo.testId.slice(-6)}R${options.testInfo.retry}`,
+    description: 'E2E suite taxonomy',
+    file: taxonomyImportFile(),
+    taxonomyType: options.type,
+  });
+  options.created.push(taxonomy.id);
+  return taxonomy;
+}
+
+/**
+ * The items the taxonomy menu offers for what the API says this user may do, in
+ * the app's order: re-import needs `canChangeTaxonomy` and a writable taxonomy,
+ * export is always offered, delete needs `canDeleteTaxonomy` and a writable
+ * taxonomy, manage organizations needs `canChangeTaxonomy`, and apply competencies
+ * needs `canTagObject` on a Competency taxonomy. Each item is its `data-testid`,
+ * the app's untranslated item key.
+ */
+export function expectedTaxonomyMenu(taxonomy: Taxonomy): string[] {
+  const items: [string, boolean][] = [
+    ['taxonomy-menu-import', taxonomy.canChangeTaxonomy && !taxonomy.readOnly],
+    ['taxonomy-menu-export', true],
+    ['taxonomy-menu-delete', taxonomy.canDeleteTaxonomy && !taxonomy.readOnly],
+    ['taxonomy-menu-manageOrgs', taxonomy.canChangeTaxonomy],
+    [
+      'taxonomy-menu-applyCompetencies',
+      taxonomy.canTagObject && taxonomy.taxonomyType === 'competency',
+    ],
+  ];
+  return items.filter(([, shown]) => shown).map(([id]) => id);
 }

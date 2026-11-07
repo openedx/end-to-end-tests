@@ -412,6 +412,7 @@ export {
   listTaxonomies,
   listTaxonomyTags,
   setObjectTags,
+  setTaxonomyEnabled,
   setTaxonomyOrgs,
   tagCountFor,
   type AppliedTag,

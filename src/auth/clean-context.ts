@@ -1,4 +1,10 @@
-import type { APIRequest, APIRequestContext, Browser, BrowserContext } from '@playwright/test';
+import type {
+  APIRequest,
+  APIRequestContext,
+  Browser,
+  BrowserContext,
+  BrowserContextOptions,
+} from '@playwright/test';
 
 import type { StorageState } from './types';
 
@@ -20,7 +26,13 @@ export function newCleanRequestContext(api: APIRequest): Promise<APIRequestConte
   return api.newContext({ storageState: EMPTY_STORAGE_STATE });
 }
 
-/** {@link newCleanRequestContext} for a browser context. */
-export function newCleanBrowserContext(browser: Browser): Promise<BrowserContext> {
-  return browser.newContext({ storageState: EMPTY_STORAGE_STATE });
+/**
+ * {@link newCleanRequestContext} for a browser context. `options` carries any
+ * further context option (a test's viewport); the empty storage state always wins.
+ */
+export function newCleanBrowserContext(
+  browser: Browser,
+  options: BrowserContextOptions = {},
+): Promise<BrowserContext> {
+  return browser.newContext({ ...options, storageState: EMPTY_STORAGE_STATE });
 }

@@ -2,11 +2,12 @@ import type { Download, Locator, Page } from '@playwright/test';
 
 import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 import { TAGGING_BASE } from '../../../api';
-import { authoringMfeBaseFromHome } from '../authoring-base';
+import { menuItemTestIds, waitForCompetencyRoute } from './menu';
 import type { ImportFile } from './taxonomy-list.page';
 
 /**
- * A single taxonomy's detail page (`/taxonomy/<id>`) — staff only. Its SubHeader
+ * A single taxonomy's detail page (`/taxonomy/<id>`). The admin drives its management
+ * actions; a non-staff author or a global-staff user opens it by URL. Its SubHeader
  * carries the same taxonomy menu as the list-page card (import/re-import, export,
  * delete, manage orgs), so this object owns those per-taxonomy actions while
  * {@link TaxonomyListPage} owns new-taxonomy import and templates.
@@ -18,24 +19,57 @@ import type { ImportFile } from './taxonomy-list.page';
 export class TaxonomyDetailPage {
   private readonly s = TAXONOMY_SELECTORS;
   readonly menuButton: Locator;
+  /** The connection-error alert the page shows when the taxonomy request fails. */
+  readonly errorAlert: Locator;
 
   constructor(
     private readonly page: Page,
     private readonly config: AppConfig,
   ) {
     this.menuButton = page.locator(this.s.menuButton).first();
+    this.errorAlert = page.locator(this.s.connectionError);
   }
 
   /** Navigates straight to a taxonomy's detail page. */
   async goto(id: number): Promise<void> {
-    const base = await authoringMfeBaseFromHome(this.page, this.config);
-    await this.page.goto(`${base}/taxonomy/${id}`, { waitUntil: 'domcontentloaded' });
+    await this.page.goto(`${this.config.mfeUrls.authoring}/taxonomy/${id}`, {
+      waitUntil: 'domcontentloaded',
+    });
     await this.menuButton.waitFor();
   }
 
+  /**
+   * Opens `/taxonomy/<idSegment>` by URL without waiting for an outcome (the page,
+   * a redirect or the error alert).
+   */
+  async open(idSegment: number | string): Promise<void> {
+    await this.page.goto(`${this.config.mfeUrls.authoring}/taxonomy/${idSegment}`, {
+      waitUntil: 'domcontentloaded',
+    });
+  }
+
+  /** Opens the Actions menu; an already open menu stays open, because the toggle would close it. */
   private async openMenu(): Promise<void> {
-    await this.menuButton.click();
+    if ((await this.menuButton.getAttribute('aria-expanded')) !== 'true') {
+      await this.menuButton.click();
+    }
     await this.page.locator(this.s.menuExport).waitFor();
+  }
+
+  /** Opens the Actions menu and reads the `data-testid` of its items, in DOM order. */
+  async menuItemIds(): Promise<string[]> {
+    await this.openMenu();
+    return menuItemTestIds(this.page.locator(this.s.menuItems));
+  }
+
+  /**
+   * Chooses "Apply Competencies" in the Actions menu and waits for the Competency
+   * Management route.
+   */
+  async applyCompetencies(): Promise<void> {
+    await this.openMenu();
+    await this.page.locator(this.s.menuApplyCompetencies).click();
+    await waitForCompetencyRoute(this.page);
   }
 
   /** Exports the taxonomy in `format`, returning the download event. */

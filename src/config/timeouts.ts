@@ -176,6 +176,16 @@ export const TIMEOUTS = {
   taxonomyImport: 60_000,
 
   /**
+   * How long the authoring MFE takes to show an error for a failed taxonomy
+   * request. Its query client retries through `shouldRetryQuery`: up to three
+   * retries with TanStack Query's doubling pause (1 s, 2 s, 4 s), and none on a
+   * Studio-session error. Measured on Tutor dev: the alert appeared 8.1 s after
+   * opening `/taxonomy/abc/competencies`, past a single assertion's `expect`
+   * budget. Set to 20 s to leave room for a busy CMS.
+   */
+  taxonomyQueryError: 20_000,
+
+  /**
    * Budget for an AuthZ course-authoring migration to settle after a waffle
    * override is saved. Where a target migrates automatically the work happens
    * **inside** the admin request — measured 2026-09-17 on Tutor `main`: a
