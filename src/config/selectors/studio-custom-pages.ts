@@ -14,6 +14,4 @@ export const STUDIO_CUSTOM_PAGES_SELECTORS = {
   cardTitle: '[data-testid="card-title"]',
   /** A card's drag handle — the dnd-kit sortable button (one per card). */
   dragHandle: '[aria-roledescription="sortable"]',
-  /** A drag handle mid-lift: dnd-kit's keyboard sensor sets `aria-pressed` on it. */
-  liftedHandle: '[aria-roledescription="sortable"][aria-pressed="true"]',
 } as const;

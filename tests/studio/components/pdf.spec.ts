@@ -18,7 +18,7 @@ import {
   uploadAsset,
 } from '../../../src/api';
 import { testId } from '../../../src/reporting';
-import { addComponentAndSeeAsLearner, emptyUnit } from './component-helpers';
+import { emptyUnit } from './component-helpers';
 
 /** A minimal, valid PDF document: the bytes are the test's own. */
 const pdfBytes = (label: string) =>
@@ -48,30 +48,52 @@ test.describe(
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
+    // A learner case: the PDF block is the author's setup (TC-00508/00509 drive
+    // the authoring), the unit visit is the action, and the rendered viewer is
+    // the outcome.
     test(
-      'adds a PDF component a learner can see',
+      'shows a learner the PDF in the unit',
       { annotation: testId('TC-00511') },
-      async ({ page, config, authoringCourse, studioAuthorSession, authoringCourseLearner }) => {
+      async (
+        { page, config, authoringCourse, studioAuthorSession, authoringCourseLearnerLater },
+        testInfo,
+      ) => {
         void studioAuthorSession;
-        const probeUnit = await emptyUnit(
-          page.request,
-          config,
-          authoringCourse.courseKey,
-          'pdf-probe',
-        );
-        const advanced = advancedComponentTypes(
-          await fetchContainer(page.request, config, probeUnit),
-        );
-        expect(advanced).toContain('pdf');
+        const request = page.request;
+        const { courseKey } = authoringCourse;
+        const suffix = `${testInfo.testId.slice(-6)}r${testInfo.retry}`;
+        const asset = await uploadAsset(request, config, courseKey, {
+          name: `e2e-view-${suffix}.pdf`,
+          mimeType: 'application/pdf',
+          buffer: pdfBytes('TC-00511'),
+        });
+        const section = await buildSection(request, config, courseKey, `E2E pdf view ${suffix}`, {
+          subsections: [{ units: [{ blocks: [] }] }],
+        });
+        const unit = section.units[0]!;
+        const pdfKey = await createXBlock(request, config, {
+          parentLocator: unit.usageKey,
+          category: 'pdf',
+          displayName: 'E2E PDF',
+        });
+        await updateXBlock(request, config, pdfKey, { fields: { url: asset.external_url } });
+        await publishXBlock(request, config, unit.usageKey);
 
-        await addComponentAndSeeAsLearner(
-          page.request,
-          config,
-          authoringCourse.courseKey,
-          authoringCourseLearner,
-          'pdf',
-          'pdf',
-        );
+        // The learner opens the unit: the viewer loads the course's own file.
+        const learner = await authoringCourseLearnerLater();
+        await expect
+          .poll(async () => (await learner.outline()).blocks[pdfKey]?.type, {
+            timeout: TIMEOUTS.contentPublish,
+          })
+          .toBe('pdf');
+        await learner.prime(unit.sequentialUsageKey);
+        await learner.unitPage.goto(courseKey, unit.sequentialUsageKey, unit.usageKey);
+        const viewer = learner.unitPage
+          .advancedBlock(pdfKey, 'pdf')
+          .rendered.locator(ADVANCED_BLOCK_SELECTORS.embedFrame);
+        await expect(viewer).toBeVisible();
+        await expect(viewer).toHaveAttribute('src', asset.external_url);
+        expect((await learner.request.get(asset.external_url)).status()).toBe(200);
       },
     );
 

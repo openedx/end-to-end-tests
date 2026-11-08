@@ -9,8 +9,9 @@ import { firstUnitKey, learnerSees, only } from './outline-helpers';
 /**
  * Configuring a subsection as graded (TC-00157) and confirming it counts toward
  * the course grade on the learner side; the assignment types come from the
- * course's grading policy, which the learner's progress reflects (TC-00156's
- * read-through — editing the policy itself is Epic 7's TC-00284–290).
+ * course's grading policy, which the learner's progress reflects. Editing the
+ * policy itself (assignment types, grade range — TC-00156, TC-00284–290) is the
+ * Grading settings page's, in `tests/studio/settings/grading.spec.ts`.
  *
  * The author sets "Grade as" in the outline's Configure dialog; the author-side
  * outcome is `xblock/outline` (`graded`, `format`), and the round trip is the
@@ -27,7 +28,7 @@ test.describe(
 
     test(
       'marks a subsection graded and it counts on the learner progress page',
-      { tag: '@smoke', annotation: [testId('TC-00157'), testId('TC-00156')] },
+      { tag: '@smoke', annotation: testId('TC-00157') },
       async ({
         page,
         config,
