@@ -181,6 +181,20 @@ export interface AccountBackend {
   signOutThroughUi?(context: UiSignOutContext): Promise<void>;
 
   /**
+   * Whether a browser at `url` has been sent to sign in, which is where a page
+   * whose session has lapsed ends up. The Studio session check
+   * (`establishStudioBrowserSession`) reads a landing here as a dead session and
+   * signs the author in again; any other URL keeps it waiting for Studio Home.
+   *
+   * Implement it when sign-in is not the authn MFE, an external identity
+   * provider for example. It runs on every navigation the check sees, so keep it
+   * a cheap, synchronous test of the URL.
+   *
+   * Defaults to the authn MFE's routes (`defaultIsSignInUrl`).
+   */
+  isSignInUrl?(url: URL, config: AppConfig): boolean;
+
+  /**
    * Make the account able to create courses in Studio, for the `author` role.
    * Called only when Studio reports the account is not already `granted` (an
    * install with `ENABLE_CREATOR_GROUP` off never gets here).

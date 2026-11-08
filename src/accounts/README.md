@@ -97,16 +97,21 @@ export default class SamlEnterpriseBackend implements AccountBackend {
 | `signInStudio`       | no       | An LMS session needs a Studio session too (authoring roles) | silent `cms-sso` OAuth handshake via Studio `/login/`                 |
 | `signInThroughUi`    | no       | A spec signs in through the browser                         | authn MFE `/login` form                                               |
 | `signOutThroughUi`   | no       | A spec signs out through the browser                        | header account-menu sign-out link                                     |
+| `isSignInUrl`        | no       | The Studio session check asks whether a URL is sign-in      | an authn MFE route (`/authn/`)                                        |
 | `grantCourseCreator` | no       | The `author` role needs course-creator status               | request access, then approve it in Studio's Django admin as `ADMIN_*` |
 
 Each receives a single context object: `config` and `request` for the account
 methods, plus `identity` (`register`, `activate`, `grantCourseCreator` —
 `RegistrationContext`, `ActivationContext`, `GrantCourseCreatorContext`),
 `credentials` (`signIn`, `signInStudio`, `signInThroughUi`), or `page` and
-`username` (the UI flows). The defaults are exported as `defaultSignIn`,
-`defaultSignInStudio`, `defaultSignInThroughUi`, `defaultSignOutThroughUi` and
-`defaultGrantCourseCreator`, so a plugin that replaces only one flow can delegate
-the rest. `grantCourseCreator` runs only when
+`username` (the UI flows). `isSignInUrl` is the exception: a synchronous
+`(url, config)` test, since it runs on every navigation of the Studio session
+check, where a match reads as a dead session and anything else keeps waiting for
+Studio Home. An install whose sign-in is an external identity provider implements
+it to recognize the provider's page. The defaults are exported as `defaultSignIn`,
+`defaultSignInStudio`, `defaultSignInThroughUi`, `defaultSignOutThroughUi`,
+`defaultIsSignInUrl` and `defaultGrantCourseCreator`, so a plugin that replaces
+only one flow can delegate the rest. `grantCourseCreator` runs only when
 Studio does not already report the account as `granted`, and throws
 `AccountNotConfiguredError` when the install offers no way to grant with the
 current configuration (no admin account, by default) — the auth layer turns that

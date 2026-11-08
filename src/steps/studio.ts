@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import type { AccountCredentials } from '../accounts';
+import { accountSignInUrlMatcher, type AccountCredentials } from '../accounts';
 import { fetchXBlockOutline, studioOrigin, type CourseIdentity } from '../api';
 import type { AppConfig } from '../config';
 import { STUDIO_HOME_SELECTORS, TIMEOUTS } from '../config';
@@ -103,13 +103,36 @@ export async function establishStudioBrowserSession(
   // waiting for a header that will never come.
   const header = page.locator(STUDIO_HOME_SELECTORS.header);
   const loginField = page.locator('input[name="emailOrUsername"]');
+  // An install whose sign-in is an external identity provider (SSO-only) never
+  // shows the authn MFE's field: a decayed session ends on the provider's page
+  // instead, which only the account backend can recognize. Any other URL, an
+  // MFE on an origin of its own included, is still on its way to Studio Home.
+  const isSignInUrl = await accountSignInUrlMatcher(config);
   // Studio Home is a heavy first render, and this runs while several workers are
   // authoring against the same installation: a session that is perfectly fine
   // can take longer than a navigation budget to prove it. Waiting like a setup
   // step (rather than the default 15 s) is what stops a slow render from being
   // reported as a dead session.
-  await header.or(loginField).first().waitFor({ timeout: TIMEOUTS.studioSetup });
-  return (await header.count()) > 0;
+  const settled = header.or(loginField).first().waitFor({ timeout: TIMEOUTS.studioSetup });
+  const onSignIn = page.waitForURL((url) => isSignInUrl(url), { timeout: TIMEOUTS.studioSetup });
+  // Whichever settles first decides; the other is left to time out unobserved.
+  // When both time out, rethrow the header wait's own TimeoutError (which names
+  // the locator) rather than the AggregateError Promise.any rejects with.
+  settled.catch(() => undefined);
+  onSignIn.catch(() => undefined);
+  await Promise.any([settled, onSignIn]).catch((error: unknown) => {
+    throw error instanceof AggregateError ? error.errors[0] : error;
+  });
+  const live = (await header.count()) > 0;
+  if (!live) {
+    // The caller signs in again on this, so a misread landing would show up only
+    // as extra sign-ins; name where the page ended up so the report shows it.
+    console.warn(
+      `[establishStudioBrowserSession] Studio Home did not load: the page ended on ` +
+        `${page.url()}, read as a sign-in page, so the session is treated as dead.`,
+    );
+  }
+  return live;
 }
 
 /**

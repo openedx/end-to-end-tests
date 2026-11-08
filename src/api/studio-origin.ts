@@ -28,13 +28,28 @@ export function studioOrigin(config: AppConfig): string {
  * in its jar) and a Studio `Referer`, which Django's CSRF check also requires.
  * `Accept: application/json` selects the JSON branch on the legacy Studio views
  * that also render HTML.
+ *
+ * @throws {StudioSessionExpiredError} when the token endpoint answers with a
+ *   sign-in bounce, as it does for a gone Studio session on an install that sends
+ *   anonymous visitors to sign in, so the same heals as for the write itself run.
  */
 export async function studioWriteHeaders(
   request: APIRequestContext,
   config: AppConfig,
 ): Promise<Record<string, string>> {
   const origin = studioOrigin(config);
-  const token = await fetchCsrfToken(request, config, origin);
+  let token: string;
+  try {
+    token = await fetchCsrfToken(request, config, origin);
+  } catch (error) {
+    if (error instanceof ApiError && isStudioSignInBounce(error.status)) {
+      throw new StudioSessionExpiredError("Studio's CSRF token request", {
+        url: error.url,
+        status: error.status,
+      });
+    }
+    throw error;
+  }
   return {
     [CSRF_HEADER]: token,
     Referer: origin,
