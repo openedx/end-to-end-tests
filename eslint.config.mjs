@@ -56,7 +56,12 @@ export default tseslint.config(
       'playwright/expect-expect': [
         'warn',
         {
-          assertFunctionNames: ['checkA11y', 'expectReportDownloaded', 'expectErrorNotRedirect'],
+          assertFunctionNames: [
+            'checkA11y',
+            'expectReportDownloaded',
+            'expectErrorNotRedirect',
+            'expectRenderedForLearner',
+          ],
         },
       ],
     },

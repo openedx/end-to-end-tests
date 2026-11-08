@@ -14,6 +14,30 @@
 export const STUDIO_OUTLINE_PAGE_SELECTORS = {
   /** "Expand all" / "Collapse all" toggle in the outline header. */
   expandCollapseAllButton: '[data-testid="expand-collapse-all-button"]',
+  /**
+   * "Reindex" in the outline header, rendered only for a user who may edit the
+   * course **and** gets a `reindex_link` (global staff, with courseware
+   * indexing on). Disabled while a reindex runs.
+   */
+  reindexButton: '[data-testid="course-reindex"]',
+
+  /**
+   * Course highlight e-mails in the outline's status bar: "Enable now" while
+   * highlights-for-messaging is off, and the "Enabled" note once it is on. The
+   * button opens a confirm ("Enable highlight e-mails?") whose "Enable" is the
+   * dialog's primary button ({@link dialogPrimaryButton}).
+   */
+  highlightsEnableButton: '[data-testid="highlights-enable-button"]',
+  highlightsEnabledStatus: '[data-testid="highlights-enabled-span"]',
+  /**
+   * A section card's "Section highlights" badge (count + label), which opens the
+   * highlights dialog. The app ships it as `data-destid` — a typo for
+   * `data-testid`, but the only non-localized attribute the button has.
+   */
+  sectionHighlightsButton: '[data-destid="section-card-highlights-button"]',
+  /** The highlights dialog ("Highlights for <section>") and its "Save" (the form's submit). */
+  highlightsModal: '[role="dialog"]:has(.highlights-modal__header)',
+  highlightsSaveButton: 'form button[type="submit"]',
 
   /** A section (chapter) card, and its header sub-parts. */
   sectionCard: '[data-testid="section-card"]',
@@ -21,6 +45,13 @@ export const STUDIO_OUTLINE_PAGE_SELECTORS = {
   subsectionCard: '[data-testid="subsection-card"]',
   /** A unit (vertical) card. */
   unitCard: '[data-testid="unit-card"]',
+
+  /**
+   * A card header's title text (`TitleButton`), rendered while the card is
+   * collapsed too — matched only against the test's own names.
+   */
+  sectionTitle: 'span.section-card-title',
+  subsectionTitle: 'span.subsection-card-title',
 
   /** The expand/collapse chevron on a card header (`aria-expanded`). */
   sectionExpandButton: '[data-testid="section-card-header__expanded-btn"]',
@@ -57,6 +88,16 @@ export const STUDIO_OUTLINE_PAGE_SELECTORS = {
    * item. Stands in for the "Copy to clipboard" label.
    */
   copyToClipboardItem: '.dropdown-menu.show .pgn__dropdown-item:not([data-testid])',
+
+  /**
+   * Drag-and-drop: each card sits in a dnd-kit sortable row (Paragon `Row`,
+   * `div.row`) whose **direct** child button is that card's drag handle ("Drag to
+   * reorder" — dnd-kit's `aria-roledescription="sortable"`). Rows nest (a
+   * section's row holds its subsections' rows), so the handle is taken as a
+   * direct child of the card's own, innermost row.
+   */
+  sortableRow: 'div.row',
+  ownDragHandle: ':scope > button[aria-roledescription="sortable"]',
 
   /** The 3-dot menu button on a card header. */
   sectionMenuButton: '[data-testid="section-card-header__menu-button"]',

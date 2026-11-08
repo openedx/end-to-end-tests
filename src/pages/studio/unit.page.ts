@@ -3,7 +3,7 @@ import type { Dialog, Frame, Locator, Page, Response } from '@playwright/test';
 import {
   COURSE_LIBRARY_SYNC_SELECTORS,
   LEGACY_EDITOR_SELECTORS,
-  advancedComponentOption,
+  componentTemplateOption,
   STUDIO_EDITOR_SELECTORS,
   STUDIO_UNIT_PAGE_SELECTORS,
   TIMEOUTS,
@@ -53,7 +53,9 @@ export class StudioUnitPage {
     await this.page.waitForURL((u) => u.pathname.includes(`/container/${unitUsageKey}`));
     await this.header.waitFor();
     // The components render in a legacy iframe the MFE frames after the header.
-    await this.componentIframe.waitFor();
+    // Attached, not visible: an empty unit's iframe can stay zero-height
+    // ("0 xBlocks inside the frame") for the whole wait.
+    await this.componentIframe.waitFor({ state: 'attached' });
   }
 
   // --- New-tab actions -----------------------------------------------------
@@ -229,9 +231,36 @@ export class StudioUnitPage {
    * (`POST /xblock/`). Returns the new block's usage key.
    */
   async addAdvancedComponent(advancedTileIndex: number, category: string): Promise<string> {
-    await this.openAddComponent(advancedTileIndex);
-    const picker = this.page.locator(this.s.advancedPickerDialog);
-    await picker.locator(advancedComponentOption(category)).check();
+    return this.addComponentFromTemplate(advancedTileIndex, category);
+  }
+
+  /**
+   * Adds a component through a tile that opens a template picker (Advanced,
+   * Open Response): opens the tile at `tileIndex` (from
+   * `availableComponentTypes`), chooses the template whose radio `value` is
+   * `template` (its boilerplate name, else its category) and selects it,
+   * waiting for the create (`POST /xblock/`). Returns the new block's usage key.
+   */
+  async addComponentFromTemplate(tileIndex: number, template: string): Promise<string> {
+    await this.openAddComponent(tileIndex);
+    const picker = this.page.locator(this.s.templatePickerDialog);
+    await picker.locator(componentTemplateOption(template)).check();
+    return this.createdBlockKey(template, () =>
+      picker.locator(this.s.templatePickerSelect).click(),
+    );
+  }
+
+  /**
+   * Adds a component through a single-template tile (Drag and Drop), which
+   * creates the block on click — no picker, no editor. Waits for the create
+   * (`POST /xblock/`) and returns the new block's usage key.
+   */
+  async addComponentFromTile(tileIndex: number): Promise<string> {
+    return this.createdBlockKey(`tile ${tileIndex}`, () => this.openAddComponent(tileIndex));
+  }
+
+  /** Runs `action`, waits for the `POST /xblock/` it causes, and returns the new block's key. */
+  private async createdBlockKey(what: string, action: () => Promise<unknown>): Promise<string> {
     const response = await waitForWrite(
       this.page,
       {
@@ -239,11 +268,11 @@ export class StudioUnitPage {
         predicate: (r) => new URL(r.url()).pathname === XBLOCK_PATH,
         timeout: TIMEOUTS.studioSettingsSave,
       },
-      () => picker.locator(this.s.advancedPickerSelect).click(),
+      action,
     );
     const body = (await response.json()) as { locator?: string };
     if (!response.ok() || body.locator === undefined) {
-      throw new ApiError(`Adding a ${category} component failed (HTTP ${response.status()}).`, {
+      throw new ApiError(`Adding a component (${what}) failed (HTTP ${response.status()}).`, {
         status: response.status(),
         url: response.url(),
         body: JSON.stringify(body).slice(0, 500),
@@ -427,6 +456,30 @@ export class StudioUnitPage {
   }
 
   // --- Clipboard -----------------------------------------------------------
+
+  /**
+   * Copies one component to the clipboard from its own three-dot menu inside the
+   * component iframe ("Copy to Clipboard"), waiting for the content-staging write
+   * the authoring MFE makes when the iframe reports the copy. Returns that
+   * write's response — its body is the staged clipboard. `STUDIO-013`: the menu
+   * is intermittently clipped by the iframe, and its items cannot be clicked.
+   */
+  async copyComponentToClipboard(usageKey: string): Promise<Response> {
+    const header = this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`.xblock-header-primary[data-usage-id="${usageKey}"]`)
+      .first();
+    await header.locator(this.s.componentActionsMenuButton).click();
+    return waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => r.url().endsWith(CLIPBOARD_PATH),
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => header.locator(this.s.componentCopyItem).click(),
+    );
+  }
 
   /**
    * Copies this unit to the clipboard through the sidebar Item Menu's "Copy to

@@ -85,6 +85,22 @@ export class InstructorCertificatesPage extends InstructorDashboardPage {
     return response;
   }
 
+  /**
+   * "Regenerate Certificates" under the Granted Exceptions filter: opens the
+   * generate modal, picks whether every learner with an exception or only those
+   * without a certificate yet is generated, and confirms. Returns the `POST
+   * certificates/regenerate` response, whose body carries the task id. Filter
+   * to `granted_exceptions` first — under the other filters the button opens a
+   * different confirm (and under All learners it does nothing).
+   */
+  async generateForExceptions(scope: 'all' | 'without_certificate'): Promise<Response> {
+    await this.regenerateButton.click();
+    await this.page.locator(this.s.generateCertificatesOption(scope)).check();
+    return this.waitForApi({ method: 'POST', urlIncludes: '/certificates/regenerate' }, () =>
+      this.dialogConfirmButton().click(),
+    );
+  }
+
   /** Picks a filter by its API value (items are in `INSTRUCTOR_CERTIFICATE_FILTERS` order). */
   async filter(value: IssuedCertificateFilter): Promise<Response> {
     const index = INSTRUCTOR_CERTIFICATE_FILTERS.indexOf(value);

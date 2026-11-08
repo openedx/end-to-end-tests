@@ -23,6 +23,7 @@ import {
 import { StudioHomePage } from '../pages/studio/home/studio-home.page';
 import { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
 import { StudioOutlineConfigureDialog } from '../pages/studio/outline-configure.dialog';
+import { StudioOutlineHighlightsDialog } from '../pages/studio/outline-highlights.dialog';
 import { StudioUnitPage } from '../pages/studio/unit.page';
 import { StudioVideoEditor } from '../pages/studio/editors/video-editor';
 import { StudioTextEditor } from '../pages/studio/editors/text-editor';
@@ -88,6 +89,7 @@ import {
 } from '../steps';
 import {
   CourseLibrariesPage,
+  CreateLegacyLibraryPage,
   CreateLibraryPage,
   LegacyMigrationPage,
   LibraryContainerPage,
@@ -501,6 +503,8 @@ export interface TestFixtures {
   studioCourseOutlinePage: StudioCourseOutlinePage;
   /** The Configure dialog opened from an outline card (release dates, visibility, grading, prerequisites). */
   outlineConfigureDialog: StudioOutlineConfigureDialog;
+  /** Course highlight e-mails on the outline: the status bar's enable, and a section's highlights dialog. */
+  outlineHighlightsDialog: StudioOutlineHighlightsDialog;
   /** The unit (container) page object. */
   studioUnitPage: StudioUnitPage;
   /** The Verawood authoring sidebar (outline and unit page). */
@@ -833,6 +837,8 @@ export interface TestFixtures {
   libraryContainerPage: LibraryContainerPage;
   /** The "Create new library" form. */
   createLibraryPage: CreateLibraryPage;
+  /** The legacy "Create new library" form (`verawood`, `content-libraries-v1-create`). */
+  createLegacyLibraryPage: CreateLegacyLibraryPage;
   /** The course-side "Library Content" picker modal. */
   libraryPicker: LibraryPickerDialog;
   /** The "Preview changes" (accept / ignore a library update) modal. */
@@ -3268,6 +3274,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   studioCourseOutlinePage: pageObjectFixture(StudioCourseOutlinePage),
 
   outlineConfigureDialog: pageObjectFixture(StudioOutlineConfigureDialog),
+  outlineHighlightsDialog: pageObjectFixture(StudioOutlineHighlightsDialog),
 
   studioUnitPage: pageObjectFixture(StudioUnitPage),
 
@@ -4181,6 +4188,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   libraryContainerPage: pageObjectFixture(LibraryContainerPage),
 
   createLibraryPage: pageObjectFixture(CreateLibraryPage),
+  createLegacyLibraryPage: pageObjectFixture(CreateLegacyLibraryPage),
 
   libraryPicker: pageObjectFixture(LibraryPickerDialog),
 

@@ -1,7 +1,9 @@
 import type { Locator, Page, Response } from '@playwright/test';
 
 import {
+  LIBRARY_PICKER_SELECTORS,
   STUDIO_OUTLINE_PAGE_SELECTORS,
+  STUDIO_SIDEBAR_SELECTORS,
   STUDIO_OUTLINE_SELECTORS,
   STUDIO_SHELL_SELECTORS,
   TIMEOUTS,
@@ -12,6 +14,7 @@ import {
   type AppConfig,
 } from '../../config';
 import { CLIPBOARD_PATH, XBLOCK_PATH, studioOrigin } from '../../api';
+import { DND_REORDER_TIMEOUT_MS, keyboardDrag } from './keyboard-drag';
 import { waitForWrite } from './wait-for-write';
 
 type OutlineLevel = 'section' | 'subsection' | 'unit';
@@ -104,6 +107,19 @@ export class StudioCourseOutlinePage {
   }
 
   /**
+   * Clicks the header's "Reindex" (global staff only) and waits for the
+   * reindex request it fires — a `GET` of the course's `reindex_link`
+   * (`/course/<key>/search_reindex`). Returns that response.
+   */
+  async reindex(): Promise<Response> {
+    return waitForWrite(
+      this.page,
+      { method: 'GET', urlIncludes: '/search_reindex', timeout: TIMEOUTS.studioSettingsSave },
+      () => this.page.locator(STUDIO_OUTLINE_PAGE_SELECTORS.reindexButton).click(),
+    );
+  }
+
+  /**
    * Opens the course header's Settings menu, where the team entry point lives:
    * with AuthZ on for this course it is a link into the Roles and Permissions
    * console, and with AuthZ off it is the legacy Course Team page.
@@ -121,6 +137,24 @@ export class StudioCourseOutlinePage {
   /** The section card containing the unit with `unitUsageKey`. */
   section(unitUsageKey: string): Locator {
     return this.page.locator(sectionCardContaining(unitUsageKey));
+  }
+
+  /**
+   * The section card titled `title` (test-owned data — the name it was built
+   * with). Unlike {@link section}, found while the section is collapsed: its
+   * header title stays rendered.
+   */
+  sectionTitled(title: string): Locator {
+    return this.sectionCards.filter({
+      has: this.page.locator(STUDIO_OUTLINE_PAGE_SELECTORS.sectionTitle, { hasText: title }),
+    });
+  }
+
+  /** The subsection card titled `title` (test-owned data); its section must be expanded. */
+  subsectionTitled(title: string): Locator {
+    return this.subsectionCards.filter({
+      has: this.page.locator(STUDIO_OUTLINE_PAGE_SELECTORS.subsectionTitle, { hasText: title }),
+    });
   }
 
   /** The subsection card containing the unit with `unitUsageKey`. */
@@ -172,7 +206,7 @@ export class StudioCourseOutlinePage {
    * expanded, so this is usually a no-op; a card with no children yet (a
    * just-created, empty subsection) shows its "New …" button without expanding.
    */
-  private async expand(card: Locator, level: 'section' | 'subsection'): Promise<void> {
+  async expand(card: Locator, level: 'section' | 'subsection'): Promise<void> {
     const container = card
       .locator(
         level === 'section'
@@ -401,6 +435,41 @@ export class StudioCourseOutlinePage {
   }
 
   /**
+   * Drags a card `steps` places up or down among its siblings with dnd-kit's
+   * keyboard sensor — the outline's drag-and-drop, driven by keys rather than a
+   * synthesised pointer — and waits for the reorder write the drop fires
+   * (`PUT /xblock/<parent> {children}`). The card's **own** drag handle is the
+   * sortable button that is a direct child of the card's own row: a section's
+   * row also holds its subsections' (and their units') handles further down, so
+   * the first handle inside the card would be the wrong level. Keep `steps`
+   * within the card's siblings — an Arrow past the last sibling reparents the
+   * card into the next container.
+   */
+  async reorderByKeyboard(card: Locator, direction: 'up' | 'down', steps = 1): Promise<Response> {
+    const ownRow = this.page
+      .locator(STUDIO_OUTLINE_PAGE_SELECTORS.sortableRow)
+      .filter({ has: card })
+      .last();
+    const handle = ownRow.locator(STUDIO_OUTLINE_PAGE_SELECTORS.ownDragHandle);
+    return keyboardDrag(
+      this.page,
+      handle,
+      direction === 'up' ? 'ArrowUp' : 'ArrowDown',
+      steps,
+      (drop) =>
+        waitForWrite(
+          this.page,
+          {
+            method: 'PUT',
+            urlIncludes: `${XBLOCK_PATH}block-v1:`,
+            timeout: DND_REORDER_TIMEOUT_MS,
+          },
+          drop,
+        ),
+    );
+  }
+
+  /**
    * Moves a card down (or up) one position among its siblings through its 3-dot
    * menu, waiting for the reorder write (`PUT /xblock/<parent> {children}`). The
    * deterministic counterpart to {@link reorderByKeyboard}: both send the same
@@ -418,6 +487,26 @@ export class StudioCourseOutlinePage {
       },
       () => item.click(),
     );
+  }
+
+  /**
+   * Expands `subsectionCard` and clicks its "Use unit from library" — the
+   * second add button under its units, after "New unit" — then waits for the
+   * surface it opens and says which: the modal library picker (`'dialog'`,
+   * `verawood`) or the Add sidebar's "Add Existing" pane (`'sidebar'`, `main`).
+   */
+  async openUseLibraryUnit(subsectionCard: Locator): Promise<'dialog' | 'sidebar'> {
+    await this.expand(subsectionCard, 'subsection');
+    const button = subsectionCard
+      .locator(STUDIO_OUTLINE_PAGE_SELECTORS.subsectionUnits)
+      .locator(STUDIO_OUTLINE_PAGE_SELECTORS.addChildButton)
+      .nth(1);
+    await button.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
+    await button.click();
+    const dialog = this.page.locator(LIBRARY_PICKER_SELECTORS.modal);
+    const pane = this.page.locator(STUDIO_SIDEBAR_SELECTORS.addExistingPane);
+    await dialog.or(pane).first().waitFor({ timeout: TIMEOUTS.navigation });
+    return (await dialog.count()) > 0 ? 'dialog' : 'sidebar';
   }
 
   /**

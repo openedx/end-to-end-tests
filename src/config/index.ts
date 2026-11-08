@@ -126,7 +126,7 @@ export {
   STUDIO_CUSTOM_PAGES_SELECTORS,
   STUDIO_UNIT_PAGE_SELECTORS,
   COMMUNICATIONS_SELECTORS,
-  advancedComponentOption,
+  componentTemplateOption,
   ADVANCED_BLOCK_SELECTORS,
   advancedBlockRoot,
   STUDIO_EDITOR_SELECTORS,

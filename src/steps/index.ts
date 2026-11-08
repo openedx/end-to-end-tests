@@ -21,6 +21,7 @@ export {
 } from './studio';
 export { satisfyPrerequisiteByScore, submitProblem } from './gating';
 export {
+  awaitCertificateDownloadable,
   ensureDataResearcher,
   earnCertificate,
   expectedInstructorTabs,
@@ -29,6 +30,7 @@ export {
   waitForInstructorTask,
   waitForLearnerProgress,
   waitForReport,
+  type CertificateGenerationOutcome,
   type CertificateMintOutcome,
   type ExpectedInstructorTabs,
   type InstructorTabConditions,
@@ -36,6 +38,7 @@ export {
   type TaskWaitOutcome,
 } from './instructor';
 export {
+  addLibraryUnitFromOutline,
   authorLibrary,
   waitForLearnerBlock,
   waitForMigration,

@@ -81,6 +81,18 @@ export const STUDIO_HOME_SELECTORS = {
 
   /** The "View live" link inside an open card menu (to the LMS course). */
   cardViewLiveLink: '.dropdown-menu.show a[href*="/courses/"]',
+  /**
+   * "Re-run course" inside an open card menu — a link to the authoring MFE's
+   * own re-run page. Rendered for global staff only (Studio's re-run creator
+   * status); a course author's menu offers View live alone.
+   */
+  cardRerunLink: '.dropdown-menu.show a[href*="/course_rerun/"]',
+  /**
+   * The re-run page's form (the create-course form, prefilled from the source):
+   * the run field, and "Create re-run" — the form's primary button.
+   */
+  rerunRunInput: 'form input[name="run"]',
+  rerunSubmitButton: 'form button.btn-primary',
 
   /**
    * The Studio brand logo; its `alt` is `Studio <platform name>`, the rendered

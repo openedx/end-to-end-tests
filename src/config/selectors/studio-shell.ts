@@ -5,6 +5,13 @@
  * Measured on Tutor `main` (2026-09-08); the same MFE serves `redwood`.
  */
 export const STUDIO_SHELL_SELECTORS = {
+  /**
+   * A dnd-kit sortable's drag handle mid-lift, on any authoring page that
+   * reorders by drag-and-drop (outline, Custom Pages): the keyboard sensor sets
+   * `aria-pressed` on the handle (`aria-roledescription="sortable"`) it lifted.
+   */
+  dndLiftedHandle: '[aria-roledescription="sortable"][aria-pressed="true"]',
+
   /** Header lock-up linking back to the course outline; `href` carries the key. */
   courseLockUp: '[data-testid="course-lock-up-block"]',
   /** "ORG NUMBER" text in the lock-up. */
