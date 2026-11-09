@@ -1991,8 +1991,9 @@ assignments are removable from the same view.
 
 **Coverage impact:** open. TC-00620 drives the removal through Studio's endpoint
 and asserts both systems clear; a `fixme` + `knownGap` sibling carries the
-console path. This is the mirror image of wg#603 — there the console offers an
-action the platform refuses, here it refuses one the platform allows.
+console path. This is the mirror image of wg#603 (since fixed) — there the
+console offered an action the platform refuses, here it refuses one the platform
+allows.
 
 **Re-measured and filed (2026-10-13)** as
 [frontend-app-admin-console#258](https://github.com/openedx/frontend-app-admin-console/issues/258)
