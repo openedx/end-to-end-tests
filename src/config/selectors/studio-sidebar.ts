@@ -88,10 +88,10 @@ export const STUDIO_SIDEBAR_SELECTORS = {
   outlineAddTab: (key: 'addNew' | 'addExisting') => `#add-content-tabs-tab-${key}`,
   /**
    * The outline Add sidebar's "Add Existing" pane — what the outline's "Use …
-   * from library" buttons open on `main`: the library content of every library
-   * the author may reuse from, embedded, with a library filter, a search field
-   * and an "Add" per card. (On `verawood` the same buttons open the modal
-   * library picker instead — `LIBRARY_PICKER_SELECTORS`.)
+   * from library" buttons open on `main` and `verawood`: the library content of
+   * every library the author may reuse from, embedded, with a library filter, a
+   * search field and an "Add" per card. (An outline without the authoring
+   * sidebar opens the modal library picker instead — `LIBRARY_PICKER_SELECTORS`.)
    */
   addExistingPane: '#add-content-tabs-tabpane-addExisting',
   /** The pane's library filter ("All libraries"): a toggle and one checkbox per library, its `value` the library key. */
@@ -100,8 +100,12 @@ export const STUDIO_SIDEBAR_SELECTORS = {
     `.dropdown-menu.show input[type="checkbox"][value="${libraryKey}"]`,
   /** The library filter's own name search ("Search Library Name"), inside the open menu. */
   addExistingLibrarySearch: '.dropdown-menu.show input[name="searchfield-input"]',
-  /** The content search field (the pane's flex-filling search, not the filter's). */
-  addExistingSearch: '.pgn__searchfield.flex-fill input[name="searchfield-input"]',
+  /**
+   * The content search field. The library filter's own name search is the same
+   * Paragon field inside the filter's menu, so this is the one still visible
+   * once that menu has closed (no class tells them apart on both releases).
+   */
+  addExistingSearch: 'input[name="searchfield-input"]:visible',
   /** A content card, and its "Add" (the card header's action button). */
   addExistingCard: '.library-item-card',
   addExistingCardAdd: '.pgn__card-header-actions button',
