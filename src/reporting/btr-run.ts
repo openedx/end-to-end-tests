@@ -20,6 +20,7 @@ import {
   type TestStatus,
   type VerdictTotals,
 } from './coverage';
+import { DISPUTED_ANNOTATION_TYPE } from './disputed';
 import { ISSUE_ANNOTATION_TYPE } from './issue';
 import { KNOWN_GAP_ANNOTATION_TYPE } from './known-gap';
 
@@ -175,9 +176,21 @@ function holdBackReason(annotations: readonly Annotation[]): string {
 }
 
 /**
+ * The sheet dispute a passing test records (`disputed(...)`), with its issue link
+ * when there is one; `undefined` for a test that disputes nothing.
+ */
+function disputeNote(annotations: readonly Annotation[]): string | undefined {
+  const reason = descriptionOf(annotations, DISPUTED_ANNOTATION_TYPE);
+  if (reason === undefined) return undefined;
+  const issue = descriptionOf(annotations, ISSUE_ANNOTATION_TYPE);
+  return `disputed: ${[reason, issue].filter((p): p is string => p !== undefined).join(' — ')}`;
+}
+
+/**
  * Builds the note the sheet shows for a test, from its final attempt and how many
  * attempts it took. One line; empty when the test passed first time with nothing
- * to say.
+ * to say. A passing test that disputes the sheet (`disputed(...)`) always says so,
+ * so its green row is never read as "the sheet's words were verified".
  */
 export function noteFor(final: RunAttempt, attempts: number): string {
   const { annotations } = final;
@@ -211,10 +224,12 @@ export function noteFor(final: RunAttempt, attempts: number): string {
     return detail ? `${label}: ${detail}` : label;
   }
 
+  const dispute = disputeNote(annotations);
   if (attempts > 1) {
-    return `flaky: passed on attempt ${attempts}`;
+    const flaky = `flaky: passed on attempt ${attempts}`;
+    return dispute ? `${flaky}; ${dispute}` : flaky;
   }
-  return '';
+  return dispute ?? '';
 }
 
 /**

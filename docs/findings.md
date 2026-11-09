@@ -30,11 +30,11 @@ measured, and issues are opened by hand from them.
 | `BASE-001`  | `openedx/frontend-base` (shell header/footer)            | open, `test.fail` in `discovery.spec.ts`, gated `@frontend-base`               |
 | `RBAC-001`  | `openedx/frontend-app-admin-console`                     | open, shapes every anchor in `selectors/admin-console.ts`                      |
 | `RBAC-002`  | `openedx/openedx-authz`                                  | **duplicate** - [openedx-authz#347](https://github.com/openedx/openedx-authz/issues/347) (tracked here as [#127](https://github.com/openedx/end-to-end-tests/issues/127)), `fixme` in `team-members.spec.ts` (TC-00568) |
-| `RBAC-003`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#259](https://github.com/openedx/frontend-app-admin-console/issues/259) (tracked here as [#138](https://github.com/openedx/end-to-end-tests/issues/138)), asserted as an empty Role cell (the sheet's own note on TC-00619) |
+| `RBAC-003`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#259](https://github.com/openedx/frontend-app-admin-console/issues/259) (tracked here as [#138](https://github.com/openedx/end-to-end-tests/issues/138)), `test.fail` on TC-00619's role-name test |
 | `RBAC-004`  | `openedx/frontend-app-admin-console`                     | **resolved — by design** (2026-10-13), test plan: [wg-build-test-release#619](https://github.com/openedx/wg-build-test-release/issues/619) (tracked here as [#137](https://github.com/openedx/end-to-end-tests/issues/137)); TC-00440/00441/00443 asserted against what it does render |
 | `RBAC-005`  | `openedx/paragon` (`Pagination`'s Next button), seen in the admin console | **filed** - [paragon#4499](https://github.com/openedx/paragon/issues/4499) (tracked here as [#149](https://github.com/openedx/end-to-end-tests/issues/149)), pager located by position instead |
 | `RBAC-006`  | `openedx/frontend-app-admin-console`                     | open, three axe rules baselined for console scans                              |
-| `RBAC-007`  | `openedx/openedx-authz` + console                        | **filed** - [openedx-authz#526](https://github.com/openedx/openedx-authz/issues/526) (tracked here as [#126](https://github.com/openedx/end-to-end-tests/issues/126)), `knownGap` on TC-00567 |
+| `RBAC-007`  | `openedx/openedx-authz` + console                        | **filed** - [openedx-authz#526](https://github.com/openedx/openedx-authz/issues/526) (tracked here as [#126](https://github.com/openedx/end-to-end-tests/issues/126)) — **resolved on `main`** (openedx-authz#543, ≥ 2.0.0); `verawood` (1.23.0) still allows it. TC-00567's API test is gated `rbac-self-revoke-guard` |
 | `RBAC-008`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#260](https://github.com/openedx/frontend-app-admin-console/issues/260) (tracked here as [#139](https://github.com/openedx/end-to-end-tests/issues/139)), regression on `main`; TC-00442 gated on `rbac-error-view-action` |
 | `RBAC-009`  | `openedx/frontend-app-admin-console`                     | **resolved — does not reproduce on `main`** (2026-10-13); a11y residue split out as `RBAC-018`; `fixme` sibling on TC-00569 |
 | `RBAC-018`  | `openedx/frontend-app-admin-console` (matrix row labels are not row headers) | open, not asserted — found while re-checking `RBAC-009` |
@@ -43,8 +43,8 @@ measured, and issues are opened by hand from them.
 | `RBAC-012`  | sheet vs platform (`openedx-authz` roles)                | open, platform's model asserted on TC-00571                                    |
 | `RBAC-013`  | `openedx/frontend-app-authoring`                         | **filed** - [frontend-app-authoring#3311](https://github.com/openedx/frontend-app-authoring/issues/3311) (tracked here as [#133](https://github.com/openedx/end-to-end-tests/issues/133)), `fixme` sibling on TC-00575 |
 | `RBAC-014`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#258](https://github.com/openedx/frontend-app-admin-console/issues/258) (tracked here as [#136](https://github.com/openedx/end-to-end-tests/issues/136)), `fixme` sibling on TC-00620 |
-| `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | **filed** - [authz#521](https://github.com/openedx/openedx-authz/issues/521) (tracked here as [#118](https://github.com/openedx/end-to-end-tests/issues/118)), `fixme` sibling on TC-00640 |
-| `RBAC-016`  | BTR test plan (TC-00632 expectation)                     | **resolved** — by design: re-runs never copied the team; [wg#617](https://github.com/openedx/wg-build-test-release/issues/617) (tracked here as [#119](https://github.com/openedx/end-to-end-tests/issues/119)), `fixme` sibling on TC-00632 |
+| `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | **filed** - [authz#521](https://github.com/openedx/openedx-authz/issues/521) (tracked here as [#118](https://github.com/openedx/end-to-end-tests/issues/118)), `test.fail` on TC-00640 |
+| `RBAC-016`  | BTR test plan (TC-00632 expectation)                     | **resolved** — by design: re-runs never copied the team; [wg#617](https://github.com/openedx/wg-build-test-release/issues/617) (tracked here as [#119](https://github.com/openedx/end-to-end-tests/issues/119)), TC-00632 marked `disputed` |
 | `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-matrix-parity` |
 | `AUTH-004`  | `openedx/frontend-app-authoring`                         | open, not asserted — Help topics are, their doc links are not                  |
 | `AUTH-005`  | `openedx/frontend-app-authoring` (outline card selection is mouse-only) | open, not asserted — found while re-measuring `AUTH-002` |
@@ -1729,9 +1729,9 @@ also creates — `course_limited_staff`, `course_data_researcher` and
 `course_beta_tester` — have no display name, so their rows render with the Role
 cell empty. This is the sheet's own note on TC-00619.
 
-**Coverage impact:** open, no `fixme`. The Role cell is asserted by the presence
-of its `data-role` attribute, never by its text, and TC-00619 asserts the empty
-cell as the measured behaviour.
+**Coverage impact:** TC-00619's sync test asserts the row is listed; a
+`test.fail` sibling asserts the console names the role (`namesRole`: a non-empty
+`data-role` by assignment, anything but the bare key by user), never by its text.
 
 
 **Filed (2026-10-13)** as
@@ -1743,7 +1743,7 @@ three, while the Team Members table, redesigned in admin-console#222
 also notes that the labels are hard-coded English, not `messages`. TC-00619
 already follows the redesign
 ([end-to-end-tests#140](https://github.com/openedx/end-to-end-tests/pull/140)):
-it expects an empty Role cell on `verawood` and the bare key on `main`.
+an empty Role cell on `verawood` and the bare key on `main` both count as unnamed.
 ### `RBAC-004` — a failed list produces a toast with a retry, not a Server Error view
 
 **Where:** the console's Team Members tab, `main`.
@@ -1754,9 +1754,13 @@ empty table plus **two** alerts carrying Close and Retry, and its pager reads
 full-page Server Error view offering *Reload Page* and *Back to Libraries*; this
 build has neither. Its only full-page error view is the 404.
 
-**Coverage impact:** open, no `fixme`. The three cases are asserted against what
-the console actually renders — the alert with a retry, an empty table, exactly
-one retry request, and no alert after navigating away — under ADR-0003.
+**Coverage impact:** the three cases are asserted against what the console
+actually renders — the alert with a retry, an empty table, one retry request,
+and no alert after navigating away — under ADR-0003, and marked `disputed`.
+
+**Sheet should say:** a failed list shows an error toast with Retry over an
+empty table; Retry clears the toast and sends one request; leaving mid-retry
+shows nothing on the next page.
 
 **Resolution (2026-10-13): by design.** The console maps 500/502/503/408 to an
 `error-retry` toast on purpose (`ToastManagerContext.tsx`: "Transient
@@ -1813,8 +1817,15 @@ the rule at all: a library admin revoking its own `library_admin` is answered
 [openedx-authz#526](https://github.com/openedx/openedx-authz/issues/526)
 (tracked here as [#126](https://github.com/openedx/end-to-end-tests/issues/126)). The rule comes from authz#54's acceptance
 criteria, which cover the UI only; `RoleUserAPIView.delete` has no self-check
-(unchanged in v1.32.1). TC-00567 asserts the console's behaviour and carries a
-`knownGap` recording that the API does not enforce it.
+(unchanged in v1.32.1). TC-00567 asserts the console's behaviour.
+
+**Resolved on `main` (2026-10-27):** [openedx-authz#543](https://github.com/openedx/openedx-authz/pull/543)
+("Prevent users from removing their own admin roles", in openedx-authz 2.0.0 and
+later) answers the self-revoke with a `cannot_remove_own_admin_role` error row and
+keeps the role; measured on the Tutor `main` sandbox (2026-11-08). `verawood`
+pins openedx-authz 1.23.0 and still removes it. TC-00567's API test asserts the
+refusal, gated on `rbac-self-revoke-guard` (declared for `main` only), so on
+`verawood` the case reads partial.
 
 ### `RBAC-008` — the 404 view's only action does nothing (a regression on `main`)
 
@@ -1938,10 +1949,14 @@ work is the case's real risk.
 the info panel offers it "Publish All", and `POST <lib>/commit/` answers 200.
 TC-00571 states that a Library Author cannot publish the library.
 
-**Coverage impact:** open, no `fixme`. TC-00571 asserts the platform's model
-(the role may publish) and records the discrepancy, rather than encoding the
-sheet's wording. Whether the role definition or the sheet is wrong is a product
-decision, so this is recorded for the release team rather than filed as a bug.
+**Coverage impact:** open. TC-00571 asserts the platform's model (the role may
+publish) and is marked `disputed`, rather than encoding the sheet's wording.
+Whether the role definition or the sheet is wrong is a product decision, so
+this is recorded for the release team rather than filed as a bug. If the sheet
+wins, the publish clause becomes a `test.fail` sibling.
+
+**Sheet should say (if the role model stands):** a Library Author can publish
+the library.
 
 ### `RBAC-013` — the public-reuse switch saves silently
 
@@ -2014,11 +2029,12 @@ course-creator rights are legacy — including an organization-wide `instructor`
 that the migration itself has just created, and the course author that created
 the organization's other courses. A superuser is unaffected.
 
-**Coverage impact:** open. TC-00640 asserts the refusal as measured (and that the
-organization-wide role does reach the organization's existing courses); the
-sheet's expectation — that the organization-level permission enables creation —
-is a `fixme` + `knownGap` sibling. TC-00632 takes its re-run as the superuser for
-the same reason.
+**Coverage impact:** open. TC-00640 is the sheet's expectation — the
+organization-level permission enables creation — as a `test.fail` (each run
+leaves the half-created course behind). A supporting test with no case id
+asserts today's behaviour: the refusal, and that the organization-wide role
+does reach the organization's existing courses. TC-00632 takes its re-run as
+the superuser for the same reason.
 
 ### `RBAC-016` — a re-run does not copy a course's AuthZ team
 
@@ -2036,9 +2052,11 @@ suggesting a feature request if copying the team is wanted.
 source's AuthZ assignments do not come with it: the copy's team lists neither the
 source's `course_staff` in `roles/users/?scope=` nor a legacy row for them.
 
-**Coverage impact:** open. TC-00632 asserts what the copy actually inherits and a
-`fixme` + `knownGap` sibling carries the case's expectation; the sheet marks this
-row failed as well.
+**Coverage impact:** TC-00632 asserts what the copy actually inherits and is
+marked `disputed`, so its passing row says the sheet is out of step.
+
+**Sheet should say:** drop "all team members are copied to the new course" (and
+"both legacy and AuthZ roles are created" for them), or request the feature.
 
 ### `RBAC-017` — the library permission matrix is inaccurate on `verawood`
 
@@ -3092,3 +3110,19 @@ but no sandbox that can start, so a Python-graded problem (TC-00203) answers wit
 no grade. Scoring one needs a working sandbox, which the extended profile gets
 from `tutor-contrib-codejail` on `verawood`. That plugin stops at the Tutor 22
 line, so `main` has no build of it yet.
+
+## Sheet disputes (2026-11-08)
+
+Cases whose test asserts the platform's behaviour against the BTR sheet's
+wording because the platform is believed right — marked `disputed(...)`, so the
+results sheet shows a `disputed:` note on the passing row (CONVENTIONS.md, "When
+the sheet and the platform disagree"). Each line is what the sheet row should say;
+the release team carries it to the sheet.
+
+| Case | Test | Sheet should say |
+| ---- | ---- | ---------------- |
+| TC-00632 | `tests/rbac/studio-authz/course-lifecycle.spec.ts` | See `RBAC-016`: drop "all team members are copied", or request the feature. |
+| TC-00440 / 00441 / 00443 | `tests/rbac/console/error-views.spec.ts` | See `RBAC-004`: an error toast with Retry over an empty table, not a Server Error view. |
+| TC-00571 | `tests/rbac/library/library-roles.spec.ts` | See `RBAC-012` (product call open): a Library Author can publish the library — if the role model stands. |
+| TC-00453 | `tests/rbac/console/assign-role.spec.ts` | The wizard checks every identifier on leaving step one, before anything is written: a mixed batch is refused there with the typed text kept — no partial apply, no summary toast. |
+| TC-00423 | `tests/studio/library/public-read.spec.ts` | Without the manage-team right the reuse switch is shown read-only (disabled), not hidden — the sheet's own tester note ("not hide but is blocked"); this makes TC-00423 and TC-00424 one scenario. |

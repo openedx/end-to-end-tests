@@ -747,6 +747,28 @@ do not work around a defect with `force`. Where a workaround is genuinely needed
 to reach _other_ coverage, put it in the page object with a comment naming the
 issue, and keep a separate `test.fail` test on the broken path itself.
 
+### When the sheet and the platform disagree
+
+Decide which one is right before writing the assertion.
+
+- **Defect — the sheet is right.** The BTR case describes the behaviour we want
+  and the platform does not deliver it. Assert the case's expectation, mark it
+  `test.fail` with `issue(...)`, and record the finding in `docs/findings.md`.
+  Never assert the broken behaviour green under the case's id; a supporting
+  test that documents today's behaviour carries no case id.
+- **Dispute — the platform is right.** The case's wording is out of date, or
+  names a design the platform never shipped, and the shipped behaviour is the
+  intended one. Assert the platform's behaviour green and add
+  `disputed('what the platform does, and what the sheet should say')` beside the
+  `testId` (plus `issue(...)` where the question was raised upstream). Record a
+  "Sheet should say" line in `docs/findings.md` so the release team can correct
+  the row. The results sheet then shows the case verified **with a `disputed:`
+  note**, instead of a silent green that reads as "the sheet's words were
+  verified".
+- **Never** put `knownGap` on a passing test (the reporter shows it only for a
+  `fixme` or `test.fail`), `fixme` a body that can run, or put a case id on a
+  test that asserts the opposite of the case without `disputed`.
+
 ## Configuration and secrets
 
 - Read configuration through `getConfig()` / the `config` fixture. **Never read

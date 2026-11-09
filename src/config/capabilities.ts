@@ -256,6 +256,13 @@ export const CAPABILITIES = [
   // shows the scope key, adds a separate expander column and omits the control
   // on your own admin row altogether. Declared where the new layout ships.
   'rbac-audit-team-layout',
+  // The **API refuses an admin removing its own admin role**: openedx-authz
+  // ≥ 2.0.0 (openedx-authz#543) answers the self-revoke with a
+  // `cannot_remove_own_admin_role` error row and keeps the role. `verawood`
+  // pins 1.23.0, which removes it (`RBAC-007`), so the guard there is the
+  // console's alone. Declared where the API guard ships. Requires `rbac`
+  // (`CAPABILITY_REQUIRES`).
+  'rbac-self-revoke-guard',
   // The console's **not-found view offers a working way back**. On `verawood`
   // its "Back to Studio" action carries a URL and leaves the route; on `main`
   // the same anchor has no `href` and its handler does nothing (`RBAC-008`), so
@@ -429,6 +436,7 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   'analytics-staff-video-counts': 'analytics',
   competencies: 'taxonomies',
   'content-libraries-v1-create': 'content-libraries-v1',
+  'rbac-self-revoke-guard': 'rbac',
 };
 
 export function isCapability(value: string): value is Capability {
