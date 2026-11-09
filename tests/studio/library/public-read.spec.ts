@@ -10,7 +10,7 @@ import {
   setCourseTeamRole,
   updateLibrary,
 } from '../../../src/api';
-import { testId } from '../../../src/reporting';
+import { disputed, testId } from '../../../src/reporting';
 import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, authorTextBlock, label } from './helpers';
 
 /**
@@ -84,7 +84,18 @@ test.describe('Library public read access', { tag: ['@regression', ...LIBRARY_TA
 
   test(
     'a member without the manage-team right sees the switch read-only, off and on',
-    { tag: '@smoke', annotation: [testId('TC-00423'), testId('TC-00424')] },
+    {
+      tag: '@smoke',
+      annotation: [
+        testId('TC-00423'),
+        testId('TC-00424'),
+        disputed(
+          'TC-00423: without the manage-team right the reuse switch is shown disabled, not ' +
+            'hidden (the sheet’s own tester note: "not hide but is blocked"). The sheet should ' +
+            'say the switch is read-only, which makes TC-00423 and TC-00424 one scenario.',
+        ),
+      ],
+    },
     async ({
       page,
       config,

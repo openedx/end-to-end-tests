@@ -53,6 +53,38 @@ test.describe('noteFor', { tag: '@unit' }, () => {
     expect(noteFor(attempt(), 2)).toBe('flaky: passed on attempt 2');
   });
 
+  test('says a passing test disputes the sheet, with its issue link', () => {
+    const a = attempt({
+      annotations: [
+        { type: 'test_id', description: 'TC-00440' },
+        { type: 'sheet_dispute', description: 'RBAC-004: a toast with Retry, by design' },
+        { type: 'issue', description: 'https://github.com/openedx/x/issues/619' },
+      ],
+    });
+    expect(noteFor(a, 1)).toBe(
+      'disputed: RBAC-004: a toast with Retry, by design — https://github.com/openedx/x/issues/619',
+    );
+  });
+
+  test('appends a dispute to the flaky note', () => {
+    const a = attempt({
+      annotations: [{ type: 'sheet_dispute', description: 'the sheet names a removed view' }],
+    });
+    expect(noteFor(a, 3)).toBe(
+      'flaky: passed on attempt 3; disputed: the sheet names a removed view',
+    );
+  });
+
+  test('keeps a failure note over a dispute', () => {
+    const a = attempt({
+      status: 'failed',
+      rawStatus: 'failed',
+      annotations: [{ type: 'sheet_dispute', description: 'the sheet names a removed view' }],
+      errorMessage: 'expect(received).toBe(expected)',
+    });
+    expect(noteFor(a, 1)).toBe('failed: expect(received).toBe(expected)');
+  });
+
   test('reports a runtime skip with its reason', () => {
     const a = attempt({
       status: 'skipped',

@@ -36,11 +36,19 @@ Contains:
 - `known-gap.ts` — the `known_gap` annotation. `knownGap('why')` records the
   reason a declarative `test.fixme` is held back, so the run report (and the
   results sheet) can say why instead of "fixme (no reason recorded)".
+- `disputed.ts` — the `sheet_dispute` annotation. `disputed('why')` marks a
+  passing test that asserts the platform's behaviour where the BTR case says
+  otherwise and the platform is believed right (the case is out of date, or
+  names a design never shipped). The run report's note then reads
+  `disputed: <why>[ — <issue>]` instead of staying empty, so the case's green
+  row is not read as "the sheet's words were verified". A defect the sheet is
+  right about is a `test.fail`, not a dispute.
 - `btr-run.ts` — pure aggregation (`summarizeRun`) for the **run detail**
   report: one row per BTR case with the specs and projects that drive it, every
   test's final status, summed duration and attempt count, and a one-line note
   (skip reason, fixme/known gap + issue link, `test.fail` reading, first line of
-  the error, or failing a11y rules — see `noteFor`). Plus run metadata: start,
+  the error, failing a11y rules, or a passing test's sheet dispute — see
+  `noteFor`). Plus run metadata: start,
   duration, Playwright's overall status, the filter used, and in CI the run
   link, workflow, ref, commit and Open edX release (`ciMetaFromEnv`).
 - `btr-run-reporter.ts` — the always-on reporter that adapts run events onto
