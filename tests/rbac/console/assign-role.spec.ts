@@ -3,7 +3,7 @@ import { checkA11y } from '../../../src/a11y';
 import { TIMEOUTS } from '../../../src/config';
 import { canI, listRoleUsers, listUserAssignments } from '../../../src/api';
 import { seedScopeAssignments } from '../../../src/steps';
-import { disputed, issue, testId } from '../../../src/reporting';
+import { disputed, testId } from '../../../src/reporting';
 import { ADMIN_CONSOLE_A11Y_BASELINE, RBAC_TAGS } from '../helpers';
 
 /**
@@ -234,10 +234,7 @@ test.describe(
       'offers the Assign Role action only to an account that may manage the team',
       {
         tag: '@smoke',
-        annotation: [
-          testId('TC-00396'),
-          issue('https://github.com/openedx/wg-build-test-release/issues/603'),
-        ],
+        annotation: testId('TC-00396'),
       },
       async ({
         config,
@@ -247,11 +244,6 @@ test.describe(
         studioColleague,
         page,
       }) => {
-        test.fail(
-          true,
-          'The console offers Assign Role to a member who cannot manage the team: ' +
-            'https://github.com/openedx/wg-build-test-release/issues/603',
-        );
         void studioAuthorSession;
         const library = authoringLibrary.id;
         const member = await studioColleague();
@@ -268,9 +260,9 @@ test.describe(
           await canI(member.request, config, 'content_libraries.manage_library_team', library),
         ).toBe(false);
 
-        // …so the console should not offer them the action. It does, which is
-        // what this case reports; the wizard it opens has no roles to choose,
-        // and a write would be refused.
+        // …so the console does not offer them the action. It shows Assign Role
+        // only to an account that may manage a team in some scope (wg#603's
+        // fix); this member manages none.
         const memberConsole = adminConsole.consoleFor(member.page);
         await memberConsole.goto(library);
         // Asserted only once the console has rendered its table: it decides

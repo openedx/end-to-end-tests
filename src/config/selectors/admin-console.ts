@@ -29,8 +29,12 @@ export const ADMIN_CONSOLE_SELECTORS = {
   /** The app's own region inside the active panel. */
   module: '.authz-module',
 
-  /** "Assign Role" — the console's only primary button outside the filter row. */
-  assignRoleButton: 'button.btn-primary:not(.dropdown-toggle)',
+  /**
+   * "Assign Role" — the console's only primary button with a leading icon (its
+   * `+`). `main` also renders a plain primary "Courses" button beside it, so the
+   * icon is what tells them apart (both releases render the icon).
+   */
+  assignRoleButton: 'button.btn-primary:not(.dropdown-toggle):has(> .btn-icon-before)',
 
   /** Search by name or email: the panel's single text input. */
   searchInput: 'input.form-control[type="text"]',
