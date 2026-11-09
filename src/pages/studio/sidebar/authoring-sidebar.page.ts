@@ -1,9 +1,11 @@
 import type { Locator, Page, Response } from '@playwright/test';
 
 import {
+  SIDEBAR_ITEM_MENU_ORDER,
   STUDIO_SIDEBAR_SELECTORS,
   TIMEOUTS,
   type AppConfig,
+  type SidebarItemAction,
   type SidebarPageKey,
 } from '../../../config';
 import { XBLOCK_PATH } from '../../../api';
@@ -99,7 +101,36 @@ export class AuthoringSidebar {
   /** Opens the selected item's overflow ("Item Menu") and returns its items. */
   async openItemMenu(): Promise<Locator> {
     await this.itemMenuButton.click();
-    return this.page.locator('.dropdown-menu.show .dropdown-item');
+    return this.page.locator(this.s.itemMenuItems);
+  }
+
+  /**
+   * Opens the item menu and returns one action's entry, named rather than
+   * counted: `kind` is what is selected — an outline section/subsection, or a
+   * unit's component — whose menus list different actions
+   * (`SIDEBAR_ITEM_MENU_ORDER`).
+   */
+  async itemMenuAction(kind: 'outline' | 'component', action: SidebarItemAction): Promise<Locator> {
+    const index = SIDEBAR_ITEM_MENU_ORDER[kind].indexOf(action);
+    if (index < 0) throw new Error(`The ${kind} item menu has no "${action}" action.`);
+    return (await this.openItemMenu()).nth(index);
+  }
+
+  /**
+   * Deletes the selected item from its item menu: Delete, then the confirmation
+   * dialog's Delete, waiting for the `DELETE /xblock/<key>` it fires.
+   */
+  async deleteSelected(kind: 'outline' | 'component'): Promise<void> {
+    await (await this.itemMenuAction(kind, 'delete')).click();
+    await waitForWrite(
+      this.page,
+      {
+        method: 'DELETE',
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
+        timeout: TIMEOUTS.contentWrite,
+      },
+      () => this.page.locator(this.s.deleteConfirmButton).click(),
+    );
   }
 
   /** The outline Add sidebar's "Add Existing" pane (library content to reuse). */

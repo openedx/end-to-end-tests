@@ -6,7 +6,7 @@ import {
   fetchContainerChildren,
   fetchXBlock,
 } from '../../../src/api';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { knownGap, testId } from '../../../src/reporting';
 import { buildUnit } from './component-helpers';
 
 /**
@@ -59,14 +59,16 @@ test.describe(
     );
 
     // TC-00214: transcript upload is VAL-backed and its read-back was not
-    // established (§1.9). Declared `fixme` against the intended behaviour.
+    // established. Declared `fixme` against the intended behaviour; a suite gap,
+    // not a platform defect, so it carries no issue link.
     test.fixme(
-      'uploads a transcript for a video (§1.9)',
+      'uploads a transcript for a video',
       {
         annotation: [
           testId('TC-00214'),
-          issue('https://github.com/openedx/end-to-end-tests/issues/39'),
-          knownGap('Transcript upload is VAL-backed and its read-back is not yet established'),
+          knownGap(
+            'Suite gap: transcript upload is VAL-backed and its read-back is not yet established',
+          ),
         ],
       },
       async () => {

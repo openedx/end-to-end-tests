@@ -104,7 +104,7 @@ measured, and issues are opened by hand from them.
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
 | `LIB-006`   | `openedx/frontend-app-authoring` (TC-00422, wg-build-test-release#604) | **not reproduced** — case committed green on both targets
 | `AUTH-001`  | `openedx/frontend-app-authoring` (Verawood sidebar a11y)      | open, no `fixme` — baselined as `SIDEBAR_A11Y_BASELINE` on the sidebar scans only
-| `AUTH-002`  | `openedx/frontend-app-authoring` (unit card not selectable from the outline) | **resolved — does not reproduce** (2026-10-13): the header's blank space selects a unit; `fixme` in `tests/studio/sidebar/outline-info.spec.ts` (TC-00489) can lift
+| `AUTH-002`  | `openedx/frontend-app-authoring` (unit card not selectable from the outline) | open — **width-dependent** (2026-11-09): the header's blank space selects a unit at 1600 px, but at the suite's 1280 px there is none; `fixme` on TC-00489 in `tests/studio/sidebar/outline-info.spec.ts`
 | `AUTH-003`  | `openedx/frontend-app-authoring` (TC-00491/00496, wg-build-test-release#587/#578) | **not reproduced** — all three cases committed green on both targets
 | `TAG-001`   | `openedx/edx-platform` (author tagging its own course)        | **resolved** — no defect; the earlier 403 was a pre-migration course
 | `TAG-002`   | `openedx/frontend-app-authoring` (outline tag counts, wg-build-test-release#592) | **filed** (card badge) - [frontend-app-authoring#3308](https://github.com/openedx/frontend-app-authoring/issues/3308) (tracked here as [#130](https://github.com/openedx/end-to-end-tests/issues/130)); course-level field **by design**; no `fixme` — the drawer cases assert the API, never the badge
@@ -1454,6 +1454,17 @@ selected. The 2026-09-16 reading probed only the title, buttons and the empty
 content row. A maintainer said the same on frontend-app-authoring#3135. Nothing
 to file; TC-00489's `fixme` can lift once the page object clicks the header's
 blank space.
+
+**Re-measured (2026-11-09): reproduces at the suite's viewport.** At 1280 px
+with the authoring sidebar open, a one-unit outline's unit header is filled
+edge to edge by its two children: the title group (title link and Rename, x
+97–357 px) and the right-aligned badges and actions (from 357 px). The point
+under every x across the header, and along its top edge, is one of those
+children, so no click has the header itself as its target and the unit cannot
+be selected from the outline. The strip measured on 2026-10-13 exists only at
+wider viewports (or with shorter titles and fewer badges). Upstream ask, as
+before: a select affordance distinct from the navigating title link — which
+would also answer `AUTH-005`.
 
 ### `AUTH-003` — the sheet-failed Add-sidebar cases do not reproduce
 
