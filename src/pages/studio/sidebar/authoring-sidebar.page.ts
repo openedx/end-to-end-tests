@@ -128,6 +128,7 @@ export class AuthoringSidebar {
     await option.waitFor({ timeout: TIMEOUTS.librarySearch });
     await option.check();
     await this.page.keyboard.press('Escape');
+    await this.page.locator(this.s.addExistingLibrarySearch).waitFor({ state: 'hidden' });
     const search = pane.locator(this.s.addExistingSearch);
     await search.fill(itemTitle);
     await search.press('Enter');

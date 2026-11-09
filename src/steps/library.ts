@@ -259,10 +259,11 @@ export async function waitForLearnerBlock(
 /**
  * Reuses a published library unit from the course outline, the way an author
  * does: the subsection's "Use unit from library", then the library and the unit
- * by its title — through whichever surface the outline opens: the modal library
- * picker (choose the library, then "Add" on the unit in the embedded library
- * page; `verawood`) or the Add sidebar's "Add Existing" pane (filter to the
- * library, search, "Add"; `main`). Returns the `POST /xblock/` import response,
+ * by its title — through whichever surface the outline opens: the Add
+ * sidebar's "Add Existing" pane (filter to the library, search, "Add"; `main`
+ * and `verawood`) or the modal library picker (choose the library, then "Add"
+ * on the unit in the embedded library page; an outline without the authoring
+ * sidebar). Returns the `POST /xblock/` import response,
  * whose body carries the new unit's `locator` and `upstreamRef`.
  */
 export async function addLibraryUnitFromOutline(

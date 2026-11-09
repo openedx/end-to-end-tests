@@ -492,8 +492,9 @@ export class StudioCourseOutlinePage {
   /**
    * Expands `subsectionCard` and clicks its "Use unit from library" — the
    * second add button under its units, after "New unit" — then waits for the
-   * surface it opens and says which: the modal library picker (`'dialog'`,
-   * `verawood`) or the Add sidebar's "Add Existing" pane (`'sidebar'`, `main`).
+   * surface it opens and says which: the Add sidebar's "Add Existing" pane
+   * (`'sidebar'` — `main` and `verawood`, with the authoring sidebar) or the
+   * modal library picker (`'dialog'`, an outline without the sidebar).
    */
   async openUseLibraryUnit(subsectionCard: Locator): Promise<'dialog' | 'sidebar'> {
     await this.expand(subsectionCard, 'subsection');
