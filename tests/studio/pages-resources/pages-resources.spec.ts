@@ -85,17 +85,22 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'view live links to the learner-facing course',
     { tag: '@regression', annotation: testId('TC-00238') },
-    async ({ config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
       void studioAuthorSession;
       const { courseKey } = authoredCourse;
       await pagesResourcesPage.goto(courseKey);
 
       // "View live" points at the learner-facing course home in the configured
-      // learning MFE; the key is in the URL.
+      // learning MFE; the key is in the URL…
+      const course = `${config.mfeUrls.learning}/course/${courseKey}`;
       await expect(pagesResourcesPage.viewLiveLink).toHaveAttribute(
         'href',
-        new RegExp(`^${escapeRegExp(`${config.mfeUrls.learning}/course/${courseKey}`)}`),
+        new RegExp(`^${escapeRegExp(course)}`),
       );
+      // …and following it lands on that course. (The worker course has no
+      // published content, so what renders there is not this case's.)
+      await page.goto((await pagesResourcesPage.viewLiveLink.getAttribute('href')) ?? '');
+      await expect(page).toHaveURL((url) => url.href.startsWith(course));
     },
   );
 

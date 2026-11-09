@@ -124,7 +124,7 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
   test(
     'a course card offers the View live action to the live course',
     { tag: '@regression', annotation: [testId('TC-00252'), testId('TC-00258')] },
-    async ({ authoredCourse, studioHomePage, studioAuthorSession }) => {
+    async ({ page, config, authoredCourse, studioHomePage, studioAuthorSession }) => {
       void studioAuthorSession;
       await studioHomePage.goto();
       await studioHomePage.search(authoredCourse.number);
@@ -137,6 +137,14 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
       await expect(studioHomePage.cardViewLiveLink).toHaveAttribute(
         'href',
         liveUrl(authoredCourse.courseKey),
+      );
+      // …and following it lands on that course in the learning MFE. (The worker
+      // course has no published content, so what renders there is not this
+      // case's; TC-00171 and TC-00197 assert a live unit rendering.)
+      const href = await studioHomePage.cardViewLiveLink.getAttribute('href');
+      await page.goto(href ?? '');
+      await expect(page).toHaveURL((url) =>
+        url.href.startsWith(`${config.mfeUrls.learning}/course/${authoredCourse.courseKey}`),
       );
     },
   );
