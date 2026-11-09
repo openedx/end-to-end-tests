@@ -1,6 +1,7 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { fetchXBlockOutline } from '../../../src/api';
+import { fetchCourseNavigation, fetchXBlockOutline } from '../../../src/api';
+import { UnitPage } from '../../../src/pages/lms/courseware/unit.page';
 import { testId } from '../../../src/reporting';
 import { buildHtmlSection, firstUnitKey } from './outline-helpers';
 
@@ -133,25 +134,37 @@ test.describe(
     test(
       'View live opens the published unit in the LMS',
       { annotation: testId('TC-00171') },
-      async ({ page, config, studioCourseOutlinePage, contentCourse, studioAuthorSession }) => {
+      async ({ page, config, studioCourseOutlinePage, authoringCourse, studioAuthorSession }) => {
         void studioAuthorSession;
-        const section = await buildHtmlSection(
-          page.request,
-          config,
-          contentCourse.courseKey,
-          'publish-live',
-        );
-        const unitKey = firstUnitKey(section);
+        // A course of this test's own, so its one unit is where View live lands.
+        const { courseKey } = authoringCourse;
+        const section = await buildHtmlSection(page.request, config, courseKey, 'publish-live');
+        const unit = section.units[0]!;
 
-        await studioCourseOutlinePage.goto(contentCourse.courseKey);
+        await studioCourseOutlinePage.goto(courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
-        await studioCourseOutlinePage.publish(studioCourseOutlinePage.unit(unitKey), 'unit');
+        await studioCourseOutlinePage.publish(studioCourseOutlinePage.unit(unit.usageKey), 'unit');
 
-        // The outline header's "View live" opens the learning MFE; the landing
-        // URL's path is the learner courseware for this course (the host is
-        // deployment-specific and not asserted).
+        // The learner's courseware can be built only once the CMS worker has
+        // written the course outline (`PLAT-009`: until then it errors).
+        await expect
+          .poll(
+            async () =>
+              (await fetchCourseNavigation(page.request, config, courseKey)) !== undefined,
+            {
+              timeout: TIMEOUTS.contentPublish,
+            },
+          )
+          .toBe(true);
+
+        // The outline header's "View live" opens the learner's courseware on the
+        // course's first unit — the one just published — and renders it.
         const liveTab = await studioCourseOutlinePage.viewLive();
-        expect(new URL(liveTab.url()).pathname).toContain(`/course/${contentCourse.courseKey}`);
+        const live = new UnitPage(liveTab, config);
+        await expect(liveTab).toHaveURL(
+          live.url(courseKey, unit.sequentialUsageKey, unit.usageKey),
+        );
+        await expect(live.block(unit.blocks[0]!.usageKey)).toBeVisible();
         await liveTab.close();
       },
     );
