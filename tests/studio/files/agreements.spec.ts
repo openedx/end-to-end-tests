@@ -28,6 +28,8 @@ import { testId } from '../../../src/reporting';
  * (it edits only the videos type, which does not gate files).
  *
  * The banner and blurred dropzone are the same state rendered; the API decides.
+ * The Files page case accepts through the banners' own "Agree"; the others set
+ * up acceptance through the API.
  */
 /** Every gating key that applies to the Files page: the shared one and its own. */
 const FILES_KEYS = ['upload', 'upload.files'] as const;
@@ -140,8 +142,17 @@ test.describe.serial(
         );
         await expect(member.page.locator(STUDIO_FILES_SELECTORS.dropzoneInput)).toBeDisabled();
 
-        // Accepted: the banners go and the upload control opens.
-        for (const t of types) await acceptAgreement(member.request, config, t);
+        // Agreeing on each banner records the acceptance — one banner fewer each
+        // time — and once all are accepted the upload control opens.
+        for (let left = types.length; left > 0; left -= 1) {
+          expect((await files.acceptFirstAgreement()).ok()).toBe(true);
+          await expect(member.page.locator(STUDIO_FILES_SELECTORS.agreementAlert)).toHaveCount(
+            left - 1,
+          );
+        }
+        for (const t of types) {
+          expect((await fetchAgreementRecord(member.request, config, t)).isCurrent).toBe(true);
+        }
         await files.goto(authoringCourse.courseKey);
         await expect(member.page.locator(STUDIO_FILES_SELECTORS.agreementAlert)).toHaveCount(0);
         await expect(member.page.locator(STUDIO_FILES_SELECTORS.dropzoneInput)).toBeEnabled();
