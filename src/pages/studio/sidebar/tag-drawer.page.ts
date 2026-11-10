@@ -55,13 +55,15 @@ export class TagDrawer {
   private async collapsible(name: string): Promise<Locator> {
     const all = this.page.locator(this.s.taxonomyCollapsible);
     await all.first().waitFor();
-    const count = await all.count();
-    for (let i = 0; i < count; i += 1) {
-      const card = all.nth(i);
-      const heading = (await card.locator(this.s.collapsibleHeading).textContent())?.trim();
-      if (heading === name) return card;
-    }
-    throw new Error(`The tag drawer has no taxonomy named "${name}".`);
+    // One round trip for every heading: a card list that re-renders between a
+    // count and a per-card read would leave a locator waiting for a card that is gone.
+    const headings = await all.evaluateAll(
+      (cards, selector) => cards.map((card) => card.querySelector(selector)?.textContent?.trim()),
+      this.s.collapsibleHeading,
+    );
+    const index = headings.indexOf(name);
+    if (index === -1) throw new Error(`The tag drawer has no taxonomy named "${name}".`);
+    return all.nth(index);
   }
 
   /** The names of the taxonomies the drawer lists (their headings). */
@@ -94,13 +96,14 @@ export class TagDrawer {
   /** The tag values currently offered in a taxonomy's open menu (their encoded box values). */
   async visibleTagValues(name: string): Promise<string[]> {
     const boxes = (await this.collapsible(name)).locator(`${this.s.anySelectableBox} input`);
-    const count = await boxes.count();
-    const values: string[] = [];
-    for (let i = 0; i < count; i += 1) {
-      const v = await boxes.nth(i).getAttribute('value');
-      if (v !== null) values.push(v);
-    }
-    return values;
+    // Read every value in one round trip. A search re-renders the menu, and a
+    // count followed by per-box reads left a read waiting the whole action
+    // timeout for a box the filter had removed, outlasting the caller's poll.
+    return boxes.evaluateAll((inputs) =>
+      inputs
+        .map((input) => input.getAttribute('value'))
+        .filter((value): value is string => value !== null),
+    );
   }
 
   /** Expands a parent tag's children inside a taxonomy's open menu. */
