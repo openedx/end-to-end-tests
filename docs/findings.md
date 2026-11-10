@@ -3138,3 +3138,44 @@ the release team carries it to the sheet.
 | TC-00571 | `tests/rbac/library/library-roles.spec.ts` | See `RBAC-012` (product call open): a Library Author can publish the library — if the role model stands. |
 | TC-00453 | `tests/rbac/console/assign-role.spec.ts` | The wizard checks every identifier on leaving step one, before anything is written: a mixed batch is refused there with the typed text kept — no partial apply, no summary toast. |
 | TC-00423 | `tests/studio/library/public-read.spec.ts` | Without the manage-team right the reuse switch is shown read-only (disabled), not hidden — the sheet's own tester note ("not hide but is blocked"); this makes TC-00423 and TC-00424 one scenario. |
+
+## Sheet notes (2026-11-09)
+
+What the release team may want to carry to the BTR sheet that is neither a
+defect nor a dispute: rows to fix, cases the suite covers only in part, and
+cases it does not cover at all.
+
+**Rows to fix**
+
+| Case | Note |
+| ---- | ---- |
+| TC-00311, TC-00278 | Role is AUTHOR, but the cases are learner discussion journeys: change the role to LEARNER. |
+| TC-00487 | Status "Not started", yet the case is automated (`tests/studio/sidebar/outline-info.spec.ts`). |
+| TC-00440 / 00441 / 00443 / 00450 / 00451 / 00456 | Status is blank. |
+| TC-00506 | Its own deprecate column says there is no separate video page for it: mark the row deprecated. |
+
+**Partially covered**
+
+| Case | What the suite does not check |
+| ---- | ---- |
+| TC-00272 | Mobile availability is read back from Studio only: there is no mobile oracle. |
+| TC-00306 | The checklist is read back from Studio only. |
+| TC-00297 | The certificate available date is read back from Studio: a learner sees it only on a certificate-eligible track, which the course under test is not. |
+| TC-00002 | No activation mail: CI sets `SKIP_EMAIL_VALIDATION`, so accounts are active on registration. |
+| TC-00020, 00021, 00060, 00061, 00066 | On `main` these run as expected failures for known chrome defects (`BASE-004`, `BASE-005`, `BASE-006`, `LEARN-002`, `FP-001`); the run report names the defect and the chrome. `verawood` verifies them. |
+| TC-00217, 00218, 00322 | A representative set of editor functions: bold, italic, underline and a heading (TinyMCE's alignment shortcuts do nothing in this editor; toolbar-only functions are not driven). |
+| TC-00247 | Bold only, in the Updates editor. |
+| TC-00256, 00257, 00562, 00140, 00141, 00239, 00240, 00258 | A representative subset of each row's options or filters. |
+| TC-00489 | Not driven from the outline: a unit cannot be selected there at 1280 px (`AUTH-002`); its Info is covered from the unit page (TC-00495). |
+| TC-00499 | Duplicate and delete are driven from the component's menu; Move (to another unit) is not. |
+| TC-00518 | The status modal's answer is a localized sentence only, so the instructor API's enrollment flag decides. |
+| TC-00519, 00525 | Secondary steps of the row are not driven. |
+| TC-00521 | The learner's progress page is opened; the gradebook is not. |
+| TC-00560 | The Studio-home entry point is unverified in CI: it needs `rbac-global`, which no CI profile installs. |
+| TC-00222 | The component menu's Copy to Clipboard is held (`STUDIO-013`); the paste is driven. |
+
+**Not covered (manual only)**
+
+TC-00005, TC-00006, TC-00007, TC-00048, TC-00113, TC-00116, TC-00173 — third-party
+SSO, purely visual checks, operator upgrades and post-release documentation:
+mark them "Manual — not suite-shaped".
