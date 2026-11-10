@@ -159,11 +159,15 @@ test.describe(
       page,
       competencyTaxonomySeeder,
       authorTaxonomyPages,
+      authoringCourse,
     }) => {
+      // A non-staff user sees an org-assigned taxonomy only with a role in a course of
+      // that org; the author's own course in the suite org gives it.
+      void authoringCourse;
       const { detail, competency } = authorTaxonomyPages;
       const seeded = await competencyTaxonomySeeder({
         taxonomyType: 'competency',
-        access: 'all-orgs',
+        access: 'suite-org',
       });
       const taxonomy = await fetchTaxonomy(page.request, config, seeded.id);
       expect(taxonomy).toMatchObject({ taxonomyType: 'competency', canTagObject: true });

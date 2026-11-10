@@ -1090,10 +1090,11 @@ export interface SeedTaxonomyOptions {
   /** The Taxonomy Type the import sets. */
   readonly taxonomyType: ImportableTaxonomyType;
   /**
-   * `all-orgs` assigns the taxonomy to every organization, so any signed-in user
-   * sees it. `unassigned` leaves it as imported, visible to staff only.
+   * `suite-org` assigns the taxonomy to the suite's organization, so a non-staff user
+   * with a role in a course of that organization sees it. `unassigned` leaves it as
+   * imported, visible to staff only.
    */
-  readonly access: 'all-orgs' | 'unassigned';
+  readonly access: 'suite-org' | 'unassigned';
   /** `false` disables the taxonomy right after the import. Defaults to enabled. */
   readonly enabled?: boolean;
 }
@@ -4302,7 +4303,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   competencyTaxonomySeeder: async ({ playwright, config }, use, testInfo) => {
     requireCapabilityTag(testInfo, 'competencies');
-    requireTaxonomyAdmin(config);
+    const org = requireTaxonomyAdmin(config);
     const created: number[] = [];
     let ordinal = 0;
     const seed = async (options: SeedTaxonomyOptions): Promise<Taxonomy> => {
@@ -4314,8 +4315,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           testInfo,
           created,
         });
-        if (options.access === 'all-orgs') {
-          await setTaxonomyOrgs(admin, config, taxonomy.id, 'all');
+        if (options.access === 'suite-org') {
+          await setTaxonomyOrgs(admin, config, taxonomy.id, [org]);
         }
         if (options.enabled === false) {
           await setTaxonomyEnabled(admin, config, taxonomy.id, false);
