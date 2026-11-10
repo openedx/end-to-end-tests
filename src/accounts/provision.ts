@@ -67,7 +67,7 @@ export async function provisionLearnerSession(
   const identity = await provisionLearnerAccount(request, config, overrides);
 
   const { cookies } = await request.storageState();
-  if (!hasAuthenticatedSession(cookies)) {
+  if (!hasAuthenticatedSession(cookies, config.jwtCookieHeaderPayload)) {
     await accountSignIn({
       config,
       request,

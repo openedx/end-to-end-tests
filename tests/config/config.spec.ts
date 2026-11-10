@@ -579,3 +579,23 @@ test.describe('loadConfig — notification tray host', { tag: '@unit' }, () => {
     expect(issues.join('\n')).toContain('NOTIFICATION_TRAY_HOST');
   });
 });
+
+test.describe('loadConfig — login JWT cookie name', { tag: '@unit' }, () => {
+  test("uses Open edX's default name", () => {
+    expect(loadConfig(validEnv()).jwtCookieHeaderPayload).toBe('edx-jwt-cookie-header-payload');
+  });
+
+  test('takes the name an install renames it to', () => {
+    const config = loadConfig(
+      validEnv({ JWT_AUTH_COOKIE_HEADER_PAYLOAD: 'prod-edx-jwt-cookie-header-payload' }),
+    );
+
+    expect(config.jwtCookieHeaderPayload).toBe('prod-edx-jwt-cookie-header-payload');
+  });
+
+  test('treats a blank value as unset, keeping the default name', () => {
+    const config = loadConfig(validEnv({ JWT_AUTH_COOKIE_HEADER_PAYLOAD: '  ' }));
+
+    expect(config.jwtCookieHeaderPayload).toBe('edx-jwt-cookie-header-payload');
+  });
+});
