@@ -135,8 +135,9 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
     { annotation: testId('TC-00332') },
     async ({ page, config, studioAuthorSession, authoringLibrary, libraryPage }, testInfo) => {
       void studioAuthorSession;
-      // Three blocks of this test's own, created in order; then the first is
-      // edited, so it is the most recently modified while staying the oldest.
+      // Three blocks of this test's own, created in order; then the second is
+      // edited, so it is the most recently modified while first in neither
+      // creation order — each sort below gives an order of its own.
       const base = label('sort', testInfo.testId);
       const blocks = [];
       for (const suffix of ['one', 'two', 'three']) {
@@ -144,14 +145,15 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
           await authorTextBlock(page.request, config, authoringLibrary.id, `${base} ${suffix}`),
         );
       }
-      const [first] = blocks;
+      const [first, second, third] = blocks;
       await setLibraryBlockOlx(
         page.request,
         config,
-        first!.id,
-        libraryOlx.html(first!.display_name, `${first!.display_name} edited`),
+        second!.id,
+        libraryOlx.html(second!.display_name, `${second!.display_name} edited`),
       );
       const created = blocks.map((b) => b.display_name);
+      const modified = [second!, third!, first!].map((b) => b.display_name);
       const titles = () => libraryPage.cardTitles.allInnerTexts();
 
       await libraryPage.goto(authoringLibrary.id, 'components');
@@ -165,9 +167,7 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
       await libraryPage.sortBy('oldest');
       await expect.poll(titles, { timeout: TIMEOUTS.librarySearch }).toEqual(created);
       await libraryPage.sortBy('recentlyModified');
-      await expect
-        .poll(async () => (await titles())[0], { timeout: TIMEOUTS.librarySearch })
-        .toBe(first!.display_name);
+      await expect.poll(titles, { timeout: TIMEOUTS.librarySearch }).toEqual(modified);
     },
   );
 

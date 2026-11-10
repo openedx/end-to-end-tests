@@ -70,6 +70,9 @@ interface RawCourseDetail {
  * none`) is not served to a non-staff caller: the platform redirects them away
  * (to the dashboard) instead of answering, so this reads the status without
  * following redirects. Staff are served regardless.
+ *
+ * @throws {ApiError} on any other answer, so a server error is never read as
+ *   the course being hidden.
  */
 export async function isCourseDetailServed(
   request: APIRequestContext,
@@ -78,7 +81,13 @@ export async function isCourseDetailServed(
 ): Promise<boolean> {
   const url = `${config.baseUrls.lms}${COURSE_DETAIL_PATH}/${encodeURIComponent(courseKey)}`;
   const response = await request.get(url, { maxRedirects: 0 });
-  return response.status() === 200;
+  const status = response.status();
+  if (status === 200) return true;
+  if (status >= 300 && status < 400) return false;
+  throw new ApiError(
+    `Course Detail API neither served nor redirected for "${courseKey}" (HTTP ${status}).`,
+    { status, url, body: await response.text() },
+  );
 }
 
 /**
