@@ -1,3 +1,5 @@
+import type { Response } from '@playwright/test';
+
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import {
@@ -9,6 +11,7 @@ import {
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
 import { testId } from '../../../src/reporting';
+import { linkingTo, waitForMail } from '../../../src/steps';
 import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS, buildFutureSection, label } from './helpers';
 
 /**
@@ -17,8 +20,9 @@ import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS, buildFutureSection, label } 
  *
  * The UI drives each change; the instructor API's per-identifier results and
  * the learner's own readings (`isEnrolled`, the Blocks API) decide pass/fail.
- * E-mail *delivery* is not observable here; the request is asserted to carry
- * the notification flag and to be accepted.
+ * The bulk enrollment's request is asserted to carry the notification flag;
+ * under `@email-inbox` the mails themselves are read — the enrolled learner's
+ * and the unregistered address's invitation.
  */
 test.describe(
   'Instructor dashboard enrollments',
@@ -50,6 +54,8 @@ test.describe(
         await modal.setNotifyByEmail(true);
         const response = await modal.submit();
         expect(response.status()).toBe(200);
+        // The request asks the platform to notify the learners.
+        expect(notifiesByEmail(response)).toBe(true);
         const body = (await response.json()) as {
           action: string;
           results: EnrollmentModifyResult[];
@@ -76,6 +82,38 @@ test.describe(
           label: 'instructor-enrollments',
           additionalBaseline: INSTRUCTOR_A11Y_BASELINE,
         });
+      },
+    );
+
+    test(
+      'mails the enrolled learner and invites the unregistered address',
+      { tag: '@email-inbox', annotation: testId('TC-00517') },
+      async ({
+        config,
+        contentCourse,
+        instructorEnrollments,
+        inboxLearner,
+        emptyInbox,
+        studioAuthorSession,
+      }) => {
+        void studioAuthorSession;
+        const courseKey = contentCourse.courseKey;
+        await instructorEnrollments.gotoTab(courseKey);
+        const modal = await instructorEnrollments.openEnrollLearners();
+        await modal.fillIdentifiers([inboxLearner.identity.email, emptyInbox.address]);
+        await modal.setNotifyByEmail(true);
+        const response = await modal.submit();
+        expect(response.status()).toBe(200);
+        expect(await isEnrolled(inboxLearner.request, config, courseKey)).toBe(true);
+
+        // The enrolled learner's mail links to the course; the unregistered
+        // address's invitation links to registration.
+        const toCourse = linkingTo((url) => decodeURIComponent(url.href).includes(courseKey));
+        const enrolled = await waitForMail(inboxLearner.inbox, inboxLearner.request, toCourse);
+        expect(enrolled.found, `mails seen: ${JSON.stringify(enrolled.subjects)}`).toBeDefined();
+        const toRegister = linkingTo((url) => url.pathname.endsWith('/register'));
+        const invited = await waitForMail(emptyInbox, inboxLearner.request, toRegister);
+        expect(invited.found, `mails seen: ${JSON.stringify(invited.subjects)}`).toBeDefined();
       },
     );
 
@@ -200,3 +238,18 @@ test.describe(
     );
   },
 );
+
+/** Whether an enrollment request asks the platform to e-mail the learners (`email_students`). */
+function notifiesByEmail(response: Response): boolean {
+  const request = response.request();
+  const json = (() => {
+    try {
+      return request.postDataJSON() as Record<string, unknown> | null;
+    } catch {
+      return null;
+    }
+  })();
+  const value =
+    json?.['email_students'] ?? new URLSearchParams(request.postData() ?? '').get('email_students');
+  return value === true || value === 'true';
+}

@@ -8,6 +8,7 @@ import {
 } from '../../../src/api';
 import { waitForInstructorTask, waitForLearnerProgress } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
+import { ProgressPage } from '../../../src/pages/lms/course-home/progress.page';
 import { testId } from '../../../src/reporting';
 import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS } from './helpers';
 
@@ -30,10 +31,11 @@ test.describe(
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
     test(
-      'shows a learner and their state on a problem',
+      'shows a learner and their state on a problem, and opens their progress page',
       { tag: '@smoke', annotation: testId('TC-00521') },
       async ({
         page,
+        config,
         contentCourse,
         instructorGrading,
         gradedProblemWithWrongAnswer,
@@ -64,6 +66,12 @@ test.describe(
         await checkA11y(page, {
           label: 'instructor-grading',
           additionalBaseline: INSTRUCTOR_A11Y_BASELINE,
+        });
+
+        // The learner's progress page, which the dashboard links, opens for them.
+        await page.goto(learnerReading.progress_url);
+        await expect(new ProgressPage(page, config).totalGrade).toBeVisible({
+          timeout: TIMEOUTS.navigation,
         });
       },
     );
