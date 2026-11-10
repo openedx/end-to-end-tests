@@ -1,5 +1,6 @@
 import { checkA11y } from '../../../src/a11y';
 import { testId } from '../../../src/reporting';
+import { fetchAccount } from '../../../src/api';
 import { expect, test } from '../../../src/fixtures';
 
 /**
@@ -12,15 +13,16 @@ import { expect, test } from '../../../src/fixtures';
  * Account app then refreshes the session (`POST /login_refresh`), which the
  * shared session may no longer hold — a `courseLearner` registering on the
  * shared request context ends it. The profile edit persists directly via the
- * account API. The password half of TC-00001 is the same reset flow covered
- * text-free by `password-reset.spec.ts` (TC-00004); the account page's reset
- * button has no language-independent locator, so it is not driven here.
+ * account API, which decides along with a reload of the page. The password
+ * half of TC-00001 is the same reset flow covered text-free by
+ * `password-reset.spec.ts` (TC-00004); the account page's reset button has no
+ * language-independent locator, so it is not driven here.
  */
 test.describe('Account settings (profile)', () => {
   test(
     'updates the full name',
     { tag: ['@smoke', '@authenticated', '@mfe-account'], annotation: testId('TC-00001') },
-    async ({ page, accountSettingsPage, learnerIdentity, newLearner }) => {
+    async ({ page, config, accountSettingsPage, learnerIdentity, newLearner }) => {
       const learner = await newLearner();
       await page.context().clearCookies();
       await page.context().addCookies((await learner.request.storageState()).cookies);
@@ -29,7 +31,15 @@ test.describe('Account settings (profile)', () => {
       // `learnerIdentity.name` is just a fresh, unique display name to save; we
       // assert on that value (our own data), not on any localized UI text.
       await accountSettingsPage.updateFullName(learnerIdentity.name);
+      await expect(page.getByText(learnerIdentity.name).first()).toBeVisible();
 
+      // It persisted: the account API holds it, and loading the page afresh shows it.
+      await expect
+        .poll(
+          async () => (await fetchAccount(learner.request, config, learner.identity.username)).name,
+        )
+        .toBe(learnerIdentity.name);
+      await accountSettingsPage.goto();
       await expect(page.getByText(learnerIdentity.name).first()).toBeVisible();
     },
   );
