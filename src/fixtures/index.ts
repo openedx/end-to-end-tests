@@ -39,6 +39,7 @@ import { AuthoringSidebar } from '../pages/studio/sidebar/authoring-sidebar.page
 import { TagDrawer } from '../pages/studio/sidebar/tag-drawer.page';
 import { TaxonomyListPage } from '../pages/studio/taxonomies/taxonomy-list.page';
 import { TaxonomyDetailPage } from '../pages/studio/taxonomies/taxonomy-detail.page';
+import { CompetencyManagementPage } from '../pages/studio/taxonomies/competency-management.page';
 import { FilesPage } from '../pages/studio/files/files.page';
 import { TextbooksPage } from '../pages/studio/textbooks/textbooks.page';
 import { UpdatesPage } from '../pages/studio/updates/updates.page';
@@ -72,6 +73,8 @@ import {
   enableAuthzForCourse,
   ensureDataResearcher,
   probeMigrationMode,
+  deleteTaxonomiesBestEffort,
+  importTypedTaxonomy,
   seedTaxonomy,
   knownChromeDefects,
   readPageChrome,
@@ -190,12 +193,14 @@ import {
   deleteTaxonomy,
   importTaxonomy,
   listTaxonomies,
+  setTaxonomyEnabled,
   setTaxonomyOrgs,
   type ContentLibrary,
   type LibraryAccessLevel,
   type LibraryBlock,
   type LibraryCollection,
   type LibraryContainer,
+  type ImportableTaxonomyType,
   type Taxonomy,
   type ChromeConfig,
   ADULT_YEAR_OF_BIRTH,
@@ -365,6 +370,15 @@ export interface TestFixtures {
    * the test ends, so no staff account outlives the run. Needs the admin.
    */
   globalStaffColleague: () => Promise<SupersetColleague>;
+  /**
+   * A {@link TestFixtures.studioColleague} made **global staff** (not a
+   * superuser) through the LMS admin after it is provisioned, and unmade global
+   * staff when the test ends. Staff status is read from the database on every
+   * request, so a sign-in made before the grant still sees it. Hands back the
+   * taxonomy pages on its own browser; the admin lock is held only for each
+   * grant and revoke, never for the whole test.
+   */
+  staffTaxonomyColleague: () => Promise<StaffTaxonomyColleague>;
   /**
    * A Studio user for Aspects' in-context metrics on `courseKey`: a
    * `studioColleague` the worker author grants course `staff`, with the outline,
@@ -895,6 +909,23 @@ export interface TestFixtures {
    */
   competencyTaxonomyAdmin: TaxonomyAdmin;
   /**
+   * The taxonomy pages on the worker author's own browser, for cases where a
+   * user without staff rights drives the taxonomy screens (that user's taxonomy
+   * list is empty, so there is no list page object). Takes the author's
+   * Studio session, never the admin lock.
+   */
+  authorTaxonomyPages: AuthorTaxonomyPages;
+  /**
+   * Seeds one run-unique taxonomy of the given type and access per call, for
+   * cases that act as the worker author. Each call takes the admin lock only for
+   * the import; every taxonomy it created is deleted best-effort at test end.
+   * For cases tagged `@competencies`: refuses an untagged test and fails when
+   * the content-tagging API serves a different `taxonomy_type` than the one sent. Never
+   * combine it with {@link taxonomyAdmin}, which holds the admin lock for the
+   * whole test, or with the other fixtures that take it.
+   */
+  competencyTaxonomySeeder: (options: SeedTaxonomyOptions) => Promise<Taxonomy>;
+  /**
    * The upload-agreement gating declared for this installation, with its
    * `UserAgreement` rows seeded (see {@link WorkerFixtures.seededUploadAgreements},
    * which does the work once per worker). Skips without a configured admin or
@@ -1026,12 +1057,59 @@ export interface UploadAgreements {
 export interface TaxonomyAdmin {
   readonly list: TaxonomyListPage;
   readonly detail: TaxonomyDetailPage;
+  readonly competency: CompetencyManagementPage;
+  /**
+   * Imports a run-unique taxonomy of `type` on the admin's own session (no second
+   * admin lock), named from `label` and the test. Every taxonomy it creates is
+   * deleted best-effort when the test ends. Two calls in one test need distinct
+   * labels.
+   */
+  readonly seed: (options: {
+    readonly type: ImportableTaxonomyType;
+    readonly label: string;
+  }) => Promise<Taxonomy>;
   /** The admin's own browser page — what an accessibility scan of these screens runs on. */
   readonly page: Page;
   /** The admin browser's own API context (same session as the pages). */
   readonly request: APIRequestContext;
   /** The content org taxonomies are assigned to (whose courses' drawers list them). */
   readonly org: string;
+}
+
+/**
+ * What {@link TestFixtures.authorTaxonomyPages} hands a spec: the taxonomy pages on
+ * the worker author's browser.
+ */
+export interface AuthorTaxonomyPages {
+  readonly detail: TaxonomyDetailPage;
+  readonly competency: CompetencyManagementPage;
+}
+
+/** What a spec passes to {@link TestFixtures.competencyTaxonomySeeder}. */
+export interface SeedTaxonomyOptions {
+  /** The Taxonomy Type the import sets. */
+  readonly taxonomyType: ImportableTaxonomyType;
+  /**
+   * `suite-org` assigns the taxonomy to the suite's organization, so a non-staff user
+   * with a role in a course of that organization sees it. `unassigned` leaves it as
+   * imported, visible to staff only.
+   */
+  readonly access: 'suite-org' | 'unassigned';
+  /** `false` disables the taxonomy right after the import. Defaults to enabled. */
+  readonly enabled?: boolean;
+}
+
+/**
+ * What {@link TestFixtures.staffTaxonomyColleague} hands a spec: a global-staff
+ * Studio user and the taxonomy pages on its browser.
+ */
+export interface StaffTaxonomyColleague {
+  readonly identity: LearnerIdentity;
+  /** The colleague's own API context (same session as the page). */
+  readonly request: APIRequestContext;
+  readonly page: Page;
+  readonly detail: TaxonomyDetailPage;
+  readonly competency: CompetencyManagementPage;
 }
 
 /** What {@link TestFixtures.workerTaxonomy} / {@link TestFixtures.authoringTaxonomy} hand a spec. */
@@ -1880,6 +1958,69 @@ function capabilityContradicted(capability: Capability, measured: string): Error
 }
 
 /**
+ * Makes accounts global staff through the LMS admin, one short admin call each,
+ * and unmakes every one of them at the end so no staff account outlives the run.
+ */
+function globalStaffGrants(
+  config: AppConfig,
+  adminLms: AdminLmsRunner,
+): { grant: (username: string) => Promise<void>; revokeAll: () => Promise<void> } {
+  const made: string[] = [];
+  return {
+    grant: async (username) => {
+      await adminLms((session) => setGlobalStaff(session, config, username, true));
+      made.push(username);
+    },
+    revokeAll: async () => {
+      for (const username of made) {
+        await adminLms((session) => setGlobalStaff(session, config, username, false));
+      }
+    },
+  };
+}
+
+/**
+ * Imports a taxonomy of `type` through {@link importTypedTaxonomy} and fails when the
+ * content-tagging API serves a different `taxonomy_type` than the one sent: the
+ * installation then contradicts its `competencies` declaration.
+ */
+async function importServedTaxonomy(
+  request: APIRequestContext,
+  config: AppConfig,
+  options: Parameters<typeof importTypedTaxonomy>[2],
+): Promise<Taxonomy> {
+  const taxonomy = await importTypedTaxonomy(request, config, options);
+  if (taxonomy.taxonomyType !== options.type) {
+    throw capabilityContradicted(
+      'competencies',
+      `the import sent \`taxonomy_type: ${options.type}\` and the content-tagging API served ` +
+        (taxonomy.taxonomyType === undefined ? 'none' : `\`${taxonomy.taxonomyType}\``),
+    );
+  }
+  return taxonomy;
+}
+
+/**
+ * Runs `work` on a staff request context with a Studio session, under the admin
+ * lock for the call only, and disposes the context afterwards.
+ */
+function withStudioAdminRequest<T>(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  config: AppConfig,
+  work: (admin: APIRequestContext) => Promise<T>,
+): Promise<T> {
+  return withAdminSession(async () => {
+    const admin = await playwright.request.newContext({ storageState: authStateFile('staff') });
+    try {
+      await establishStudioSession(admin, config);
+      return await work(admin);
+    } finally {
+      await admin.dispose();
+    }
+  });
+}
+
+/**
  * Gate for the taxonomy fixtures: managing a taxonomy (import, assign org,
  * delete) is staff-only, so the coverage skips without a declared `taxonomies`
  * capability or a configured admin account — the `certificateGenerationEnabled`
@@ -2255,18 +2396,29 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   globalStaffColleague: async ({ config, supersetColleague, adminLms }, use) => {
-    const made: string[] = [];
+    const staff = globalStaffGrants(config, adminLms);
     await use(async () => {
       const colleague = await supersetColleague();
-      await adminLms((session) =>
-        setGlobalStaff(session, config, colleague.identity.username, true),
-      );
-      made.push(colleague.identity.username);
+      await staff.grant(colleague.identity.username);
       return colleague;
     });
-    for (const username of made) {
-      await adminLms((session) => setGlobalStaff(session, config, username, false));
-    }
+    await staff.revokeAll();
+  },
+
+  staffTaxonomyColleague: async ({ config, studioColleague, adminLms }, use) => {
+    const staff = globalStaffGrants(config, adminLms);
+    await use(async () => {
+      const colleague = await studioColleague();
+      await staff.grant(colleague.identity.username);
+      return {
+        identity: colleague.identity,
+        request: colleague.request,
+        page: colleague.page,
+        detail: new TaxonomyDetailPage(colleague.page, config),
+        competency: new CompetencyManagementPage(colleague.page, config),
+      };
+    });
+    await staff.revokeAll();
   },
 
   inContextViewer: async ({ page, config, studioAuthorSession, studioColleague }, use) => {
@@ -4084,22 +4236,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   workerTaxonomy: async ({ playwright, config }, use, testInfo) => {
     const org = requireTaxonomyAdmin(config);
-    const seeded = await withAdminSession(async () => {
-      const admin = await playwright.request.newContext({ storageState: authStateFile('staff') });
-      try {
-        await establishStudioSession(admin, config);
-        return await seedTaxonomy(admin, config, {
-          name: `E2E ${getRunId()} W${testInfo.workerIndex}`,
-          org,
-        });
-      } finally {
-        await admin.dispose();
-      }
-    });
+    const seeded = await withStudioAdminRequest(playwright, config, (admin) =>
+      seedTaxonomy(admin, config, {
+        name: `E2E ${getRunId()} W${testInfo.workerIndex}`,
+        org,
+      }),
+    );
     await use({ taxonomy: seeded, org });
   },
 
-  taxonomyAdmin: async ({ browser, config }, use) => {
+  taxonomyAdmin: async ({ browser, config, viewport, isMobile, hasTouch }, use, testInfo) => {
     const org = requireTaxonomyAdmin(config);
     const admin = config.credentials.admin as NonNullable<typeof config.credentials.admin>;
     // A fresh browser signed in through the UI, held under the admin lock for the
@@ -4107,20 +4253,28 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     // session (PREVENT_CONCURRENT_LOGINS). The page's own API context shares the
     // session, so the content-tagging oracles and cleanup run on `page.request`.
     await withAdminSession(async () => {
-      const context = await newCleanBrowserContext(browser);
+      const context = await newCleanBrowserContext(browser, { viewport, isMobile, hasTouch });
       try {
         const page = await context.newPage();
         await signInToStudioThroughUi(page, config, {
           emailOrUsername: admin.username,
           password: admin.password,
         });
-        await use({
-          list: new TaxonomyListPage(page, config),
-          detail: new TaxonomyDetailPage(page, config),
-          page,
-          request: page.request,
-          org,
-        });
+        const created: number[] = [];
+        try {
+          await use({
+            list: new TaxonomyListPage(page, config),
+            detail: new TaxonomyDetailPage(page, config),
+            competency: new CompetencyManagementPage(page, config),
+            seed: ({ type, label }) =>
+              importServedTaxonomy(page.request, config, { type, label, testInfo, created }),
+            page,
+            request: page.request,
+            org,
+          });
+        } finally {
+          await deleteTaxonomiesBestEffort(page.request, config, created);
+        }
       } finally {
         await context.close();
       }
@@ -4137,6 +4291,52 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       );
     }
     await use(taxonomyAdmin);
+  },
+
+  authorTaxonomyPages: async ({ page, config, studioAuthorSession }, use) => {
+    void studioAuthorSession;
+    await use({
+      detail: new TaxonomyDetailPage(page, config),
+      competency: new CompetencyManagementPage(page, config),
+    });
+  },
+
+  competencyTaxonomySeeder: async ({ playwright, config }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'competencies');
+    const org = requireTaxonomyAdmin(config);
+    const created: number[] = [];
+    let ordinal = 0;
+    const seed = async (options: SeedTaxonomyOptions): Promise<Taxonomy> => {
+      ordinal += 1;
+      return withStudioAdminRequest(playwright, config, async (admin) => {
+        const taxonomy = await importServedTaxonomy(admin, config, {
+          type: options.taxonomyType,
+          label: `${options.taxonomyType}-${ordinal}`,
+          testInfo,
+          created,
+        });
+        if (options.access === 'suite-org') {
+          await setTaxonomyOrgs(admin, config, taxonomy.id, [org]);
+        }
+        if (options.enabled === false) {
+          await setTaxonomyEnabled(admin, config, taxonomy.id, false);
+        }
+        return taxonomy;
+      });
+    };
+    try {
+      await use(seed);
+    } finally {
+      if (created.length > 0) {
+        try {
+          await withStudioAdminRequest(playwright, config, (admin) =>
+            deleteTaxonomiesBestEffort(admin, config, created),
+          );
+        } catch {
+          // Best-effort teardown: a run-unique name means a leftover never collides.
+        }
+      }
+    }
   },
 
   uploadAgreements: async ({ config, seededUploadAgreements }, use) => {
@@ -4170,39 +4370,27 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     const org = requireTaxonomyAdmin(config);
     const name = `E2E ${getRunId()} ${testInfo.testId.slice(-6)}R${testInfo.retry}`;
     let taxonomy: Taxonomy | undefined;
-    await withAdminSession(async () => {
-      const admin = await playwright.request.newContext({ storageState: authStateFile('staff') });
-      try {
-        await establishStudioSession(admin, config);
-        taxonomy = await importTaxonomy(admin, config, {
-          name,
-          description: 'E2E suite taxonomy',
-          file: taxonomyImportFile(),
-        });
-        await setTaxonomyOrgs(admin, config, taxonomy.id, [org]);
-      } finally {
-        await admin.dispose();
-      }
+    await withStudioAdminRequest(playwright, config, async (admin) => {
+      taxonomy = await importTaxonomy(admin, config, {
+        name,
+        description: 'E2E suite taxonomy',
+        file: taxonomyImportFile(),
+      });
+      await setTaxonomyOrgs(admin, config, taxonomy.id, [org]);
     });
     try {
       await use({ taxonomy: taxonomy as Taxonomy, org });
     } finally {
       const created = taxonomy;
       if (created !== undefined) {
-        await withAdminSession(async () => {
-          const admin = await playwright.request.newContext({
-            storageState: authStateFile('staff'),
-          });
-          try {
-            await establishStudioSession(admin, config);
-            await deleteTaxonomy(admin, config, created.id);
-          } catch {
-            // Best-effort teardown: a run-unique name means a leftover never
-            // collides, and a later run reuses it by name.
-          } finally {
-            await admin.dispose();
-          }
-        });
+        try {
+          await withStudioAdminRequest(playwright, config, (admin) =>
+            deleteTaxonomy(admin, config, created.id),
+          );
+        } catch {
+          // Best-effort teardown: a run-unique name means a leftover never
+          // collides, and a later run reuses it by name.
+        }
       }
     }
   },

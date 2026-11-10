@@ -112,8 +112,9 @@ measured, and issues are opened by hand from them.
 | `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; copy asserted by URL resolution
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
-| `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy detail breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` scan only |
+| `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy pages' breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` and `studio-competency-management` scans only |
 | `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` (a page load before each wizard run, a different file on re-import) |
+| `TAG-006`   | `openedx/frontend-app-authoring` (taxonomy card fixed width) | open, not filed, not asserted — `competency-entry-points.spec.ts` asserts the #663 AC (menu items inside the width, footer button visible and clickable) |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `STUDIO-011` | `openedx/frontend-app-authoring` (`verawood`: an outline rename is saved twice) | open, no `fixme` — fixed on `master`; `rename()` in `course-outline.page.ts` retries opening the next field |
 | `STUDIO-012` | `openedx/frontend-app-authoring` (TinyMCE 8 editor iframe has no title in Chromium) | open, no `fixme` — `frame-title` baselined on the `studio-schedule-details` scan only |
@@ -1561,18 +1562,20 @@ labelled card actions. This is the answer to the
 review question on PR #79 about whether these gates should wait: adding them cost
 three lines per page and found four rules across three pages.
 
-### `TAG-004` — the taxonomy detail page's breadcrumb is not a valid list
+### `TAG-004` — the taxonomy pages' breadcrumb is not a valid list
 
 **Where:** the authoring MFE's taxonomy detail page (`/taxonomy/<id>`), measured
-on local `main` on 2026-09-30.
+on local `main` on 2026-09-30, and its Competency Management page
+(`/taxonomy/<id>/competencies`), which renders the same breadcrumb, measured on
+local `main` (Tutor dev) on 2026-11-05.
 
 **What happens:** the page gained an accessibility gate on the second PR #79
 review, and axe reports `list` (serious, 1 node): the breadcrumb's
 `<ol class="list-inline">` directly contains elements other than `<li>`.
 
 **Coverage impact:** open, no `fixme`. `list` is baselined on the
-`studio-taxonomy-detail` scan only, as the rules above are, so the page is gated
-against everything else.
+`studio-taxonomy-detail` and `studio-competency-management` scans only, as the
+rules above are, so each page is gated against everything else.
 
 ### `TAG-005` — the taxonomy import wizard's Continue does nothing when a used file is selected again
 
@@ -1591,6 +1594,29 @@ The button looks enabled, no request is sent, and only a page reload restores it
 (`list.goto()` or `detail.goto()`), and TT-07's re-import uses
 `taxonomyImportFileExtended()` so the file differs. The workaround comes out once
 #827 is fixed.
+
+### `TAG-006` — the taxonomy card is wider than a phone window
+
+**Where:** the authoring MFE's taxonomy list page (`/taxonomies`) in a 375 px wide
+window under phone emulation (`isMobile` and `hasTouch`), measured on local `main`
+(Tutor dev) on 2026-11-06.
+
+**What happens:** `.taxonomy-card` has a fixed `width: 400px`
+(`src/taxonomy/taxonomy-card/TaxonomyCard.scss`), so at phone width the card is
+wider than the window. The list's inner container scrolls horizontally, and the
+right part of the card, including the Apply Competencies footer button, lies
+outside the window: the measured card spans x 12 to 412 in a 375 px window, and the
+footer button's right edge is at 392.
+
+**Coverage impact:** open, not asserted. 'keeps the menu inside a phone-width window and
+the footer button usable' in `tests/studio/tagging/competency-entry-points.spec.ts`
+asserts the [openedx-core#663](https://github.com/openedx/openedx-core/issues/663)
+acceptance criteria: the menu items are inside the window's width, and
+the footer button is visible and clickable. That the card fits the window is not
+asserted.
+
+**Not filed:** the card fits a window about 500 px wide, the width the taxonomy
+list was checked at by hand, so the overflow is accepted below that width.
 
 ### The upload-agreement bump raced its own acceptance (suite-side)
 

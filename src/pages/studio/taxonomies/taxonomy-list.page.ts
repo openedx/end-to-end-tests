@@ -2,7 +2,7 @@ import type { Download, Locator, Page } from '@playwright/test';
 
 import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 import { TAGGING_BASE, type ImportableTaxonomyType } from '../../../api';
-import { authoringMfeBaseFromHome } from '../authoring-base';
+import { menuItemTestIds, waitForCompetencyRoute } from './menu';
 
 /** A file the import wizard uploads (Playwright's `setInputFiles` payload shape). */
 export interface ImportFile {
@@ -14,8 +14,8 @@ export interface ImportFile {
 /**
  * The taxonomy list page (`/taxonomies`) — staff only. Drives the new-taxonomy
  * import wizard, the template downloads and navigation into a taxonomy's detail
- * page. The MFE mount is release-varying, so the URL is derived from the admin's
- * Studio-home redirect ({@link authoringMfeBaseFromHome}).
+ * page. The URL is built from the configured authoring MFE mount
+ * (`config.mfeUrls.authoring`).
  *
  * Locators and single actions only; the spec asserts against the content-tagging
  * API (the new taxonomy's tags), the download events and the author's drawer.
@@ -40,8 +40,7 @@ export class TaxonomyListPage {
    * then registered.
    */
   async goto(): Promise<void> {
-    const base = await authoringMfeBaseFromHome(this.page, this.config);
-    const url = `${base}/taxonomies`;
+    const url = `${this.config.mfeUrls.authoring}/taxonomies`;
     await this.page.goto(url, { waitUntil: 'domcontentloaded' });
     const appeared = await this.importButton
       .waitFor({ timeout: TIMEOUTS.action })
@@ -87,6 +86,65 @@ export class TaxonomyListPage {
         })),
       this.s.anyTypeIcon,
     );
+  }
+
+  /** A card's own menu toggle (the three-dot button). */
+  private cardMenuButton(id: number): Locator {
+    return this.card(id).locator(this.s.menuButton);
+  }
+
+  /** The items of one card's open menu, in DOM order. */
+  cardMenuItems(id: number): Locator {
+    return this.card(id).locator(this.s.menuItems);
+  }
+
+  /** The footer of one card (present only for a Competency taxonomy the user may tag with). */
+  cardFooter(id: number): Locator {
+    return this.card(id).locator(this.s.cardFooter);
+  }
+
+  /** The one button in a card's footer. */
+  cardFooterButton(id: number): Locator {
+    return this.card(id).locator(this.s.cardFooterButton);
+  }
+
+  /**
+   * Opens one card's menu and waits for it. Leaves an already open menu open,
+   * because the toggle would close it.
+   */
+  async openCardMenu(id: number): Promise<void> {
+    const toggle = this.cardMenuButton(id);
+    if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+    await this.card(id).locator(this.s.menu).waitFor();
+  }
+
+  /** Reads the `data-testid` of every item in one card's open menu, in DOM order. */
+  async cardMenuItemIds(id: number): Promise<string[]> {
+    return menuItemTestIds(this.cardMenuItems(id));
+  }
+
+  /**
+   * Chooses "Apply Competencies" in a card's menu and waits for the Competency
+   * Management route.
+   */
+  async applyFromMenu(id: number): Promise<void> {
+    await this.openCardMenu(id);
+    await this.card(id).locator(this.s.menuApplyCompetencies).click();
+    await waitForCompetencyRoute(this.page);
+  }
+
+  /** Clicks the "Apply Competencies" button in a card's footer and waits for the same route. */
+  async applyFromFooter(id: number): Promise<void> {
+    await this.cardFooterButton(id).click();
+    await waitForCompetencyRoute(this.page);
+  }
+
+  /** Clicks the card's body, outside its menu and footer, and waits for the taxonomy page. */
+  async openCard(id: number): Promise<void> {
+    await this.card(id).locator(this.s.cardBody).click();
+    await this.page.waitForURL((url) => url.pathname.endsWith(`/taxonomy/${id}`), {
+      timeout: TIMEOUTS.navigation,
+    });
   }
 
   /** The populate step's Taxonomy Type `<select>`; the spec reads its value and options. */

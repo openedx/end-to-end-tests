@@ -206,6 +206,29 @@ export async function setTaxonomyOrgs(
   });
 }
 
+/**
+ * Enables or disables a taxonomy (`PATCH enabled`). Admin-only. A disabled
+ * taxonomy is hidden from the list and from everyone who is not taxonomy staff,
+ * and only a superuser may tag with it.
+ */
+export async function setTaxonomyEnabled(
+  request: APIRequestContext,
+  config: AppConfig,
+  taxonomyId: number,
+  enabled: boolean,
+): Promise<void> {
+  const url = `${studioOrigin(config)}${TAGGING_BASE}/taxonomies/${taxonomyId}/`;
+  const response = await request.fetch(url, {
+    method: 'PATCH',
+    data: { enabled },
+    headers: await studioWriteHeaders(request, config),
+  });
+  await studioJson<unknown>(
+    response,
+    `${enabled ? 'Enabling' : 'Disabling'} taxonomy ${taxonomyId}`,
+  );
+}
+
 /** Deletes a taxonomy. Admin-only; `204` on success, then a `GET` is `404`. */
 export async function deleteTaxonomy(
   request: APIRequestContext,

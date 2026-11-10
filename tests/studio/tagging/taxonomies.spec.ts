@@ -22,8 +22,8 @@ import {
  * The admin drives the browser under the admin lock ({@link taxonomyAdmin}); the
  * content-tagging API decides the outcome — the imported tags, the org-filtered
  * taxonomy list the author's drawer reads, the export/template download events
- * and the `404` after a delete. The release-varying MFE mount is resolved from
- * the admin's Studio-home redirect, so no course is needed.
+ * and the `404` after a delete. The MFE mount is the configured authoring URL
+ * (`config.mfeUrls.authoring`), so no course is needed.
  *
  * Each case seeds its own taxonomy through the UI import wizard rather than the
  * shared `workerTaxonomy` fixture: that fixture re-takes the admin lock, which

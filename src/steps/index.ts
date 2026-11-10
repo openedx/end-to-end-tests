@@ -68,6 +68,8 @@ export {
   TAG,
   IMPORT_EXTRA_TAG,
   deleteTaxonomiesBestEffort,
+  expectedTaxonomyMenu,
+  importTypedTaxonomy,
   seedTaxonomy,
   taxonomyImportFile,
   taxonomyImportFileCsv,

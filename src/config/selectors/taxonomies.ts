@@ -4,7 +4,8 @@
  * delete dialogs and the manage-orgs modal reached from a taxonomy's menu.
  * Measured against `frontend-app-authoring` source (Epic 11, 2026-09-16); every
  * anchor is a `data-testid`, an id, an `href` or a Paragon structural class, never a
- * localized string. These pages are staff-only, so only the admin drives them.
+ * localized string. The admin drives the management actions; a non-staff author and a
+ * global-staff user open the taxonomy and Competency Management pages by URL.
  *
  * The import wizard is a Paragon `Stepper` in a `ModalDialog`. Most action-row
  * buttons carry test ids (`next-button`, `continue-button`, `import-button`); the
@@ -52,6 +53,59 @@ export const TAXONOMY_SELECTORS = {
   menuExport: '[data-testid="taxonomy-menu-export"]',
   menuDelete: '[data-testid="taxonomy-menu-delete"]',
   menuManageOrgs: '[data-testid="taxonomy-menu-manageOrgs"]',
+  /**
+   * The "Apply Competencies" item, shown for a Competency taxonomy the user may
+   * tag with. Test id like the other menu items: every item is a bare
+   * `<button class="dropdown-item">` told apart only by its localized label.
+   */
+  menuApplyCompetencies: '[data-testid="taxonomy-menu-applyCompetencies"]',
+  /**
+   * The open taxonomy menu, reached by the ARIA relationship the app declares:
+   * the menu is `aria-labelledby` its toggle, whose id starts with
+   * `taxonomy-menu-toggle-`. It renders after the first open, next to its toggle.
+   */
+  menu: '[aria-labelledby^="taxonomy-menu-toggle-"]',
+  /**
+   * Every item of the open menu, in DOM order: "Re-import", "Export", "Delete",
+   * "Manage Organizations" and "Apply Competencies", whichever the user may use.
+   * Located structurally (a Paragon `.dropdown-item` inside the menu); a spec
+   * reads each item's `data-testid` value (its key in the app's item table,
+   * never translated) as its language-independent identity, so the order and
+   * set are checked without matching displayed text.
+   */
+  menuItems: '[aria-labelledby^="taxonomy-menu-toggle-"] .dropdown-item',
+
+  /**
+   * Scoped inside one card: the footer holding the "Apply Competencies" button,
+   * located by Paragon's `Card.Footer` class (the app gives the footer no test id).
+   * It renders only for a Competency taxonomy the user may tag with.
+   */
+  cardFooter: '.pgn__card-footer',
+  /**
+   * Scoped inside one card: the footer's "Apply Competencies" button. The footer
+   * holds this one button, so the structure alone identifies it.
+   */
+  cardFooterButton: '.pgn__card-footer button',
+  /**
+   * Scoped inside one card: its description body, the part of the card that is
+   * neither the menu button nor the footer. A class the app sets itself.
+   */
+  cardBody: '.taxonomy-card-body',
+
+  /**
+   * The Competency Management page (`/taxonomy/<id>/competencies`): the root of
+   * its competency tree, drawn once the taxonomy passed the type check, even for
+   * a taxonomy with no tags. The class belongs to the app's `CompetencyTree`.
+   * The page has no taxonomy menu button, which tells it from the taxonomy page.
+   */
+  competencyPage: '.competency-tree',
+  /**
+   * The "unable to connect" alert (Paragon `Alert variant="danger"`, the app's
+   * `ConnectionErrorAlert`). When the taxonomy request fails it is the whole
+   * render of both the taxonomy page and the Competency Management page, so the
+   * `alert` role plus the danger variant identifies it without a test id or text.
+   */
+  connectionError: '[role="alert"].alert-danger',
 
   /** Import wizard steps (each a `data-testid` on its Stack). */
   uploadStep: '[data-testid="upload-step"]',
