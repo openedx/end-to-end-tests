@@ -31,7 +31,9 @@ Contains:
 - `course-detail.ts` — `fetchCourseDetail`: the course's own name/org/number,
   so a spec can search or match on data the platform supplied rather than on
   hard-coded copy — plus dates, pacing, effort, visibility and media, the LMS-side
-  reading for what an author saved in Studio.
+  reading for what an author saved in Studio. `isCourseDetailServed` says whether
+  the API serves the course to the caller at all (catalog visibility `none`
+  redirects a non-staff caller away).
 - `course-metadata.ts` — `fetchCourseMetadata`: course-home tabs (in learner
   order) and course access, the LMS-side reading for Pages & Resources toggles,
   custom-page order and prerequisite gating.
