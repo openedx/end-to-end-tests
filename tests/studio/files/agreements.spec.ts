@@ -18,7 +18,7 @@ import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
 /**
- * Upload-agreement gating (BTR TC-00501–00507): a fresh author has accepted no
+ * Upload-agreement gating (BTR TC-00501–00505, TC-00507): a fresh author has accepted no
  * agreement, so every gated upload type reports `is_current: false`; accepting
  * one (the author's own `POST agreement_record`) flips it true, and bumping the
  * agreement's `updated` in the admin flips it back. The `agreement_record` API is
@@ -28,8 +28,9 @@ import { testId } from '../../../src/reporting';
  * (it edits only the videos type, which does not gate files).
  *
  * The banner and blurred dropzone are the same state rendered; the API decides.
- * The Files page case accepts through the banners' own "Agree"; the others set
- * up acceptance through the API.
+ * The Files page case accepts through the banners' own "Agree"; the others
+ * accept through the API, on an account that has accepted nothing wherever the
+ * case is about what is still outstanding.
  */
 /** Every gating key that applies to the Files page: the shared one and its own. */
 const FILES_KEYS = ['upload', 'upload.files'] as const;
@@ -178,78 +179,96 @@ test.describe.serial(
     test(
       'gates all uploads by the shared upload agreement',
       { annotation: testId('TC-00503') },
-      async ({ page, config, uploadAgreements, studioAuthorSession }) => {
-        void studioAuthorSession;
+      async ({ config, uploadAgreements }) => {
         const type = uploadAgreements.gating.upload?.[0];
         expect(type, 'AGREEMENT_GATING must define the shared `upload` key').toBeDefined();
         const t = type as string;
 
-        await acceptAgreement(page.request, config, t);
-        expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(true);
-      },
-    );
+        // A surface's own terms, where the install gates one by a type the
+        // shared key does not use: agreeing to those must not satisfy the shared
+        // agreement, which gates every upload on its own.
+        const own = (uploadAgreements.gating['upload.files'] ?? [])
+          .filter((o) => !(uploadAgreements.gating.upload ?? []).includes(o))
+          .slice(0, 1);
 
-    test(
-      'the videos terms are separate from the files terms',
-      { annotation: testId('TC-00506') },
-      async ({ config, uploadAgreements, studioAuthorSession }) => {
-        void studioAuthorSession;
-        // The two surfaces must be gated by **different** types for the case to
-        // mean anything; that much is configuration, so it is a precondition
-        // rather than the assertion.
-        // Each surface's **own** types: what gates it and neither the other
-        // surface nor the shared `upload` key, which by definition gates both.
-        const shared = uploadAgreements.gating.upload ?? [];
-        const onlyFor = (mine: readonly string[], theirs: readonly string[]): string[] =>
-          mine.filter((t) => !theirs.includes(t) && !shared.includes(t));
-        const filesOnly = onlyFor(
-          uploadAgreements.gating['upload.files'] ?? [],
-          uploadAgreements.gating['upload.videos'] ?? [],
-        );
-        const videosOnly = onlyFor(
-          uploadAgreements.gating['upload.videos'] ?? [],
-          uploadAgreements.gating['upload.files'] ?? [],
-        );
-        expect(
-          filesOnly.length,
-          'AGREEMENT_GATING must gate files by a type videos does not use',
-        ).toBeGreaterThan(0);
-        expect(
-          videosOnly.length,
-          'AGREEMENT_GATING must gate videos by a type files does not use',
-        ).toBeGreaterThan(0);
-
-        // The assertion is the platform's: accepting the files terms says
-        // nothing about the videos terms, and the account is still outstanding
-        // for the surface it has not agreed to.
-        const files = filesOnly[0] as string;
-        const videos = videosOnly[0] as string;
         await withFreshUser(config, async (session) => {
-          await acceptAgreement(session, config, files);
-          expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
-          expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(false);
-
-          // …and the reverse, on the same account: accepting videos leaves the
-          // files acceptance alone.
-          await acceptAgreement(session, config, videos);
-          expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(true);
-          expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
+          expect((await fetchAgreementRecord(session, config, t)).isCurrent).toBe(false);
+          for (const o of own) await acceptAgreement(session, config, o);
+          expect((await fetchAgreementRecord(session, config, t)).isCurrent).toBe(false);
+          await acceptAgreement(session, config, t);
+          expect((await fetchAgreementRecord(session, config, t)).isCurrent).toBe(true);
         });
       },
     );
 
+    test(// No case id: the sheet's TC-00506 describes a separate Videos page that
+    // does not exist, and its row is marked for deprecation. What is checked
+    // here — that the two surfaces' terms are accepted independently — stands
+    // on its own.
+    'the videos terms are separate from the files terms', async ({ config, uploadAgreements }) => {
+      // The two surfaces must be gated by **different** types for the case to
+      // mean anything; that much is configuration, so it is a precondition
+      // rather than the assertion.
+      // Each surface's **own** types: what gates it and neither the other
+      // surface nor the shared `upload` key, which by definition gates both.
+      const shared = uploadAgreements.gating.upload ?? [];
+      const onlyFor = (mine: readonly string[], theirs: readonly string[]): string[] =>
+        mine.filter((t) => !theirs.includes(t) && !shared.includes(t));
+      const filesOnly = onlyFor(
+        uploadAgreements.gating['upload.files'] ?? [],
+        uploadAgreements.gating['upload.videos'] ?? [],
+      );
+      const videosOnly = onlyFor(
+        uploadAgreements.gating['upload.videos'] ?? [],
+        uploadAgreements.gating['upload.files'] ?? [],
+      );
+      expect(
+        filesOnly.length,
+        'AGREEMENT_GATING must gate files by a type videos does not use',
+      ).toBeGreaterThan(0);
+      expect(
+        videosOnly.length,
+        'AGREEMENT_GATING must gate videos by a type files does not use',
+      ).toBeGreaterThan(0);
+
+      // The assertion is the platform's: accepting the files terms says
+      // nothing about the videos terms, and the account is still outstanding
+      // for the surface it has not agreed to.
+      const files = filesOnly[0] as string;
+      const videos = videosOnly[0] as string;
+      await withFreshUser(config, async (session) => {
+        await acceptAgreement(session, config, files);
+        expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
+        expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(false);
+
+        // …and the reverse, on the same account: accepting videos leaves the
+        // files acceptance alone.
+        await acceptAgreement(session, config, videos);
+        expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(true);
+        expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
+      });
+    });
+
     test(
       'a key may require multiple agreement terms',
       { annotation: testId('TC-00507') },
-      async ({ page, config, uploadAgreements, studioAuthorSession }) => {
-        void studioAuthorSession;
+      async ({ config, uploadAgreements }) => {
         const list = uploadAgreements.gating['upload.files'] ?? [];
         expect(list.length, 'upload.files must list more than one type').toBeGreaterThan(1);
 
-        for (const t of list) {
-          await acceptAgreement(page.request, config, t);
-          expect((await fetchAgreementRecord(page.request, config, t)).isCurrent).toBe(true);
-        }
+        // Every listed type is required: on an account that has accepted none,
+        // each acceptance satisfies its own type and leaves the rest outstanding.
+        await withFreshUser(config, async (session) => {
+          const current = (): Promise<boolean[]> =>
+            Promise.all(
+              list.map((t) => fetchAgreementRecord(session, config, t).then((r) => r.isCurrent)),
+            );
+          expect(await current()).toEqual(list.map(() => false));
+          for (const [index, t] of list.entries()) {
+            await acceptAgreement(session, config, t);
+            expect(await current()).toEqual(list.map((_, i) => i <= index));
+          }
+        });
       },
     );
 
