@@ -33,7 +33,7 @@ test.describe('Login (authn MFE)', () => {
       expect(new URL(page.url()).pathname).not.toContain('/authn/');
       const cookies = await page.context().cookies();
       expect(
-        hasAuthenticatedSession(cookies),
+        hasAuthenticatedSession(cookies, config.jwtCookieHeaderPayload),
         'the login JWT cookie should be set after a successful sign-in',
       ).toBe(true);
     },
@@ -42,14 +42,14 @@ test.describe('Login (authn MFE)', () => {
   test(
     'rejects invalid credentials',
     { tag: ['@smoke', '@mfe-authn'], annotation: testId('TC-00003') },
-    async ({ page, loginPage, learnerIdentity }) => {
+    async ({ page, config, loginPage, learnerIdentity }) => {
       await loginPage.goto();
       await loginPage.signIn(learnerIdentity.email, 'wrong-password');
 
       await expect(loginPage.errorAlert).toBeVisible();
       expect(new URL(page.url()).pathname).toContain('/authn/');
       const cookies = await page.context().cookies();
-      expect(hasAuthenticatedSession(cookies)).toBe(false);
+      expect(hasAuthenticatedSession(cookies, config.jwtCookieHeaderPayload)).toBe(false);
     },
   );
 

@@ -14,14 +14,14 @@ test.describe('Registration (authn MFE)', () => {
   test(
     'creates a new account and signs the learner in',
     { tag: ['@smoke', '@mfe-authn'], annotation: testId('TC-00002') },
-    async ({ page, registrationPage, learnerIdentity }) => {
+    async ({ page, config, registrationPage, learnerIdentity }) => {
       await registerLearner(page, registrationPage, learnerIdentity);
 
       // The redirect left the authn MFE and the learner is authenticated.
       expect(new URL(page.url()).pathname).not.toContain('/authn/');
       const cookies = await page.context().cookies();
       expect(
-        hasAuthenticatedSession(cookies),
+        hasAuthenticatedSession(cookies, config.jwtCookieHeaderPayload),
         'the login JWT cookie should be set after registration auto-login',
       ).toBe(true);
     },
@@ -49,27 +49,27 @@ test.describe('Registration (authn MFE)', () => {
 
       await expect(registrationPage.errorAlert).toBeVisible();
       const cookies = await page.context().cookies();
-      expect(hasAuthenticatedSession(cookies)).toBe(false);
+      expect(hasAuthenticatedSession(cookies, config.jwtCookieHeaderPayload)).toBe(false);
     },
   );
 
   test(
     'rejects a weak password',
     { tag: ['@smoke', '@mfe-authn'], annotation: testId('TC-00002') },
-    async ({ page, registrationPage }) => {
+    async ({ page, config, registrationPage }) => {
       await registrationPage.goto();
       await registrationPage.register(newLearnerIdentity({ password: '123' }));
 
       await expect(registrationPage.errorAlert).toBeVisible();
       const cookies = await page.context().cookies();
-      expect(hasAuthenticatedSession(cookies)).toBe(false);
+      expect(hasAuthenticatedSession(cookies, config.jwtCookieHeaderPayload)).toBe(false);
     },
   );
 
   test(
     'rejects a missing required field',
     { tag: ['@smoke', '@mfe-authn'], annotation: testId('TC-00002') },
-    async ({ page, registrationPage, learnerIdentity }) => {
+    async ({ page, config, registrationPage, learnerIdentity }) => {
       await registrationPage.goto();
       await registrationPage.fillForm(learnerIdentity);
       await registrationPage.name.fill('');
@@ -77,7 +77,7 @@ test.describe('Registration (authn MFE)', () => {
 
       await expect(registrationPage.errorAlert).toBeVisible();
       const cookies = await page.context().cookies();
-      expect(hasAuthenticatedSession(cookies)).toBe(false);
+      expect(hasAuthenticatedSession(cookies, config.jwtCookieHeaderPayload)).toBe(false);
     },
   );
 });

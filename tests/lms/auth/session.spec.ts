@@ -18,7 +18,7 @@ test.describe('Reused learner session', () => {
       // Still authenticated: we were not bounced to the authn MFE.
       expect(new URL(page.url()).pathname).not.toContain('/authn/');
       const cookies = await page.context().cookies();
-      expect(hasAuthenticatedSession(cookies)).toBe(true);
+      expect(hasAuthenticatedSession(cookies, config.jwtCookieHeaderPayload)).toBe(true);
     },
   );
 });

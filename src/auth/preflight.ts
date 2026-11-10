@@ -1,19 +1,22 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import { hasStudioSession } from '../api';
-import type { AppConfig } from '../config';
+import { DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, type AppConfig } from '../config';
 import { AuthError } from './errors';
 import type { Role } from './roles';
 import type { StorageState } from './types';
 
 /**
- * The JS-readable header/payload half of the login JWT
- * (`edx-jwt-cookie-header-payload`). Open edX sets it via `set_logged_in_cookies`
- * only on a successful sign-in and deletes it on logout, so it is the reliable
- * signal that a session is authenticated. Django's `sessionid` cookie is **not**:
- * anonymous visitors carry it too, and it is deliberately preserved across logout.
+ * The JS-readable header/payload half of the login JWT, under Open edX's default
+ * name. Open edX sets it via `set_logged_in_cookies` only on a successful sign-in
+ * and deletes it on logout, so it is the reliable signal that a session is
+ * authenticated. Django's `sessionid` cookie is **not**: anonymous visitors carry
+ * it too, and it is deliberately preserved across logout.
+ *
+ * An install can rename it (`JWT_AUTH['JWT_AUTH_COOKIE_HEADER_PAYLOAD']`), so the
+ * checks below take the name to look for: `config.jwtCookieHeaderPayload`.
  */
-export const AUTH_JWT_COOKIE = 'edx-jwt-cookie-header-payload';
+export const AUTH_JWT_COOKIE = DEFAULT_JWT_COOKIE_HEADER_PAYLOAD;
 
 /** A cookie shape both Playwright's `StorageState` and `context.cookies()` satisfy. */
 type NamedCookie = { readonly name: string };
@@ -23,11 +26,15 @@ type ExpiringCookie = NamedCookie & { readonly expires?: number };
 
 /**
  * Whether a set of cookies represents an authenticated session, judged by the
- * presence of the login JWT cookie. Use this rather than checking for
+ * presence of the login JWT cookie (`cookieName`, the install's
+ * `config.jwtCookieHeaderPayload`). Use this rather than checking for
  * `sessionid`, which is present for anonymous users and survives logout.
  */
-export function hasAuthenticatedSession(cookies: ReadonlyArray<NamedCookie>): boolean {
-  return cookies.some((cookie) => cookie.name === AUTH_JWT_COOKIE);
+export function hasAuthenticatedSession(
+  cookies: ReadonlyArray<NamedCookie>,
+  cookieName: string,
+): boolean {
+  return cookies.some((cookie) => cookie.name === cookieName);
 }
 
 /**
@@ -55,12 +62,15 @@ export const JWT_REFRESH_MARGIN_MS = 5 * 60_000;
  * Callers use it to refresh a worker author's state file **before** the per-test
  * `request`/`page` contexts load it, spending a login only when the JWT is
  * genuinely stale (about once an hour per worker) rather than on every test.
+ *
+ * @param cookieName the login JWT cookie's name, `config.jwtCookieHeaderPayload`.
  */
 export function storedJwtIsFresh(
   cookies: ReadonlyArray<ExpiringCookie>,
+  cookieName: string,
   now: number = Date.now(),
 ): boolean {
-  const jwt = cookies.find((cookie) => cookie.name === AUTH_JWT_COOKIE);
+  const jwt = cookies.find((cookie) => cookie.name === cookieName);
   if (jwt === undefined) return false;
   if (jwt.expires === undefined || jwt.expires < 0) return true;
   return jwt.expires * 1000 - now > JWT_REFRESH_MARGIN_MS;
@@ -78,7 +88,7 @@ export function storedJwtIsFresh(
  * @throws {AuthError} when no login JWT cookie is present in the storage state.
  */
 export function assertAuthCookiesPresent(state: StorageState, config: AppConfig): void {
-  if (hasAuthenticatedSession(state.cookies)) {
+  if (hasAuthenticatedSession(state.cookies, config.jwtCookieHeaderPayload)) {
     return;
   }
 
@@ -90,8 +100,10 @@ export function assertAuthCookiesPresent(state: StorageState, config: AppConfig)
       : '';
 
   throw new AuthError(
-    `Post-login preflight failed: no "${AUTH_JWT_COOKIE}" cookie was captured, ` +
-      `so the stored session is anonymous rather than authenticated.${httpHint}`,
+    `Post-login preflight failed: no "${config.jwtCookieHeaderPayload}" cookie was ` +
+      `captured, so the stored session is anonymous rather than authenticated. An ` +
+      `install that renames the login JWT cookie names it in ` +
+      `JWT_AUTH_COOKIE_HEADER_PAYLOAD.${httpHint}`,
   );
 }
 
