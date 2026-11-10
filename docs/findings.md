@@ -3152,7 +3152,11 @@ cases it does not cover at all.
 | TC-00311, TC-00278 | Role is AUTHOR, but the cases are learner discussion journeys: change the role to LEARNER. |
 | TC-00487 | Status "Not started", yet the case is automated (`tests/studio/sidebar/outline-info.spec.ts`). |
 | TC-00440 / 00441 / 00443 / 00450 / 00451 / 00456 | Status is blank. |
-| TC-00506 | Its own deprecate column says there is no separate video page for it: mark the row deprecated. |
+| TC-00506 | Its own deprecate column says there is no separate video page for it: mark the row deprecated. The suite's check that the files and videos terms are accepted separately carries no case id. |
+| TC-00250 | Legacy libraries are deprecated and `main` no longer ships the create form, so the case runs on `verawood` only: retarget it at creating a v2 library, or deprecate it. |
+| TC-00156 | Describes the same grading settings page as TC-00284 and TC-00288, whose tests carry it: consider merging the rows. |
+| TC-00168, 00169, 00170 | "Drag-and-drop" is driven as a keyboard drag on each card's own handle: confirm that counts, or say a pointer drag is meant. |
+| TC-00003 | Also carried by the sign-out test, as the sheet has no sign-out case: add one. |
 
 **Partially covered**
 
@@ -3173,6 +3177,90 @@ cases it does not cover at all.
 | TC-00521 | The learner's progress page is opened; the gradebook is not. |
 | TC-00560 | The Studio-home entry point is unverified in CI: it needs `rbac-global`, which no CI profile installs. |
 | TC-00222 | The component menu's Copy to Clipboard is held (`STUDIO-013`); the paste is driven. |
+| TC-00001 | The account page's password-reset button is not driven; the reset itself is covered from the sign-in page (TC-00004). |
+| TC-00014 | The catalog is opened directly, not through the home page's "Explore courses" link. |
+| TC-00017 | Only the organization filter is applied and removed; language and type are checked for presence only, and no filter is combined with a search term. |
+| TC-00019 | The header's links and buttons are counted and the logo is followed; Register and Sign in are followed under TC-00062. |
+| TC-00025 | The outline is opened directly; reaching it from the dashboard or the catalog is not driven. |
+| TC-00038 | Taking a note runs as an expected failure (`NOTES-001`); the Notes tab and the show/hide switch are verified. |
+| TC-00041 | The course card and its title link only: filtering by status and sorting by enrollment date or title are not driven. |
+| TC-00051 | The opened unit's content and URL are checked, not that it becomes the highlighted unit: the active unit is marked by colour only. |
+| TC-00055 | The subsection's completed mark is checked; the section-level mark in the course-outline view is not. |
+| TC-00056 | The page fitting a phone screen runs as an expected failure (`LEARN-003`); the outline button's upper-left position is not asserted. |
+| TC-00466 | Both endorsement notifications are read from the notifications API; the tray's Discussions tab is not opened. |
+| TC-00474 | ORA grouping is read from the notifications API, not the tray; the daily and weekly e-mail summaries are held (TC-00478, TC-00480, `NOTIF-004`). |
+| TC-00514 | Each role's tabs are compared with the platform's own rules, not the sheet's list: Certificates is optional for the instructor, and staff get Course Team only as Discussion Admins. |
+| TC-00556 | The tag is shown and filtered only after the course is republished; the case without a republish is held (`ASPECTS-007`). |
+| TC-00269 | Visibility is judged by whether the LMS course API serves the course to a learner: the catalog listing and About page are not opened, and the "about" value is never set. |
+| TC-00273 | The learner side is read from the courseware API's calculator flag: the calculator itself is opened under TC-00039. |
+| TC-00276 | The preview link is checked to be the certificate web view and to load: the certificate's layout (signatories, course name, organization) is not inspected. |
+| TC-00287 | The grace period is set and read back from the grading policy: a late submission is not driven, as the course has no graded problem with a due date. |
+| TC-00292 | The cohort is created and linked to the content group through the LMS API, not the cohort UI: no learner is placed in the cohort or shown group-restricted content. |
+| TC-00295 | Access and archival are read from the LMS APIs: the dates are not read on the learner's Dates tab or About page. |
+| TC-00296 | The start time is not read back in the Studio outline's Start Date field. |
+| TC-00307 | Only an empty course's state: items shown and drawn incomplete. No content is added to turn an item complete. |
+| TC-00134 | Both views and the file count are checked: the header elements (title, search box, Sort and Filter, Actions, Add Files) are not asserted one by one. |
+| TC-00136 | Substring, extension and no-match searches are driven: a search term containing a space is not. |
+| TC-00139 | Rows and their checkboxes are checked: each row's metadata (size, type, status) is not. |
+| TC-00237 | The pages are created through the API: adding a custom page in the UI is not driven, only the reorder. |
+| TC-00501 | The banners and blocked upload are driven on the Files page only: the course outline's banner is not checked. |
+| TC-00502, 00503, 00507 | Decided by the agreement record API only: no banner or blocked upload control is rendered for these agreements. |
+| TC-00323 | The saved YouTube id is read back from the library; the editor's cancel, keep-editing and discard paths are not driven. |
+| TC-00324 | The uploaded transcript is read back as a file on the video; playback with captions, "allow downloads" and "show transcript by default" are not checked. |
+| TC-00325 | The start and stop times are read back from the library; the video is not played to see it start at the timestamp. |
+| TC-00510 | The PDF block is added from the Advanced list; it is not reopened to upload a PDF, and its preview is not checked. |
+| TC-00328 | The search is cleared by emptying the field, not with the clear button; the yellow highlight on matches is not checked. |
+| TC-00329 | The filter is applied at the taxonomy level; a single top-level tag and a nested tag from the drop-down are not selected. |
+| TC-00332 | Title A-Z and Z-A, Newest, Oldest and Recently modified are driven; Most relevant and Recently published are not. |
+| TC-00342 | The delete is confirmed; cancelling it to see the component remain is not driven. |
+| TC-00343 | The delete is confirmed; the warning about courses using the unit and the Cancel path are not checked. |
+| TC-00346 | Updates are accepted and ignored from the unit page; the course Libraries page's "Review Content Updates" is not driven for a component (TC-00348 drives it for a unit). |
+| TC-00348 | Updates are accepted and ignored from the course Libraries page; the update icon on the unit in the course outline is not driven. |
+| TC-00421 | The outsider's read access decides; the switch disabling while it saves and the success message are not checked. |
+| TC-00426 | The outsider adds a published item from the picker; no draft item is seeded here, so "I do not see drafts" is not checked (TC-00575 checks it). |
+| TC-00259 | The imported tags are read back from the API; the taxonomy's tile, its expanded tag tree and the details widget are not checked. |
+| TC-00490 | A section is tagged from the Align rail; the subsection and unit repeats on the outline are not driven (the unit is tagged from its own page, TC-00497). |
+| TC-00054 | The two unit types' icons are compared in the navigation API only: the sidebar is not read, and the completed-unit icon is never produced. |
+| TC-00059 | A staff-only section is hidden through the API and read from the learner's outline; a hidden subsection and the sidebar itself are not checked. |
+| TC-00130 | The survey is created through the API with its default questions; adding and editing it in Studio is not driven. The learner's answers are. |
+| TC-00131 | The recommender is added from the Advanced tile and judged in the Studio preview only: its learner view loads scripts from public CDNs (`XBLOCK-001`). |
+| TC-00132 | One setting is changed and re-read in the block's editor; the learner view is not opened (`XBLOCK-001`). |
+| TC-00150, 00151, 00152 | The learner side is the course's not-started access error, not the About page or View live; the content is seeded through the API, only the publish is driven. |
+| TC-00215 | One advanced setting only: allow video downloads. |
+| TC-00216 | Problems are authored as OLX through the API and answered through the problem API; the Studio problem editor is opened only as far as its type picker. |
+| TC-00219 | Toggled from the unit page's Settings tab and read back from Studio; the outline's Configure dialog and the "Discussions Enabled" label are not checked. |
+| TC-00220 | The learner sees the block render; no item is dragged or dropped. |
+| TC-00221 | The learner sees the block render; no response is submitted or assessed. |
+| TC-00482 | The resize handle is shown but not dragged; narrow-viewport behaviour is not checked. |
+| TC-00483 | Section and subsection selection only: a unit cannot be selected from the outline at 1280 px (`AUTH-002`). |
+| TC-00484 | The menu is opened and dismissed; no action is chosen here. The actions are driven under TC-00485. |
+| TC-00485 | Delete (with confirmation), Duplicate and Move Down are driven; Move Up is not. |
+| TC-00486 | The tabs, the tags control and the presence of settings links only: not the content summary counts, tag names or where the links lead. |
+| TC-00488 | Only the grading-type control on the Settings tab: not release or due dates, visibility, or the unit count. |
+| TC-00491 | Only that the Add New and Add Existing tabs open: nothing is added, and the library filter and empty state are not checked. |
+| TC-00496 | Only that the Add New and Add Existing tabs open: no component is added, new or from a library. |
+| TC-00492 | Help topics show at course and section level; that they differ per level (the difference is localized copy) and closing the panel are not checked. |
+| TC-00631 | Run as a course author, not Global Staff: the Settings link to the console is read, and no team change is made to compare the two systems. |
+| TC-00563 | Single and multiple assignment only: the unknown-account and cancel scenarios run under TC-00452 and TC-00564, and the success message under TC-00454. |
+| TC-00455 | The success message is checked after an assignment started in the wizard itself, not from an account's User View. |
+| TC-00442 | Only the not-found view's action is driven, and only that it leaves that page, not where it lands; skipped on `main`, where the action does nothing (`RBAC-008`). |
+| TC-00561 | The row counter and column sorting are not checked; paging is checked only as a disabled Next on a single page. |
+| TC-00567 | On `verawood` your own admin row has no remove control at all, so the greyed state and its tooltip are checked on `main` only. |
+| TC-00569 | Column and area names are not read (localized copy); pinned headers and scroll-to-top are held for a rewrite (`RBAC-009`); the match with the API's permission list runs on `main` only. |
+| TC-00570 | Deleting a content item and the remove control on another member's row are not checked; content is created and edited through the API. |
+| TC-00573 | Drafts being hidden from a Library User is held: the role is served drafts by design (`RBAC-010`). |
+| TC-00575 | The success message after flipping the switch is held: the MFE shows none (`RBAC-013`). |
+| TC-00576 | Only an outline rename is made as Course Staff, through the API: publishing, the settings pages and files are not exercised, nor the team list's missing remove control. |
+| TC-00577 | The Assign Role button is checked as shown, but the role is added and removed through the API: no wizard, success message or confirmed removal (`RBAC-014`). |
+| TC-00578 | On the direct URL only the outline's absence is checked, not an error message; absence from Studio home is held, since the course is listed (wg#613). |
+| TC-00598 | The no-role account is an enrolled learner, refused Studio and the instructor tools; an account with no enrollment either is not read. |
+| TC-00611 | The no-role account is an enrolled learner whose access is compared with its own earlier reading; an account with no enrollment either is not read. |
+| TC-00639 | The override is not created in the test: it reads the one the suite's setup placed on its AuthZ course and compares a course without one. |
+| TC-00616 | The course is created by a course-creator account through the API, not by Global Staff from Studio home. |
+| TC-00619 | The console naming the role Beta Tester runs as an expected failure (`RBAC-003`); the row being listed is checked. |
+| TC-00633 | Only the absence of the outline and Settings menu is checked, not a permission message; absence from Studio home is not checked, since the course is listed (wg#613). |
+| TC-00642 | No video is uploaded (no transcoding pipeline): the Videos page's data is served to a course admin and refused to an outsider. |
+| TC-00617, 00618, 00620, 00621, 00622, 00623, 00624, 00625, 00626, 00627, 00628, 00629, 00634, 00636, 00641, 00643, 00645, 00647, 00648, 00649, 00650 | Studio under AuthZ: the action is made through Studio's API as the role and read back from the platform. Studio's pages, dialogs and messages are not driven. |
 
 **Not covered (manual only)**
 
