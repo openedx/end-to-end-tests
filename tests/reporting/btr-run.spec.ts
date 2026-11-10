@@ -120,6 +120,19 @@ test.describe('noteFor', { tag: '@unit' }, () => {
     );
   });
 
+  test('gives a test.fail its own reason when nothing more specific is recorded', () => {
+    const a = attempt({
+      status: 'skipped',
+      rawStatus: 'failed',
+      expectedStatus: 'failed',
+      annotations: [{ type: 'fail', description: 'BASE-005: no primary links (shell header)' }],
+      errorMessage: 'expect(received).toBe(expected)',
+    });
+    expect(noteFor(a, 1)).toBe(
+      'expected failure (known defect): BASE-005: no primary links (shell header)',
+    );
+  });
+
   test('reads a duly failing test.fail as a known defect', () => {
     const a = attempt({
       status: 'skipped',
