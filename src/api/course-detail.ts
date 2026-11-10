@@ -65,6 +65,23 @@ interface RawCourseDetail {
 }
 
 /**
+ * Whether the Course Detail API serves `courseKey` to the caller — what catalog
+ * visibility decides. A course hidden from the catalog (`catalog_visibility:
+ * none`) is not served to a non-staff caller: the platform redirects them away
+ * (to the dashboard) instead of answering, so this reads the status without
+ * following redirects. Staff are served regardless.
+ */
+export async function isCourseDetailServed(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<boolean> {
+  const url = `${config.baseUrls.lms}${COURSE_DETAIL_PATH}/${encodeURIComponent(courseKey)}`;
+  const response = await request.get(url, { maxRedirects: 0 });
+  return response.status() === 200;
+}
+
+/**
  * Reads course metadata for `courseKey`.
  *
  * @throws {ApiError} when the course is not served by the target.
