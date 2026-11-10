@@ -16,9 +16,10 @@ interface CsrfTokenResponse {
 /** How {@link fetchCsrfToken} treats a redirect from the token endpoint. */
 export interface FetchCsrfTokenOptions {
   /**
-   * Follow the redirect once (the default), so a context that still holds the
-   * identity provider's session is signed back in. A signed-out caller has no
-   * session to restore and passes `false`.
+   * Retry the request following its redirects (the default), so a context that
+   * still holds the identity provider's session is signed back in: that is a
+   * chain of several hops ending on the token endpoint again. A signed-out
+   * caller has no session to restore and passes `false`.
    */
   readonly followRedirect?: boolean;
 }
@@ -45,11 +46,12 @@ function isSameEndpoint(landed: string, requested: string): boolean {
  *
  * An installation that sends anonymous visitors to an external sign-in,
  * exempting only some paths (say `/api`, but not `/csrf`), redirects a request
- * with no live session here. Following that redirect once is how a context that
- * still holds the provider's session is signed straight back in, landing on this
- * endpoint again with a token. A redirect that ends anywhere else (the provider's
- * sign-in page), or a follow that fails (a sign-in chain that outlasts the
- * request timeout), is reported with the redirect's own status.
+ * with no live session here. Retrying the request with its redirects followed is
+ * how a context that still holds the provider's session is signed straight back
+ * in, landing on this endpoint again with a token. A retry that ends anywhere
+ * else (the provider's sign-in page), or that fails (a sign-in chain that
+ * outlasts the request timeout), is reported with the redirect's own status, and
+ * a failure's message is kept in the error.
  *
  * @returns the token to send in the {@link CSRF_HEADER} header.
  * @throws {ApiError} when the endpoint does not return a token.
@@ -63,17 +65,24 @@ export async function fetchCsrfToken(
   const url = `${origin}${CSRF_TOKEN_PATH}`;
   let response = await request.get(url, { maxRedirects: 0 });
 
+  let followFailure = '';
   if (followRedirect && response.status() >= 300 && response.status() < 400) {
-    const followed = await request.get(url).catch(() => undefined);
+    const followed = await request.get(url).catch((error: unknown) => {
+      followFailure = `; following it failed: ${error instanceof Error ? error.message : String(error)}`;
+      return undefined;
+    });
     if (followed?.ok() && isSameEndpoint(followed.url(), url)) response = followed;
   }
 
   if (!response.ok()) {
-    throw new ApiError(`Failed to fetch a CSRF token (HTTP ${response.status()}).`, {
-      status: response.status(),
-      url,
-      body: await response.text(),
-    });
+    throw new ApiError(
+      `Failed to fetch a CSRF token (HTTP ${response.status()}${followFailure}).`,
+      {
+        status: response.status(),
+        url,
+        body: await response.text(),
+      },
+    );
   }
 
   const body = (await response.json()) as Partial<CsrfTokenResponse>;
