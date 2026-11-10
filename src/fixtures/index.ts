@@ -2315,9 +2315,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           { ...context, viewportWidth: page.viewportSize()?.width ?? 0 },
           testIdsFromAnnotations(testInfo.annotations),
         );
+        // The note names the chrome the defect was matched on, so a case that
+        // passes on one release and is masked on another reads as such.
+        const on = `(masked on the ${[...new Set(context.generations)].join(' / ')} chrome)`;
         for (const defect of defects) {
-          if (defect.intermittent) testInfo.fixme(true, defect.reason);
-          else testInfo.fail(true, defect.reason);
+          if (defect.intermittent) testInfo.fixme(true, `${defect.reason} ${on}`);
+          else testInfo.fail(true, `${defect.reason} ${on}`);
         }
       },
       requireSupportUrl: (chrome, configured) => {

@@ -169,6 +169,7 @@ function holdBackReason(annotations: readonly Annotation[]): string {
   const reason =
     descriptionOf(annotations, KNOWN_GAP_ANNOTATION_TYPE) ??
     descriptionOf(annotations, 'fixme') ??
+    descriptionOf(annotations, 'fail') ??
     descriptionOf(annotations, 'skip');
   const issue = descriptionOf(annotations, ISSUE_ANNOTATION_TYPE);
   const parts = [reason, issue].filter((p): p is string => p !== undefined);
