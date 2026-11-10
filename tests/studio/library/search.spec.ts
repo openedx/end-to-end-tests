@@ -1,9 +1,9 @@
-import { setObjectTags } from '../../../src/api';
+import { libraryOlx, setLibraryBlockOlx, setObjectTags } from '../../../src/api';
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import { testId } from '../../../src/reporting';
 import { TAG } from '../../../src/steps';
-import { LIBRARY_TAGS } from './helpers';
+import { LIBRARY_TAGS, authorTextBlock, label } from './helpers';
 
 /**
  * Searching and filtering a content library (TC-00328, TC-00330, TC-00331,
@@ -127,6 +127,47 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
           timeout: TIMEOUTS.librarySearch,
         })
         .toEqual([...ascending].reverse());
+    },
+  );
+
+  test(
+    'sorts results by newest, oldest and most recently modified',
+    { annotation: testId('TC-00332') },
+    async ({ page, config, studioAuthorSession, authoringLibrary, libraryPage }, testInfo) => {
+      void studioAuthorSession;
+      // Three blocks of this test's own, created in order; then the first is
+      // edited, so it is the most recently modified while staying the oldest.
+      const base = label('sort', testInfo.testId);
+      const blocks = [];
+      for (const suffix of ['one', 'two', 'three']) {
+        blocks.push(
+          await authorTextBlock(page.request, config, authoringLibrary.id, `${base} ${suffix}`),
+        );
+      }
+      const [first] = blocks;
+      await setLibraryBlockOlx(
+        page.request,
+        config,
+        first!.id,
+        libraryOlx.html(first!.display_name, `${first!.display_name} edited`),
+      );
+      const created = blocks.map((b) => b.display_name);
+      const titles = () => libraryPage.cardTitles.allInnerTexts();
+
+      await libraryPage.goto(authoringLibrary.id, 'components');
+      await expect(libraryPage.cards).toHaveCount(blocks.length, {
+        timeout: TIMEOUTS.librarySearch,
+      });
+      await libraryPage.sortBy('newest');
+      await expect
+        .poll(titles, { timeout: TIMEOUTS.librarySearch })
+        .toEqual([...created].reverse());
+      await libraryPage.sortBy('oldest');
+      await expect.poll(titles, { timeout: TIMEOUTS.librarySearch }).toEqual(created);
+      await libraryPage.sortBy('recentlyModified');
+      await expect
+        .poll(async () => (await titles())[0], { timeout: TIMEOUTS.librarySearch })
+        .toBe(first!.display_name);
     },
   );
 
