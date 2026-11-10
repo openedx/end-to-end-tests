@@ -38,6 +38,26 @@ const redirecting = (landsOn: string): APIRequestContext => {
   } as unknown as APIRequestContext;
 };
 
+const redirectResponse = { ok: () => false, status: () => 302, text: () => Promise.resolve('') };
+
+/** A token endpoint that redirects (302), and whose followed redirect times out. */
+const timingOutFollow = (): APIRequestContext =>
+  ({
+    get: (_url: string, options?: { maxRedirects?: number }) =>
+      options?.maxRedirects === 0
+        ? Promise.resolve(redirectResponse)
+        : Promise.reject(new Error('apiRequestContext.get: Timeout 15000ms exceeded.')),
+  }) as unknown as APIRequestContext;
+
+/** A token endpoint that always redirects (302), recording each GET's `maxRedirects`. */
+const recordingRedirects = (gets: (number | undefined)[]): APIRequestContext =>
+  ({
+    get: (_url: string, options?: { maxRedirects?: number }) => {
+      gets.push(options?.maxRedirects);
+      return Promise.resolve(redirectResponse);
+    },
+  }) as unknown as APIRequestContext;
+
 test.describe('fetchCsrfToken — redirected to sign-in', { tag: '@unit' }, () => {
   test('takes the token when following the redirect signs the context back in', async () => {
     await expect(fetchCsrfToken(redirecting(TOKEN_URL), config)).resolves.toBe('fresh');
@@ -58,4 +78,29 @@ test.describe('fetchCsrfToken — redirected to sign-in', { tag: '@unit' }, () =
       expect((error as ApiError).status).toBe(302);
     });
   }
+
+  test('reports the redirect, not the failure, when following it times out', async () => {
+    // The provider's sign-in chain can outlast the request timeout; that is a
+    // redirect that did not come back with a token, like any other.
+    const error: unknown = await fetchCsrfToken(timingOutFollow(), config).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(302);
+  });
+
+  test('does not follow the redirect when told not to', async () => {
+    const gets: (number | undefined)[] = [];
+
+    const error: unknown = await fetchCsrfToken(
+      recordingRedirects(gets),
+      config,
+      config.baseUrls.lms,
+      { followRedirect: false },
+    ).catch((e: unknown) => e);
+
+    expect((error as ApiError).status).toBe(302);
+    // One request, made without following redirects.
+    expect(gets).toHaveLength(1);
+    expect(gets[0]).toBe(0);
+  });
 });

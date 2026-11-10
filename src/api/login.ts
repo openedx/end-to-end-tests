@@ -28,6 +28,10 @@ export function csrfTokenFromCookies(
  * A CSRF token for a signed-out `request`: the token endpoint's, or — where that
  * endpoint is closed to anonymous visitors (see {@link fetchCsrfToken}) — the
  * `csrftoken` cookie a `GET` on the login-session endpoint itself sets.
+ *
+ * The endpoint's redirect is not followed: a signed-out context has no session
+ * for it to restore, and following it walks the identity provider's whole
+ * sign-in chain only to land on its sign-in page.
  */
 async function anonymousCsrfToken(
   request: APIRequestContext,
@@ -36,7 +40,7 @@ async function anonymousCsrfToken(
 ): Promise<string> {
   let endpointStatus: number;
   try {
-    return await fetchCsrfToken(request, config);
+    return await fetchCsrfToken(request, config, config.baseUrls.lms, { followRedirect: false });
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
     endpointStatus = error.status;
