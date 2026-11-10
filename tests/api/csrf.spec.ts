@@ -86,6 +86,10 @@ test.describe('fetchCsrfToken — redirected to sign-in', { tag: '@unit' }, () =
 
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(302);
+    // Why the follow failed stays in the report.
+    expect((error as ApiError).message).toContain(
+      'following it failed: apiRequestContext.get: Timeout 15000ms exceeded.',
+    );
   });
 
   test('does not follow the redirect when told not to', async () => {
@@ -98,6 +102,7 @@ test.describe('fetchCsrfToken — redirected to sign-in', { tag: '@unit' }, () =
       { followRedirect: false },
     ).catch((e: unknown) => e);
 
+    expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(302);
     // One request, made without following redirects.
     expect(gets).toHaveLength(1);
