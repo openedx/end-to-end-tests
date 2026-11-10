@@ -44,7 +44,7 @@
     "eslint-plugin-playwright": "^2.12.2",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.2"
+    "typescript-eslint": "^8.72.1"
   },
   "dependencies": {
     "dotenv": "^18.0.9",
