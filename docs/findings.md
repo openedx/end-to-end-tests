@@ -969,6 +969,16 @@ yet" so polls under `TIMEOUTS.contentPublish` ride out the window. A `fixme`
 test in `tests/studio/outline/sidebar.spec.ts` records the intended non-5xx
 answer immediately after a publish.
 
+**Also measured (2026-11-10, Tutor `main`):** the window never closes for a
+course nothing has been published in. A course created through Studio and left
+empty has no `learning_sequences` outline at all
+(`/api/learning_sequences/v1/course_outline/<key>` answers 404), so
+`/api/course_home/outline/<key>` and the navigation view answer 500 for as long
+as it stays that way, and Studio's "View live" lands on the learning MFE's
+"There was an error loading this course." Saving a setting or publishing
+anything builds the outline. The View live cases (TC-00238, TC-00252) therefore
+follow the link on the content course, not the settings course.
+
 ---
 
 ### `PLAT-005` — `delete_course` logs a Meilisearch `invalid_search_filter` error

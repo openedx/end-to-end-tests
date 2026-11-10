@@ -1,5 +1,6 @@
 import { checkA11y } from '../../../src/a11y';
-import { fetchCourseApps, fetchCourseMetadata } from '../../../src/api';
+import { fetchCourseApps, fetchCourseHomeOutline, fetchCourseMetadata } from '../../../src/api';
+import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -85,9 +86,19 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'view live links to the learner-facing course',
     { tag: '@regression', annotation: testId('TC-00238') },
-    async ({ page, config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
+    async ({
+      page,
+      config,
+      contentCourse,
+      pagesResourcesPage,
+      courseOutlinePage,
+      studioAuthorSession,
+    }) => {
       void studioAuthorSession;
-      const { courseKey } = authoredCourse;
+      test.setTimeout(TIMEOUTS.contentTest);
+      // The content course, not the settings one: a course nothing was ever
+      // published in has no outline, and the learning MFE cannot render it.
+      const { courseKey } = contentCourse;
       await pagesResourcesPage.goto(courseKey);
 
       // "View live" points at the learner-facing course home in the configured
@@ -97,10 +108,22 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
         'href',
         new RegExp(`^${escapeRegExp(course)}`),
       );
-      // …and following it lands on that course. (The worker course has no
-      // published content, so what renders there is not this case's.)
+      // …and following it lands on that course, which renders: its tabs show.
+      // The MFE can render the course only once the CMS worker has written its
+      // outline (`PLAT-009`: until then it shows an error).
+      await expect
+        .poll(
+          async () => (await fetchCourseHomeOutline(page.request, config, courseKey)) !== undefined,
+          {
+            timeout: TIMEOUTS.contentPublish,
+          },
+        )
+        .toBe(true);
       await page.goto((await pagesResourcesPage.viewLiveLink.getAttribute('href')) ?? '');
       await expect(page).toHaveURL((url) => url.href.startsWith(course));
+      await expect(courseOutlinePage.courseTabs.first()).toBeVisible({
+        timeout: TIMEOUTS.navigation,
+      });
     },
   );
 
