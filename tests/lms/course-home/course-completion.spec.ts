@@ -76,12 +76,7 @@ test.describe('Course completion', () => {
     'completes every unit the suite can drive and the platform records it',
     {
       tag: ['@regression', '@authenticated', '@mfe-learning'],
-      annotation: [
-        testId('TC-00022'),
-        knownGap(
-          'Demo course has no drivable completion path for its video, ORA, LTI and custom-JS units',
-        ),
-      ],
+      annotation: testId('TC-00022'),
     },
     async ({ page, unitPage, courseOutline, courseProgress, enrolledCourse, stubVideoSources }) => {
       const drivable = courseOutline.units.filter(canCompleteUnit);
@@ -153,7 +148,12 @@ test.describe('Course completion', () => {
     'completes every unit in the course',
     {
       tag: ['@regression', '@authenticated', '@mfe-learning'],
-      annotation: testId('TC-00022'),
+      annotation: [
+        testId('TC-00022'),
+        knownGap(
+          'Demo course has no drivable completion path for its YouTube-only video, ORA, LTI and custom-JS units',
+        ),
+      ],
     },
     async ({ page, unitPage, courseOutline, courseProgress, enrolledCourse, stubVideoSources }) => {
       await stubVideoSources(courseOutline.units);
