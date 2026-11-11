@@ -40,13 +40,25 @@ const redirecting = (landsOn: string): APIRequestContext => {
 
 const redirectResponse = { ok: () => false, status: () => 302, text: () => Promise.resolve('') };
 
+/**
+ * Playwright's timeout error as it really reads: a first line, then a call log
+ * listing each request's headers, the jar's cookies among them.
+ */
+const TIMEOUT_MESSAGE = [
+  'apiRequestContext.get: Timeout 15000ms exceeded.',
+  'Call log:',
+  '  - → GET https://lms.example.com/csrf/api/v1/token',
+  '    - accept: */*',
+  '    - cookie: sessionid=session-cookie-value',
+].join('\n');
+
 /** A token endpoint that redirects (302), and whose followed redirect times out. */
 const timingOutFollow = (): APIRequestContext =>
   ({
     get: (_url: string, options?: { maxRedirects?: number }) =>
       options?.maxRedirects === 0
         ? Promise.resolve(redirectResponse)
-        : Promise.reject(new Error('apiRequestContext.get: Timeout 15000ms exceeded.')),
+        : Promise.reject(new Error(TIMEOUT_MESSAGE)),
   }) as unknown as APIRequestContext;
 
 /** A token endpoint that always redirects (302), recording each GET's `maxRedirects`. */
@@ -86,10 +98,13 @@ test.describe('fetchCsrfToken — redirected to sign-in', { tag: '@unit' }, () =
 
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(302);
-    // Why the follow failed stays in the report.
+    // Why the follow failed stays in the report: its first line, not the call
+    // log of request headers (and cookies) after it.
     expect((error as ApiError).message).toContain(
-      'following it failed: apiRequestContext.get: Timeout 15000ms exceeded.',
+      'following it failed: apiRequestContext.get: Timeout 15000ms exceeded.).',
     );
+    expect((error as ApiError).message).not.toContain('Call log');
+    expect((error as ApiError).message).not.toContain('session-cookie-value');
   });
 
   test('does not follow the redirect when told not to', async () => {
