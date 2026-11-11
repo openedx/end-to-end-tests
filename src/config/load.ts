@@ -19,8 +19,9 @@ import { ConfigError } from './errors';
 import { rawEnvSchema } from './schema';
 
 /**
- * Open edX's default name for the login JWT's header/payload cookie
- * (`JWT_AUTH['JWT_AUTH_COOKIE_HEADER_PAYLOAD']`).
+ * Open edX's default name for the JS-readable header/payload half of the login
+ * JWT (`JWT_AUTH['JWT_AUTH_COOKIE_HEADER_PAYLOAD']`), the cookie the suite takes
+ * as the sign of a signed-in session.
  */
 export const DEFAULT_JWT_COOKIE_HEADER_PAYLOAD = 'edx-jwt-cookie-header-payload';
 

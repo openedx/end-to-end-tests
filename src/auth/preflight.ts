@@ -1,22 +1,10 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import { hasStudioSession } from '../api';
-import { DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, type AppConfig } from '../config';
+import type { AppConfig } from '../config';
 import { AuthError } from './errors';
 import type { Role } from './roles';
 import type { StorageState } from './types';
-
-/**
- * The JS-readable header/payload half of the login JWT, under Open edX's default
- * name. Open edX sets it via `set_logged_in_cookies` only on a successful sign-in
- * and deletes it on logout, so it is the reliable signal that a session is
- * authenticated. Django's `sessionid` cookie is **not**: anonymous visitors carry
- * it too, and it is deliberately preserved across logout.
- *
- * An install can rename it (`JWT_AUTH['JWT_AUTH_COOKIE_HEADER_PAYLOAD']`), so the
- * checks below take the name to look for: `config.jwtCookieHeaderPayload`.
- */
-export const AUTH_JWT_COOKIE = DEFAULT_JWT_COOKIE_HEADER_PAYLOAD;
 
 /** A cookie shape both Playwright's `StorageState` and `context.cookies()` satisfy. */
 type NamedCookie = { readonly name: string };
@@ -26,9 +14,11 @@ type ExpiringCookie = NamedCookie & { readonly expires?: number };
 
 /**
  * Whether a set of cookies represents an authenticated session, judged by the
- * presence of the login JWT cookie (`cookieName`, the install's
- * `config.jwtCookieHeaderPayload`). Use this rather than checking for
- * `sessionid`, which is present for anonymous users and survives logout.
+ * presence of the login JWT's header/payload cookie, `cookieName`: the install's
+ * `config.jwtCookieHeaderPayload`, since an install can rename it. Open edX sets
+ * it via `set_logged_in_cookies` only on a successful sign-in and deletes it on
+ * logout, so it is the reliable signal. Django's `sessionid` cookie is **not**:
+ * anonymous visitors carry it too, and it is deliberately preserved across logout.
  */
 export function hasAuthenticatedSession(
   cookies: ReadonlyArray<NamedCookie>,
