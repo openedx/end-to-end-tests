@@ -51,7 +51,7 @@ function isSameEndpoint(landed: string, requested: string): boolean {
  * in, landing on this endpoint again with a token. A retry that ends anywhere
  * else (the provider's sign-in page), or that fails (a sign-in chain that
  * outlasts the request timeout), is reported with the redirect's own status, and
- * a failure's message is kept in the error.
+ * the first line of a failure's message is kept in the error.
  *
  * @returns the token to send in the {@link CSRF_HEADER} header.
  * @throws {ApiError} when the endpoint does not return a token.
@@ -68,7 +68,10 @@ export async function fetchCsrfToken(
   let followFailure = '';
   if (followRedirect && response.status() >= 300 && response.status() < 400) {
     const followed = await request.get(url).catch((error: unknown) => {
-      followFailure = `; following it failed: ${error instanceof Error ? error.message : String(error)}`;
+      // The first line only: Playwright appends a call log listing each request's
+      // headers, the jar's cookies among them.
+      const message = error instanceof Error ? error.message : String(error);
+      followFailure = `; following it failed: ${message.split('\n')[0]}`;
       return undefined;
     });
     if (followed?.ok() && isSameEndpoint(followed.url(), url)) response = followed;
