@@ -7,7 +7,7 @@ import {
   fetchCourseEnrollmentDetails,
   fetchCourseMetadata,
   fetchCoursewareCourse,
-  isCourseDetailServed,
+  isCourseHiddenFromCatalog,
   isEnrolled,
   updateAdvancedSettings,
 } from '../../../src/api';
@@ -101,19 +101,21 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       const { courseKey } = authoredCourse;
       await updateAdvancedSettings(api, config, courseKey, { catalog_visibility: 'both' });
 
-      // "none" hides the course from the catalog: the Course Detail API stops
-      // serving it to a learner (signed in but not staff — staff bypass the
-      // visibility, as the case notes). "both" makes it discoverable again.
+      // "none" hides the course from the catalog: the Course Detail API answers
+      // a learner (signed in but not staff — staff bypass the visibility, as the
+      // case notes) that it is hidden. "both" makes it discoverable again.
       const learner = await newLearner();
+      const hidden = (): Promise<boolean> =>
+        isCourseHiddenFromCatalog(learner.request, config, courseKey, learner.identity.username);
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('catalogVisibility', 'none');
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
       await expect
         .poll(async () => ({
           studio: await settingValue(api, config, courseKey, 'catalog_visibility'),
-          served: await isCourseDetailServed(learner.request, config, courseKey),
+          hidden: await hidden(),
         }))
-        .toEqual({ studio: 'none', served: false });
+        .toEqual({ studio: 'none', hidden: true });
 
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('catalogVisibility', 'both');
@@ -121,10 +123,9 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       await expect
         .poll(async () => ({
           studio: await settingValue(api, config, courseKey, 'catalog_visibility'),
-          served: await isCourseDetailServed(learner.request, config, courseKey),
-          hidden: (await fetchCourseDetail(learner.request, config, courseKey)).hidden,
+          hidden: await hidden(),
         }))
-        .toEqual({ studio: 'both', served: true, hidden: false });
+        .toEqual({ studio: 'both', hidden: false });
     },
   );
 

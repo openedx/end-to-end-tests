@@ -56,7 +56,7 @@ export { COURSE_MODES_PATH, ensureCertificateBearingMode, fetchCourseModes } fro
 export {
   COURSE_DETAIL_PATH,
   fetchCourseDetail,
-  isCourseDetailServed,
+  isCourseHiddenFromCatalog,
   type CourseDetail,
 } from './course-detail';
 export {
