@@ -65,27 +65,40 @@ interface RawCourseDetail {
 }
 
 /**
- * Whether the Course Detail API serves `courseKey` to the caller — what catalog
- * visibility decides. A course hidden from the catalog (`catalog_visibility:
- * none`) is not served to a non-staff caller: the platform redirects them away
- * (to the dashboard) instead of answering, so this reads the status without
- * following redirects. Staff are served regardless.
+ * Whether `courseKey` is hidden from the catalog for `username`, as the Course
+ * Detail API answers them — what catalog visibility `none` decides. Installs
+ * differ in how they say so, and all three answers mean hidden:
+ *
+ * - a redirect away (to the dashboard): `main` and `verawood`, where the about
+ *   page's permission looks at catalog visibility (Tutor's
+ *   `COURSE_ABOUT_VISIBILITY_PERMISSION = 'see_about_page'`). Read without
+ *   following redirects;
+ * - a 404: the same permission on `ulmo` and earlier;
+ * - the course served with `hidden: true`: the platform's default permission
+ *   (`see_exists`), which does not look at catalog visibility.
+ *
+ * `username` must be the caller's own. Without it the API answers for an
+ * anonymous visitor whoever is signed in, and a staff account (which the
+ * visibility never hides a course from) would read as hidden too.
  *
  * @throws {ApiError} on any other answer, so a server error is never read as
  *   the course being hidden.
  */
-export async function isCourseDetailServed(
+export async function isCourseHiddenFromCatalog(
   request: APIRequestContext,
   config: AppConfig,
   courseKey: string,
+  username: string,
 ): Promise<boolean> {
-  const url = `${config.baseUrls.lms}${COURSE_DETAIL_PATH}/${encodeURIComponent(courseKey)}`;
+  const url =
+    `${config.baseUrls.lms}${COURSE_DETAIL_PATH}/${encodeURIComponent(courseKey)}` +
+    `?username=${encodeURIComponent(username)}`;
   const response = await request.get(url, { maxRedirects: 0 });
   const status = response.status();
-  if (status === 200) return true;
-  if (status >= 300 && status < 400) return false;
+  if (status === 404 || (status >= 300 && status < 400)) return true;
+  if (status === 200) return ((await response.json()) as RawCourseDetail).hidden === true;
   throw new ApiError(
-    `Course Detail API neither served nor redirected for "${courseKey}" (HTTP ${status}).`,
+    `Course Detail API neither served, redirected nor refused "${courseKey}" (HTTP ${status}).`,
     { status, url, body: await response.text() },
   );
 }

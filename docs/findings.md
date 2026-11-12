@@ -3201,7 +3201,7 @@ cases it does not cover at all.
 | TC-00474 | ORA grouping is read from the notifications API, not the tray; the daily and weekly e-mail summaries are held (TC-00478, TC-00480, `NOTIF-004`). |
 | TC-00514 | Each role's tabs are compared with the platform's own rules, not the sheet's list: Certificates is optional for the instructor, and staff get Course Team only as Discussion Admins. |
 | TC-00556 | The tag is shown and filtered only after the course is republished; the case without a republish is held (`ASPECTS-007`). |
-| TC-00269 | Visibility is judged by whether the LMS course API serves the course to a learner: the catalog listing and About page are not opened, and the "about" value is never set. |
+| TC-00269 | Visibility is judged by how the LMS course API answers a learner (not served, or served as hidden): the catalog listing and About page are not opened, and the "about" value is never set. |
 | TC-00273 | The learner side is read from the courseware API's calculator flag: the calculator itself is opened under TC-00039. |
 | TC-00276 | The preview link is checked to be the certificate web view and to load: the certificate's layout (signatories, course name, organization) is not inspected. |
 | TC-00287 | The grace period is set and read back from the grading policy: a late submission is not driven, as the course has no graded problem with a due date. |
