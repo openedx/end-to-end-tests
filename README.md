@@ -556,7 +556,9 @@ the Actions UI if it ever needs a clean rebuild.
 is the single source of truth for what each named release needs: the Tutor
 version constraint (replacing what used to be a hardcoded shell `case`
 statement) and the default `CAPABILITIES` to declare for that release, since
-feature/MFE availability can differ across platform versions. Adding or
+feature/MFE availability can differ across platform versions. An entry may also
+set `workers`, the Playwright worker count (`WORKERS`) each shard runs with on
+that release; without it the suite's CI default applies. Adding or
 removing a supported release is just an edit to that file (plus the matching
 `openedx_release` dropdown option in the workflow — `ci.yml`'s "Verify
 openedx_release choices match .ci/openedx-releases.json" step fails the build
