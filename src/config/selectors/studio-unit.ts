@@ -49,6 +49,22 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
   /** The "Enable discussion" checkbox on the Settings tab. */
   discussionCheckbox: '.pgn__form-checkbox-input',
 
+  // --- `ulmo`: no Settings tab ----------------------------------------------
+  // The unit sidebar is one card. "Hide from learners" is a checkbox in its
+  // footer: checking it republishes the unit hidden, and unchecking it asks for
+  // confirmation first. Discussion is set in the unit's Configure dialog, opened
+  // from the header title's second icon button (the first renames the unit).
+  /** The footer's "Hide from learners" checkbox. */
+  legacyVisibilityCheckbox: '.course-unit-sidebar-visibility-checkbox input[type="checkbox"]',
+  /** The "Make visible to students" confirmation's proceed button. */
+  legacyMakeVisibleConfirm: '.pgn__alert-modal .pgn__modal-footer button.btn-primary',
+  /** The header title's Configure (settings) button. */
+  legacyConfigureButton: '[data-testid="unit-header-title"] button >> nth=1',
+  legacyConfigureModal: '[data-testid="configure-modal"]',
+  /** "Enable discussion" in the Configure dialog: the last checkbox, after visibility. */
+  legacyConfigureDiscussion: '.pgn__form-checkbox-input >> nth=-1',
+  legacyConfigureSave: '[data-testid="configure-save-button"]',
+
   /**
    * The sidebar Publish button (shown while the unit has unpublished changes).
    * It is the primary button on `main` and `verawood` and an outlined one on

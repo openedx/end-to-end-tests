@@ -146,6 +146,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `rbac-self-revoke-guard` | declared | — | — | — | — | — | |  |
 | `rbac-error-view-action` | — | declared | — | — | — | — | |  |
 | `certificate-web-view` | — | declared | — | declared | declared | declared | |  |
+| `team-discussions` | declared | declared | — | — | — | — | |  |
 | `recommender-studio-settings` | declared | — | — | — | — | — | |  |
 | `outline-unhide-draft` | declared | — | — | — | — | — | |  |
 | `authz-auto-migration` | declared | declared | — | — | — | — | − |  |
@@ -261,6 +262,7 @@ permanently red case. Declare one where the behaviour is right.
 | `rbac-self-revoke-guard` | The authz API refuses an admin removing its own admin role (`cannot_remove_own_admin_role`, openedx-authz ≥ 2.0.0, openedx-authz#543). `verawood` pins 1.23.0, which removes it (`RBAC-007`). Requires `rbac`. | The API half of TC-00567. | `main` |
 | `rbac-error-view-action` | The console's not-found view offers a working way back. On `main` the action does nothing (`RBAC-008`). | TC-00442. | `verawood` |
 | `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood` and earlier. CI declares it with `certificates`, so not on `ulmo`. |
+| `team-discussions` | A team's discussion lists the posts made in it. On `ulmo` a thread posted from the team page is stored, but the team's listing comes back empty (`DISC-003`). | TC-00035. | `main`, `verawood`. Not `ulmo`; `teak` and earlier are unmeasured. |
 | `recommender-studio-settings` | The recommender's Studio editor shows the settings it saved (recommender-xblock ≥ 5.1.0). `verawood` pins 5.0.0 (`XBLOCK-002`). | TC-00132. | `main` |
 | `outline-unhide-draft` | Un-hiding a unit in the outline's Configure dialog saves a draft; only hiding auto-publishes (frontend-app-authoring#3284). `verawood` auto-publishes every save. | TC-00161's draft case. | `main` |
 | `analytics-in-context-cards` | The outline cards' Analytics buttons open the element's own in-context analytics. frontend-plugin-aspects 3.0.1 reads the selection from the authoring MFE's `currentItemData`, which `master` removed, so on `main` they show the course's view (`ASPECTS-009`). Requires `analytics-in-context`. | TC-00314's card-opens-element case. | `verawood` (not yet run there) |

@@ -120,6 +120,7 @@ export class StudioUnitPage {
    * button in the toggle group, Staff Only the second.
    */
   async setStaffOnly(staffOnly: boolean): Promise<void> {
+    if (!(await this.hasSettingsTab())) return this.setStaffOnlyLegacy(staffOnly);
     await this.openSettings();
     const toggle = this.page.locator(this.s.visibilityToggleGroup).locator('button');
     await waitForWrite(
@@ -131,6 +132,62 @@ export class StudioUnitPage {
       },
       () => toggle.nth(staffOnly ? 1 : 0).click(),
     );
+  }
+
+  /**
+   * Whether the sidebar has a Settings tab (verawood on). `ulmo`'s sidebar is a
+   * single card with the visibility checkbox in its footer.
+   */
+  private async hasSettingsTab(): Promise<boolean> {
+    const tab = this.page.locator(this.s.sidebarSettingsTab);
+    await tab.or(this.page.locator(this.s.legacyVisibilityCheckbox)).first().waitFor();
+    return (await tab.count()) > 0;
+  }
+
+  /**
+   * `ulmo`'s "Hide from learners": the sidebar footer's checkbox. Checking it
+   * republishes the unit hidden; unchecking it asks "Make visible to students"
+   * first, and republishes on confirmation.
+   */
+  private async setStaffOnlyLegacy(staffOnly: boolean): Promise<void> {
+    const checkbox = this.page.locator(this.s.legacyVisibilityCheckbox);
+    if ((await checkbox.isChecked()) === staffOnly) return;
+    await waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PATCH'],
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      async () => {
+        await checkbox.click();
+        if (!staffOnly) await this.page.locator(this.s.legacyMakeVisibleConfirm).click();
+      },
+    );
+    // The checkbox shows the unit's stored state, which the page reads again
+    // after the write: wait for it, so the next reading of it is the new one.
+    await this.page
+      .locator(`${this.s.legacyVisibilityCheckbox}${staffOnly ? ':checked' : ':not(:checked)'}`)
+      .waitFor();
+  }
+
+  /** `ulmo`'s "Enable discussion": a checkbox in the unit's Configure dialog. */
+  private async setDiscussionEnabledLegacy(enabled: boolean): Promise<void> {
+    await this.page.locator(this.s.legacyConfigureButton).click();
+    const modal = this.page.locator(this.s.legacyConfigureModal);
+    const checkbox = modal.locator(this.s.legacyConfigureDiscussion);
+    await checkbox.waitFor();
+    await checkbox.setChecked(enabled);
+    await waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PATCH'],
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => modal.locator(this.s.legacyConfigureSave).click(),
+    );
+    await modal.waitFor({ state: 'hidden' });
   }
 
   // --- Navigation ----------------------------------------------------------
@@ -204,6 +261,7 @@ export class StudioUnitPage {
    * discussion" checkbox, waiting for the republish it triggers.
    */
   async setDiscussionEnabled(enabled: boolean): Promise<void> {
+    if (!(await this.hasSettingsTab())) return this.setDiscussionEnabledLegacy(enabled);
     await this.openSettings();
     const checkbox = this.page.locator(this.s.discussionCheckbox);
     if ((await checkbox.isChecked()) === enabled) return;
