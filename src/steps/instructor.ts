@@ -160,9 +160,11 @@ export interface CertificateMintOutcome {
 
 /**
  * The dashboard's "grant an exception, then generate exception certificates"
- * path (BTR TC-00536/537) through the API: allowlist the learner, queue
- * regeneration for allowlisted learners without a certificate, wait for the
- * task, and poll the learner's own progress reading until the certificate is
+ * path through the API — a precondition for the cases that need an issued
+ * certificate (invalidation, the certificates report); TC-00536/537 drive the
+ * same path through the dashboard. Allowlists the learner, queues regeneration
+ * for allowlisted learners without a certificate, and waits through
+ * {@link awaitCertificateDownloadable} until the certificate is
  * `downloadable`. Reports every reading rather than throwing, so a spec can
  * say which step did not happen. The course must already allow certificates
  * (platform switch, active certificate, course toggle, a certificate-bearing
@@ -198,6 +200,40 @@ export async function mintCertificateByException(
   const { task_id: taskId } = await regenerateCertificates(instructor, config, courseKey, {
     studentSet: 'allowlisted_not_generated',
   });
+  const generated = await awaitCertificateDownloadable(
+    instructor,
+    learner,
+    config,
+    courseKey,
+    taskId,
+  );
+  return { exception, taskId, ...generated, elapsedMs: Date.now() - started };
+}
+
+/** What {@link awaitCertificateDownloadable} observed. */
+export interface CertificateGenerationOutcome {
+  /** The generation task's final `state` (`completed`, `failed`, …). */
+  readonly taskState: string | undefined;
+  /** The learner's own `certificate_data.cert_status` when the wait stopped. */
+  readonly certStatus: string | undefined;
+  /** Whether the learner's status reached `downloadable` within the budget. */
+  readonly downloadable: boolean;
+}
+
+/**
+ * The second half of certificate generation, whoever started it (the API, or
+ * the dashboard's "Regenerate Certificates"): waits for the generation task to
+ * reach a terminal state, then polls the learner's own progress reading until
+ * the certificate is `downloadable`. Reports both readings rather than
+ * throwing, so a spec can say which step did not happen.
+ */
+export async function awaitCertificateDownloadable(
+  instructor: APIRequestContext,
+  learner: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  taskId: string,
+): Promise<CertificateGenerationOutcome> {
   const task = await pollUntil(
     () => fetchInstructorTask(instructor, config, courseKey, taskId),
     (status) => TERMINAL_TASK_STATES.has(status.state),
@@ -210,12 +246,9 @@ export async function mintCertificateByException(
     (reading) => reading.certificateStatus === 'downloadable',
   );
   return {
-    exception,
-    taskId,
     taskState: task.last.state,
     certStatus: progress.last.certificateStatus,
     downloadable: progress.satisfied,
-    elapsedMs: Date.now() - started,
   };
 }
 

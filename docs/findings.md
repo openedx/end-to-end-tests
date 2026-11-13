@@ -118,6 +118,7 @@ measured, and issues are opened by hand from them.
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `STUDIO-011` | `openedx/frontend-app-authoring` (`verawood`: an outline rename is saved twice) | open, no `fixme` — fixed on `master`; `rename()` in `course-outline.page.ts` retries opening the next field |
 | `STUDIO-012` | `openedx/frontend-app-authoring` (TinyMCE 8 editor iframe has no title in Chromium) | open, no `fixme` — `frame-title` baselined on the `studio-schedule-details` scan only |
+| `STUDIO-013` | `openedx/openedx-platform` (`cms` unit iframe: a component's three-dot menu is intermittently clipped, its items unclickable) | open, declarative `fixme` + `knownGap` on TC-00222's menu-copy test; the paste test stages the copy through the API |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
 | `PLAT-011`  | `openedx/openedx-platform` (problem previews: MathJax renders an empty math element as an unlabelled `svg[role=img]`) | open, no `fixme` — the in-context Analytics scans cover only their panel; no other scan reaches a problem preview yet
 | `INSTR-009` | `openedx/edx-platform` + `openedx/frontend-app-instructor-dashboard` (allowance Delete: numeric id ignored, failure shown as success) | **filed** - [openedx-platform#39228](https://github.com/openedx/openedx-platform/issues/39228) and [frontend-app-instructor-dashboard#258](https://github.com/openedx/frontend-app-instructor-dashboard/issues/258) (tracked here as [#135](https://github.com/openedx/end-to-end-tests/issues/135)), `test.fail` on TC-00541's delete test
@@ -843,6 +844,35 @@ Chromium: 7.9.3 gives the iframe `title="Rich Text Area"` and no `frame-title`,
 `studio-schedule-details` scan only. Upstream ask: give the iframe a title in
 every browser, e.g. through TinyMCE's `iframe_attrs` option in the MFE's
 `editorConfig`.
+
+### `STUDIO-013` — a component's three-dot menu in the unit iframe is intermittently cut off
+
+**Where:** the authoring MFE's unit page, whose components render in the legacy
+container view (`/container_embed/<unit>`) inside an iframe; the component
+header's "Actions" menu (`studio_xblock_wrapper.html`). Measured on the Tutor
+`main` local sandbox, 2026-11-08.
+
+**What happens:** about half the time, opening a component's three-dot menu
+leaves its items under the iframe's lower edge: Playwright reports the "Copy to
+Clipboard" item visible but its click intercepted by the header's own
+`ul.actions-list` / `div.header-actions`, and no clipboard write follows (3 of 6
+runs of TC-00222's menu-copy test; the other 3 copied normally). The probable
+mechanism, from the platform source: `container.js`'s `showXBlockActionsMenu`
+both toggles the menu and posts `toggleCourseXBlockDropdown` so the MFE grows the
+iframe to fit it. `base.js` binds its own generic `.nav-dd .nav-item` toggle at
+`domReady`, which `stopPropagation`s on open; its comment in `container.js` notes
+that the xblock menus are "not present yet during the domReady event". When the
+container has already rendered them by then, the menu `li` carries `base.js`'s
+direct handler (observed in the failing state), the click never reaches
+`showXBlockActionsMenu`, no resize message is posted, and the menu stays clipped
+inside the iframe. The Edit button, outside the menu, always works.
+
+**Coverage impact:** open. TC-00222's menu-copy test is a declarative `fixme` +
+`knownGap` (an intermittent defect can neither pass reliably nor be a
+`test.fail`); its paste test stages the copy through the content-staging API.
+Upstream ask: keep `base.js`'s generic dropdown handler off the xblock action
+menus (or have `showXBlockActionsMenu` run regardless), so opening the menu
+always resizes the iframe.
 
 ### `PLAT-007` — the Blocks API returns 500 to a learner enrolled in a course that has not started
 

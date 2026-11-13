@@ -86,6 +86,29 @@ export const STUDIO_SIDEBAR_SELECTORS = {
   unitAddTab: (key: 'add-new' | 'add-existing') => `#unit-add-sidebar-tab-${key}`,
   /** The outline Add sidebar's tabs. */
   outlineAddTab: (key: 'addNew' | 'addExisting') => `#add-content-tabs-tab-${key}`,
+  /**
+   * The outline Add sidebar's "Add Existing" pane — what the outline's "Use …
+   * from library" buttons open on `main` and `verawood`: the library content of
+   * every library the author may reuse from, embedded, with a library filter, a
+   * search field and an "Add" per card. (An outline without the authoring
+   * sidebar opens the modal library picker instead — `LIBRARY_PICKER_SELECTORS`.)
+   */
+  addExistingPane: '#add-content-tabs-tabpane-addExisting',
+  /** The pane's library filter ("All libraries"): a toggle and one checkbox per library, its `value` the library key. */
+  addExistingLibraryFilter: '#library-filter-dropdown-toggle',
+  addExistingLibraryOption: (libraryKey: string) =>
+    `.dropdown-menu.show input[type="checkbox"][value="${libraryKey}"]`,
+  /** The library filter's own name search ("Search Library Name"), inside the open menu. */
+  addExistingLibrarySearch: '.dropdown-menu.show input[name="searchfield-input"]',
+  /**
+   * The content search field. The library filter's own name search is the same
+   * Paragon field inside the filter's menu, so this is the one still visible
+   * once that menu has closed (no class tells them apart on both releases).
+   */
+  addExistingSearch: 'input[name="searchfield-input"]:visible',
+  /** A content card, and its "Add" (the card header's action button). */
+  addExistingCard: '.library-item-card',
+  addExistingCardAdd: '.pgn__card-header-actions button',
 
   /**
    * The outline Info panel's Publish button (the `PublishButon` status button),
@@ -93,6 +116,12 @@ export const STUDIO_SIDEBAR_SELECTORS = {
    * publish control is a different widget ({@link unitPublishButton}).
    */
   publishButton: '.sidebar-content button.status-button',
+  /**
+   * The outline publish modal's confirm ("Publish") that the Info panel's
+   * Publish button opens — the outline's shared publish confirmation, a Paragon
+   * primary button in the dialog. The unit page publishes without a confirm.
+   */
+  publishConfirmButton: '[role="dialog"] button.btn-primary',
   /**
    * The unit page's publish button in the sidebar's publish-controls widget
    * (`.course-unit-sidebar-footer`), present while the unit has unpublished

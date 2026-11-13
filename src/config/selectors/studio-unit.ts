@@ -44,8 +44,14 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
   /** The "Enable discussion" checkbox on the Settings tab. */
   discussionCheckbox: '.pgn__form-checkbox-input',
 
-  /** The sidebar Publish button (shown while the unit has unpublished changes). */
-  publishButton: '.course-unit-sidebar-visibility button.btn-primary',
+  /**
+   * The sidebar Publish button (shown while the unit has unpublished changes).
+   * It is the primary button on `main` and `verawood` and an outlined one on
+   * `ulmo`, where "Copy unit" in the same footer is outlined too — so Publish is
+   * the footer's button *before* the divider, which Copy unit always follows.
+   */
+  publishButton:
+    '.course-unit-sidebar-visibility button:is(.btn-primary, .btn-outline-primary):not(.course-unit-sidebar-footer__divider ~ button)',
 
   /**
    * The sidebar "Item Menu" (3-dot) and its items: "Copy to Clipboard", "Copy
@@ -58,6 +64,13 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
 
   /** The one iframe the unit renders its components into (the legacy container view). */
   componentIframe: 'iframe.xblock-container-iframe',
+  /**
+   * Inside the iframe, scoped to a component's `[data-usage-id]` header: its
+   * three-dot "Actions" menu button and the menu's "Copy to Clipboard" item
+   * (legacy `studio_xblock_wrapper.html` classes).
+   */
+  componentActionsMenuButton: 'button.show-actions-menu-button',
+  componentCopyItem: 'a.copy-button',
   /** The "Add component" tiles, one per offered block type, in API order. */
   addComponentButton: 'button.add-component-button',
   /**
@@ -68,15 +81,22 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
   pasteComponentButton: 'button.btn-block',
 
   /**
-   * The "Advanced" tile's picker, a dialog of one radio per advanced block type
-   * (each labelled with its localized display name) and a "Select" button — the
-   * dialog's primary button. The radios' `value` is the block's category.
+   * The template picker a multi-template tile opens — "Advanced" (one radio per
+   * advanced block type), "Open Response" (one per assessment template), "Text":
+   * a dialog of radios, each labelled with its localized display name, and a
+   * "Select" button, the dialog's primary button. The radios' `value` is the
+   * template's boilerplate name, else its block category — never the label. The
+   * radio set's `name` is the tile's (localized) display name, so it is not an
+   * anchor. Tiles with one template (Drag and Drop) create on click, no picker.
    */
-  advancedPickerDialog: '[role="dialog"]:has(input[type="radio"][name="Advanced"])',
-  advancedPickerSelect: 'button.btn-primary',
+  templatePickerDialog: '[role="dialog"]:has(input[type="radio"])',
+  templatePickerSelect: 'button.btn-primary',
 } as const;
 
-/** The Advanced picker's radio for one block category (its `value`, not its label). */
-export function advancedComponentOption(category: string): string {
-  return `input[type="radio"][name="Advanced"][value="${category}"]`;
+/**
+ * A template picker's radio, by its `value` (the boilerplate name, else the block
+ * category — for the Advanced tile, the advanced block's category).
+ */
+export function componentTemplateOption(value: string): string {
+  return `input[type="radio"][value="${value}"]`;
 }

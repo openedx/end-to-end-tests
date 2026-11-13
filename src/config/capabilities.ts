@@ -71,6 +71,14 @@ export const CAPABILITIES = [
   // default install (measured on `main`) still creates them, so `main` and
   // `verawood` declare this. Gates only the BTR migration cases.
   'content-libraries-v1',
+  // Studio Home can still **create** a legacy library: on the Legacy Libraries
+  // tab, "New library" opens the authoring MFE's legacy create form
+  // (`/libraries-v1/create`, `release/verawood`). `master` dropped that form —
+  // its "New library" only ever creates a v2 library — so on `main` legacy
+  // libraries exist (`content-libraries-v1`) but cannot be created from the UI.
+  // Declared where the form ships, like `rbac-error-view-action`. Requires
+  // `content-libraries-v1` (`CAPABILITY_REQUIRES`). Gates TC-00250.
+  'content-libraries-v1-create',
   // The learning MFE's in-course outline sidebar, behind the
   // `courseware.enable_navigation_sidebar` waffle flag. Its counterpart describes
   // the installations that keep the older in-course navigation instead (ulmo and
@@ -420,6 +428,7 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   'analytics-in-context-cards': 'analytics-in-context',
   'analytics-staff-video-counts': 'analytics',
   competencies: 'taxonomies',
+  'content-libraries-v1-create': 'content-libraries-v1',
 };
 
 export function isCapability(value: string): value is Capability {

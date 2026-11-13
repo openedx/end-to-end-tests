@@ -35,7 +35,9 @@ const BASELINE: GradingPolicy = {
 test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () => {
   test(
     'drags a grade-range boundary',
-    { tag: '@regression', annotation: testId('TC-00284') },
+    // TC-00156 ("configure the grading policy … set the course grade range") is
+    // carried by this test (the range) and the add-an-assignment-type one.
+    { tag: '@regression', annotation: [testId('TC-00284'), testId('TC-00156')] },
     async ({ page, config, authoredCourse, gradingPage, studioAuthorSession }) => {
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
@@ -177,7 +179,7 @@ test.describe('Grading', { tag: ['@studio', '@author', '@mfe-authoring'] }, () =
 
   test(
     'adds an assignment type',
-    { tag: '@smoke', annotation: testId('TC-00288') },
+    { tag: '@smoke', annotation: [testId('TC-00288'), testId('TC-00156')] },
     async ({ page, config, authoredCourse, gradingPage, studioAuthorSession }) => {
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.

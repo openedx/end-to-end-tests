@@ -326,6 +326,20 @@ export const LIBRARY_SELECTORS = {
   homeNewLibraryLink:
     '.studio-home-sub-header .sub-header-actions a[href$="/library/create"], .studio-home-sub-header .sub-header-actions button.btn + button.btn',
   homeLibrariesTab: 'a[role="tab"][data-rb-event-key="libraries"]',
+  /**
+   * The Legacy Libraries tab (`verawood`; `main` lists legacy libraries only for
+   * migration). With it open, "New library" ({@link homeNewLibraryLink}) leads to
+   * the legacy create form instead of the v2 one.
+   */
+  homeLegacyLibrariesTab: 'a[role="tab"][data-rb-event-key="legacyLibraries"]',
+
+  /**
+   * The legacy create-library form (`/libraries-v1/create`, `verawood` only):
+   * title (`displayName`), organization (the same autosuggest as the v2 form —
+   * see {@link createOrgOption}), library code (`number`) and a "Create" submit.
+   */
+  createLegacyTitleInput: 'form input[name="displayName"]',
+  createLegacyNumberInput: 'form input[name="number"]',
   homeLibraryCardLink: (libraryKey: string) => `a.card-item-title[href$="/library/${libraryKey}"]`,
 
   /** The MFE's toast ("Content pasted successfully." …), which overlays the lower sidebar while shown. */

@@ -1,5 +1,5 @@
 import { checkA11y } from '../../../src/a11y';
-import { buildSection, courseUsageKey, fetchXBlockOutline, publishXBlock } from '../../../src/api';
+import { buildSection, courseUsageKey, fetchXBlockOutline } from '../../../src/api';
 import { TIMEOUTS, STUDIO_SIDEBAR_SELECTORS as S } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { knownGap, testId } from '../../../src/reporting';
@@ -180,21 +180,28 @@ test.describe(
         );
         await expect(authoringSidebar.publishButton).toBeVisible();
 
-        // Publish the section (through the API — publishing *from the panel* is
-        // covered by the robust unit case TC-00495; the course outline re-renders
-        // continuously, which makes a click on its Publish button flaky under
-        // load). Reloading and re-selecting the now-published section shows the
-        // panel without a Publish button.
-        await publishXBlock(page.request, config, section.usageKey);
-        expect((await fetchXBlockOutline(page.request, config, section.usageKey)).has_changes).toBe(
-          false,
-        );
+        // Publish it from the panel; the platform records it published and the
+        // panel, re-rendered for the now-clean section, drops the button.
+        await authoringSidebar.publishAndConfirm();
+        await expect
+          .poll(
+            async () =>
+              (await fetchXBlockOutline(page.request, config, section.usageKey)).has_changes,
+            { timeout: TIMEOUTS.contentPublish },
+          )
+          .toBe(false);
+        await expect(authoringSidebar.publishButton).toHaveCount(0, {
+          timeout: TIMEOUTS.contentPublish,
+        });
+
+        // Selecting the published section afresh offers no Publish button either.
         await studioCourseOutlinePage.goto(authoringCourse.courseKey);
         await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
         await studioCourseOutlinePage.select(
           studioCourseOutlinePage.sectionCards.first(),
           'section',
         );
+        await expect(authoringSidebar.title).toBeVisible();
         await expect(authoringSidebar.publishButton).toHaveCount(0);
       },
     );
