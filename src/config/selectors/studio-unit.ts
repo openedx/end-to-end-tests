@@ -17,6 +17,11 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
    * not the visibility toggle (`btn-group-toggle`).
    */
   previewViewLiveGroup: '.btn-group-md:not(.btn-group-toggle)',
+  /**
+   * `ulmo`'s header has no button group: View live and Preview are two outlined
+   * buttons directly in the header's nav, **View live first**.
+   */
+  headerNavigationButtons: 'nav.header-navigations > button.btn-outline-primary',
 
   /**
    * The sequence-navigation action buttons above the unit — "New unit" then
@@ -59,6 +64,12 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
    * first item, Delete the danger-styled one.
    */
   itemMenuButton: 'button[aria-label="Item Menu"]',
+  /**
+   * `ulmo` has no Item Menu: copying the unit is the outlined "Copy unit" button
+   * after the sidebar footer's divider.
+   */
+  copyUnitButton:
+    '.course-unit-sidebar-visibility .course-unit-sidebar-footer__divider ~ button.btn-outline-primary',
   itemMenuCopyItem: '.dropdown-menu.show .pgn__dropdown-item:not(.text-danger-700)',
   itemMenuDeleteItem: '.dropdown-menu.show .pgn__dropdown-item.text-danger-700',
 

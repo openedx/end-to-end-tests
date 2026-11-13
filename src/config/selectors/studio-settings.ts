@@ -14,6 +14,11 @@
  * with `aria-hidden` flipping, so callers judge a save by the response it causes,
  * not by the bar disappearing.
  */
+/** A Schedule & Details date or time input, by its control name. */
+function dateField(controlName: string): string {
+  return `input:is(#${controlName}, [name="${controlName}"])`;
+}
+
 export const STUDIO_SETTINGS_SAVE_BAR_SELECTORS = {
   /** The bar (a Paragon alert). Grading also tags it `grading-settings-save-alert`. */
   bar: '.alert[aria-labelledby="notification-warning-title"]',
@@ -31,16 +36,18 @@ export const STUDIO_SCHEDULE_DETAILS_SELECTORS = {
   /** "Self-paced" radio (`value="true"`). */
   selfPacedRadio: 'input[type="radio"][name="selfPaced"][value="true"]',
 
+  // The date and time fields carry their control name as `id` and `name` from
+  // verawood on; `ulmo` gives them the `name` alone (`dateField`).
   /** "Course start date" — text field, `MM/DD/YYYY`, UTC. */
-  startDate: '#startDate-date',
+  startDate: dateField('startDate-date'),
   /** "Course start time" — text field, `HH:MM`, UTC. */
-  startTime: '#startDate-time',
-  endDate: '#endDate-date',
-  endTime: '#endDate-time',
-  enrollmentStartDate: '#enrollmentStart-date',
-  enrollmentStartTime: '#enrollmentStart-time',
-  enrollmentEndDate: '#enrollmentEnd-date',
-  enrollmentEndTime: '#enrollmentEnd-time',
+  startTime: dateField('startDate-time'),
+  endDate: dateField('endDate-date'),
+  endTime: dateField('endDate-time'),
+  enrollmentStartDate: dateField('enrollmentStart-date'),
+  enrollmentStartTime: dateField('enrollmentStart-time'),
+  enrollmentEndDate: dateField('enrollmentEnd-date'),
+  enrollmentEndTime: dateField('enrollmentEnd-time'),
   /**
    * "Certificate available date" — a date-only field (no time), rendered only
    * when the target lets the certificates row show

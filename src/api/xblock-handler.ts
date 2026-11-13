@@ -140,9 +140,19 @@ export async function fetchWordCloudState(
   courseKey: string,
   usageKey: string,
 ): Promise<WordCloudState> {
-  return narrowWordCloudState(
-    await callHandler(learner, config, courseKey, usageKey, 'handle_get_state'),
-  );
+  // `handle_get_state` is the extracted block's handler (verawood on). The
+  // built-in block `ulmo` still runs answers it under `xmodule_handler` and
+  // does not know the other name.
+  try {
+    return narrowWordCloudState(
+      await callHandler(learner, config, courseKey, usageKey, 'handle_get_state'),
+    );
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    return narrowWordCloudState(
+      await callHandler(learner, config, courseKey, usageKey, 'xmodule_handler/get_state'),
+    );
+  }
 }
 
 /**

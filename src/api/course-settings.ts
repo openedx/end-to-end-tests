@@ -1,10 +1,14 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
+import { ApiError } from './errors';
 import { STUDIO_JSON_ACCEPT, studioJson, studioOrigin, studioWriteHeaders } from './studio-origin';
 
 /** Schedule & Details, as the authoring MFE reads and writes it. */
 export const COURSE_DETAILS_PATH = '/api/contentstore/v1/course_details';
+
+/** How many times a Schedule & Details write is sent before its 5xx is reported. */
+const COURSE_DETAILS_WRITE_ATTEMPTS = 3;
 
 /** Grading policy, as the authoring MFE reads and writes it. */
 export const COURSE_GRADING_PATH = '/api/contentstore/v1/course_grading';
@@ -123,11 +127,24 @@ export async function updateCourseDetails(
   const current = await fetchCourseDetails(request, config, courseKey);
   const data = { ...current, ...changes };
   const headers = await studioWriteHeaders(request, config);
-  const response = await request.put(`${studioOrigin(config)}${COURSE_DETAILS_PATH}/${courseKey}`, {
-    data,
-    headers,
-  });
-  return studioJson<CourseDetails>(response, `Updating Schedule & Details of ${courseKey}`);
+  // The write is the whole object, so repeating it is safe. On `ulmo` it
+  // answers 500 now and then: the course-publish signal's handlers deadlock in
+  // MySQL when two courses are written at once, and the next try goes through.
+  for (let attempt = 1; ; attempt += 1) {
+    const response = await request.put(
+      `${studioOrigin(config)}${COURSE_DETAILS_PATH}/${courseKey}`,
+      { data, headers },
+    );
+    try {
+      return await studioJson<CourseDetails>(
+        response,
+        `Updating Schedule & Details of ${courseKey}`,
+      );
+    } catch (error) {
+      const serverError = error instanceof ApiError && error.status >= 500;
+      if (!serverError || attempt >= COURSE_DETAILS_WRITE_ATTEMPTS) throw error;
+    }
+  }
 }
 
 /** One assignment type in the grading policy. */
