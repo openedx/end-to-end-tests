@@ -8,6 +8,9 @@ import { issue, testId } from '../../../src/reporting';
 import { offDashboardMainLinks, partitionSiteLinks } from '../../../src/steps';
 import { PROFILE_A11Y_BASELINE } from './helpers';
 
+/** `ulmo` and earlier still name the X link's platform `twitter`. */
+const SOCIAL_PLATFORM_ALIASES: Readonly<Record<string, string>> = { twitter: 'x' };
+
 /**
  * The learner profile (TC-00068–TC-00072): a learner adds their location,
  * language, education, bio and social links on their profile page, and each is
@@ -102,7 +105,10 @@ test.describe('Learner profile', { tag: ['@regression', '@authenticated', '@mfe-
       expect(account.bio).toBe(bio);
       expect(
         Object.fromEntries(
-          (account.social_links ?? []).map((link) => [link.platform, link.social_link]),
+          (account.social_links ?? []).map((link) => [
+            SOCIAL_PLATFORM_ALIASES[link.platform] ?? link.platform,
+            link.social_link,
+          ]),
         ),
       ).toEqual({
         x: expect.stringContaining(handle),
