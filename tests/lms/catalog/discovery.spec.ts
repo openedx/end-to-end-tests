@@ -34,7 +34,7 @@ function unmatchableTerm(username: string): string {
   return `zzz${username.replace(/\W/g, '')}`;
 }
 
-test.describe('Course catalog discovery', () => {
+test.describe('Course catalog discovery', { tag: '@mfe-catalog' }, () => {
   test(
     'is reachable and lists courses for an anonymous visitor',
     { tag: '@smoke', annotation: testId('TC-00014') },

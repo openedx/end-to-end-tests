@@ -54,6 +54,7 @@ test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
       'frontend-base',
       'instructor-dashboard',
       'mfe-authn',
+      'mfe-catalog',
       'no-support-url',
       'notifications',
     ]);
@@ -198,6 +199,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
       'frontend-base',
       'instructor-dashboard',
       'mfe-authn',
+      'mfe-catalog',
       'no-support-url',
       'notes',
       'notifications',
@@ -214,6 +216,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
       'discussions',
       'frontend-base',
       'instructor-dashboard',
+      'mfe-catalog',
       'no-support-url',
       'notifications',
       'teams',
@@ -229,6 +232,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
       'discussions',
       'instructor-dashboard',
       'mfe-authn',
+      'mfe-catalog',
       'no-support-url',
       'notifications',
     ]);

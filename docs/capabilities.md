@@ -66,10 +66,25 @@ it, and `tests/config/capabilities-doc.spec.ts` keeps the two in step.
 
 ## Where CI turns each capability on
 
-CI runs `main` and `verawood` on every pull request, under the `default`,
-`extended` and `aspects` profiles (`.ci/profiles.json`). The older releases run
-on demand through `run_tests_tutor.yml`'s `openedx_release` input, usually with
-`default` only. `aspects` runs only on `main` and `verawood`.
+CI runs `main`, `verawood` and `ulmo` on every pull request, under the
+`default` and `extended` profiles (`.ci/profiles.json`); `main` and `verawood`
+also run `aspects`. The older releases run on demand through
+`run_tests_tutor.yml`'s `openedx_release` input, usually with `default` only.
+
+`ulmo`'s list is narrower than what Ulmo ships. A capability is declared there
+only where the suite's coverage of it works against Ulmo's shape, so these are
+left out although the release has the feature:
+
+- `catalog-search`: the search cases drive the catalog MFE, which Ulmo does not
+  deploy (`-mfe-catalog`).
+- `certificates` and `certificate-web-view`: the suite turns certificate
+  generation on through `/api/instructor/v2/`, which Ulmo lacks.
+- `content-libraries`, `content-libraries-v1` and `taxonomies`: the page objects
+  follow the Verawood authoring MFE (the public-read switch, the card menus and
+  the Align rail differ on Ulmo).
+- `courseware-navigation-sidebar`: Ulmo has the outline sidebar, but opens the
+  discussions sidebar first on a unit with a topic; unmeasured.
+- `special-exams`: its one case is an instructor-dashboard case.
 
 The release columns show what `.ci/openedx-releases.json` gives the `default`
 profile. Each profile's column shows what that profile changes on top.
@@ -89,20 +104,21 @@ profile. Each profile's column shows what that profile changes on top.
 | Capability | main | verawood | ulmo | teak | sumac | redwood | extended | aspects |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `mfe-authn` | default | default | default | default | default | default | |  |
+| `mfe-catalog` | default | default | opted out | opted out | opted out | opted out | |  |
 | `frontend-base` | default | opted out | opted out | opted out | opted out | opted out | |  |
 | `discussions` | default | default | default | default | default | default | |  |
 | `notifications` | default | default | opted out | opted out | opted out | opted out | |  |
-| `email-inbox` | declared | declared | — | — | — | — | |  |
+| `email-inbox` | declared | declared | declared | — | — | — | |  |
 | `teams` | declared | declared | declared | declared | declared | declared | |  |
 | `notes` | declared | declared | declared | declared | declared | declared | |  |
-| `wiki` | declared | declared | — | — | — | — | |  |
+| `wiki` | declared | declared | declared | — | — | — | |  |
 | `cohorts` | declared | declared | declared | declared | declared | declared | |  |
 | `content-libraries` | declared | declared | — | — | — | — | |  |
 | `content-libraries-v1` | declared | declared | — | — | — | — | |  |
 | `content-libraries-v1-create` | — | declared | — | — | — | — | |  |
 | `courseware-navigation-sidebar` | declared | declared | — | — | — | — | |  |
-| `courseware-legacy-navigation` | — | — | declared | declared | declared | declared | |  |
-| `catalog-search` | declared | declared | declared | declared | declared | declared | |  |
+| `courseware-legacy-navigation` | — | — | — | declared | declared | declared | |  |
+| `catalog-search` | declared | declared | — | declared | declared | declared | |  |
 | `studio` | declared | declared | declared | declared | declared | declared | |  |
 | `taxonomies` | declared | declared | — | — | — | — | |  |
 | `competencies` | declared | — | — | — | — | — | |  |
@@ -115,7 +131,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `scorm` | declared | declared | declared | declared | declared | declared | |  |
 | `edx-sga` | declared | declared | declared | declared | declared | declared | |  |
 | `instructor-dashboard` | default | default | opted out | opted out | opted out | opted out | |  |
-| `certificates` | declared | declared | declared | declared | declared | declared | |  |
+| `certificates` | declared | declared | — | declared | declared | declared | |  |
 | `special-exams` | declared | declared | — | — | — | — | |  |
 | `analytics` | — | — | — | — | — | — | | + main, verawood |
 | `analytics-in-context` | — | — | — | — | — | — | | + |
@@ -129,7 +145,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `rbac-audit-team-layout` | declared | — | — | — | — | — | |  |
 | `rbac-self-revoke-guard` | declared | — | — | — | — | — | |  |
 | `rbac-error-view-action` | — | declared | — | — | — | — | |  |
-| `certificate-web-view` | — | declared | declared | declared | declared | declared | |  |
+| `certificate-web-view` | — | declared | — | declared | declared | declared | |  |
 | `recommender-studio-settings` | declared | — | — | — | — | — | |  |
 | `outline-unhide-draft` | declared | — | — | — | — | — | |  |
 | `authz-auto-migration` | declared | declared | — | — | — | — | − |  |
@@ -139,7 +155,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `course-creator-group` | default | default | default | default | default | default | |  |
 | `multi-org-catalog` | — | — | — | — | — | — | + |  |
 | `course-intro-video` | — | — | — | — | — | — | + |  |
-| `codejail` | — | — | — | — | — | — | + verawood |  |
+| `codejail` | — | — | — | — | — | — | + verawood, ulmo |  |
 
 <!-- ci-table:end -->
 
@@ -155,6 +171,7 @@ support something, the entry says so.
 
 | Capability | What it means | Tag | Known to support |
 | --- | --- | --- | --- |
+| `mfe-catalog` | The catalog MFE serves the LMS home page, the course catalog and each course's About page. Where it is absent the LMS renders those pages itself, as legacy templates the suite has no page objects for. | The catalog, About-page and enrollment-from-the-catalog specs (`tests/lms/catalog/`), the landing page, and the site-chrome cases read on the catalog home. | `main`, `verawood`. `ulmo` and earlier have no catalog MFE (tutor-mfe deploys it from 22) and opt out. |
 | `mfe-authn` | The authn MFE owns accounts: native LMS registration, password reset and the MFE's own screens. An install whose identity lives in an external service (a custom `ACCOUNT_BACKEND`, see `src/accounts/README.md`) opts out. | The registration, password-reset and authn-screen specs (`tests/lms/auth/`). Not specs that merely sign in through the account backend. | every release CI runs |
 | `frontend-base` | The frontend-base shell: the MFEs bundled into one application with a shared header and footer. | Only coverage that is *about* the shell's own chrome (its a11y debt, markup only it renders). Journeys through it stay ungated and match both headers with a selector union. | `main`. `verawood` and earlier use one MFE per app and opt out. |
 | `instructor-dashboard` | The LMS instructor dashboard as its MFE, driven by `/api/instructor/v2/`. From verawood the legacy dashboard redirects to it. | `tests/lms/instructor/` and the legacy-role cases in `tests/rbac/roles/`. | `main`, `verawood`. `ulmo` and earlier render the legacy dashboard and opt out. |
@@ -176,11 +193,11 @@ A target that differs from the stock setting declares the other half.
 | Capability | What it means | Tag | Known to support |
 | --- | --- | --- | --- |
 | `studio` | Studio (the CMS) and the course-authoring MFE are present and the suite may author against them. Makes `CMS_BASE_URL` required and enables the `author` role. Undeclared, the whole `tests/studio/` tree skips, so an LMS-only target runs cleanly. | Every Studio and authored-content spec (most carry it through a shared tag list). | every release CI runs |
-| `catalog-search` | Search and filtering in the catalog MFE, gated on the LMS's top-level `ENABLE_COURSE_DISCOVERY`. Without it the catalog has no search field, only a paginated list. Ask the install rather than assuming: `curl -s <LMS_BASE_URL>/api/mfe_config/v1 \| grep ENABLE_COURSE_DISCOVERY`. | The search cases of `tests/lms/catalog/discovery.spec.ts`, and the course reindex case (`tests/studio/outline/reindex.spec.ts`, which reads the catalog search). Discovery and enrollment journeys stay ungated. | every release CI runs |
-| `email-inbox` | A mailbox the suite can read is configured (`MAIL_PROVIDER`, see `src/mail/`) and the target's mail reaches it. Declaring it without `MAIL_PROVIDER` is a configuration error. | The e-mail cases: password reset, dashboard e-mail settings, notification e-mail, bulk e-mail. | `main`, `verawood` (CI's Mailpit service) |
-| `certificates` | Course certificates can be generated. The platform-wide switch is off on a fresh install. The suite turns it on through the admin account and skips without one. | The certificate specs: Studio settings, the instructor dashboard's Certificates tab and report, learner certificates, profile visibility. | every release CI runs |
+| `catalog-search` | Search and filtering in the catalog MFE, gated on the LMS's top-level `ENABLE_COURSE_DISCOVERY`. Without it the catalog has no search field, only a paginated list. Ask the install rather than assuming: `curl -s <LMS_BASE_URL>/api/mfe_config/v1 \| grep ENABLE_COURSE_DISCOVERY`. | The search cases of `tests/lms/catalog/discovery.spec.ts`, and the course reindex case (`tests/studio/outline/reindex.spec.ts`, which reads the catalog search). Discovery and enrollment journeys stay ungated. | `main`, `verawood`. Not `ulmo` or earlier in the suite's sense: they have course search, but no catalog MFE to drive it in. |
+| `email-inbox` | A mailbox the suite can read is configured (`MAIL_PROVIDER`, see `src/mail/`) and the target's mail reaches it. Declaring it without `MAIL_PROVIDER` is a configuration error. | The e-mail cases: password reset, dashboard e-mail settings, notification e-mail, bulk e-mail. | `main`, `verawood`, `ulmo` (CI's Mailpit service) |
+| `certificates` | Course certificates can be generated. The platform-wide switch is off on a fresh install. The suite turns it on through the admin account and skips without one. | The certificate specs: Studio settings, the instructor dashboard's Certificates tab and report, learner certificates, profile visibility. | `main`, `verawood`. `ulmo` has certificates, but the suite switches generation on through `/api/instructor/v2/`, which it lacks, so CI leaves it undeclared there. |
 | `special-exams` | `ENABLE_SPECIAL_EXAMS` is on (LMS and CMS; off on a default install): timed subsections register as exams, and the instructor dashboard offers its Special Exams tab. | TC-00541, and TC-00514's expected tab set. | `main`, `verawood` |
-| `codejail` | A working codejail sandbox: Python-graded (`loncapa/python`) problems can be scored. A stock Tutor install has codejail configured but no sandbox that can start, so such a problem answers with no grade. | TC-00203 (`tests/studio/unit/python-grader.spec.ts`). | `verawood` with `tutor-contrib-codejail`. That plugin has no Tutor 23 (`main`) build yet. |
+| `codejail` | A working codejail sandbox: Python-graded (`loncapa/python`) problems can be scored. A stock Tutor install has codejail configured but no sandbox that can start, so such a problem answers with no grade. | TC-00203 (`tests/studio/unit/python-grader.spec.ts`). | `verawood` and `ulmo` with `tutor-contrib-codejail`. That plugin has no Tutor 23 (`main`) build yet. |
 | `analytics` | Aspects (`tutor-contrib-aspects`: ClickHouse, Vector or Ralph, and Superset) is installed with its instructor-dashboard plugin: the dashboard's Reports tab embeds the Superset dashboards, and Superset signs users in through the LMS. Superset's origin is the one the platform advertises (`superset_url`) and must be same-site with the LMS. | The Reports tab and Superset coverage (TC-00542–00559), and TC-00514's expected tab set. | `main` (tutor-contrib-aspects 6.x); CI's `aspects` profile runs it on `main` (6.x, whose Reports app is on frontend-base 2) and `verawood` (5.1+, on frontend-base 1, which Verawood's site uses) |
 | `analytics-in-context` | Aspects' Studio in-context metrics (`ASPECTS_ENABLE_STUDIO_IN_CONTEXT_METRICS`, off in Tutor): an Analytics page in the outline and unit sidebars. Requires `analytics`. | TC-00312–00316. | `main` (local stack) |
 | `analytics-pii` | Aspects exposes learner PII (`ASPECTS_ENABLE_PII`, off in Tutor): the Reports tab offers the Individual Learner dashboard. Requires `analytics`. | TC-00544. | `main` (local stack) |
@@ -191,9 +208,9 @@ A target that differs from the stock setting declares the other half.
 | --- | --- | --- | --- |
 | `teams` | Course teams are available (the Teams tab, and team settings in Studio's Advanced Settings). | `tests/lms/teams/`, TC-00274, the ORA team-submissions switch (TC-00115). | every release CI runs |
 | `notes` | Course notes: the notes service runs and `ENABLE_EDXNOTES` is on. On `main` it must be set as a flat setting, not only in `FEATURES` (`TUTOR-001`). | TC-00038 (`tests/lms/courseware/notes.spec.ts`). | every release CI runs |
-| `wiki` | The course wiki is available (a Pages & Resources toggle and a course-home tab). | TC-00240 and the course-home wiki tab. | `main`, `verawood` |
+| `wiki` | The course wiki is available (a Pages & Resources toggle and a course-home tab). | TC-00240 and the course-home wiki tab. | `main`, `verawood`, `ulmo` |
 | `cohorts` | Cohorts can be managed and linked to content groups. | TC-00292, TC-00058, TC-00539 and the instructor Cohorts tab. | every release CI runs |
-| `courseware-navigation-sidebar` / `courseware-legacy-navigation` | In-course navigation is one surface with two implementations: the outline sidebar (verawood onward, TC-00047–00057) or the older in-course navigation. An install has one or the other. | The sidebar: `tests/lms/courseware/`, the course-home and Studio sidebar round trips. The legacy half has no specs yet: declaring it gates nothing, but keeps a target from also declaring the sidebar. | Sidebar: `main`, `verawood`. `ulmo` and earlier declare the legacy half. |
+| `courseware-navigation-sidebar` / `courseware-legacy-navigation` | In-course navigation is one surface with two implementations: the outline sidebar (verawood onward, TC-00047–00057) or the older in-course navigation. An install has one or the other. | The sidebar: `tests/lms/courseware/`, the course-home and Studio sidebar round trips. The legacy half has no specs yet: declaring it gates nothing, but keeps a target from also declaring the sidebar. | Sidebar: `main`, `verawood`. `ulmo` also has the outline sidebar (unconditionally, by its learning MFE's source) but is unmeasured, so CI declares neither half there. `teak` and earlier declare the legacy half. |
 
 ### Studio authoring
 
@@ -243,7 +260,7 @@ permanently red case. Declare one where the behaviour is right.
 | `rbac-audit-team-layout` | The user audit view is laid out like the Team Members table (frontend-app-admin-console#255): Role, Scope, Organization, Permissions, Actions, and a greyed delete control with a tooltip on your own admin row. `verawood` has the older six-column table and omits that control. | The layout halves of TC-00565 and TC-00567. | `main` |
 | `rbac-self-revoke-guard` | The authz API refuses an admin removing its own admin role (`cannot_remove_own_admin_role`, openedx-authz ≥ 2.0.0, openedx-authz#543). `verawood` pins 1.23.0, which removes it (`RBAC-007`). Requires `rbac`. | The API half of TC-00567. | `main` |
 | `rbac-error-view-action` | The console's not-found view offers a working way back. On `main` the action does nothing (`RBAC-008`). | TC-00442. | `verawood` |
-| `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood`, `ulmo`, `teak`, `sumac`, `redwood` |
+| `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood` and earlier. CI declares it with `certificates`, so not on `ulmo`. |
 | `recommender-studio-settings` | The recommender's Studio editor shows the settings it saved (recommender-xblock ≥ 5.1.0). `verawood` pins 5.0.0 (`XBLOCK-002`). | TC-00132. | `main` |
 | `outline-unhide-draft` | Un-hiding a unit in the outline's Configure dialog saves a draft; only hiding auto-publishes (frontend-app-authoring#3284). `verawood` auto-publishes every save. | TC-00161's draft case. | `main` |
 | `analytics-in-context-cards` | The outline cards' Analytics buttons open the element's own in-context analytics. frontend-plugin-aspects 3.0.1 reads the selection from the authoring MFE's `currentItemData`, which `master` removed, so on `main` they show the course's view (`ASPECTS-009`). Requires `analytics-in-context`. | TC-00314's card-opens-element case. | `verawood` (not yet run there) |
