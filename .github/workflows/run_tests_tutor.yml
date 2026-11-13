@@ -11,7 +11,7 @@ name: Tutor E2E Test
 # A failed scheduled run is picked up by triage_scheduled_run.yml.
 #
 # Also callable (`workflow_call`) so `ci.yml` can run it as a non-blocking,
-# Docker-based check against the "main" and last-released environments on
+# Docker-based check against the "main", last-released and ulmo environments on
 # every PR/push, without duplicating the Tutor provisioning steps.
 #
 # For the "main" release, and for a profile with an image variant (`images` in
