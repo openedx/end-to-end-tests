@@ -4,7 +4,7 @@ import { expect, test } from '../../../src/fixtures';
 import { checkA11y } from '../../../src/a11y';
 import { ADMIN_CONSOLE_SELECTORS, TIMEOUTS } from '../../../src/config';
 import { teamMembersGroupingOf } from '../../../src/api';
-import { issue, testId } from '../../../src/reporting';
+import { disputed, issue, testId } from '../../../src/reporting';
 import { ADMIN_CONSOLE_A11Y_BASELINE, RBAC_TAGS } from '../helpers';
 
 /**
@@ -128,6 +128,11 @@ test.describe(
           testId('TC-00440'),
           testId('TC-00441'),
           testId('TC-00443'),
+          disputed(
+            'RBAC-004 (by design): a failed list is reported as a toast with Retry over an empty ' +
+              'table, not a Server Error view with Reload Page; the retry clears the toast rather ' +
+              'than disabling a button. The sheet should describe the toast.',
+          ),
           issue('https://github.com/openedx/wg-build-test-release/issues/619'),
         ],
       },
@@ -182,12 +187,12 @@ test.describe(
           // so there is nothing left to press twice.
           const retry = adminConsole.console.toast.locator('button').last();
           await retry.click();
-          // The console is fetching again: a new request, or — where a second
-          // list query was already held in flight (`verawood` fires two while it
-          // loads) — that one, which the retry may simply wait on. Never more
-          // than one new request either way.
+          // The console is fetching again: exactly one new request — unless a
+          // second list query was already held in flight (`verawood` fires two
+          // while it loads), which the retry may simply wait on instead. Never
+          // more than one new request either way.
           await expect(adminConsole.console.toast).toHaveCount(0);
-          await expect.poll(() => retries + outstanding).toBeGreaterThan(0);
+          await expect.poll(() => retries).toBeGreaterThanOrEqual(Number(outstanding === 0));
           expect(retries).toBeLessThanOrEqual(1);
 
           // TC-00443: leave while that retry is still in flight.

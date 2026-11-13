@@ -13,7 +13,7 @@ import {
 } from '../../../src/api';
 import { LIBRARY_SELECTORS, TIMEOUTS, libraryPath } from '../../../src/config';
 import { seedScopeAssignments } from '../../../src/steps';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { disputed, issue, knownGap, testId } from '../../../src/reporting';
 import { RBAC_LIBRARY_TAGS, authorBlock, libraryLabel, statusOf } from './helpers';
 
 /**
@@ -88,7 +88,11 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
     {
       annotation: [
         testId('TC-00571'),
-        issue('https://github.com/openedx/wg-build-test-release/issues/589'),
+        disputed(
+          'RBAC-012 (product call open): `library_author` holds `publish_library_content`, so the ' +
+            'author can publish the whole library (Publish All, commit 200), where the sheet ' +
+            'expects it denied. Either the role model or this clause should change.',
+        ),
       ],
     },
     async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {
