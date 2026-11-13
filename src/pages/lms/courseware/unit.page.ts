@@ -92,7 +92,23 @@ export class UnitPage {
    * outline tray (TC-00053).
    */
   async openDiscussionsSidebar(): Promise<void> {
-    await this.rightSidebarTriggers.first().click();
+    const legacy = this.page.locator(COURSEWARE_SELECTORS.legacyRightSidebarTrigger);
+    await this.rightSidebarTriggers.or(legacy).first().waitFor();
+    if ((await this.rightSidebarTriggers.count()) > 0) {
+      await this.rightSidebarTriggers.first().click();
+      await this.discussionsSidebar.waitFor();
+      return;
+    }
+    // `ulmo`'s layout. It opens the discussions sidebar by itself on a unit
+    // with a topic, a moment after the triggers render, and a click then would
+    // close it again. So the sidebar is given the chance to open first, and
+    // the trigger is clicked only if it has not.
+    const opened = await this.discussionsSidebar
+      .waitFor({ timeout: TIMEOUTS.action })
+      .then(() => true)
+      .catch(() => false);
+    if (opened) return;
+    await legacy.first().click();
     await this.discussionsSidebar.waitFor();
   }
 
