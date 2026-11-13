@@ -44,8 +44,14 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
   /** The "Enable discussion" checkbox on the Settings tab. */
   discussionCheckbox: '.pgn__form-checkbox-input',
 
-  /** The sidebar Publish button (shown while the unit has unpublished changes). */
-  publishButton: '.course-unit-sidebar-visibility button.btn-primary',
+  /**
+   * The sidebar Publish button (shown while the unit has unpublished changes).
+   * It is the primary button on `main` and `verawood` and an outlined one on
+   * `ulmo`, where "Copy unit" in the same footer is outlined too — so Publish is
+   * the footer's button *before* the divider, which Copy unit always follows.
+   */
+  publishButton:
+    '.course-unit-sidebar-visibility button:is(.btn-primary, .btn-outline-primary):not(.course-unit-sidebar-footer__divider ~ button)',
 
   /**
    * The sidebar "Item Menu" (3-dot) and its items: "Copy to Clipboard", "Copy
