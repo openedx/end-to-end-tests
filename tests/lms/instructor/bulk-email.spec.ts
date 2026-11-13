@@ -56,7 +56,18 @@ const bySubject = (subject: string) => (message: { subject: string }) =>
 
 test.describe(
   'Course e-mail from the communications MFE',
-  { tag: ['@regression', '@studio', '@author', '@email-inbox', '@mfe-communications'] },
+  {
+    tag: [
+      '@regression',
+      '@studio',
+      '@author',
+      '@email-inbox',
+      '@mfe-communications',
+      // The sender is made course staff through the instructor dashboard's team
+      // API, and reaches the form from its Bulk Email tab.
+      '@instructor-dashboard',
+    ],
+  },
   () => {
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 

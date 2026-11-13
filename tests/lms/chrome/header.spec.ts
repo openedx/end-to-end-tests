@@ -54,7 +54,11 @@ test.describe('Site header', () => {
           new URL(page.url()).pathname.replace(/\/$/, ''),
         );
         const home = (await fetchLearnerHome(request, config)) as LearnerHome;
-        const catalog = new URL(home.platformSettings.courseSearchUrl).toString();
+        // Absolute from verawood on; `ulmo` reports the LMS path (`/courses`).
+        const catalog = new URL(
+          home.platformSettings.courseSearchUrl,
+          config.baseUrls.lms,
+        ).toString();
         expect((await siteHeader.hrefs(siteHeader.mainLinks)).includes(catalog)).toBe(
           chrome.courseDiscovery,
         );

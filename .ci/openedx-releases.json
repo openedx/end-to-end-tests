@@ -1,26 +1,27 @@
 {
   "main": {
     "tutorConstraint": "",
-    "capabilities": "notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,competencies,studio-sidebar,upload-agreements,content-libraries,content-libraries-v1,rbac,rbac-matrix-parity,rbac-course-editor-auditor,rbac-audit-team-layout,rbac-self-revoke-guard,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates,special-exams,email-inbox,recommender-studio-settings,outline-unhide-draft,authz-auto-migration"
+    "capabilities": "notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,competencies,studio-sidebar,upload-agreements,content-libraries,content-libraries-v1,rbac,rbac-matrix-parity,rbac-course-editor-auditor,rbac-audit-team-layout,rbac-self-revoke-guard,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,team-discussions,certificates,special-exams,email-inbox,recommender-studio-settings,outline-unhide-draft,authz-auto-migration"
   },
   "verawood": {
     "tutorConstraint": ">=22.0.0,<23.0.0",
-    "capabilities": "-frontend-base,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,studio-sidebar,upload-agreements,content-libraries,content-libraries-v1,content-libraries-v1-create,rbac,rbac-error-view-action,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,certificates,special-exams,certificate-web-view,email-inbox,authz-auto-migration"
+    "capabilities": "-frontend-base,notes,wiki,catalog-search,courseware-navigation-sidebar,studio,taxonomies,studio-sidebar,upload-agreements,content-libraries,content-libraries-v1,content-libraries-v1-create,rbac,rbac-error-view-action,ora,drag-and-drop-v2,lti,pdf-xblock,scorm,edx-sga,cohorts,teams,team-discussions,certificates,special-exams,certificate-web-view,email-inbox,authz-auto-migration"
   },
   "ulmo": {
     "tutorConstraint": ">=21.0.0,<22.0.0",
-    "capabilities": "-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
+    "workers": "1",
+    "capabilities": "-mfe-catalog,-frontend-base,-instructor-dashboard,-notifications,email-inbox,notes,wiki,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams"
   },
   "teak": {
     "tutorConstraint": ">=20.0.0,<21.0.0",
-    "capabilities": "-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
+    "capabilities": "-mfe-catalog,-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
   },
   "sumac": {
     "tutorConstraint": ">=19.0.0,<20.0.0",
-    "capabilities": "-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
+    "capabilities": "-mfe-catalog,-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
   },
   "redwood": {
     "tutorConstraint": ">=18.0.0,<19.0.0",
-    "capabilities": "-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
+    "capabilities": "-mfe-catalog,-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
   }
 }

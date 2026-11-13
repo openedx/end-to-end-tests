@@ -136,7 +136,7 @@ Recipe in full: [CONVENTIONS › Adding a Feature spec](CONVENTIONS.md#adding-a-
 | `@authenticated`         | `lms-learner` project with the captured learner session. Mutating course state? Take `courseLearner`.                                                              |
 | `@author`                | `studio-author` project, one author per worker. Paired with `@studio` and the MFE tag (`@mfe-authoring`; `@mfe-instructor-dashboard` for `tests/lms/instructor/`). |
 | `@<capability>`          | Must exist in `src/config/capabilities.ts`. The `capabilityGate` fixture skips it where undeclared.                                                                |
-| `@mfe-*`                 | Filter only, except `@mfe-authn`, which is also a capability                                                                                                       |
+| `@mfe-*`                 | Filter only, except `@mfe-authn` and `@mfe-catalog`, which are also capabilities                                                                                   |
 
 A capability gates coverage that is _about_ the optional feature, not every spec
 that passes through it. A gated spec must assert the feature's surface is

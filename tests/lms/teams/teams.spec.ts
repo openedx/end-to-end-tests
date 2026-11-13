@@ -56,7 +56,7 @@ test.describe('Course teams', { tag: ['@regression', '@studio', '@author', '@tea
 
   test(
     'lists a teammate’s post in the team discussion',
-    { tag: '@discussions', annotation: testId('TC-00035') },
+    { tag: ['@discussions', '@team-discussions'], annotation: testId('TC-00035') },
     async ({ config, teamsCourse, roundTripLearners }) => {
       const [member, teammate] = roundTripLearners;
       const team = await createTeam(member.request, config, {

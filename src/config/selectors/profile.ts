@@ -29,10 +29,18 @@ export const PROFILE_SELECTORS = {
 
 /** A field's control, keyed by its id, once its section is being edited. */
 export function profileControl(field: string): string {
-  return `form #${field}`;
+  return `form ${fieldIds(field)}`;
 }
 
 /** The form a field is edited in. */
 export function profileEditor(field: string): string {
-  return `form:has(#${field})`;
+  return `form:has(${fieldIds(field)})`;
+}
+
+/**
+ * A field's control by id. The X link is `social-x` from verawood on and
+ * `social-twitter` on `ulmo`, where the platform still names it Twitter.
+ */
+function fieldIds(field: string): string {
+  return field === 'social-x' ? ':is(#social-x, #social-twitter)' : `#${field}`;
 }

@@ -427,11 +427,12 @@ action, which merges blob reports (`merge.config.ts`) into the HTML report and
 suite reports, writes the job summary and publishes BTR results. They differ
 only in how the target installation is provisioned.
 
-`ci.yml` additionally runs `run_tests_tutor.yml` twice every PR and push to
-`main`: once against an ephemeral **`Tutor main`**, and once against the **last
-named release** environment (currently `verawood`). Each runs the full suite
-under the `default` and `extended` CI profiles (see _CI profiles and shards_
-below), so a PR's result covers everything the scheduled runs do.
+`ci.yml` additionally runs `run_tests_tutor.yml` three times every PR and push
+to `main`: against an ephemeral **`Tutor main`**, against the **last named
+release** (currently `verawood`), and against the release before it (`ulmo`).
+Each runs the full suite under the `default` and `extended` CI profiles (see
+_CI profiles and shards_ below), and the first two also run `aspects`, so a
+PR's result covers everything the scheduled runs do.
 
 ### `run_tests_tutor.yml` — ephemeral Tutor installation
 
@@ -463,8 +464,11 @@ Triggers:
   scheduled runs, so scheduled runs cover the full suite with `main`'s default
   capabilities).
 
-- **`workflow_call`** — called by `ci.yml`'s `docker-main` and
-  `docker-last-release` jobs (see above); same inputs as `workflow_dispatch`.
+- **`workflow_call`** — called by `ci.yml`'s `docker-main`,
+  `docker-last-release` and `docker-ulmo` jobs (see above); same inputs as
+  `workflow_dispatch`, plus `allow_failure`, which keeps a failing shard from
+  failing the caller. `ci.yml` sets it for `ulmo` only, whose known failures
+  would otherwise turn every run red.
 
 The Tutor install also runs a [Mailpit](https://mailpit.axllent.org) catcher
 (a `local-docker-compose-services` patch, with `SMTP_HOST=mailpit` and
@@ -490,7 +494,8 @@ artifacts. `scripts/ci-profiles.mts` reads the file, and the `unit` project
 validates it. Each shard's run id carries a `RUN_ID_SUFFIX` (profile code +
 shard number), so data created by different shards never collides.
 
-Three profiles exist, and `ci.yml` runs all three for `main` and `verawood`:
+Three profiles exist. `ci.yml` runs all three for `main` and `verawood`, and
+`default` and `extended` for `ulmo`:
 
 | Profile    | Runs                                                                   | Installation                                                                                                                                                                                                                                                                               |
 | ---------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -553,7 +558,9 @@ the Actions UI if it ever needs a clean rebuild.
 is the single source of truth for what each named release needs: the Tutor
 version constraint (replacing what used to be a hardcoded shell `case`
 statement) and the default `CAPABILITIES` to declare for that release, since
-feature/MFE availability can differ across platform versions. Adding or
+feature/MFE availability can differ across platform versions. An entry may also
+set `workers`, the Playwright worker count (`WORKERS`) each shard runs with on
+that release; without it the suite's CI default applies. Adding or
 removing a supported release is just an edit to that file (plus the matching
 `openedx_release` dropdown option in the workflow — `ci.yml`'s "Verify
 openedx_release choices match .ci/openedx-releases.json" step fails the build

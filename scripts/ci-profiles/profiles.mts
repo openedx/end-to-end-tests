@@ -24,8 +24,8 @@ export interface CapabilityDelta {
 /**
  * A published Tutor plugin a profile installs, where a release has one. It
  * brings its capability only on those releases, so a profile can use an
- * optional service that some Tutor lines lack (`tutor-contrib-codejail` stops
- * at the Verawood line).
+ * optional service that some Tutor lines lack (`tutor-contrib-codejail` has
+ * builds for Ulmo and Verawood, none for `main`).
  */
 export interface TutorExtension {
   /** The pip package; installed with the release's Tutor constraint, e.g. `>=22.0.0,<23.0.0`. */

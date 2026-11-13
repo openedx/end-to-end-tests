@@ -62,7 +62,7 @@ export class StudioUnitPage {
 
   /** Clicks "Preview" and returns the learning-MFE preview tab it opens. */
   async preview(): Promise<Page> {
-    return this.openInNewTab(this.previewViewLive().first());
+    return this.openInNewTab(await this.headerButton('preview'));
   }
 
   /**
@@ -70,11 +70,22 @@ export class StudioUnitPage {
    * disabled until the unit is published, so publish first.
    */
   async viewLive(): Promise<Page> {
-    return this.openInNewTab(this.previewViewLive().nth(1));
+    return this.openInNewTab(await this.headerButton('viewLive'));
   }
 
-  private previewViewLive(): Locator {
-    return this.page.locator(this.s.previewViewLiveGroup).locator('button');
+  /**
+   * The header's Preview or View live button. From verawood on they are a
+   * button group, Preview first; `ulmo` renders two plain buttons, View live
+   * first.
+   */
+  private async headerButton(which: 'preview' | 'viewLive'): Promise<Locator> {
+    const grouped = this.page.locator(this.s.previewViewLiveGroup).locator('button');
+    const plain = this.page.locator(this.s.headerNavigationButtons);
+    await grouped.or(plain).first().waitFor();
+    const isGrouped = (await grouped.count()) > 0;
+    const previewFirst = isGrouped;
+    const buttons = isGrouped ? grouped : plain;
+    return (which === 'preview') === previewFirst ? buttons.first() : buttons.nth(1);
   }
 
   private async openInNewTab(button: Locator): Promise<Page> {
@@ -109,6 +120,7 @@ export class StudioUnitPage {
    * button in the toggle group, Staff Only the second.
    */
   async setStaffOnly(staffOnly: boolean): Promise<void> {
+    if (!(await this.hasSettingsTab())) return this.setStaffOnlyLegacy(staffOnly);
     await this.openSettings();
     const toggle = this.page.locator(this.s.visibilityToggleGroup).locator('button');
     await waitForWrite(
@@ -120,6 +132,62 @@ export class StudioUnitPage {
       },
       () => toggle.nth(staffOnly ? 1 : 0).click(),
     );
+  }
+
+  /**
+   * Whether the sidebar has a Settings tab (verawood on). `ulmo`'s sidebar is a
+   * single card with the visibility checkbox in its footer.
+   */
+  private async hasSettingsTab(): Promise<boolean> {
+    const tab = this.page.locator(this.s.sidebarSettingsTab);
+    await tab.or(this.page.locator(this.s.legacyVisibilityCheckbox)).first().waitFor();
+    return (await tab.count()) > 0;
+  }
+
+  /**
+   * `ulmo`'s "Hide from learners": the sidebar footer's checkbox. Checking it
+   * republishes the unit hidden; unchecking it asks "Make visible to students"
+   * first, and republishes on confirmation.
+   */
+  private async setStaffOnlyLegacy(staffOnly: boolean): Promise<void> {
+    const checkbox = this.page.locator(this.s.legacyVisibilityCheckbox);
+    if ((await checkbox.isChecked()) === staffOnly) return;
+    await waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PATCH'],
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      async () => {
+        await checkbox.click();
+        if (!staffOnly) await this.page.locator(this.s.legacyMakeVisibleConfirm).click();
+      },
+    );
+    // The checkbox shows the unit's stored state, which the page reads again
+    // after the write: wait for it, so the next reading of it is the new one.
+    await this.page
+      .locator(`${this.s.legacyVisibilityCheckbox}${staffOnly ? ':checked' : ':not(:checked)'}`)
+      .waitFor();
+  }
+
+  /** `ulmo`'s "Enable discussion": a checkbox in the unit's Configure dialog. */
+  private async setDiscussionEnabledLegacy(enabled: boolean): Promise<void> {
+    await this.page.locator(this.s.legacyConfigureButton).click();
+    const modal = this.page.locator(this.s.legacyConfigureModal);
+    const checkbox = modal.locator(this.s.legacyConfigureDiscussion);
+    await checkbox.waitFor();
+    await checkbox.setChecked(enabled);
+    await waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PATCH'],
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
+        timeout: TIMEOUTS.studioSettingsSave,
+      },
+      () => modal.locator(this.s.legacyConfigureSave).click(),
+    );
+    await modal.waitFor({ state: 'hidden' });
   }
 
   // --- Navigation ----------------------------------------------------------
@@ -193,6 +261,7 @@ export class StudioUnitPage {
    * discussion" checkbox, waiting for the republish it triggers.
    */
   async setDiscussionEnabled(enabled: boolean): Promise<void> {
+    if (!(await this.hasSettingsTab())) return this.setDiscussionEnabledLegacy(enabled);
     await this.openSettings();
     const checkbox = this.page.locator(this.s.discussionCheckbox);
     if ((await checkbox.isChecked()) === enabled) return;
@@ -482,12 +551,17 @@ export class StudioUnitPage {
   }
 
   /**
-   * Copies this unit to the clipboard through the sidebar Item Menu's "Copy to
-   * Clipboard" item (the first, non-danger item), waiting for the content-staging
-   * write.
+   * Copies this unit to the clipboard, waiting for the content-staging write:
+   * through the sidebar Item Menu's "Copy to Clipboard" item (the first,
+   * non-danger item), or on `ulmo`, which has no such menu, through the
+   * sidebar's "Copy unit" button.
    */
   async copyToClipboard(): Promise<void> {
-    await this.page.locator(this.s.itemMenuButton).click();
+    const menu = this.page.locator(this.s.itemMenuButton);
+    const copyUnit = this.page.locator(this.s.copyUnitButton);
+    await menu.or(copyUnit).first().waitFor();
+    const hasMenu = (await menu.count()) > 0;
+    if (hasMenu) await menu.click();
     await waitForWrite(
       this.page,
       {
@@ -495,7 +569,7 @@ export class StudioUnitPage {
         predicate: (r) => r.url().endsWith(CLIPBOARD_PATH),
         timeout: TIMEOUTS.studioSettingsSave,
       },
-      () => this.page.locator(this.s.itemMenuCopyItem).first().click(),
+      () => (hasMenu ? this.page.locator(this.s.itemMenuCopyItem).first() : copyUnit).click(),
     );
   }
 }

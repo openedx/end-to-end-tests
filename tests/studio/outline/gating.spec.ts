@@ -88,6 +88,11 @@ test.describe(
         );
         await outlineConfigureDialog.markAvailableAsPrerequisite();
         await outlineConfigureDialog.save();
+        // Reloaded so the gated subsection's dialog offers the new prerequisite:
+        // `ulmo`'s outline refreshes only the section that was just saved, and
+        // the two subsections sit in different sections.
+        await studioCourseOutlinePage.goto(contentCourse.courseKey);
+        await studioCourseOutlinePage.setAllExpanded(true);
         await outlineConfigureDialog.open(
           studioCourseOutlinePage.subsection(gatedUnitKey),
           'subsection',
@@ -194,6 +199,11 @@ test.describe(
         );
         await outlineConfigureDialog.markAvailableAsPrerequisite();
         await outlineConfigureDialog.save();
+        // Reloaded so the gated subsection's dialog offers the new prerequisite:
+        // `ulmo`'s outline refreshes only the section that was just saved, and
+        // the two subsections sit in different sections.
+        await studioCourseOutlinePage.goto(contentCourse.courseKey);
+        await studioCourseOutlinePage.setAllExpanded(true);
         await outlineConfigureDialog.open(
           studioCourseOutlinePage.subsection(gatedUnitKey),
           'subsection',
