@@ -427,11 +427,12 @@ action, which merges blob reports (`merge.config.ts`) into the HTML report and
 suite reports, writes the job summary and publishes BTR results. They differ
 only in how the target installation is provisioned.
 
-`ci.yml` additionally runs `run_tests_tutor.yml` twice every PR and push to
-`main`: once against an ephemeral **`Tutor main`**, and once against the **last
-named release** environment (currently `verawood`). Each runs the full suite
-under the `default` and `extended` CI profiles (see _CI profiles and shards_
-below), so a PR's result covers everything the scheduled runs do.
+`ci.yml` additionally runs `run_tests_tutor.yml` three times every PR and push
+to `main`: against an ephemeral **`Tutor main`**, against the **last named
+release** (currently `verawood`), and against the release before it (`ulmo`).
+Each runs the full suite under the `default` and `extended` CI profiles (see
+_CI profiles and shards_ below), and the first two also run `aspects`, so a
+PR's result covers everything the scheduled runs do.
 
 ### `run_tests_tutor.yml` — ephemeral Tutor installation
 
@@ -463,8 +464,9 @@ Triggers:
   scheduled runs, so scheduled runs cover the full suite with `main`'s default
   capabilities).
 
-- **`workflow_call`** — called by `ci.yml`'s `docker-main` and
-  `docker-last-release` jobs (see above); same inputs as `workflow_dispatch`.
+- **`workflow_call`** — called by `ci.yml`'s `docker-main`,
+  `docker-last-release` and `docker-ulmo` jobs (see above); same inputs as
+  `workflow_dispatch`.
 
 The Tutor install also runs a [Mailpit](https://mailpit.axllent.org) catcher
 (a `local-docker-compose-services` patch, with `SMTP_HOST=mailpit` and
@@ -490,7 +492,8 @@ artifacts. `scripts/ci-profiles.mts` reads the file, and the `unit` project
 validates it. Each shard's run id carries a `RUN_ID_SUFFIX` (profile code +
 shard number), so data created by different shards never collides.
 
-Three profiles exist, and `ci.yml` runs all three for `main` and `verawood`:
+Three profiles exist. `ci.yml` runs all three for `main` and `verawood`, and
+`default` and `extended` for `ulmo`:
 
 | Profile    | Runs                                                                   | Installation                                                                                                                                                                                                                                                                               |
 | ---------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

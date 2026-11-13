@@ -18,6 +18,14 @@
  */
 export const CAPABILITIES = [
   'mfe-authn',
+  // The catalog MFE (`frontend-app-catalog`): the LMS home page, the course
+  // catalog and each course's About page, served under the apps origin. Default
+  // on: tutor-mfe deploys it from verawood onward. `ulmo` and earlier have no
+  // catalog MFE — the LMS serves those three pages itself, as legacy templates
+  // the suite has no page objects for — and opt out with `-mfe-catalog` in
+  // `.ci/openedx-releases.json`. Gates the coverage that drives those pages;
+  // a journey that only needs a learner enrolled does that through the API.
+  'mfe-catalog',
   // The `frontend-base` shell: the MFEs are bundled into one application with a
   // shared header/footer, replacing the one-MFE-per-app model with its
   // `frontend-component-header`. Present from `main` onward (post-verawood). Gates
@@ -81,18 +89,21 @@ export const CAPABILITIES = [
   'content-libraries-v1-create',
   // The learning MFE's in-course outline sidebar, behind the
   // `courseware.enable_navigation_sidebar` waffle flag. Its counterpart describes
-  // the installations that keep the older in-course navigation instead (ulmo and
-  // earlier). No spec is tagged with the legacy half yet: declaring it gates
-  // nothing, but keeps a target from also declaring the sidebar.
+  // the installations that keep the older in-course navigation instead. No spec
+  // is tagged with the legacy half yet: declaring it gates nothing, but keeps a
+  // target from also declaring the sidebar. `ulmo`'s learning MFE renders the
+  // sidebar whatever the flag says, so it declares neither half until the
+  // sidebar coverage has been measured there.
   'courseware-navigation-sidebar',
   'courseware-legacy-navigation',
   // Search and filtering in the catalog MFE, gated on the LMS's top-level
   // `settings.ENABLE_COURSE_DISCOVERY`, which the MFE reads from
   // `GET /api/mfe_config/v1`. With it off the catalog renders no search field at
   // all — just a paginated course list — so paging is the only route to a given
-  // course. Declared for every release in `.ci/openedx-releases.json`: search is
-  // meant to be on, and an install that lacks it should fail this coverage
-  // loudly rather than skip it.
+  // course. Declared in `.ci/openedx-releases.json` wherever the catalog MFE is
+  // deployed: search is meant to be on, and an install that lacks it should
+  // fail this coverage loudly rather than skip it. `ulmo` has course search but
+  // no catalog MFE (`-mfe-catalog`), so it leaves this undeclared.
   // See `src/steps/course.ts` for the two routes to a course.
   'catalog-search',
   // Studio (the CMS) and the course-authoring MFE are present and the suite may
@@ -365,6 +376,10 @@ export type Capability = (typeof CAPABILITIES)[number];
  * `ACCOUNT_BACKEND`; see `src/accounts/README.md`) has nothing for those specs to
  * drive, and on a locked-down tenant they fail rather than skip.
  *
+ * `mfe-catalog` is on by default because verawood and every later release serve
+ * the LMS home page, the catalog and the About page from the catalog MFE; ulmo
+ * and earlier, where the LMS renders them itself, opt out with `-mfe-catalog`.
+ *
  * `frontend-base` is on by default because `main` — and every release cut from it
  * — serves its MFEs in the shell; a named release still on the separate-MFE model
  * (verawood and earlier) opts out with `-frontend-base`, which is what
@@ -390,6 +405,7 @@ export type Capability = (typeof CAPABILITIES)[number];
  */
 export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = [
   'mfe-authn',
+  'mfe-catalog',
   'frontend-base',
   'instructor-dashboard',
   'discussions',

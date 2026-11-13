@@ -25,7 +25,8 @@
         "init": true,
         "capability": "codejail",
         "releases": [
-          "verawood"
+          "verawood",
+          "ulmo"
         ]
       }
     ],

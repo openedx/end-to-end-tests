@@ -9,18 +9,18 @@
   },
   "ulmo": {
     "tutorConstraint": ">=21.0.0,<22.0.0",
-    "capabilities": "-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
+    "capabilities": "-mfe-catalog,-frontend-base,-instructor-dashboard,-notifications,email-inbox,notes,wiki,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams"
   },
   "teak": {
     "tutorConstraint": ">=20.0.0,<21.0.0",
-    "capabilities": "-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
+    "capabilities": "-mfe-catalog,-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
   },
   "sumac": {
     "tutorConstraint": ">=19.0.0,<20.0.0",
-    "capabilities": "-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
+    "capabilities": "-mfe-catalog,-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
   },
   "redwood": {
     "tutorConstraint": ">=18.0.0,<19.0.0",
-    "capabilities": "-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
+    "capabilities": "-mfe-catalog,-frontend-base,-instructor-dashboard,-notifications,notes,catalog-search,courseware-legacy-navigation,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams,certificates,certificate-web-view"
   }
 }

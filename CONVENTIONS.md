@@ -626,9 +626,12 @@ project selection (`--grep`) and make failures legible to non-technical readers.
 - **MFE / subsystem:** `@mfe-account`, `@mfe-learning`, `@mfe-authoring`,
   `@mfe-instructor-dashboard`, `@mfe-catalog`, `@mfe-learner-dashboard`,
   `@mfe-profile`, … —
-  filters the suite to one micro-frontend. `@mfe-authn` is also a capability, so
-  apply it only to coverage that genuinely needs the authn MFE — not to specs
-  that drive sign-in through the account backend's flows.
+  filters the suite to one micro-frontend. `@mfe-authn` and `@mfe-catalog` are
+  also capabilities. Apply `@mfe-authn` only to coverage that genuinely needs
+  the authn MFE — not to specs that drive sign-in through the account backend's
+  flows — and `@mfe-catalog` to every spec that opens the LMS home page, the
+  catalog or an About page, which only that MFE serves in a shape the page
+  objects know.
 - **Authenticated:** `@authenticated` — the spec runs in the `lms-learner` project
   (which depends on `setup`); the anonymous `@smoke`/`@regression` projects exclude
   it. The project loads the captured learner storage state, and specs that only

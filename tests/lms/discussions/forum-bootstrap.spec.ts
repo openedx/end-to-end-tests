@@ -86,30 +86,30 @@ test.describe('Forum bootstrap', { tag: ['@smoke', ...DISCUSSION_TAGS] }, () => 
     await expect.poll(found, { timeout: TIMEOUTS.forumSearch }).toEqual([]);
   });
 
-  test('the instructor makes a learner a forum moderator', async ({
-    page,
-    config,
-    contentCourse,
-    roundTripLearner,
-    studioAuthorSession,
-  }) => {
-    void studioAuthorSession;
-    await grantCourseTeamRole(
-      page.request,
-      config,
-      contentCourse.courseKey,
-      [roundTripLearner.identity.email],
-      'Moderator',
-    );
+  // The grant goes through the instructor dashboard's own team API
+  // (`/api/instructor/v2/`), which exists only where that dashboard does.
+  test(
+    'the instructor makes a learner a forum moderator',
+    { tag: '@instructor-dashboard' },
+    async ({ page, config, contentCourse, roundTripLearner, studioAuthorSession }) => {
+      void studioAuthorSession;
+      await grantCourseTeamRole(
+        page.request,
+        config,
+        contentCourse.courseKey,
+        [roundTripLearner.identity.email],
+        'Moderator',
+      );
 
-    // Read from the moderator's own session: the role list itself is closed to
-    // a course instructor (403), and this is the reading the forum acts on.
-    const course = await fetchDiscussionCourse(
-      roundTripLearner.request,
-      config,
-      contentCourse.courseKey,
-    );
-    expect(course.has_moderation_privileges).toBe(true);
-    expect(course.user_roles).toContain('Moderator');
-  });
+      // Read from the moderator's own session: the role list itself is closed to
+      // a course instructor (403), and this is the reading the forum acts on.
+      const course = await fetchDiscussionCourse(
+        roundTripLearner.request,
+        config,
+        contentCourse.courseKey,
+      );
+      expect(course.has_moderation_privileges).toBe(true);
+      expect(course.user_roles).toContain('Moderator');
+    },
+  );
 });

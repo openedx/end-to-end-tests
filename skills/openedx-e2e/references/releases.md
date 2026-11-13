@@ -1,8 +1,8 @@
 # Updating tests across named releases
 
 The suite runs against **several Open edX versions at once**: every PR runs it
-against `Tutor main` _and_ against the last named release, and
-`run_tests_tutor.yml` can target any release listed in
+against `Tutor main`, the last named release (`verawood`) _and_ the one before
+it (`ulmo`), and `run_tests_tutor.yml` can target any release listed in
 `.ci/openedx-releases.json` (currently `main`, `verawood`, `ulmo`, `teak`,
 `sumac`, `redwood`). A change that only works on `main` breaks those jobs.
 
