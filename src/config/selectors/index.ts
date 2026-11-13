@@ -42,7 +42,12 @@ export {
   subsectionCardContaining,
   unitCardFor,
 } from './studio-outline';
-export { STUDIO_SIDEBAR_SELECTORS, type SidebarPageKey } from './studio-sidebar';
+export {
+  SIDEBAR_ITEM_MENU_ORDER,
+  STUDIO_SIDEBAR_SELECTORS,
+  type SidebarItemAction,
+  type SidebarPageKey,
+} from './studio-sidebar';
 export { TAG_DRAWER_SELECTORS, encodedTagValue } from './tag-drawer';
 export { TAXONOMY_SELECTORS } from './taxonomies';
 export { STUDIO_FILES_SELECTORS, FILES_ROW_MENU } from './studio-files';

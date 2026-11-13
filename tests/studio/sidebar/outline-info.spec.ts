@@ -128,10 +128,9 @@ test.describe(
       },
     );
 
-    // Not yet written. A unit *is* selectable from the outline: a click on its
-    // header's own blank space (between the title link and the actions) selects
-    // it (AUTH-002, resolved as not reproducing). The page object needs a
-    // `selectCard` for units that clicks there; until then the unit's Info is
+    // AUTH-002: a unit selects only on a click of its header's own blank strip
+    // (between the title group and the badges), and at the suite's 1280 px
+    // viewport there is none — the two fill the header. The unit's Info is
     // covered from the unit page by TC-00495.
     test.fixme(
       'shows a selected unit its Details from the outline',
@@ -139,7 +138,7 @@ test.describe(
         annotation: [
           testId('TC-00489'),
           knownGap(
-            'Suite gap: selecting a unit from the outline needs a click on its header blank space (AUTH-002)',
+            'AUTH-002: at 1280 px the unit header has no blank strip left to click, so a unit cannot be selected from the outline',
           ),
         ],
       },
@@ -207,7 +206,7 @@ test.describe(
     );
 
     test(
-      'duplicates a section from the overflow menu',
+      'deletes, duplicates and moves outline items from the overflow menu',
       { annotation: testId('TC-00485') },
       async ({
         page,
@@ -218,40 +217,47 @@ test.describe(
         studioAuthorSession,
       }) => {
         void studioAuthorSession;
-        await buildSection(
-          page.request,
-          config,
-          authoringCourse.courseKey,
-          `E2E actions ${test.info().testId.slice(-6)}`,
-        );
-        await studioCourseOutlinePage.goto(authoringCourse.courseKey);
-        await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
+        const { courseKey } = authoringCourse;
+        const label = `E2E actions ${test.info().testId.slice(-6)}`;
+        const section = await buildSection(page.request, config, courseKey, label, {
+          subsections: [{ units: [{ blocks: ['html'] }] }, { units: [{ blocks: ['html'] }] }],
+        });
+        const children = async (key: string) =>
+          (await fetchXBlockOutline(page.request, config, key)).child_info?.children.map(
+            (child) => child.id,
+          ) ?? [];
+        const course = courseUsageKey(courseKey);
+        await studioCourseOutlinePage.goto(courseKey);
+        await studioCourseOutlinePage.waitForCourse(courseKey);
+        const sectionCard = studioCourseOutlinePage.sectionTitled(label);
+
+        // A subsection's Delete asks for confirmation; confirmed, the subsection
+        // is gone from its section.
+        await studioCourseOutlinePage.expand(sectionCard, 'section');
         await studioCourseOutlinePage.select(
-          studioCourseOutlinePage.sectionCards.first(),
-          'section',
+          studioCourseOutlinePage.subsectionTitled(`${label} subsection 1`),
+          'subsection',
         );
-
-        const before = (
-          await fetchXBlockOutline(page.request, config, courseUsageKey(authoringCourse.courseKey))
-        ).child_info?.children.length;
-
-        // The overflow menu's first action duplicates the section; the outline
-        // gains a section.
-        const items = await authoringSidebar.openItemMenu();
-        await items.first().click();
+        await authoringSidebar.deleteSelected('outline');
         await expect
-          .poll(
-            async () =>
-              (
-                await fetchXBlockOutline(
-                  page.request,
-                  config,
-                  courseUsageKey(authoringCourse.courseKey),
-                )
-              ).child_info?.children.length,
-            { timeout: TIMEOUTS.contentPublish },
-          )
-          .toBe((before ?? 0) + 1);
+          .poll(() => children(section.usageKey), { timeout: TIMEOUTS.contentPublish })
+          .toEqual([section.subsections[1]!.usageKey]);
+
+        // The section's Duplicate adds a copy right after it.
+        await studioCourseOutlinePage.select(sectionCard.first(), 'section');
+        await (await authoringSidebar.itemMenuAction('outline', 'duplicate')).click();
+        await expect
+          .poll(() => children(course), { timeout: TIMEOUTS.contentPublish })
+          .toHaveLength(2);
+        const [original, copy] = await children(course);
+        expect(original).toBe(section.usageKey);
+
+        // Move Down puts the original after its copy.
+        await studioCourseOutlinePage.select(sectionCard.first(), 'section');
+        await (await authoringSidebar.itemMenuAction('outline', 'moveDown')).click();
+        await expect
+          .poll(() => children(course), { timeout: TIMEOUTS.contentPublish })
+          .toEqual([copy, original]);
       },
     );
   },

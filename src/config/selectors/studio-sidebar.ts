@@ -57,6 +57,10 @@ export const STUDIO_SIDEBAR_SELECTORS = {
    * `.text-danger-700`. Anchored by size class, not its localized `aria-label`.
    */
   itemMenuButton: '.sidebar-content .btn-icon-md.pgn__dropdown-toggle-iconbutton',
+  /** The open item menu's entries, in {@link SIDEBAR_ITEM_MENU_ORDER} order. */
+  itemMenuItems: '.dropdown-menu.show .dropdown-item',
+  /** The delete-confirmation dialog's "Delete" (Paragon danger button). */
+  deleteConfirmButton: '[role="dialog"] button.btn-danger',
   /**
    * The back button shown in the panel *title row* when a component is selected
    * on the unit page — the inline-size icon button inside the SidebarTitle's
@@ -143,3 +147,21 @@ export const STUDIO_SIDEBAR_SELECTORS = {
   /** A dropdown menu item that is not tagged (used to reach an untagged menu action). */
   openDropdownDangerItem: '.dropdown-menu.show .dropdown-item.text-danger-700',
 } as const;
+
+/** An action in the sidebar's item menu. */
+export type SidebarItemAction = 'duplicate' | 'copy' | 'move' | 'moveUp' | 'moveDown' | 'delete';
+
+/**
+ * The item menu's entries, in the order they render, per kind of selected item
+ * — the items carry no test id or non-localized attribute, so position is the
+ * anchor (measured on `main`, 2026-11-09). An outline section or subsection:
+ * Duplicate, Move Up, Move Down, Delete (the moves `aria-disabled` at either
+ * end). A unit's component: Duplicate, Copy to Clipboard, Move (to another
+ * unit), Delete. Delete is also the menu's only `.text-danger-700` entry.
+ */
+export const SIDEBAR_ITEM_MENU_ORDER: Readonly<
+  Record<'outline' | 'component', readonly SidebarItemAction[]>
+> = {
+  outline: ['duplicate', 'moveUp', 'moveDown', 'delete'],
+  component: ['duplicate', 'copy', 'move', 'delete'],
+};

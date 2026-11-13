@@ -65,6 +65,45 @@ interface RawCourseDetail {
 }
 
 /**
+ * Whether `courseKey` is hidden from the catalog for `username`, as the Course
+ * Detail API answers them — what catalog visibility `none` decides. Installs
+ * differ in how they say so, and all three answers mean hidden:
+ *
+ * - a redirect away (to the dashboard): `main` and `verawood`, where the about
+ *   page's permission looks at catalog visibility (Tutor's
+ *   `COURSE_ABOUT_VISIBILITY_PERMISSION = 'see_about_page'`). Read without
+ *   following redirects;
+ * - a 404: the same permission on `ulmo` and earlier;
+ * - the course served with `hidden: true`: the platform's default permission
+ *   (`see_exists`), which does not look at catalog visibility.
+ *
+ * `username` must be the caller's own. Without it the API answers for an
+ * anonymous visitor whoever is signed in, and a staff account (which the
+ * visibility never hides a course from) would read as hidden too.
+ *
+ * @throws {ApiError} on any other answer, so a server error is never read as
+ *   the course being hidden.
+ */
+export async function isCourseHiddenFromCatalog(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  username: string,
+): Promise<boolean> {
+  const url =
+    `${config.baseUrls.lms}${COURSE_DETAIL_PATH}/${encodeURIComponent(courseKey)}` +
+    `?username=${encodeURIComponent(username)}`;
+  const response = await request.get(url, { maxRedirects: 0 });
+  const status = response.status();
+  if (status === 404 || (status >= 300 && status < 400)) return true;
+  if (status === 200) return ((await response.json()) as RawCourseDetail).hidden === true;
+  throw new ApiError(
+    `Course Detail API neither served, redirected nor refused "${courseKey}" (HTTP ${status}).`,
+    { status, url, body: await response.text() },
+  );
+}
+
+/**
  * Reads course metadata for `courseKey`.
  *
  * @throws {ApiError} when the course is not served by the target.

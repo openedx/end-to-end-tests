@@ -28,19 +28,6 @@ const ROOT = path.resolve(__dirname, '..', '..');
 /** This directory's specs mention the pattern themselves. */
 const EXCLUDED_DIR = path.join(ROOT, 'tests', 'conventions');
 
-/**
- * Passing tests that predate the rule and use `knownGap` as a partial-coverage
- * note (TC-00022's crawl and video halves) or a reminder on a test with no case
- * id, keyed `<spec>: <title>`. They are left for the partial-coverage work
- * (audit step 3); do not add to this list — use `disputed` or a held-back
- * sibling instead.
- */
-const PRE_EXISTING = new Set([
-  'tests/lms/course-home/course-completion.spec.ts: completes every unit the suite can drive and the platform records it',
-  'tests/lms/course-home/unit-completion.spec.ts: completes a video in a unit by watching it',
-  "tests/studio/unit/in-context-metrics.spec.ts: a text and a numeric problem open their dashboards from the unit's Analytics",
-]);
-
 const HELD_BACK_CALL = /\btest\.(?:fixme|skip|fail)\(/;
 const KNOWN_GAP_CALL = /\bknownGap\(/;
 const HELD_BACK_DECLARATIONS = new Set(['test.fixme', 'test.skip', 'test.fail']);
@@ -89,12 +76,12 @@ function testsWithKnownGap(
   return found;
 }
 
-/** `<spec>:<line>: <title>` for every passing test carrying a `knownGap`, less {@link PRE_EXISTING}. */
+/** `<spec>:<line>: <title>` for every passing test carrying a `knownGap`. */
 function passingTestsWithKnownGap(): string[] {
   return specFiles().flatMap((file) => {
     const relative = path.relative(ROOT, file);
     return testsWithKnownGap(file, readFileSync(file, 'utf8'))
-      .filter(({ title, heldBack }) => !heldBack && !PRE_EXISTING.has(`${relative}: ${title}`))
+      .filter(({ heldBack }) => !heldBack)
       .map(({ line, title }) => `${relative}:${line}: ${title}`);
   });
 }

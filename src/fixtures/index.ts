@@ -975,6 +975,13 @@ export interface TestFixtures {
    */
   inboxLearner: InboxLearner;
   /**
+   * A fresh inbox of the configured mailbox provider at an address **no
+   * account uses** — for mail the platform sends to someone who has not
+   * registered (a course invitation). Specs using it carry `@email-inbox`. The
+   * inbox is disposed after the test.
+   */
+  emptyInbox: Inbox;
+  /**
    * {@link WorkerFixtures.contentCourse} once its forum is ready for the UI: the
    * topic list is synced from the course structure by a task after the course is
    * created, and the discussions MFE loaded before it offers no topic, so its
@@ -2308,9 +2315,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           { ...context, viewportWidth: page.viewportSize()?.width ?? 0 },
           testIdsFromAnnotations(testInfo.annotations),
         );
+        // The note names the chrome the defect was matched on, so a case that
+        // passes on one release and is masked on another reads as such.
+        const on = `(masked on the ${[...new Set(context.generations)].join(' / ')} chrome)`;
         for (const defect of defects) {
-          if (defect.intermittent) testInfo.fixme(true, defect.reason);
-          else testInfo.fail(true, defect.reason);
+          if (defect.intermittent) testInfo.fixme(true, `${defect.reason} ${on}`);
+          else testInfo.fail(true, `${defect.reason} ${on}`);
         }
       },
       requireSupportUrl: (chrome, configured) => {
@@ -3700,6 +3710,21 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       try {
         const identity = await provisionLearnerSession(request, config, { email: inbox.address });
         await use({ identity, request, inbox });
+      } finally {
+        await inbox.dispose(request);
+      }
+    } finally {
+      await request.dispose();
+    }
+  },
+
+  emptyInbox: async ({ playwright, config }, use) => {
+    const provider = await resolveMailProvider(config);
+    const request = await newCleanRequestContext(playwright.request);
+    try {
+      const inbox = await provider.createInbox({ config, request });
+      try {
+        await use(inbox);
       } finally {
         await inbox.dispose(request);
       }

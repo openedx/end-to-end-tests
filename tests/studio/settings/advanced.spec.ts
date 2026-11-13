@@ -6,6 +6,8 @@ import {
   fetchCourseDetail,
   fetchCourseEnrollmentDetails,
   fetchCourseMetadata,
+  fetchCoursewareCourse,
+  isCourseHiddenFromCatalog,
   isEnrolled,
   updateAdvancedSettings,
 } from '../../../src/api';
@@ -85,22 +87,35 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'controls catalog visibility',
     { tag: '@regression', annotation: testId('TC-00269') },
-    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
+    async ({
+      page,
+      config,
+      authoredCourse,
+      advancedSettingsPage,
+      studioAuthorSession,
+      newLearner,
+    }) => {
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
       const api = page.request;
       const { courseKey } = authoredCourse;
       await updateAdvancedSettings(api, config, courseKey, { catalog_visibility: 'both' });
 
-      // "none" hides the course from the catalog: the public Course Detail API
-      // then stops serving it entirely, so the visibility is read from Studio's
-      // own echo. "both" makes it discoverable again, which the LMS confirms.
+      // "none" hides the course from the catalog: the Course Detail API answers
+      // a learner (signed in but not staff — staff bypass the visibility, as the
+      // case notes) that it is hidden. "both" makes it discoverable again.
+      const learner = await newLearner();
+      const hidden = (): Promise<boolean> =>
+        isCourseHiddenFromCatalog(learner.request, config, courseKey, learner.identity.username);
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('catalogVisibility', 'none');
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
       await expect
-        .poll(() => settingValue(api, config, courseKey, 'catalog_visibility'))
-        .toBe('none');
+        .poll(async () => ({
+          studio: await settingValue(api, config, courseKey, 'catalog_visibility'),
+          hidden: await hidden(),
+        }))
+        .toEqual({ studio: 'none', hidden: true });
 
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('catalogVisibility', 'both');
@@ -108,7 +123,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       await expect
         .poll(async () => ({
           studio: await settingValue(api, config, courseKey, 'catalog_visibility'),
-          hidden: (await fetchCourseDetail(api, config, courseKey)).hidden,
+          hidden: await hidden(),
         }))
         .toEqual({ studio: 'both', hidden: false });
     },
@@ -175,18 +190,35 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
   test(
     'enables the calculator',
     { tag: '@regression', annotation: testId('TC-00273') },
-    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
+    async ({
+      page,
+      config,
+      authoredCourse,
+      advancedSettingsPage,
+      studioAuthorSession,
+      newLearner,
+    }) => {
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
       const api = page.request;
       const { courseKey } = authoredCourse;
       await updateAdvancedSettings(api, config, courseKey, { show_calculator: false });
+      const learner = await newLearner();
+      await enrollInCourseViaApi(learner.request, config, courseKey);
 
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('showCalculator', true);
       expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
 
-      await expect.poll(() => settingValue(api, config, courseKey, 'show_calculator')).toBe(true);
+      // Studio saved it, and an enrolled learner's courseware now offers the
+      // calculator (the learning MFE's toggle reads this flag; TC-00039 uses it).
+      await expect
+        .poll(async () => ({
+          studio: await settingValue(api, config, courseKey, 'show_calculator'),
+          learner: (await fetchCoursewareCourse(learner.request, config, courseKey))
+            .show_calculator,
+        }))
+        .toEqual({ studio: true, learner: true });
       await updateAdvancedSettings(api, config, courseKey, { show_calculator: false });
     },
   );

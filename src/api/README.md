@@ -31,7 +31,9 @@ Contains:
 - `course-detail.ts` — `fetchCourseDetail`: the course's own name/org/number,
   so a spec can search or match on data the platform supplied rather than on
   hard-coded copy — plus dates, pacing, effort, visibility and media, the LMS-side
-  reading for what an author saved in Studio.
+  reading for what an author saved in Studio. `isCourseHiddenFromCatalog` says whether
+  catalog visibility hides the course from a named user, in whichever of the
+  three ways the install answers (a redirect, a 404, or `hidden: true`).
 - `course-metadata.ts` — `fetchCourseMetadata`: course-home tabs (in learner
   order) and course access, the LMS-side reading for Pages & Resources toggles,
   custom-page order and prerequisite gating.

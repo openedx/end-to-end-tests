@@ -1,6 +1,7 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { buildSection, fetchXBlockOutline } from '../../../src/api';
+import { buildSection, fetchCourseNavigation, fetchXBlockOutline } from '../../../src/api';
+import { UnitPage } from '../../../src/pages/lms/courseware/unit.page';
 import { testId } from '../../../src/reporting';
 import { buildUnit } from '../components/component-helpers';
 
@@ -23,17 +24,37 @@ test.describe(
     test(
       'View live opens the published unit in the LMS',
       { annotation: testId('TC-00197') },
-      async ({ page, config, studioUnitPage, authoringCourse, studioAuthorSession }) => {
+      async ({ page, config, studioUnitPage, authoringCourse, studioAuthorSession }, testInfo) => {
         void studioAuthorSession;
-        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
-          label: 'unit',
-          blocks: ['html'],
-          publish: true,
-        });
+        const { courseKey } = authoringCourse;
+        const section = await buildSection(
+          page.request,
+          config,
+          courseKey,
+          `E2E live ${testInfo.testId.slice(-6)}`,
+          { subsections: [{ units: [{ blocks: ['html'] }] }], publish: true },
+        );
+        const unit = section.units[0]!;
 
-        await studioUnitPage.goto(unitKey);
+        // The learner's courseware can be built only once the CMS worker has
+        // written the course outline (`PLAT-009`: until then it errors).
+        await expect
+          .poll(
+            async () =>
+              (await fetchCourseNavigation(page.request, config, courseKey)) !== undefined,
+            {
+              timeout: TIMEOUTS.contentPublish,
+            },
+          )
+          .toBe(true);
+
+        // The tab lands on this very unit in the learner's courseware, and
+        // renders its component.
+        await studioUnitPage.goto(unit.usageKey);
         const tab = await studioUnitPage.viewLive();
-        expect(new URL(tab.url()).pathname).toContain(`/course/${authoringCourse.courseKey}`);
+        const live = new UnitPage(tab, config);
+        await expect(tab).toHaveURL(live.url(courseKey, unit.sequentialUsageKey, unit.usageKey));
+        await expect(live.block(unit.blocks[0]!.usageKey)).toBeVisible();
         await tab.close();
       },
     );
@@ -41,18 +62,26 @@ test.describe(
     test(
       'Preview opens the unit in the learning MFE preview',
       { annotation: testId('TC-00198') },
-      async ({ page, config, studioUnitPage, authoringCourse, studioAuthorSession }) => {
+      async ({ page, config, studioUnitPage, authoringCourse, studioAuthorSession }, testInfo) => {
         void studioAuthorSession;
-        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
-          label: 'unit',
-          blocks: ['html'],
-          publish: false,
-        });
+        const { courseKey } = authoringCourse;
+        const section = await buildSection(
+          page.request,
+          config,
+          courseKey,
+          `E2E preview ${testInfo.testId.slice(-6)}`,
+          { subsections: [{ units: [{ blocks: ['html'] }] }], publish: false },
+        );
+        const unit = section.units[0]!;
 
-        await studioUnitPage.goto(unitKey);
+        // The tab previews this very unit (still a draft) and renders its component.
+        await studioUnitPage.goto(unit.usageKey);
         const tab = await studioUnitPage.preview();
-        expect(new URL(tab.url()).pathname).toContain('/preview/course/');
-        expect(new URL(tab.url()).pathname).toContain(authoringCourse.courseKey);
+        const preview = new UnitPage(tab, config);
+        await expect(tab).toHaveURL(
+          preview.previewUrl(courseKey, unit.sequentialUsageKey, unit.usageKey),
+        );
+        await expect(preview.block(unit.blocks[0]!.usageKey)).toBeVisible();
         await tab.close();
       },
     );

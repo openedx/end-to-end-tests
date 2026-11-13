@@ -7,8 +7,8 @@ import { TAG } from '../../../src/steps';
 /**
  * The Align sidebar as the entry point to tagging (BTR TC-00490, 00497, 00500):
  * adding an alignment tag from the Align rail on the outline (a section), the unit
- * page (the unit) and with a component selected, and that the tag persists across
- * a reload. The tag drawer itself is covered exhaustively in
+ * page (the unit) and with a component selected, that the tag persists across a
+ * reload, and that removing it there takes it off. The tag drawer itself is covered exhaustively in
  * `tag-drawer-{outline,unit}.spec.ts`; here the emphasis is the Align-rail access
  * and reload persistence, decided by the `object_tags` API and the reopened tree.
  *
@@ -23,7 +23,7 @@ test.describe(
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
     test(
-      'adds a tag to a section from the Align rail and it persists',
+      'adds, keeps and removes a section tag from the Align rail',
       { tag: '@smoke', annotation: testId('TC-00490') },
       async ({
         page,
@@ -73,11 +73,16 @@ test.describe(
         await tagDrawer.waitOpen();
         await tagDrawer.beginEditing();
         expect(await tagDrawer.appliedTagCount(name)).toBeGreaterThan(0);
+
+        // Removing it takes it off the object.
+        await tagDrawer.deleteAppliedTag(name, TAG.parentOne);
+        await tagDrawer.save();
+        expect(await fetchObjectTags(page.request, config, section.usageKey)).toEqual([]);
       },
     );
 
     test(
-      'adds a tag to the unit from the unit-page Align rail and it persists',
+      'adds, keeps and removes a unit tag from the unit-page Align rail',
       { tag: '@smoke', annotation: testId('TC-00497') },
       async ({
         page,
@@ -119,11 +124,16 @@ test.describe(
         await tagDrawer.waitOpen();
         await tagDrawer.beginEditing();
         expect(await tagDrawer.appliedTagCount(name)).toBeGreaterThan(0);
+
+        // Removing it takes it off the object.
+        await tagDrawer.deleteAppliedTag(name, TAG.parentOne);
+        await tagDrawer.save();
+        expect(await fetchObjectTags(page.request, config, unit.usageKey)).toEqual([]);
       },
     );
 
     test(
-      'adds a tag to a selected component from the Align rail and it persists',
+      'adds, keeps and removes a component tag from the Align rail',
       { tag: '@smoke', annotation: testId('TC-00500') },
       async ({
         page,
@@ -170,6 +180,11 @@ test.describe(
         await tagDrawer.waitOpen();
         await tagDrawer.beginEditing();
         expect(await tagDrawer.appliedTagCount(name)).toBeGreaterThan(0);
+
+        // Removing it takes it off the object.
+        await tagDrawer.deleteAppliedTag(name, TAG.parentOne);
+        await tagDrawer.save();
+        expect(await fetchObjectTags(page.request, config, component.usageKey)).toEqual([]);
       },
     );
   },

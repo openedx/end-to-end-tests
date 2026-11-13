@@ -2,7 +2,7 @@ import { checkA11y } from '../../../src/a11y';
 import { hasHtml5Source } from '../../../src/api';
 import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
-import { knownGap, testId } from '../../../src/reporting';
+import { testId } from '../../../src/reporting';
 import { completeUnit } from '../../../src/steps';
 
 /**
@@ -101,12 +101,7 @@ test.describe('Unit completion', () => {
     'completes a video in a unit by watching it',
     {
       tag: ['@smoke', '@authenticated', '@mfe-learning'],
-      annotation: [
-        testId('TC-00022'),
-        knownGap(
-          'Demo course videos are YouTube-hosted in a cross-origin iframe with no player handle to drive completion',
-        ),
-      ],
+      annotation: testId('TC-00022'),
     },
     async ({
       page,

@@ -798,6 +798,13 @@ Baselined rules (`src/a11y/baseline.ts`) are still executed and reported, just n
 failed — unlike disabling a rule, which hides it. New screens should pass the gate
 without adding to the baseline.
 
+A scan that is a test of its own (one that opts out of the baseline to hold a
+known violation as `test.fail` or `fixme`) carries a `testId` only when the BTR
+case is itself about accessibility. A functional case's id on an a11y scan makes
+the scan count toward that case's coverage, so a page that renders correctly
+reads as partial, or a failing scan as a functional failure. Prefix such a
+test's title with `a11y:` instead.
+
 Every run consolidates all scans into **`test-results/a11y-violations.json`**
 (grouped by rule; failing / baselined / below-threshold) — the working list for
 fixing the accessibility backlog. Per-screen detail is also attached to each test

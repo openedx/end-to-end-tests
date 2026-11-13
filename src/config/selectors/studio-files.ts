@@ -46,6 +46,8 @@ export const STUDIO_FILES_SELECTORS = {
    * acceptance they disappear and the input is enabled.
    */
   agreementAlert: '[role="alert"].alert-warning',
+  /** A banner's "Agree" — the alert's one primary action (beside "Learn more", a link). */
+  agreementAgreeButton: '.pgn__alert-actions button.btn-primary',
   /** The file input inside the dropzone, which gating disables. */
   dropzoneInput: '[data-testid="files-dropzone"] input[type="file"]',
 
