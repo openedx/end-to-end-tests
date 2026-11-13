@@ -110,6 +110,10 @@ on:
         description: 'CI profiles to run (keys of .ci/profiles.json), space-separated, e.g. "default extended". Each profile runs as its shards, and the merge job combines them into one report.'
         type: string
         default: 'default'
+      allow_failure:
+        description: 'Do not fail the calling workflow when a shard fails. The shard still reports its failure and the merged report still shows it. For a release whose known failures should not turn every run red.'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -245,6 +249,9 @@ jobs:
     needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # Callers only (`allow_failure`); unset on dispatch and schedule runs, which
+    # therefore fail as before.
+    continue-on-error: ${{ inputs.allow_failure == true }}
     strategy:
       fail-fast: false
       matrix:

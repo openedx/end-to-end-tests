@@ -126,9 +126,13 @@ jobs:
   # (.ci/openedx-releases.json) declare only what the suite's coverage works
   # against there; docs/capabilities.md lists what is held back and why. No
   # `aspects`: that profile runs on main and verawood only.
+  #
+  # `allow_failure`: a failing ulmo shard does not fail this workflow. ulmo
+  # still has known failures (docs/findings.md), and its report says which.
   docker-ulmo:
     name: 'Docker: previous release (ulmo)'
     uses: ./.github/workflows/run_tests_tutor.yml
     with:
       openedx_release: ulmo
       profiles: default extended
+      allow_failure: true

@@ -466,7 +466,9 @@ Triggers:
 
 - **`workflow_call`** — called by `ci.yml`'s `docker-main`,
   `docker-last-release` and `docker-ulmo` jobs (see above); same inputs as
-  `workflow_dispatch`.
+  `workflow_dispatch`, plus `allow_failure`, which keeps a failing shard from
+  failing the caller. `ci.yml` sets it for `ulmo` only, whose known failures
+  would otherwise turn every run red.
 
 The Tutor install also runs a [Mailpit](https://mailpit.axllent.org) catcher
 (a `local-docker-compose-services` patch, with `SMTP_HOST=mailpit` and
