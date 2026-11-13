@@ -289,6 +289,13 @@ export const CAPABILITIES = [
   // `rbac-error-view-action`, so the regression is an undeclared capability
   // rather than a permanently red case.
   'certificate-web-view',
+  // A **team's discussion lists the posts made in it**. On `ulmo` a thread posted
+  // from the team page is stored (the create answers it, and the author is
+  // subscribed to it) but the team page's own listing of the team's topic comes
+  // back empty, as does the discussions API's (`DISC-003`); `verawood` and
+  // `main` list it. Declared where the listing works, so the gap is an
+  // undeclared capability rather than a permanently red case. Gates TC-00035.
+  'team-discussions',
   // The **recommender's Studio editor shows the settings it saved**. Before
   // recommender-xblock 5.1.0 (`verawood` pins 5.0.0) the editor rendered its
   // defaults whatever the block held, so an author's change looked lost

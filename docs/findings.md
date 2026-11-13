@@ -81,6 +81,7 @@ measured, and issues are opened by hand from them.
 | `NOTIF-004` | `openedx/edx-platform` (`send_email_digest` is a no-op)       | open, `fixme` + `knownGap` on TC-00478 / TC-00480
 | `DISC-001`  | `openedx/frontend-app-discussions` (post list ARIA)           | open, no `fixme` — two axe rules baselined on the discussions scans only
 | `DISC-002`  | `openedx/edx-platform` (DELETE of a missing thread; forum v2 error not mapped) | **filed** - [openedx-platform#39225](https://github.com/openedx/openedx-platform/issues/39225) (tracked here as [#128](https://github.com/openedx/end-to-end-tests/issues/128)), no `fixme` — suite deletes each thread once
+| `DISC-003`  | `openedx/openedx-platform` / `openedx/forum` (`ulmo`: a team's discussion does not list the posts made in it) | open — measured on `ulmo` only; `main` and `verawood` list them. TC-00035 is gated on `team-discussions`, which `ulmo` leaves undeclared |
 | `BASE-003`  | `openedx/frontend-base` (shell header menu toggle unnamed)    | open, no `fixme` — `button-name` baselined on the landing and course About scans only (`SHELL_CHROME_A11Y_BASELINE`)
 | `BASE-005`  | `openedx/frontend-base` (shell header menu empty when signed out) | **filed** - [frontend-base#322](https://github.com/openedx/frontend-base/issues/322) (tracked here as [#151](https://github.com/openedx/end-to-end-tests/issues/151)), `test.fail` on TC-00061 at phone and tablet widths, applied where the shell renders (`KNOWN_CHROME_DEFECTS`)
 | `BASE-006`  | `openedx/frontend-base` (`updateSiteLanguage` races its own two requests) | open, runtime `fixme` on TC-00066 where the Account page renders in the shell (`KNOWN_CHROME_DEFECTS`, intermittent)
@@ -119,6 +120,7 @@ measured, and issues are opened by hand from them.
 | `STUDIO-011` | `openedx/frontend-app-authoring` (`verawood`: an outline rename is saved twice) | open, no `fixme` — fixed on `master`; `rename()` in `course-outline.page.ts` retries opening the next field |
 | `STUDIO-012` | `openedx/frontend-app-authoring` (TinyMCE 8 editor iframe has no title in Chromium) | open, no `fixme` — `frame-title` baselined on the `studio-schedule-details` scan only |
 | `STUDIO-013` | `openedx/openedx-platform` (`cms` unit iframe: a component's three-dot menu is intermittently clipped, its items unclickable) | open, declarative `fixme` + `knownGap` on TC-00222's menu-copy test; the paste test stages the copy through the API |
+| `STUDIO-014` | `openedx/frontend-app-authoring` (`ulmo`: the Updates page's handouts edit button has no accessible name) | open on `ulmo` only — `verawood` and `main` name the button; the Updates scan (TC-00246) fails there with a critical `button-name` |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
 | `PLAT-011`  | `openedx/openedx-platform` (problem previews: MathJax renders an empty math element as an unlabelled `svg[role=img]`) | open, no `fixme` — the in-context Analytics scans cover only their panel; no other scan reaches a problem preview yet
 | `PLAT-012`  | `openedx/openedx-platform` (Studio: saving Schedule & Details on two courses at once deadlocks in MySQL; one save answers 500) | open — measured on `ulmo`, where CI therefore runs one Playwright worker per shard; the same code is on `verawood` and `master`, where it shows as an occasional retried fixture write |
@@ -874,6 +876,23 @@ inside the iframe. The Edit button, outside the menu, always works.
 Upstream ask: keep `base.js`'s generic dropdown handler off the xblock action
 menus (or have `showXBlockActionsMenu` run regardless), so opening the menu
 always resizes the iframe.
+
+
+### `STUDIO-014` — on `ulmo`, the Updates page's handouts edit button has no accessible name
+
+**Where:** Studio's Updates page (`/course/<key>/course_info`), the icon button
+beside the handouts heading. Measured with axe on a live `ulmo` installation and
+in CI, 2026-11-13.
+
+**Finding:** the button renders as
+`<button class="btn-icon …" data-testid="course-handouts-edit-button">` with an
+icon and no `aria-label`, so axe reports a critical `button-name` ("Buttons must
+have discernible text"), one node. `verawood` and `main` render it with a name
+and pass the same scan.
+
+**Coverage impact:** the Updates scan in `tests/studio/updates/updates.spec.ts`
+(TC-00246) fails on `ulmo`. It is not baselined: the rule holds on the releases
+that fixed it, and a baseline entry would stop checking them.
 
 ### `PLAT-007` — the Blocks API returns 500 to a learner enrolled in a course that has not started
 
@@ -2265,6 +2284,27 @@ says so; specs delete each thread exactly once, and TC-00029, whose last step de
 its own post through the UI, has no teardown delete.
 
 ## Epic 14 — LMS learner completion findings (2026-09-23)
+
+
+### `DISC-003` — on `ulmo`, a team's discussion does not list the posts made in it
+
+**Where:** the team page's discussion (`/courses/<key>/teams/#teams/<topic>/<team>`),
+which reads `GET /courses/<key>/discussion/forum/<team topic>/inline`. Measured
+on Tutor 21 (`ulmo`) in CI (TC-00035, three runs on 2026-11-13) and by hand on a
+live `ulmo` installation the same day.
+
+**Finding:** a thread posted from the team page is created: the create answers
+200 with the thread (`commentable_id` the team's topic, `context: standalone`),
+and the author's `subscribed_thread_ids` includes it. But the listing the team
+page then requests answers `discussion_data: []`, for the author as for a
+teammate, and `GET /api/discussion/v1/threads/?course_id=…&topic_id=<team topic>`
+answers no results either. So a team member who posts sees the post until the
+page is loaded again, and nobody else sees it at all. `main` and `verawood` list
+the thread. The thread ids on `ulmo` are small integers, which points at the
+forum's MySQL backend; the cause was not traced further.
+
+**Coverage impact:** TC-00035 carries `@team-discussions`, declared for `main`
+and `verawood` in `.ci/openedx-releases.json` and not for `ulmo`.
 
 ### `BASE-003` — the shell header's narrow-layout menu toggle has no accessible name
 
