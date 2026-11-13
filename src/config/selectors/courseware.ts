@@ -88,6 +88,13 @@ export const COURSEWARE_SELECTORS = {
    * `currentSidebar` state), which is TC-00053's premise.
    */
   rightSidebarTrigger: '.sidebar-trigger-btn',
+  /**
+   * The same triggers on `ulmo`, whose learning MFE gives them another class
+   * (the trigger base's `notification-btn`). Later releases use that class for
+   * other buttons, so this is read only where `rightSidebarTrigger` matches
+   * nothing.
+   */
+  legacyRightSidebarTrigger: 'button.notification-btn[aria-label]',
 
   /** A right-hand trigger whose sidebar is open (its wrapper gains `sidebar-active`). */
   activeRightSidebarTrigger: '.sidebar-active .sidebar-trigger-btn',

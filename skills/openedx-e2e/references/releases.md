@@ -13,8 +13,8 @@ expressed in configuration and in version-tolerant code, never by forking specs.
 
 Each entry carries the Tutor version constraint and the default `CAPABILITIES` to
 declare for that release, and optionally `workers`, the Playwright worker count
-a CI shard runs there (`ulmo` runs two, because its Studio deadlocks under
-concurrent course saves). Adding or removing a supported release is an edit to
+a CI shard runs there (`ulmo` runs one, because concurrent course saves deadlock in
+its Studio: `PLAT-012`). Adding or removing a supported release is an edit to
 that file **plus** the matching `openedx_release` dropdown option in
 `run_tests_tutor.yml` — `ci.yml` has a step that fails the build if the two drift
 apart. `ci.yml`'s "last release" job also hardcodes the newest non-`main` release

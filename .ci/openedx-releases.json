@@ -9,7 +9,7 @@
   },
   "ulmo": {
     "tutorConstraint": ">=21.0.0,<22.0.0",
-    "workers": "2",
+    "workers": "1",
     "capabilities": "-mfe-catalog,-frontend-base,-instructor-dashboard,-notifications,email-inbox,notes,wiki,studio,ora,drag-and-drop-v2,lti,scorm,edx-sga,cohorts,teams"
   },
   "teak": {

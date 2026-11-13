@@ -121,6 +121,7 @@ measured, and issues are opened by hand from them.
 | `STUDIO-013` | `openedx/openedx-platform` (`cms` unit iframe: a component's three-dot menu is intermittently clipped, its items unclickable) | open, declarative `fixme` + `knownGap` on TC-00222's menu-copy test; the paste test stages the copy through the API |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
 | `PLAT-011`  | `openedx/openedx-platform` (problem previews: MathJax renders an empty math element as an unlabelled `svg[role=img]`) | open, no `fixme` — the in-context Analytics scans cover only their panel; no other scan reaches a problem preview yet
+| `PLAT-012`  | `openedx/openedx-platform` (Studio: saving Schedule & Details on two courses at once deadlocks in MySQL; one save answers 500) | open — measured on `ulmo`, where CI therefore runs one Playwright worker per shard; the same code is on `verawood` and `master`, where it shows as an occasional retried fixture write |
 | `INSTR-009` | `openedx/edx-platform` + `openedx/frontend-app-instructor-dashboard` (allowance Delete: numeric id ignored, failure shown as success) | **filed** - [openedx-platform#39228](https://github.com/openedx/openedx-platform/issues/39228) and [frontend-app-instructor-dashboard#258](https://github.com/openedx/frontend-app-instructor-dashboard/issues/258) (tracked here as [#135](https://github.com/openedx/end-to-end-tests/issues/135)), `test.fail` on TC-00541's delete test
 | `COMMS-001` | `openedx/frontend-app-communications` (TinyMCE message editor ARIA) | open, no `fixme` — two rules baselined on the `communications-bulk-email` scan only (`COMMUNICATIONS_A11Y_BASELINE`)
 | `XBLOCK-002` | `openedx/RecommenderXBlock` 5.0.0 (`verawood`): the Studio editor shows defaults, not the saved settings | **resolved on `main`** — duplicate of [RecommenderXBlock#135](https://github.com/openedx/RecommenderXBlock/issues/135), fixed in 5.1.0 (tracked here as [#125](https://github.com/openedx/end-to-end-tests/issues/125)); `verawood` still pins 5.0.0; TC-00132 gated on `recommender-studio-settings`, declared for `main` only
@@ -2762,6 +2763,38 @@ likely because MathJax had not rendered by the time of the scan.
 only their panel (`include` the sidebar), since the unit page's component
 previews are not that case's surface. No other scan reaches a problem preview
 yet; one that does will meet this rule.
+
+
+### `PLAT-012` — two Schedule & Details saves on different courses deadlock, and one answers 500
+
+**Where:** `PUT /api/contentstore/v1/course_details/<course key>` (Studio's
+Schedule & Details save, and the suite's `updateCourseDetails`). Measured on
+Tutor 21 (`ulmo`) in CI, 2026-11-13, runs 43452199394 and 43459453405.
+
+**Finding:** the save answers HTTP 500 when another author is saving Schedule &
+Details on a **different** course at the same moment. The CMS log shows MySQL
+error 1213 ("Deadlock found when trying to get lock") raised in
+`CourseOverview.load_from_module_store`, which the course-publish signal runs
+inside the save's own request; the handlers after it then fail with
+`TransactionManagementError`, and so does the request. Of the nine failed saves
+in one shard, each overlapped a save on the other Playwright worker's course,
+and that other save succeeded. The background worker logged no deadlock. With
+four workers a shard logged 66 deadlocks; with two, 54, almost all while the
+Schedule & Details spec ran on both workers.
+
+`load_from_module_store` is identical on `release/ulmo`, `release/verawood` and
+`master`. On `main` and `verawood` the same 500 appears now and then on a
+fixture's settings write and passes on retry; why `ulmo` hits it far more
+often was not determined.
+
+**Suggested fix:** retry the course-overview write on a deadlock, or move it
+out of the save's transaction, so a concurrent save on another course cannot
+fail this one.
+
+**Coverage impact:** `updateCourseDetails` repeats a 5xx write (up to three
+times). A save made through the page cannot be repeated without hiding the
+error, so CI runs `ulmo` with one Playwright worker per shard (`workers` in
+`.ci/openedx-releases.json`).
 
 ### `ASPECTS-SEC-001` — any signed-in user could get a Superset guest token
 

@@ -252,9 +252,9 @@ jobs:
     env:
       OPENEDX_RELEASE: ${{ needs.plan.outputs.release }}
       # The release's Playwright worker count, where .ci/openedx-releases.json
-      # sets one (empty: the suite's CI default). `ulmo` runs two: its Studio
-      # deadlocks in MySQL when several authors save courses at once, and
-      # answers those saves 500.
+      # sets one (empty: the suite's CI default). `ulmo` runs one: two authors
+      # saving Schedule & Details on different courses at once deadlock in
+      # MySQL there (`PLAT-012`), and one of the saves answers 500.
       WORKERS: ${{ needs.plan.outputs.workers }}
     steps:
       - name: Checkout (test ref)
