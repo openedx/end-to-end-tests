@@ -12,7 +12,11 @@ Contains:
 - `csrf.ts` — `fetchCsrfToken`: the `GET /csrf/api/v1/token` the authn MFE makes
   before a credentialed POST. Lands the `csrftoken` cookie in the request context.
   Takes an `origin` (LMS by default) because the cookie is per host: a Studio
-  write needs a token from Studio.
+  write needs a token from Studio. When the endpoint redirects (an install that
+  sends anonymous requests to an external sign-in), it retries with the redirect
+  followed, so a context still signed in to the identity provider gets its token;
+  `{ followRedirect: false }` skips that retry, for a signed-out context with no
+  session to restore.
 - `registration.ts` — `registerLearnerAccount`: creates a user via
   `POST /api/user/v1/account/registration/` (the authn MFE's `/register` path).
   Portable account seeding that needs no admin rights; on success the platform
