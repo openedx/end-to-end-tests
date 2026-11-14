@@ -5,7 +5,13 @@ import { ConfigError } from './errors';
 import { loadConfig, parseCustomTestDirs, type AppConfig } from './load';
 
 export type { AppConfig, AdminCredentials, BaseUrls, Env, MfeUrls, Scheme } from './load';
-export { loadConfig, mfeMountPath, parseCapabilities, parseCustomTestDirs } from './load';
+export {
+  DEFAULT_JWT_COOKIE_HEADER_PAYLOAD,
+  loadConfig,
+  mfeMountPath,
+  parseCapabilities,
+  parseCustomTestDirs,
+} from './load';
 export { ConfigError };
 export {
   CAPABILITIES,

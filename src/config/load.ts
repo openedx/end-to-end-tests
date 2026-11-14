@@ -18,6 +18,13 @@ import { registrableDomain, type ConfiguredOrigin } from './domain';
 import { ConfigError } from './errors';
 import { rawEnvSchema } from './schema';
 
+/**
+ * Open edX's default name for the JS-readable header/payload half of the login
+ * JWT (`JWT_AUTH['JWT_AUTH_COOKIE_HEADER_PAYLOAD']`), the cookie the suite takes
+ * as the sign of a signed-in session.
+ */
+export const DEFAULT_JWT_COOKIE_HEADER_PAYLOAD = 'edx-jwt-cookie-header-payload';
+
 export type Env = Record<string, string | undefined>;
 
 export type Scheme = 'http' | 'https';
@@ -80,6 +87,12 @@ export interface AppConfig {
    * learning MFE's course home on an installation without one.
    */
   readonly notificationTrayHost: 'learner-dashboard' | 'course-home';
+  /**
+   * Name of the login JWT's header/payload cookie, the signal that a session is
+   * signed in: the install's `JWT_AUTH['JWT_AUTH_COOKIE_HEADER_PAYLOAD']`,
+   * {@link DEFAULT_JWT_COOKIE_HEADER_PAYLOAD} unless it renames it.
+   */
+  readonly jwtCookieHeaderPayload: string;
   /** Mailbox provider plugin modules to load (existing file paths). */
   readonly customMailProviderPlugins: ReadonlySet<string>;
   /**
@@ -521,6 +534,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     customAccountBackendPlugins,
     accountBackend,
     notificationTrayHost: raw.NOTIFICATION_TRAY_HOST ?? 'learner-dashboard',
+    jwtCookieHeaderPayload: raw.JWT_AUTH_COOKIE_HEADER_PAYLOAD ?? DEFAULT_JWT_COOKIE_HEADER_PAYLOAD,
     customMailProviderPlugins,
     mailProvider,
     allowCrossSiteOrigins,

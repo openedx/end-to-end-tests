@@ -2,7 +2,6 @@ export { ROLES, type Role } from './roles';
 export { AuthError, AuthNotConfiguredError } from './errors';
 export type { AuthContext, AuthProvider, StorageState } from './types';
 export {
-  AUTH_JWT_COOKIE,
   JWT_REFRESH_MARGIN_MS,
   hasAuthenticatedSession,
   storedJwtIsFresh,

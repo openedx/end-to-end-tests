@@ -62,12 +62,14 @@ export function isUsableStateFile(filePath: string): boolean {
  * rewritten. Refreshing here, only when the JWT is stale, keeps a long worker run
  * (one that outlives the ~1 h JWT) from failing its first attempt while spending
  * a login roughly once an hour per worker rather than per test.
+ *
+ * @param cookieName the login JWT cookie's name, `config.jwtCookieHeaderPayload`.
  */
-export function storedSessionNeedsRefresh(filePath: string): boolean {
+export function storedSessionNeedsRefresh(filePath: string, cookieName: string): boolean {
   if (!existsSync(filePath)) return true;
   try {
     const state = JSON.parse(readFileSync(filePath, 'utf8')) as StorageState;
-    return !storedJwtIsFresh(state.cookies);
+    return !storedJwtIsFresh(state.cookies, cookieName);
   } catch {
     return true;
   }

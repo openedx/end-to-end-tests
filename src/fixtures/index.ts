@@ -2675,7 +2675,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     // counterpart to `studioAuthorSession`'s in-test browser recovery.
     if (
       workerAuthor !== undefined &&
-      (testInfo.retry > 0 || storedSessionNeedsRefresh(workerAuthor.stateFile))
+      (testInfo.retry > 0 ||
+        storedSessionNeedsRefresh(workerAuthor.stateFile, config.jwtCookieHeaderPayload))
     ) {
       const fresh = await newCleanRequestContext(playwright.request);
       try {

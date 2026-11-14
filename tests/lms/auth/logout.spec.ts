@@ -29,7 +29,7 @@ test.describe('Logout', () => {
 
       // The login JWT cookie is cleared across the shared parent domain...
       const cookies = await page.context().cookies();
-      expect(hasAuthenticatedSession(cookies)).toBe(false);
+      expect(hasAuthenticatedSession(cookies, config.jwtCookieHeaderPayload)).toBe(false);
 
       // ...and an authenticated destination no longer serves the learner: it
       // redirects somewhere else. Where is the install's business — the authn
