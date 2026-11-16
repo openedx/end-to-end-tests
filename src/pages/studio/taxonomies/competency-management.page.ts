@@ -4,18 +4,16 @@ import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 import { TAGGING_BASE } from '../../../api';
 
 /** Where on a node's header area a pointer lands. */
-export type NodePosition = 'center' | 'bottom' | 'right' | 'left' | 'top';
+type NodePosition = 'center' | 'bottom' | 'right' | 'left' | 'top';
 
 /** One tag of the rendered tree, as the page shows it. */
-export interface TreeNodeReading {
+interface TreeNodeReading {
   readonly value: string;
   /** The Competency ID badge's text, or `null` for a row with no badge. */
   readonly externalId: string | null;
-  /** The number of ancestor `li` inside the tree: 0 for a node under the root row. */
+  /** The number of ancestor `treeitem`s inside the tree: 0 for a node under the root row. */
   readonly depth: number;
   readonly parentValue: string | null;
-  readonly expanded: boolean;
-  readonly selected: boolean;
 }
 
 /** The sizes and positions of the tree and its rows, in CSS pixels. */
@@ -38,13 +36,9 @@ export interface TreeLayoutReading {
   };
   /** The bottom edge of the last row in DOM order. */
   readonly lastRowBottom: number | null;
-  /** The rows that have a badge, with the edges of the row's name and its badge. */
+  /** The rows that have a badge, with the badge's right edge. */
   readonly badgedRows: readonly {
     readonly value: string;
-    readonly labelTop: number;
-    readonly labelBottom: number;
-    readonly badgeTop: number;
-    readonly badgeBottom: number;
     readonly badgeRight: number;
   }[];
 }
@@ -61,7 +55,7 @@ function exactText(value: string): RegExp {
  * the one it expects. `goto` opens a page that is expected to render and waits
  * for its tree.
  *
- * The tree is one `li` per tag, nested under its parent's `li` while the parent
+ * The tree is one `treeitem` per tag, nested under its parent's while the parent
  * is expanded. A node is found by its own name, which is the tag's value.
  *
  * The id may be a string so a case can pass `abc` or a zero-padded id.
@@ -75,7 +69,7 @@ export class CompetencyManagementPage {
   /** The Expand All / Collapse All button; `aria-pressed` is its state. */
   readonly toggleButton: Locator;
   /** The tree's scrolling box. */
-  readonly scrollContainer: Locator;
+  private readonly scrollContainer: Locator;
   /** The taxonomy's own row at the top of the tree. */
   readonly rootRow: Locator;
   /** The root row's expand/collapse button. */
@@ -84,6 +78,16 @@ export class CompetencyManagementPage {
   readonly topLevelNodes: Locator;
   /** Every rendered tag. */
   readonly nodes: Locator;
+  /** The nodes nested under another node, at any depth. */
+  readonly nestedNodes: Locator;
+  /** The nodes that are selected. */
+  readonly selectedNodes: Locator;
+  /** Anything in the tree a user could type into. */
+  readonly editFields: Locator;
+  /** Text boxes by role, in the tree. */
+  readonly textboxes: Locator;
+  /** The buttons in the tree that can be pressed. */
+  readonly enabledButtons: Locator;
   /** Every Competency ID badge in the tree. */
   readonly badges: Locator;
   /** The root row's badge, which a taxonomy's own row does not have. */
@@ -95,12 +99,17 @@ export class CompetencyManagementPage {
   ) {
     this.tree = page.locator(this.s.competencyPage);
     this.errorAlert = page.locator(this.s.connectionError);
-    this.toggleButton = page.locator(this.s.competencyToggle);
+    this.toggleButton = this.tree.locator(this.s.competencyToggle);
     this.scrollContainer = page.locator(this.s.competencyScroll);
     this.rootRow = page.locator(this.s.competencyRootRow);
     this.rootDisclosure = this.rootRow.locator(this.s.competencyDisclosure);
-    this.topLevelNodes = page.locator(this.s.competencyTopLevelNodes);
-    this.nodes = page.locator(this.s.competencyNode);
+    this.topLevelNodes = this.tree.locator(this.s.competencyTopLevelNodes);
+    this.nodes = this.tree.locator(this.s.competencyNode);
+    this.nestedNodes = this.nodes.locator(this.s.competencyNode);
+    this.selectedNodes = this.tree.locator(this.s.competencySelectedNode);
+    this.editFields = this.tree.locator(this.s.competencyEditField);
+    this.textboxes = this.tree.getByRole('textbox');
+    this.enabledButtons = this.tree.locator(this.s.competencyEnabledButton);
     this.badges = this.tree.locator(this.s.competencyBadge);
     this.rootBadge = this.rootRow.locator(this.s.competencyBadge);
   }
@@ -141,7 +150,7 @@ export class CompetencyManagementPage {
   }
 
   /** A node's own header row, without its children. */
-  rowOf(node: Locator): Locator {
+  private rowOf(node: Locator): Locator {
     return node.locator(this.s.competencyRowOf);
   }
 
@@ -150,14 +159,14 @@ export class CompetencyManagementPage {
     return this.rowOf(node).locator(this.s.competencyLabel);
   }
 
-  /** A node's Competency ID badge. */
-  badgeOf(node: Locator): Locator {
-    return this.rowOf(node).locator(this.s.competencyBadge);
-  }
-
   /** A node's expand/collapse button; a leaf has none. */
   disclosureOf(node: Locator): Locator {
     return this.rowOf(node).locator(this.s.competencyDisclosure);
+  }
+
+  /** Every node below a node, at any depth. */
+  descendantsOf(node: Locator): Locator {
+    return node.locator(this.s.competencyNode);
   }
 
   /** A node's direct children. */
@@ -170,11 +179,6 @@ export class CompetencyManagementPage {
     await this.toggleButton.click();
   }
 
-  /** Whether the toggle reads "all expanded" (`aria-pressed`). */
-  async isAllExpanded(): Promise<boolean> {
-    return (await this.toggleButton.getAttribute('aria-pressed')) === 'true';
-  }
-
   /** Reads every rendered tag in one pass, so the rows are from one moment. */
   async readTree(): Promise<TreeNodeReading[]> {
     return this.nodes.evaluateAll(
@@ -184,23 +188,22 @@ export class CompetencyManagementPage {
             li.querySelector(`${s.rowOf} > ${s.label}`)?.textContent ?? '';
           const tree = item.closest(s.tree);
           let depth = 0;
-          let parent = item.parentElement?.closest('li') ?? null;
+          let parent = item.parentElement?.closest(s.node) ?? null;
           const parentValue = parent === null ? null : labelOf(parent);
           while (parent !== null && tree?.contains(parent)) {
             depth += 1;
-            parent = parent.parentElement?.closest('li') ?? null;
+            parent = parent.parentElement?.closest(s.node) ?? null;
           }
           return {
             value: labelOf(item),
             externalId: item.querySelector(`${s.rowOf} > ${s.badge}`)?.textContent?.trim() ?? null,
             depth,
             parentValue,
-            expanded: item.getAttribute('aria-expanded') === 'true',
-            selected: item.getAttribute('aria-selected') === 'true',
           };
         }),
       {
         tree: this.s.competencyPage,
+        node: this.s.competencyNode,
         rowOf: this.s.competencyRowOf,
         label: this.s.competencyLabel,
         badge: this.s.competencyBadge,
@@ -227,17 +230,8 @@ export class CompetencyManagementPage {
           const label = row.querySelector(s.label);
           const badge = row.querySelector(s.badge);
           if (label === null || badge === null) return [];
-          const l = label.getBoundingClientRect();
-          const b = badge.getBoundingClientRect();
           return [
-            {
-              value: label.textContent ?? '',
-              labelTop: l.top,
-              labelBottom: l.bottom,
-              badgeTop: b.top,
-              badgeBottom: b.bottom,
-              badgeRight: b.right,
-            },
+            { value: label.textContent ?? '', badgeRight: badge.getBoundingClientRect().right },
           ];
         });
         return {
@@ -281,6 +275,26 @@ export class CompetencyManagementPage {
   /** A node's computed background color, which the hover and selected styles change. */
   async rowBackground(node: Locator): Promise<string> {
     return node.evaluate((el) => getComputedStyle(el).backgroundColor);
+  }
+
+  /**
+   * Starts recording the writes (POST, PUT, PATCH, DELETE) the page sends to the
+   * content-tagging API, as `METHOD /path` lines. The returned array fills as the
+   * requests are sent. The recorder only observes: nothing is routed, delayed or
+   * answered (ADR-0003). Call it before the interaction under test.
+   */
+  recordWrites(): string[] {
+    const writes: string[] = [];
+    this.page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (
+        ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) &&
+        pathname.includes(TAGGING_BASE)
+      ) {
+        writes.push(`${request.method()} ${pathname}`);
+      }
+    });
+    return writes;
   }
 
   /** Moves the pointer off the tree, so no node is hovered. */

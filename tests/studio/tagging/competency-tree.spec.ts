@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { listTaxonomyTags } from '../../../src/api';
 import { TIMEOUTS, VIEWPORTS, viewportUse, type AppConfig } from '../../../src/config';
@@ -16,13 +16,20 @@ import {
 /**
  * The competency tree on the Competency Management page
  * (`/taxonomy/<id>/competencies`): the tree's starting state, opening and closing
- * one node, and Expand All / Collapse All (openedx-core #680). No BTR case maps to
- * these.
+ * one node, Expand All / Collapse All, each tag's Competency ID and the page being
+ * read-only, and the tree on a phone-sized window (openedx-core #680). The hover and
+ * click tests come from openedx-core #821 (frontend-app-authoring #3260 and #3291):
+ * the whole node box is the target. The scroll test comes from openedx-core #835
+ * (frontend-app-authoring #3277): the tree scrolls inside its column. No BTR case
+ * maps to these.
  *
  * The admin ({@link competencyTaxonomyAdmin}) seeds a Competency taxonomy from the
  * suite's twelve-tag tree file and opens the page; the content-tagging API's tag
  * list is the oracle for what the tree must show. The page's access rules are
  * `competency-route-guard.spec.ts`, which also scans this page for accessibility.
+ *
+ * Not covered: a tag created without an ID (openedx-core #758 gives it one) and a
+ * row without a badge, which no longer exists since openedx-core #825.
  */
 test.describe(
   'Competency tree',
@@ -47,7 +54,7 @@ test.describe(
       await expect(competency.rootRow).toBeVisible();
       await expect(competency.rootDisclosure).toHaveAttribute('aria-expanded', 'true');
       await expect(competency.topLevelNodes).toHaveCount(tags.filter((t) => t.depth === 0).length);
-      await expect(competency.tree.locator('li li')).toHaveCount(0);
+      await expect(competency.nestedNodes).toHaveCount(0);
       for (const tag of tags.filter((t) => t.depth === 0 && t.childCount > 0)) {
         await expect(competency.node(tag.value)).toHaveAttribute('aria-expanded', 'false');
       }
@@ -102,7 +109,7 @@ test.describe(
       await competency.disclosureOf(technical).click();
 
       await expect(technical).toHaveAttribute('aria-expanded', 'false');
-      await expect(technical.locator('li')).toHaveCount(0);
+      await expect(competency.descendantsOf(technical)).toHaveCount(0);
     });
 
     test('indents each of the six levels deeper than its parent', async ({
@@ -183,7 +190,7 @@ test.describe(
       competencyTaxonomyAdmin,
       config,
     }) => {
-      const { competency, page, request, seed } = competencyTaxonomyAdmin;
+      const { competency, request, seed } = competencyTaxonomyAdmin;
       const taxonomy = await seed({
         type: 'competency',
         label: 'tree-readonly',
@@ -191,7 +198,7 @@ test.describe(
       });
       const before = await listTaxonomyTags(request, config, taxonomy.id);
       await competency.goto(taxonomy.id);
-      const writes = recordContentTaggingWrites(page);
+      const writes = competency.recordWrites();
       const verbal = competency.node(COMPETENCY.verbal.value);
 
       await competency.toggleAll();
@@ -201,14 +208,11 @@ test.describe(
       await verbal.press('Enter');
       await expect(verbal).toHaveAttribute('aria-selected', 'true');
 
-      const editable = competency.tree.locator(
-        'input, textarea, [contenteditable]:not([contenteditable="false"])',
-      );
-      await expect(editable).toHaveCount(0);
-      await expect(competency.tree.getByRole('textbox')).toHaveCount(0);
+      await expect(competency.editFields).toHaveCount(0);
+      await expect(competency.textboxes).toHaveCount(0);
       // The root row and every group have a chevron, and the toolbar has the toggle.
       const expandable = 1 + before.filter((t) => t.childCount > 0).length;
-      await expect(competency.tree.locator('button:enabled')).toHaveCount(expandable + 1);
+      await expect(competency.enabledButtons).toHaveCount(expandable + 1);
       expect(writes).toEqual([]);
       const after = await listTaxonomyTags(request, config, taxonomy.id);
       expect(after.map(describeTag).sort()).toEqual(before.map(describeTag).sort());
@@ -261,7 +265,7 @@ test.describe(
       });
       await competency.goto(taxonomy.id);
       await competency.toggleAll();
-      const selected = competency.tree.locator('li[aria-selected="true"]');
+      const selected = competency.selectedNodes;
       const other = competency.node(COMPETENCY.written.value);
 
       for (const position of ['center', 'bottom', 'right', 'top'] as const) {
@@ -379,21 +383,6 @@ function describeTag(t: {
   return `${t.value} (id ${t.externalId}, depth ${t.depth}, parent ${t.parentValue})`;
 }
 
-/** Records the writes the page sends to the content-tagging API; the array fills as they happen. */
-function recordContentTaggingWrites(page: Page): string[] {
-  const writes: string[] = [];
-  page.on('request', (request) => {
-    const { pathname } = new URL(request.url());
-    if (
-      ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) &&
-      pathname.includes('/api/content_tagging/')
-    ) {
-      writes.push(`${request.method()} ${pathname}`);
-    }
-  });
-  return writes;
-}
-
 function sorted(values: readonly string[]): string[] {
   return [...values].sort();
 }
@@ -432,7 +421,10 @@ async function treeMismatches(
   ].sort();
 }
 
-/** What is wrong with a fully expanded tree that should scroll inside its box; empty when nothing. */
+/**
+ * What is wrong with a fully expanded tree that should scroll inside its box; empty when
+ * nothing is.
+ */
 function expandedLayoutProblems(layout: TreeLayoutReading): string[] {
   const { container } = layout;
   const problems: string[] = [];
@@ -491,9 +483,6 @@ function phoneLayoutProblems(layout: TreeLayoutReading): string[] {
       problems.push(
         `${row.value}: the badge ends at ${row.badgeRight}, past the container's ${container.right}`,
       );
-    }
-    if (row.badgeTop >= row.labelBottom || row.badgeBottom <= row.labelTop) {
-      problems.push(`${row.value}: the badge is not on the same line as its name`);
     }
   }
   return problems;

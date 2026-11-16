@@ -111,47 +111,57 @@ export const TAXONOMY_SELECTORS = {
    * The competency tree's toolbar button, "Expand All" or "Collapse All" (the label
    * swaps with the state). Its `aria-pressed` is `true` while every expandable node,
    * the root row included, is open, so the state is read from the attribute and not
-   * from the localized label. The class belongs to the app's `CompetencyTree`; the
-   * button has no role name or test id that tells it from other buttons.
+   * from the localized label. It is the tree's only button with `aria-pressed` (the
+   * chevrons use `aria-expanded`), so inside the tree root no class is needed.
    */
-  competencyToggle: '.competency-tree__toggle-button',
+  competencyToggle: 'button[aria-pressed]',
   /**
    * The tree's scrolling box, which holds the root row and every node. It is the
    * element that gets `overflow-y: auto` from the `lg` breakpoint (992 px) up, and
-   * the box the tree's rows must stay inside on a narrow window.
+   * the box the tree's rows must stay inside on a narrow window. A plain `div` with no
+   * role or attribute, so the app's class is the only anchor.
    */
   competencyScroll: '.competency-tree__container',
   /**
    * The taxonomy's own row at the top of the tree: its name and a disclosure button,
-   * no Competency ID badge. It is a plain `div`, not a `li`, so it is not a tag.
+   * no Competency ID badge. A plain `div` (not a tag, so no `treeitem`) with no role
+   * or attribute, so the app's class is the only anchor.
    */
   competencyRootRow: '.competency-row--root',
   /**
-   * The nodes right under the root row. The `ul` that holds them (`role="tree"`) is
-   * the root row's next sibling and is in the DOM only while the root is expanded.
+   * The nodes right under the root row: the children of the `role="tree"` list, which
+   * is the root row's next sibling and is in the DOM only while the root is expanded.
    */
-  competencyTopLevelNodes: '.competency-row--root + ul > li',
+  competencyTopLevelNodes: '[role="tree"] > [role="treeitem"]',
   /**
-   * Every tag of the tree, one `li` per tag (`role="treeitem"`, `aria-selected` on
-   * all of them, `aria-expanded` on those with children). Children render only while
-   * their parent is expanded.
+   * Every tag of the tree, one `treeitem` per tag (`aria-selected` on all of them,
+   * `aria-expanded` on those with children). Children render only while their parent
+   * is expanded. Looked up inside the tree root; the criteria-groups panel beside the
+   * tree has no `treeitem`.
    */
-  competencyNode: '.competency-tree li',
+  competencyNode: '[role="treeitem"]',
+  /** A node that is selected (`aria-selected="true"`). */
+  competencySelectedNode: '[role="treeitem"][aria-selected="true"]',
   /**
    * A node's own header row (disclosure button, name, badge), without its nested
-   * children. Relative to a node, with `:scope`.
+   * children. A plain `div` with no role, so the app's class is the only anchor.
+   * Relative to a node, with `:scope`.
    */
   competencyRowOf: ':scope > .competency-row',
   /**
-   * A node's direct children, however deep the node sits. Relative to a node, with
-   * `:scope`.
+   * A node's direct children, however deep the node sits: the `role="group"` list
+   * inside the node. Relative to a node, with `:scope`.
    */
-  competencyChildrenOf: ':scope > ul > li',
+  competencyChildrenOf: ':scope > [role="group"] > [role="treeitem"]',
   /**
    * The list that holds a node's children, present only while the node is expanded.
    * Relative to a node, with `:scope`.
    */
-  competencyChildList: ':scope > ul',
+  competencyChildList: ':scope > [role="group"]',
+  /** A field a user could type into: an input, a textarea or an editable element. */
+  competencyEditField: 'input, textarea, [contenteditable]:not([contenteditable="false"])',
+  /** A button a user can press (not disabled). */
+  competencyEnabledButton: 'button:enabled',
   /** A row's name, whose text is the tag's value (the suite's own data). */
   competencyLabel: '.competency-row__label',
   /**
