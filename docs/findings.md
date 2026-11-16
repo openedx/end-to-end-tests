@@ -115,6 +115,7 @@ measured, and issues are opened by hand from them.
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy pages' breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` and `studio-competency-management` scans only |
 | `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` (a page load before each wizard run, a different file on re-import) |
 | `TAG-006`   | `openedx/frontend-app-authoring` (taxonomy card fixed width) | open, not filed, not asserted — `competency-entry-points.spec.ts` asserts the #663 AC (menu items inside the width, footer button visible and clickable) |
+| `TAG-007`   | `openedx/openedx-core` (`tag_pre_delete` lineage filter not scoped to the taxonomy) | **filed** - [openedx-core#934](https://github.com/openedx/openedx-core/issues/934), not asserted — slows taxonomy deletes in fixture cleanup on a stack with leftover suite ObjectTags |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
 | `STUDIO-011` | `openedx/frontend-app-authoring` (`verawood`: an outline rename is saved twice) | open, no `fixme` — fixed on `master`; `rename()` in `course-outline.page.ts` retries opening the next field |
 | `STUDIO-012` | `openedx/frontend-app-authoring` (TinyMCE 8 editor iframe has no title in Chromium) | open, no `fixme` — `frame-title` baselined on the `studio-schedule-details` scan only |
@@ -1668,6 +1669,33 @@ asserted.
 
 **Not filed:** the card fits a window about 500 px wide, the width the taxonomy
 list was checked at by hand, so the overflow is accepted below that width.
+
+### `TAG-007` — deleting a tag or taxonomy emits events for objects tagged in other taxonomies
+
+**Where:** `tag_pre_delete` in openedx-core's
+`src/openedx_tagging/signal_handlers.py`, added in
+[openedx-core#571](https://github.com/openedx/openedx-core/pull/571) and extended
+to taxonomy deletes in
+[openedx-core#575](https://github.com/openedx/openedx-core/pull/575). It is on
+`main` and in the 1.0.x line that `verawood` pins. Measured on local Tutor dev
+(openedx-core `7e150e7`) on 2026-11-12.
+
+**What happens:** before a tag is deleted, the handler collects the objects to
+re-index with `ObjectTag.objects.filter(tag__lineage__startswith=instance.lineage)`.
+A tag's `lineage` is built from tag values only, so the filter also matches
+objects tagged with a same-valued tag in any other taxonomy. A taxonomy delete
+runs it for each root tag. Deleting a taxonomy whose root is "E2E Parent One",
+with no ObjectTags of its own, matched 60 objects left behind by earlier runs in
+other taxonomies, and CMS logged `Deleted tag(s) affected 60 associated objects`.
+On Tutor dev, where Celery runs eagerly, the DELETE answered 204 after 18.8 s; with
+those ObjectTags removed, the same delete took 0.15 s.
+
+**Coverage impact:** filed as
+[openedx-core#934](https://github.com/openedx/openedx-core/issues/934), not
+asserted. The defect is outside the acceptance criteria the suite covers. It shows up in fixture cleanup: the suite
+seeds taxonomies with fixed tag values, tag-assignment tests leave ObjectTags
+behind, and on a stack where those accumulate, a taxonomy delete can exceed the
+client's 15 s `TIMEOUTS.action`. A fresh CI database is not affected.
 
 ### The upload-agreement bump raced its own acceptance (suite-side)
 
