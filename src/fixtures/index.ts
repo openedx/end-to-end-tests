@@ -198,6 +198,7 @@ import {
   setTaxonomyEnabled,
   setTaxonomyOrgs,
   type ContentLibrary,
+  type ImportTaxonomyOptions,
   type LibraryAccessLevel,
   type LibraryBlock,
   type LibraryCollection,
@@ -1091,6 +1092,8 @@ export interface TaxonomyAdmin {
   readonly seed: (options: {
     readonly type: ImportableTaxonomyType;
     readonly label: string;
+    /** The tag file to import; the eight-tag file when unset. */
+    readonly file?: ImportTaxonomyOptions['file'];
   }) => Promise<Taxonomy>;
   /** The admin's own browser page — what an accessibility scan of these screens runs on. */
   readonly page: Page;
@@ -4374,8 +4377,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
             list: new TaxonomyListPage(page, config),
             detail: new TaxonomyDetailPage(page, config),
             competency: new CompetencyManagementPage(page, config),
-            seed: ({ type, label }) =>
-              importServedTaxonomy(page.request, config, { type, label, testInfo, created }),
+            seed: ({ type, label, file }) =>
+              importServedTaxonomy(page.request, config, { type, label, file, testInfo, created }),
             page,
             request: page.request,
             org,

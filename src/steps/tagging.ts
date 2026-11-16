@@ -7,6 +7,7 @@ import {
   listTaxonomies,
   setTaxonomyOrgs,
   type ImportableTaxonomyType,
+  type ImportTaxonomyOptions,
   type Taxonomy,
 } from '../api';
 
@@ -45,6 +46,85 @@ export function taxonomyImportFile(): {
   ];
   return {
     name: 'e2e-taxonomy.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({ tags })),
+  };
+}
+
+/**
+ * The suite's competency tree tag values and Competency IDs (the JSON `id`), our own
+ * data. Three top-level tags: a group with two leaves, a group with a group and a
+ * leaf below it, and a chain six levels deep (the API's maximum depth). The IDs are
+ * short so a badge never overflows its row.
+ */
+export const COMPETENCY = {
+  communication: { value: 'Communication Skills', id: 'COMP-001' },
+  written: { value: 'Written Communication', id: 'COMP-001-A' },
+  verbal: { value: 'Verbal Communication', id: 'COMP-001-B' },
+  technical: { value: 'Technical Skills', id: 'COMP-002' },
+  python: { value: 'Python Programming', id: 'COMP-002-A' },
+  django: { value: 'Django Framework', id: 'COMP-002-A-1' },
+  chain: [
+    { value: 'Chain 1', id: 'CH-1' },
+    { value: 'Chain 2', id: 'CH-2' },
+    { value: 'Chain 3', id: 'CH-3' },
+    { value: 'Chain 4', id: 'CH-4' },
+    { value: 'Chain 5', id: 'CH-5' },
+    { value: 'Chain 6', id: 'CH-6' },
+  ],
+} as const;
+
+/** The JSON import file for the competency tree: the twelve tags of {@link COMPETENCY}. */
+export function competencyTreeImportFile(): {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly buffer: Buffer;
+} {
+  const C = COMPETENCY;
+  const tags = [
+    { id: C.communication.id, value: C.communication.value, parent_id: '' },
+    { id: C.written.id, value: C.written.value, parent_id: C.communication.id },
+    { id: C.verbal.id, value: C.verbal.value, parent_id: C.communication.id },
+    { id: C.technical.id, value: C.technical.value, parent_id: '' },
+    { id: C.python.id, value: C.python.value, parent_id: C.technical.id },
+    { id: C.django.id, value: C.django.value, parent_id: C.python.id },
+    ...C.chain.map((link, index) => ({
+      id: link.id,
+      value: link.value,
+      parent_id: C.chain[index - 1]?.id ?? '',
+    })),
+  ];
+  return {
+    name: 'e2e-competency-tree.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({ tags })),
+  };
+}
+
+/**
+ * The JSON import file for a tree too tall for its column: eight roots
+ * (`E2E Scroll Root <n>`, ID `SCR-<n>`) with twelve leaves each (`E2E Scroll Leaf
+ * <n>.<m>`, ID `SCR-<n>-<m>`), 104 tags. Expanded, the rows add up to well over the
+ * tree's 73rem maximum height.
+ */
+export function competencyScrollTreeImportFile(): {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly buffer: Buffer;
+} {
+  const tags: { id: string; value: string; parent_id: string }[] = [];
+  for (let root = 1; root <= 8; root += 1) {
+    tags.push({ id: `SCR-${root}`, value: `E2E Scroll Root ${root}`, parent_id: '' });
+    for (let leaf = 1; leaf <= 12; leaf += 1) {
+      tags.push({
+        id: `SCR-${root}-${leaf}`,
+        value: `E2E Scroll Leaf ${root}.${leaf}`,
+        parent_id: `SCR-${root}`,
+      });
+    }
+  }
+  return {
+    name: 'e2e-competency-scroll-tree.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify({ tags })),
   };
@@ -149,8 +229,8 @@ export async function deleteTaxonomiesBestEffort(
 }
 
 /**
- * Imports a run-unique taxonomy of `type` (the eight-tag file, no org assignment)
- * and records its id in `created` for the caller's teardown. The name carries the
+ * Imports a run-unique taxonomy of `type` (the eight-tag file unless `file` is given, no org
+ * assignment) and records its id in `created` for the caller's teardown. The name carries the
  * run id, `label`, a slice of the test id and the retry number, so parallel tests
  * and retries never share one; two imports in one test differ by `label`.
  * Admin-only: call on an admin request context.
@@ -163,12 +243,14 @@ export async function importTypedTaxonomy(
     readonly label: string;
     readonly testInfo: TestInfo;
     readonly created: number[];
+    /** The tag file to import; the eight-tag {@link taxonomyImportFile} when unset. */
+    readonly file?: ImportTaxonomyOptions['file'];
   },
 ): Promise<Taxonomy> {
   const taxonomy = await importTaxonomy(request, config, {
     name: `E2E entry ${getRunId()} ${options.label} ${options.testInfo.testId.slice(-6)}R${options.testInfo.retry}`,
     description: 'E2E suite taxonomy',
-    file: taxonomyImportFile(),
+    file: options.file ?? taxonomyImportFile(),
     taxonomyType: options.type,
   });
   options.created.push(taxonomy.id);

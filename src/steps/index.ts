@@ -69,7 +69,10 @@ export {
 export { pollUntil, type PollOutcome } from './poll';
 export {
   TAG,
+  COMPETENCY,
   IMPORT_EXTRA_TAG,
+  competencyScrollTreeImportFile,
+  competencyTreeImportFile,
   deleteTaxonomiesBestEffort,
   expectedTaxonomyMenu,
   importTypedTaxonomy,
