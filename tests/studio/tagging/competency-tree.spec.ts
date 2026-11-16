@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Locator } from '@playwright/test';
 
 import { listTaxonomyTags } from '../../../src/api';
 import { TIMEOUTS, VIEWPORTS, viewportUse, type AppConfig } from '../../../src/config';
@@ -6,6 +6,7 @@ import { expect, test } from '../../../src/fixtures';
 import type {
   CompetencyManagementPage,
   TreeLayoutReading,
+  TreeNodeReading,
 } from '../../../src/pages/studio/taxonomies/competency-management.page';
 import {
   COMPETENCY,
@@ -29,7 +30,9 @@ import {
  * `competency-route-guard.spec.ts`, which also scans this page for accessibility.
  *
  * Not covered: a tag created without an ID (openedx-core #758 gives it one) and a
- * row without a badge, which no longer exists since openedx-core #825.
+ * row without a badge, which no longer exists since openedx-core #825. The visual details of
+ * openedx-core #821 (row striping, arrow spacing, alignment) and #835's column heights, fixed
+ * course-panel height and pointer cursor belong to other checks.
  */
 test.describe(
   'Competency tree',
@@ -47,17 +50,15 @@ test.describe(
         label: 'tree-start',
         file: competencyTreeImportFile(),
       });
-      const tags = await listTaxonomyTags(request, config, taxonomy.id);
 
       await competency.goto(taxonomy.id);
 
       await expect(competency.rootRow).toBeVisible();
       await expect(competency.rootDisclosure).toHaveAttribute('aria-expanded', 'true');
-      await expect(competency.topLevelNodes).toHaveCount(tags.filter((t) => t.depth === 0).length);
+      await expect
+        .poll(() => startMismatches(competency, request, config, taxonomy.id))
+        .toEqual([]);
       await expect(competency.nestedNodes).toHaveCount(0);
-      for (const tag of tags.filter((t) => t.depth === 0 && t.childCount > 0)) {
-        await expect(competency.node(tag.value)).toHaveAttribute('aria-expanded', 'false');
-      }
       await expect(competency.toggleButton).toBeEnabled();
       await expect(competency.toggleButton).toHaveAttribute('aria-pressed', 'false');
       await expect(competency.errorAlert).toHaveCount(0);
@@ -182,7 +183,9 @@ test.describe(
       await competency.toggleAll();
 
       await expect.poll(() => treeMismatches(competency, request, config, taxonomy.id)).toEqual([]);
-      await expect(competency.badges).toHaveCount(tags.length);
+      await expect
+        .poll(() => badgeCountMismatches(competency, request, config, taxonomy.id))
+        .toEqual([]);
       await expect(competency.rootBadge).toHaveCount(0);
     });
 
@@ -210,9 +213,14 @@ test.describe(
 
       await expect(competency.editFields).toHaveCount(0);
       await expect(competency.textboxes).toHaveCount(0);
-      // The root row and every group have a chevron, and the toolbar has the toggle.
-      const expandable = 1 + before.filter((t) => t.childCount > 0).length;
-      await expect(competency.enabledButtons).toHaveCount(expandable + 1);
+      // The pressable buttons are the root row's and every group's chevron, and the
+      // toolbar's toggle; a leaf's chevron is a disabled placeholder.
+      await expect
+        .poll(
+          async () =>
+            (await competency.enabledButtons.count()) - (await competency.disclosures.count()),
+        )
+        .toBe(1);
       expect(writes).toEqual([]);
       const after = await listTaxonomyTags(request, config, taxonomy.id);
       expect(after.map(describeTag).sort()).toEqual(before.map(describeTag).sort());
@@ -241,15 +249,20 @@ test.describe(
         await competency.moveMouseAway();
         const resting = await competency.rowBackground(node);
         await competency.hoverNodeAt(node, 'center');
+        await expect
+          .poll(() => competency.rowBackground(node), {
+            message: `${tag.value} changes color on hover`,
+          })
+          .not.toBe(resting);
         const highlighted = await competency.rowBackground(node);
-        expect(highlighted, `${tag.value} changes color on hover`).not.toBe(resting);
         for (const position of positions) {
           await competency.moveMouseAway();
           await competency.hoverNodeAt(node, position);
-          expect(
-            await competency.rowBackground(node),
-            `${tag.value} has the hover color at its ${position} edge`,
-          ).toBe(highlighted);
+          await expect
+            .poll(() => competency.rowBackground(node), {
+              message: `${tag.value} has the hover color at its ${position} edge`,
+            })
+            .toBe(highlighted);
         }
       }
     });
@@ -268,12 +281,12 @@ test.describe(
       const selected = competency.selectedNodes;
       const other = competency.node(COMPETENCY.written.value);
 
-      for (const position of ['center', 'bottom', 'right', 'top'] as const) {
+      for (const position of ['center', 'bottom', 'right', 'top', 'left'] as const) {
         const leaf = competency.node(COMPETENCY.verbal.value);
         await competency.clickNodeAt(other, 'center');
         await expect(
           other,
-          `Written Communication is selected before the ${position} click`,
+          `the other leaf is selected before the ${position} click`,
         ).toHaveAttribute('aria-selected', 'true');
 
         await competency.clickNodeAt(leaf, position);
@@ -314,14 +327,22 @@ test.describe(
           label: 'tree-scroll',
           file: competencyScrollTreeImportFile(),
         });
-        const tagCount = (await listTaxonomyTags(request, config, taxonomy.id)).length;
         await competency.goto(taxonomy.id);
+        // openedx-core #835 states the scroll requirement with a competency selected, which
+        // opens the course panel and gives the tree a fixed height. Without a selection only
+        // `max-height` caps the tree, a state the ticket does not describe, so only the
+        // selected state is checked.
+        const firstRoot = competency.topLevelNodes.first();
+        await competency.clickNodeAt(firstRoot, 'center');
+        await expect(firstRoot).toHaveAttribute('aria-selected', 'true');
         const scrollYBefore = (await competency.readLayout()).scrollY;
 
         await competency.toggleAll();
 
         await expect(competency.toggleButton).toHaveAttribute('aria-pressed', 'true');
-        await expect(competency.nodes).toHaveCount(tagCount);
+        await expect
+          .poll(() => treeMismatches(competency, request, config, taxonomy.id))
+          .toEqual([]);
         await expect
           .poll(async () => expandedLayoutProblems(await competency.readLayout()))
           .toEqual([]);
@@ -374,12 +395,9 @@ test.describe(
 );
 
 /** One tag as a line, so a mismatch names the tag and the field that differs. */
-function describeTag(t: {
-  value: string;
-  externalId: string | null;
-  depth: number;
-  parentValue: string | null;
-}): string {
+function describeTag(
+  t: Pick<TreeNodeReading, 'value' | 'externalId' | 'depth' | 'parentValue'>,
+): string {
   return `${t.value} (id ${t.externalId}, depth ${t.depth}, parent ${t.parentValue})`;
 }
 
@@ -388,10 +406,7 @@ function sorted(values: readonly string[]): string[] {
 }
 
 /** The left edge of a node's name, which moves right with each level of nesting. */
-async function labelX(
-  competency: CompetencyManagementPage,
-  node: ReturnType<CompetencyManagementPage['node']>,
-): Promise<number> {
+async function labelX(competency: CompetencyManagementPage, node: Locator): Promise<number> {
   const box = await competency.labelOf(node).boundingBox();
   if (box === null) throw new Error('The node has no name box: it is not rendered.');
   return box.x;
@@ -413,12 +428,63 @@ async function treeMismatches(
     competency.readTree(),
     listTaxonomyTags(request, config, taxonomyId),
   ]);
-  const shownTags = new Set(shown.map(describeTag));
-  const apiTags = new Set(api.map(describeTag));
-  return [
-    ...[...shownTags].filter((t) => !apiTags.has(t)).map((t) => `only on the page: ${t}`),
-    ...[...apiTags].filter((t) => !shownTags.has(t)).map((t) => `only in the API: ${t}`),
-  ].sort();
+  const shownCounts = countBy(shown.map(describeTag));
+  const apiCounts = countBy(api.map(describeTag));
+  return [...new Set([...shownCounts.keys(), ...apiCounts.keys()])]
+    .filter((tag) => shownCounts.get(tag) !== apiCounts.get(tag))
+    .map(
+      (tag) =>
+        `${tag}: ${shownCounts.get(tag) ?? 0} on the page, ${apiCounts.get(tag) ?? 0} in the API`,
+    )
+    .sort();
+}
+
+function countBy(values: readonly string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return counts;
+}
+
+/**
+ * Compares the tree's starting state with the API, both read together: the top-level nodes
+ * shown against the API's depth-0 tags, and each of those with children being collapsed.
+ */
+async function startMismatches(
+  competency: CompetencyManagementPage,
+  request: APIRequestContext,
+  config: AppConfig,
+  taxonomyId: number,
+): Promise<string[]> {
+  const [shown, api] = await Promise.all([
+    competency.readTree(),
+    listTaxonomyTags(request, config, taxonomyId),
+  ]);
+  const shownTop = shown.filter((t) => t.depth === 0);
+  const topLevel = api.filter((t) => t.depth === 0);
+  const problems: string[] = [];
+  if (shownTop.length !== topLevel.length) {
+    problems.push(`${shownTop.length} top-level nodes shown, ${topLevel.length} in the API`);
+  }
+  for (const tag of topLevel.filter((t) => t.childCount > 0)) {
+    const node = shownTop.find((t) => t.value === tag.value);
+    if (node === undefined) problems.push(`${tag.value} is not shown at the top level`);
+    else if (node.expanded !== false) problems.push(`${tag.value} has expanded=${node.expanded}`);
+  }
+  return problems;
+}
+
+/** Compares the number of badges shown with the number of tags in the API, read together. */
+async function badgeCountMismatches(
+  competency: CompetencyManagementPage,
+  request: APIRequestContext,
+  config: AppConfig,
+  taxonomyId: number,
+): Promise<string[]> {
+  const [shown, api] = await Promise.all([
+    competency.badges.count(),
+    listTaxonomyTags(request, config, taxonomyId),
+  ]);
+  return shown === api.length ? [] : [`${shown} badges shown for ${api.length} tags`];
 }
 
 /**

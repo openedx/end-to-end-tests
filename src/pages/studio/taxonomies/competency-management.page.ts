@@ -1,19 +1,21 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
-import { TAGGING_BASE } from '../../../api';
+import { CBE_BASE, TAGGING_BASE } from '../../../api';
 
 /** Where on a node's header area a pointer lands. */
 type NodePosition = 'center' | 'bottom' | 'right' | 'left' | 'top';
 
 /** One tag of the rendered tree, as the page shows it. */
-interface TreeNodeReading {
+export interface TreeNodeReading {
   readonly value: string;
   /** The Competency ID badge's text, or `null` for a row with no badge. */
   readonly externalId: string | null;
   /** The number of ancestor `treeitem`s inside the tree: 0 for a node under the root row. */
   readonly depth: number;
   readonly parentValue: string | null;
+  /** `aria-expanded`: `null` for a node with no children, which has no such attribute. */
+  readonly expanded: boolean | null;
 }
 
 /** The sizes and positions of the tree and its rows, in CSS pixels. */
@@ -72,6 +74,8 @@ export class CompetencyManagementPage {
   private readonly scrollContainer: Locator;
   /** The taxonomy's own row at the top of the tree. */
   readonly rootRow: Locator;
+  /** Every expand/collapse button in the tree, the root row's included. */
+  readonly disclosures: Locator;
   /** The root row's expand/collapse button. */
   readonly rootDisclosure: Locator;
   /** The nodes right under the root row. */
@@ -102,6 +106,7 @@ export class CompetencyManagementPage {
     this.toggleButton = this.tree.locator(this.s.competencyToggle);
     this.scrollContainer = page.locator(this.s.competencyScroll);
     this.rootRow = page.locator(this.s.competencyRootRow);
+    this.disclosures = this.tree.locator(this.s.competencyDisclosure);
     this.rootDisclosure = this.rootRow.locator(this.s.competencyDisclosure);
     this.topLevelNodes = this.tree.locator(this.s.competencyTopLevelNodes);
     this.nodes = this.tree.locator(this.s.competencyNode);
@@ -199,6 +204,9 @@ export class CompetencyManagementPage {
             externalId: item.querySelector(`${s.rowOf} > ${s.badge}`)?.textContent?.trim() ?? null,
             depth,
             parentValue,
+            expanded: item.hasAttribute('aria-expanded')
+              ? item.getAttribute('aria-expanded') === 'true'
+              : null,
           };
         }),
       {
@@ -279,9 +287,10 @@ export class CompetencyManagementPage {
 
   /**
    * Starts recording the writes (POST, PUT, PATCH, DELETE) the page sends to the
-   * content-tagging API, as `METHOD /path` lines. The returned array fills as the
-   * requests are sent. The recorder only observes: nothing is routed, delayed or
-   * answered (ADR-0003). Call it before the interaction under test.
+   * content-tagging API and to the competency-based education API (the page's own
+   * data), as `METHOD /path` lines. The returned array fills as the requests are sent.
+   * The recorder only observes: nothing is routed, delayed or answered (ADR-0003). Call
+   * it before the interaction under test.
    */
   recordWrites(): string[] {
     const writes: string[] = [];
@@ -289,7 +298,7 @@ export class CompetencyManagementPage {
       const { pathname } = new URL(request.url());
       if (
         ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) &&
-        pathname.includes(TAGGING_BASE)
+        [TAGGING_BASE, CBE_BASE].some((base) => pathname.includes(base))
       ) {
         writes.push(`${request.method()} ${pathname}`);
       }

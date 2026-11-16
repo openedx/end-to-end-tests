@@ -58,19 +58,19 @@ export function taxonomyImportFile(): {
  * short so a badge never overflows its row.
  */
 export const COMPETENCY = {
-  communication: { value: 'Communication Skills', id: 'COMP-001' },
-  written: { value: 'Written Communication', id: 'COMP-001-A' },
-  verbal: { value: 'Verbal Communication', id: 'COMP-001-B' },
-  technical: { value: 'Technical Skills', id: 'COMP-002' },
-  python: { value: 'Python Programming', id: 'COMP-002-A' },
-  django: { value: 'Django Framework', id: 'COMP-002-A-1' },
+  communication: { value: 'E2E Communication Skills', id: 'COMP-001' },
+  written: { value: 'E2E Written Communication', id: 'COMP-001-A' },
+  verbal: { value: 'E2E Verbal Communication', id: 'COMP-001-B' },
+  technical: { value: 'E2E Technical Skills', id: 'COMP-002' },
+  python: { value: 'E2E Python Programming', id: 'COMP-002-A' },
+  django: { value: 'E2E Django Framework', id: 'COMP-002-A-1' },
   chain: [
-    { value: 'Chain 1', id: 'CH-1' },
-    { value: 'Chain 2', id: 'CH-2' },
-    { value: 'Chain 3', id: 'CH-3' },
-    { value: 'Chain 4', id: 'CH-4' },
-    { value: 'Chain 5', id: 'CH-5' },
-    { value: 'Chain 6', id: 'CH-6' },
+    { value: 'E2E Chain 1', id: 'CH-1' },
+    { value: 'E2E Chain 2', id: 'CH-2' },
+    { value: 'E2E Chain 3', id: 'CH-3' },
+    { value: 'E2E Chain 4', id: 'CH-4' },
+    { value: 'E2E Chain 5', id: 'CH-5' },
+    { value: 'E2E Chain 6', id: 'CH-6' },
   ],
 } as const;
 
