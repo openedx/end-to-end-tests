@@ -1670,7 +1670,7 @@ asserted.
 **Not filed:** the card fits a window about 500 px wide, the width the taxonomy
 list was checked at by hand, so the overflow is accepted below that width.
 
-### `TAG-007` — deleting a tag or taxonomy emits events for objects tagged in other taxonomies
+### `TAG-007` — deleting a tag or taxonomy emits search-index events for objects tagged in other taxonomies
 
 **Where:** `tag_pre_delete` in openedx-core's
 `src/openedx_tagging/signal_handlers.py`, added in
@@ -1692,10 +1692,11 @@ those ObjectTags removed, the same delete took 0.15 s.
 
 **Coverage impact:** filed as
 [openedx-core#934](https://github.com/openedx/openedx-core/issues/934), not
-asserted. The defect is outside the acceptance criteria the suite covers. It shows up in fixture cleanup: the suite
-seeds taxonomies with fixed tag values, tag-assignment tests leave ObjectTags
-behind, and on a stack where those accumulate, a taxonomy delete can exceed the
-client's 15 s `TIMEOUTS.action`. A fresh CI database is not affected.
+asserted. The defect is outside the acceptance criteria the suite covers. It
+shows up in fixture cleanup: the suite seeds taxonomies with fixed tag values,
+tag-assignment tests leave ObjectTags behind, and on a stack where those
+accumulate, a taxonomy delete can exceed the client's 15 s `TIMEOUTS.action`. A
+fresh CI database is not affected.
 
 ### The upload-agreement bump raced its own acceptance (suite-side)
 
