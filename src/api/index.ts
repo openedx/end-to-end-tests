@@ -53,7 +53,12 @@ export {
   type CourseEnrollmentDetails,
 } from './enrollment';
 export { COURSE_MODES_PATH, ensureCertificateBearingMode, fetchCourseModes } from './course-modes';
-export { COURSE_DETAIL_PATH, fetchCourseDetail, type CourseDetail } from './course-detail';
+export {
+  COURSE_DETAIL_PATH,
+  fetchCourseDetail,
+  isCourseHiddenFromCatalog,
+  type CourseDetail,
+} from './course-detail';
 export {
   CoursePreflightError,
   assertCourseAccessible,

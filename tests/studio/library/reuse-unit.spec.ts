@@ -3,19 +3,25 @@ import { checkA11y } from '../../../src/a11y';
 import { TIMEOUTS } from '../../../src/config';
 import {
   addContainerChildren,
+  buildSection,
   commitLibrary,
   createLibraryContainer,
   createXBlock,
   courseUsageKey,
   fetchContainerChildren,
   fetchDownstream,
+  fetchXBlockOutline,
   publishLibraryContainer,
   publishXBlock,
   renameLibraryContainer,
   importLibraryContent,
 } from '../../../src/api';
 import { testId } from '../../../src/reporting';
-import { waitForLearnerBlock, waitForSyncAvailable } from '../../../src/steps';
+import {
+  addLibraryUnitFromOutline,
+  waitForLearnerBlock,
+  waitForSyncAvailable,
+} from '../../../src/steps';
 import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, authorTextBlock, label } from './helpers';
 
 /**
@@ -23,11 +29,12 @@ import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, authorTextBlock, label } from './h
  * rejecting the library's later updates to it (TC-00348), asserted from the
  * learner's context.
  *
- * The reuse itself is the platform import the outline's Add sidebar calls
- * (`POST /xblock/` with the unit's `library_content_key`); that sidebar is the
- * authoring-MFE surface Epic 11 builds page objects for, so here the import is
- * driven through the API and the **sync** through the course's Libraries page
- * ("Review Content Updates"), which both supported releases render.
+ * The reuse is driven from the course outline: the subsection's "Use unit from
+ * library", the library, then "Add" on the unit — through the modal library
+ * picker or the outline's Add sidebar, whichever the release opens
+ * (`addLibraryUnitFromOutline`). The **sync** is driven through the course's
+ * Libraries page ("Review Content Updates"), which both supported releases
+ * render; TC-00348's import is its setup, through the API.
  */
 test.describe(
   'Library units reused in a course',
@@ -47,28 +54,42 @@ test.describe(
           seededLibrary,
           contentCourse,
           roundTripLearnerLater,
+          studioCourseOutlinePage,
+          libraryPicker,
+          authoringSidebar,
         },
         testInfo,
       ) => {
         void studioAuthorSession;
         await resyncStudioAuthor();
         const { unit } = seededLibrary.units;
-        const chapter = await createXBlock(page.request, config, {
-          parentLocator: courseUsageKey(contentCourse.courseKey),
-          category: 'chapter',
-          displayName: label('reuse-unit', testInfo.testId),
-        });
-        const sequential = await createXBlock(page.request, config, {
-          parentLocator: chapter,
-          category: 'sequential',
-          displayName: label('subsection', testInfo.testId),
-        });
+        // A subsection of this test's own (holding one blank unit, so its card can
+        // be found by that unit), to add the library unit to.
+        const section = await buildSection(
+          page.request,
+          config,
+          contentCourse.courseKey,
+          label('reuse-unit', testInfo.testId),
+        );
+        const blankUnit = section.units[0]!.usageKey;
+        const sequential = section.subsections[0]!.usageKey;
 
-        const imported = await importLibraryContent(page.request, config, {
-          parentLocator: sequential,
-          category: 'vertical',
-          libraryContentKey: unit.id,
-        });
+        await studioCourseOutlinePage.goto(contentCourse.courseKey);
+        const response = await addLibraryUnitFromOutline(
+          studioCourseOutlinePage,
+          { picker: libraryPicker, sidebar: authoringSidebar },
+          studioCourseOutlinePage.subsection(blankUnit),
+          { key: seededLibrary.libraryKey, title: seededLibrary.library.title },
+          unit.display_name,
+        );
+        expect(response.ok()).toBe(true);
+        const imported = (await response.json()) as { locator: string; upstreamRef: string };
+        // The unit lands as the subsection's next unit.
+        expect(
+          (await fetchXBlockOutline(page.request, config, sequential)).child_info?.children.map(
+            (c) => c.id,
+          ),
+        ).toEqual([blankUnit, imported.locator]);
         expect(imported.upstreamRef).toBe(unit.id);
         const children = await fetchContainerChildren(page.request, config, imported.locator);
         expect(children.map((c) => c.block_type)).toEqual(['html', 'problem']);

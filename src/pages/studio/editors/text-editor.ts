@@ -9,8 +9,9 @@ import { waitForWrite } from '../wait-for-write';
  * add-component tile picks a template.
  *
  * TinyMCE's toolbar buttons carry only localized labels, so formatting is applied
- * with keyboard shortcuts (Ctrl+B / Ctrl+I), which produce `<strong>` / `<em>` in
- * the saved OLX (measured) — the spec asserts on that HTML, never on the toolbar.
+ * with TinyMCE's default keyboard shortcuts — bold, italic, underline, headings —
+ * whose markup lands in the saved OLX (measured; the alignment shortcuts do
+ * nothing in this editor) — the spec asserts on that HTML, never on the toolbar.
  */
 export class StudioTextEditor {
   private readonly s = STUDIO_EDITOR_SELECTORS;
@@ -69,6 +70,21 @@ export class StudioTextEditor {
   /** Wraps subsequently typed text in italic (`<em>`) via Ctrl+I. */
   async italic(): Promise<void> {
     await this.page.keyboard.press('Control+i');
+  }
+
+  /** Underlines subsequently typed text via Ctrl+U (a `text-decoration: underline` span). */
+  async underline(): Promise<void> {
+    await this.page.keyboard.press('Control+u');
+  }
+
+  /** Turns the caret's block into a heading of `level` via Alt+Shift+<level> (`<h1>`–`<h6>`). */
+  async heading(level: 1 | 2 | 3 | 4 | 5 | 6): Promise<void> {
+    await this.page.keyboard.press(`Alt+Shift+${level}`);
+  }
+
+  /** Starts a new block at the caret (Enter). */
+  async newParagraph(): Promise<void> {
+    await this.page.keyboard.press('Enter');
   }
 
   /** Saves the editor, waiting for the `POST /xblock/<html>` carrying the content. */

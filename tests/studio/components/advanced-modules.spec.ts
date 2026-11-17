@@ -1,33 +1,28 @@
-import type { APIRequestContext } from '@playwright/test';
-
 import { expect, test } from '../../../src/fixtures';
 import {
   ADVANCED_BLOCK_SELECTORS,
   LEGACY_EDITOR_SELECTORS,
   TIMEOUTS,
   advancedBlockRoot,
-  type AppConfig,
 } from '../../../src/config';
 import {
-  addAdvancedModules,
   authorHtml,
   authorProblem,
   fetchConditionalContent,
   fetchCourseProgress,
   fetchWordCloudState,
   fetchXBlock,
-  advancedComponentTypes,
-  availableComponentTypes,
-  buildSection,
-  fetchContainer,
-  fetchContainerChildren,
   publishXBlock,
   updateXBlock,
 } from '../../../src/api';
 import type { RoundTripLearner } from '../../../src/fixtures';
-import type { StudioUnitPage } from '../../../src/pages/studio/unit.page';
 import { submitProblem } from '../../../src/steps';
 import { testId } from '../../../src/reporting';
+import {
+  expectRenderedForLearner,
+  listAndAddFromTile,
+  type AdvancedTileContext,
+} from './component-helpers';
 
 /**
  * The legacy XBlock configuration matrix (BTR "STUDIO XBLOCKS"): for each
@@ -48,15 +43,7 @@ import { testId } from '../../../src/reporting';
  * "not offered before" holds for it.
  */
 
-interface RowContext {
-  readonly request: APIRequestContext;
-  readonly config: AppConfig;
-  readonly courseKey: string;
-  readonly unitKey: string;
-  readonly sequentialKey: string;
-  readonly blockKey: string;
-  readonly studioUnitPage: StudioUnitPage;
-}
+type RowContext = AdvancedTileContext;
 
 interface Row<S = unknown> {
   readonly testId: string;
@@ -241,61 +228,6 @@ const ROWS: readonly Row[] = [
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/**
- * The Studio half every row shares: a fresh unit, the picker before (absent for
- * an opt-in module, offered for a default one), the module listed in Advanced
- * Settings, the picker after, and the block added from the Advanced tile.
- */
-async function listAndAddFromTile(
-  author: {
-    readonly request: APIRequestContext;
-    readonly config: AppConfig;
-    readonly studioUnitPage: StudioUnitPage;
-  },
-  courseKey: string,
-  module: Pick<Row, 'category' | 'offeredByDefault'>,
-  label: string,
-): Promise<RowContext> {
-  const { request, config, studioUnitPage } = author;
-  const section = await buildSection(request, config, courseKey, label, {
-    subsections: [{ units: [{ blocks: [] }] }],
-  });
-  const unit = section.units[0]!;
-  const offered = async () =>
-    advancedComponentTypes(await fetchContainer(request, config, unit.usageKey));
-
-  expect(
-    (await offered()).includes(module.category),
-    `${module.category} offered before it is listed`,
-  ).toBe(module.offeredByDefault);
-  expect(await addAdvancedModules(request, config, courseKey, [module.category])).toContain(
-    module.category,
-  );
-  await expect.poll(offered, { timeout: TIMEOUTS.contentPublish }).toContain(module.category);
-
-  // The UI action: the Advanced tile offers the module and adds it.
-  await studioUnitPage.goto(unit.usageKey);
-  const tiles = availableComponentTypes(await fetchContainer(request, config, unit.usageKey));
-  const blockKey = await studioUnitPage.addAdvancedComponent(
-    tiles.indexOf('advanced'),
-    module.category,
-  );
-  const children = await fetchContainerChildren(request, config, unit.usageKey);
-  expect(children.map((c) => [c.block_id, c.block_type])).toContainEqual([
-    blockKey,
-    module.category,
-  ]);
-  return {
-    request,
-    config,
-    courseKey,
-    unitKey: unit.usageKey,
-    sequentialKey: unit.sequentialUsageKey,
-    blockKey,
-    studioUnitPage,
-  };
-}
-
 test.describe(
   'Advanced component configuration',
   { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@mfe-learning'] },
@@ -324,23 +256,12 @@ test.describe(
             row,
             `E2E ${row.category} ${testInfo.testId.slice(-6)}R${testInfo.retry}`,
           );
-          const { request, courseKey, blockKey } = ctx;
-          const unit = { usageKey: ctx.unitKey, sequentialUsageKey: ctx.sequentialKey };
           const state = await row.configure?.(ctx);
-          await publishXBlock(request, config, unit.usageKey);
+          await publishXBlock(ctx.request, config, ctx.unitKey);
 
           // The learner: the block is served, and it renders.
           const learner = await advancedModulesLearnerLater();
-          await expect
-            .poll(async () => (await learner.outline()).blocks[blockKey]?.type, {
-              timeout: TIMEOUTS.contentPublish,
-            })
-            .toBe(row.category);
-          await learner.prime(unit.sequentialUsageKey);
-          await learner.unitPage.goto(courseKey, unit.sequentialUsageKey, unit.usageKey);
-          await expect(
-            learner.unitPage.advancedBlock(blockKey, row.category).rendered,
-          ).toBeVisible();
+          await expectRenderedForLearner(learner, ctx, row.category);
           await row.learnerSees?.(ctx, learner, state);
         },
       );

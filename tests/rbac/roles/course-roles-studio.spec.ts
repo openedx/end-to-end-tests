@@ -19,9 +19,10 @@ import { writableSection } from './helpers';
  *
  * `course_admin` and `course_staff` are identical everywhere except team
  * management, so that is where these cases separate them: both author the
- * course, only the admin may change who else can. What the console *offers* is
- * not the discriminator — it offers Assign Role to everyone (wg#603) — so the
- * platform's own answer is: `permissions/validate/me` for the right, and a real
+ * course, only the admin may change who else can. The console offers Assign
+ * Role only to an account that may manage a team in some scope (wg#603's fix),
+ * so the button is checked from each role's own console; the platform's answer
+ * decides the rest — `permissions/validate/me` for the right, and a real
  * `PUT roles/users/` for the outcome.
  */
 test.describe(
@@ -33,13 +34,18 @@ test.describe(
     test(
       'lets course staff author the course but not manage its team',
       {
-        annotation: [
-          testId('TC-00576'),
-          issue('https://github.com/openedx/wg-build-test-release/issues/603'),
-        ],
+        annotation: testId('TC-00576'),
       },
       async (
-        { page, config, authzTarget, studioAuthorSession, resyncStudioAuthor, rbacCast },
+        {
+          page,
+          config,
+          adminConsole,
+          authzTarget,
+          studioAuthorSession,
+          resyncStudioAuthor,
+          rbacCast,
+        },
         testInfo,
       ) => {
         void studioAuthorSession;
@@ -72,10 +78,13 @@ test.describe(
           staff.page.locator(STUDIO_OUTLINE_PAGE_SELECTORS.sectionCard).first(),
         ).toBeVisible({ timeout: TIMEOUTS.navigation });
 
-        // Team management: refused, both as a right and as a write.
+        // Team management: not offered, and refused both as a right and as a write.
         expect(await canI(staff.request, config, 'courses.manage_course_team', courseKey)).toBe(
           false,
         );
+        const staffConsole = adminConsole.consoleFor(staff.page);
+        await staffConsole.goto(courseKey);
+        await expect(staffConsole.assignRoleButton).toHaveCount(0);
         const other = await rbacCast('outsider');
         await expect(
           assignRole(staff.request, config, {
@@ -95,7 +104,7 @@ test.describe(
     test(
       'lets a course admin manage the team as well',
       { annotation: testId('TC-00577') },
-      async ({ page, config, authzTarget, studioAuthorSession, rbacCast }) => {
+      async ({ page, config, adminConsole, authzTarget, studioAuthorSession, rbacCast }) => {
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
         const admin = await rbacCast('courseAdmin');
@@ -114,7 +123,10 @@ test.describe(
           true,
         );
 
-        // …plus adding somebody, as the admin itself.
+        // …plus the console's Assign Role, and adding somebody, as the admin itself.
+        const adminView = adminConsole.consoleFor(admin.page);
+        await adminView.goto(courseKey);
+        await expect(adminView.assignRoleButton).toBeVisible();
         const assigned = await assignRole(admin.request, config, {
           role: 'course_staff',
           scopes: [courseKey],

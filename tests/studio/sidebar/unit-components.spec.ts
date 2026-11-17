@@ -61,7 +61,7 @@ test.describe(
     );
 
     test(
-      'duplicates a component from its sidebar overflow menu',
+      'duplicates and deletes a component from its sidebar overflow menu',
       { tag: '@smoke', annotation: testId('TC-00499') },
       async ({
         page,
@@ -78,25 +78,29 @@ test.describe(
           authoringCourse.courseKey,
           `E2E comp actions ${test.info().testId.slice(-6)}`,
         );
-        const unit = section.units.at(0);
-        const first = section.blocks.at(0);
-        if (unit === undefined || first === undefined) {
-          throw new Error('buildSection produced no unit with a component.');
-        }
+        const unit = section.units[0]!;
+        const first = section.blocks[0]!;
+        const childKeys = async () =>
+          (await fetchContainerChildren(page.request, config, unit.usageKey)).map(
+            (c) => c.block_id,
+          );
         await studioUnitPage.goto(unit.usageKey);
+        const before = await childKeys();
 
-        const before = (await fetchContainerChildren(page.request, config, unit.usageKey)).length;
-
-        // The selected component's overflow menu duplicates it; the unit gains a child.
+        // The selected component's Duplicate adds a copy to the unit.
         await studioUnitPage.selectComponent(first.usageKey);
-        const items = await authoringSidebar.openItemMenu();
-        await items.first().click();
+        await (await authoringSidebar.itemMenuAction('component', 'duplicate')).click();
         await expect
-          .poll(
-            async () => (await fetchContainerChildren(page.request, config, unit.usageKey)).length,
-            { timeout: TIMEOUTS.contentWrite },
-          )
-          .toBe(before + 1);
+          .poll(async () => (await childKeys()).length, { timeout: TIMEOUTS.contentWrite })
+          .toBe(before.length + 1);
+
+        // Its Delete asks for confirmation; confirmed, the component is gone.
+        await studioUnitPage.selectComponent(first.usageKey);
+        await authoringSidebar.deleteSelected('component');
+        await expect
+          .poll(childKeys, { timeout: TIMEOUTS.contentWrite })
+          .not.toContain(first.usageKey);
+        expect(await childKeys()).toHaveLength(before.length);
       },
     );
   },

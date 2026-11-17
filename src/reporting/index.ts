@@ -50,6 +50,7 @@ export {
 } from './timing';
 export { default as TimingReporter, type TimingReporterOptions } from './timing-reporter';
 export { KNOWN_GAP_ANNOTATION_TYPE, knownGap, type KnownGapAnnotation } from './known-gap';
+export { DISPUTED_ANNOTATION_TYPE, disputed, type DisputedAnnotation } from './disputed';
 export {
   BTR_RUN_SCHEMA_VERSION,
   casesFrom,

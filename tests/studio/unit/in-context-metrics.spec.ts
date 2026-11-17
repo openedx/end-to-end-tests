@@ -1,7 +1,7 @@
 import { expect, test } from '../../../src/fixtures';
 import { STUDIO_ANALYTICS_SELECTORS, TIMEOUTS } from '../../../src/config';
 import { checkA11y } from '../../../src/a11y';
-import { knownGap, testId } from '../../../src/reporting';
+import { testId } from '../../../src/reporting';
 import { SIDEBAR_A11Y_BASELINE } from '../sidebar/helpers';
 
 /**
@@ -84,30 +84,27 @@ test.describe('Aspects in-context metrics on the unit page', { tag: [...TAGS] },
     },
   );
 
-  test(
-    "a text and a numeric problem open their dashboards from the unit's Analytics",
-    {
-      annotation: knownGap(
-        'The sheet row after TC-00316 ("Drill into Problem Analytics from Unit Sidebar") has no test id yet',
-      ),
-    },
-    async ({ analyticsCourse, inContextViewer }) => {
-      const problemUnit = analyticsCourse.section.subsections[0]!.units[0]!;
-      const { unitPage, analytics } = await inContextViewer(analyticsCourse.courseKey);
-      await unitPage.goto(problemUnit.usageKey);
-      await analytics.open({ expectDashboard: false });
+  // The sheet row after TC-00316 ("Drill into Problem Analytics from Unit
+  // Sidebar") has no test id yet; annotate this test once it has one.
+  test("a text and a numeric problem open their dashboards from the unit's Analytics", async ({
+    analyticsCourse,
+    inContextViewer,
+  }) => {
+    const problemUnit = analyticsCourse.section.subsections[0]!.units[0]!;
+    const { unitPage, analytics } = await inContextViewer(analyticsCourse.courseKey);
+    await unitPage.goto(problemUnit.usageKey);
+    await analytics.open({ expectDashboard: false });
 
-      const dashboards: string[] = [];
-      // The unit's multiple-choice problem (a non-numeric answer), then its numerical one.
-      for (const problem of problemUnit.blocks) {
-        const load = await analytics.drillInto(problem.displayName);
-        expect(load, problem.displayName).toMatchObject({ key: problem.usageKey, status: 200 });
-        dashboards.push(load.dashboard!.dashboardId);
-        await analytics.back();
-        await expect(analytics.title).toHaveText(problemUnit.displayName);
-      }
-      // Both are problems: the same problem dashboard, filtered to each.
-      expect(new Set(dashboards).size).toBe(1);
-    },
-  );
+    const dashboards: string[] = [];
+    // The unit's multiple-choice problem (a non-numeric answer), then its numerical one.
+    for (const problem of problemUnit.blocks) {
+      const load = await analytics.drillInto(problem.displayName);
+      expect(load, problem.displayName).toMatchObject({ key: problem.usageKey, status: 200 });
+      dashboards.push(load.dashboard!.dashboardId);
+      await analytics.back();
+      await expect(analytics.title).toHaveText(problemUnit.displayName);
+    }
+    // Both are problems: the same problem dashboard, filtered to each.
+    expect(new Set(dashboards).size).toBe(1);
+  });
 });

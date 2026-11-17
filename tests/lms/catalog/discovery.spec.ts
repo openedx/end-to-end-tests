@@ -55,8 +55,8 @@ test.describe('Course catalog discovery', () => {
   );
 
   test(
-    'the page chrome labels its brand link',
-    { tag: ['@smoke', '@frontend-base'], annotation: testId('TC-00014') },
+    'a11y: the shell chrome labels its brand links',
+    { tag: ['@smoke', '@frontend-base'] },
     async ({ page, catalogPage }) => {
       // The frontend-base shell's header and footer each wrap the site logo in a
       // link with no accessible name, so every page served in that shell fails
@@ -234,11 +234,10 @@ test.describe('Course catalog discovery', () => {
   // tolerates the rule for this one screen; this asserts the state we actually
   // want, and should be re-enabled alongside a course that passes it.
   test.fixme(
-    "the About page's course content distinguishes links without colour",
+    "a11y: the About page's course content distinguishes links without colour",
     {
       tag: ['@smoke', '@authenticated'],
       annotation: [
-        testId('TC-00018'),
         knownGap(
           'Demo course overview HTML has a colour-only link (axe link-in-text-block, WCAG 1.4.1): a content fix, not a platform one',
         ),

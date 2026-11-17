@@ -1,9 +1,9 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { LIBRARY_ROLES, listUserAssignments } from '../../../src/api';
+import { LIBRARY_ROLES, listUserAssignments, revokeRole } from '../../../src/api';
 import { seedScopeAssignments } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { issue, testId } from '../../../src/reporting';
 import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -183,15 +183,7 @@ test.describe(
     test(
       'offers no way to remove your own admin role',
       {
-        annotation: [
-          testId('TC-00567'),
-          knownGap(
-            'The API does not enforce the rule at all: a library admin revoking its own ' +
-              'library_admin is answered 207 role_removed (RBAC-007). On verawood the console ' +
-              'also omits the control rather than greying it out with a tooltip.',
-          ),
-          issue('https://github.com/openedx/openedx-authz/issues/526'),
-        ],
+        annotation: [testId('TC-00567')],
       },
       async ({
         page,
@@ -232,17 +224,48 @@ test.describe(
     );
 
     test(
+      'refuses an admin revoking its own admin role through the API',
+      {
+        tag: '@rbac-self-revoke-guard',
+        annotation: [
+          testId('TC-00567'),
+          issue('https://github.com/openedx/openedx-authz/issues/526'),
+        ],
+      },
+      async ({ page, config, authoringLibrary, studioAuthorSession, studioColleague }) => {
+        void studioAuthorSession;
+        const admin = await studioColleague();
+        await seedScopeAssignments(
+          page.request,
+          config,
+          authoringLibrary.id,
+          [admin.identity.username],
+          ['library_admin', 'library_author'],
+        );
+
+        // The console hides the control; the platform refuses the request too —
+        // an error row for the caller, nothing removed (`RBAC-007`, fixed in
+        // openedx-authz 2.0.0).
+        const attempt = await revokeRole(
+          admin.request,
+          config,
+          { role: 'library_admin', scope: authoringLibrary.id, users: [admin.identity.username] },
+          { allowErrors: true },
+        );
+        expect(attempt.completed).toEqual([]);
+        expect(attempt.errors.map((row) => row.error)).toEqual(['cannot_remove_own_admin_role']);
+        const roles = (
+          await listUserAssignments(admin.request, config, admin.identity.username)
+        ).assignments.map((row) => row.role);
+        expect(roles).toContain('library_admin');
+      },
+    );
+
+    test(
       'lays the table out as Team Members does, greying out your own admin role',
       {
         tag: '@rbac-audit-team-layout',
-        annotation: [
-          testId('TC-00565'),
-          testId('TC-00567'),
-          knownGap(
-            'The API does not enforce the rule at all: a library admin revoking its own ' +
-              'library_admin is answered 207 role_removed (RBAC-007).',
-          ),
-        ],
+        annotation: [testId('TC-00565'), testId('TC-00567')],
       },
       async ({
         page,

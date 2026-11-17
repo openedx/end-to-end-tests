@@ -48,11 +48,8 @@ test.describe('Course home outline', () => {
   );
 
   test(
-    'the outline meets WCAG 2.2 AA',
-    {
-      tag: ['@smoke', '@authenticated', '@mfe-learning'],
-      annotation: testId('TC-00025'),
-    },
+    'a11y: the outline meets WCAG 2.2 AA',
+    { tag: ['@smoke', '@authenticated', '@mfe-learning'] },
     async ({ page, courseOutlinePage, enrolledCourse }) => {
       // Each of the six section headers is a `role="button"` element containing
       // focusable content, which axe flags as `nested-interactive` (serious): a

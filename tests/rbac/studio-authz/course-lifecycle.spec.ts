@@ -17,7 +17,7 @@ import {
   waitForRerun,
 } from '../../../src/api';
 import { TIMEOUTS, getRunId } from '../../../src/config';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { disputed, issue, knownGap, testId } from '../../../src/reporting';
 import { STUDIO_AUTHZ_TAGS } from './helpers';
 import { migrationCourse, newOrgName } from '../transition/helpers';
 
@@ -115,9 +115,12 @@ test.describe(
       },
     );
 
+    // Supporting test, no case id: today's behaviour behind TC-00640's held case
+    // below — the organization-wide role reaches existing courses, and creating
+    // one is refused (`RBAC-015`).
     test(
-      'lets an organization instructor create a course in that organization',
-      { tag: '@authz-auto-migration', annotation: testId('TC-00640') },
+      'gives an organization instructor its existing courses but refuses it course creation',
+      { tag: '@authz-auto-migration' },
       async (
         {
           page,
@@ -184,7 +187,7 @@ test.describe(
           // `add_instructor` then assigns the creator's instructor role through
           // AuthZ and fails its own caller-authority check, which does not yet
           // see that role (`RBAC-015`). The course is left half set up. The
-          // case asks for creation to succeed; the held case below is that
+          // case asks for creation to succeed; the `test.fail` case below is that
           // expectation.
           const identity = newCourseIdentity(
             config,
@@ -219,6 +222,11 @@ test.describe(
         tag: '@authz-auto-migration',
         annotation: [
           testId('TC-00632'),
+          disputed(
+            'RBAC-016 (by design): a re-run has never copied the source course’s team, with or ' +
+              'without AuthZ — only the re-running user is added. The sheet should drop "all ' +
+              'team members are copied", or the feature should be requested.',
+          ),
           issue('https://github.com/openedx/wg-build-test-release/issues/617'),
         ],
       },
@@ -323,7 +331,7 @@ test.describe(
           // whole team to be carried across in both systems, but a re-run has
           // never copied the course team, with or without AuthZ: only the
           // re-running user is added (`RBAC-016`, by design). The sheet marks
-          // this row failed; the held case below is the sheet's expectation.
+          // this row failed; the `disputed` annotation says what it should say.
           expect([...copied.authz, ...copied.legacy]).not.toContain(
             `${staff.identity.username}:course_staff`,
           );
@@ -414,7 +422,7 @@ test.describe(
       },
     );
 
-    test.fixme(
+    test(
       'lets an organization-wide holder create a course under an AuthZ override',
       {
         tag: '@authz-auto-migration',
@@ -433,6 +441,13 @@ test.describe(
         { config, adminLms, authzTarget, automaticMigrationTarget, studioAuthorSession, rbacCast },
         testInfo,
       ) => {
+        // Each run leaves a half-created course behind: the course is written
+        // before `add_instructor` refuses.
+        test.fail(
+          true,
+          'RBAC-015: course creation answers 403 under an organization-level AuthZ override: ' +
+            'https://github.com/openedx/openedx-authz/issues/521',
+        );
         void studioAuthorSession;
         void automaticMigrationTarget;
         void authzTarget;
@@ -486,92 +501,6 @@ test.describe(
             );
             await revokeLegacyRole(session, config, rowPk);
           });
-        }
-      },
-    );
-
-    test.fixme(
-      'carries an AuthZ course’s team into its re-run',
-      {
-        tag: '@authz-auto-migration',
-        annotation: [
-          testId('TC-00632'),
-          issue('https://github.com/openedx/wg-build-test-release/issues/617'),
-          knownGap(
-            'The sheet expects a re-run to copy the course team in both systems, but re-runs have ' +
-              'never copied the team, with or without AuthZ: only the re-running user is added ' +
-              '(`RBAC-016`, by design). Held until the feature is requested or the case is reworded.',
-          ),
-        ],
-      },
-      async (
-        {
-          page,
-          config,
-          adminLms,
-          authzTarget,
-          automaticMigrationTarget,
-          studioAuthorSession,
-          resyncStudioAuthor,
-          rbacCast,
-        },
-        testInfo,
-      ) => {
-        void studioAuthorSession;
-        void automaticMigrationTarget;
-        void authzTarget;
-        const org = newOrgName(getRunId(), `W${testInfo.parallelIndex}R${testInfo.retry}`);
-        const source = await migrationCourse(
-          page.request,
-          config,
-          getRunId(),
-          `WW${testInfo.parallelIndex}R${testInfo.retry}`,
-          org,
-        );
-        const staff = await rbacCast('courseStaff');
-        await resyncStudioAuthor();
-        await grantCourseTeamRole(page.request, config, source, [staff.identity.email], 'staff');
-        await adminLms((session) =>
-          setOrgFlagOverride(session, config, org, {
-            flag: AUTHZ_COURSE_AUTHORING_FLAG,
-            choice: 'on',
-            enabled: true,
-            note: `e2e ${testInfo.testId}`,
-          }),
-        );
-
-        try {
-          const identity = newCourseIdentity(
-            config,
-            getRunId(),
-            `WN${testInfo.parallelIndex}R${testInfo.retry}`,
-          );
-          const rerunKey = await adminLms(async (session) => {
-            const key = await rerunCourse(session, config, source, {
-              ...identity,
-              org,
-              run: 'e2e-rerun',
-              courseKey: courseKeyFor(org, identity.number, 'e2e-rerun'),
-            });
-            await waitForRerun(session, config, key);
-            return key;
-          });
-
-          await expect
-            .poll(
-              async () =>
-                adminLms(async (session) =>
-                  (await listRoleUsers(session, config, rerunKey, { pageSize: 100 })).members
-                    .filter((member) => member.username === staff.identity.username)
-                    .flatMap((member) => member.roles),
-                ),
-              { timeout: TIMEOUTS.rbacMigration },
-            )
-            .toContain('course_staff');
-        } finally {
-          await adminLms((session) =>
-            clearOrgFlagOverride(session, config, org, AUTHZ_COURSE_AUTHORING_FLAG, 'e2e teardown'),
-          );
         }
       },
     );

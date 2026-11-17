@@ -5,7 +5,7 @@
  * Like CAPA (`capa.ts`), these blocks ship no test ids and no useful roles: the
  * anchors are the server-rendered classes each block's own template and scripts
  * key off, named here with the package and template they come from. Measured on
- * Tutor `main` (2026-09-24).
+ * Tutor `main` (2026-09-24; drag-and-drop, ORA and SCORM 2026-11-08).
  */
 export const ADVANCED_BLOCK_SELECTORS = {
   /** xblocks-contrib `annotatable`: one highlighted span per `<annotation>`. */
@@ -40,13 +40,19 @@ const ROOTS: Readonly<Record<string, string>> = {
   annotatable: 'div.annotatable-wrapper',
   conditional: 'div.conditional-wrapper',
   done: 'div.done_onoffswitch_wrapper',
+  // xblock-drag-and-drop-v2: the learner view's root (rendered by the block's JS).
+  'drag-and-drop-v2': 'div.xblock--drag-and-drop',
   edx_sga: 'div.sga-block',
   'google-calendar': 'div.google-calendar-xblock-wrapper',
   'google-document': 'div.google-docs-xblock-wrapper',
   lti_consumer: '.lti-consumer-container',
+  // edx-ora2 `oa_base.html`: hosts both the legacy and the new ORA views.
+  openassessment: 'div.wrapper--openassessment',
   pdf: 'div.pdf_block',
   poll: 'div.poll-block',
   recommender: 'div.recommenderBlock',
+  // openedx-scorm-xblock `scormxblock.html`: rendered with or without a package.
+  scorm: 'div.scorm-xblock',
   survey: 'div.poll-block table.survey-table',
   // The block's root carries an id; the results cloud inside it reuses the class.
   word_cloud: 'div.word_cloud[id^="word_cloud_"]',

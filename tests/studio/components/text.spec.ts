@@ -15,8 +15,7 @@ import { buildUnit } from './component-helpers';
  * exploratory "test all features" case — a representative set is covered here).
  *
  * Formatting is applied by keyboard shortcut, and the assertion is the saved OLX
- * HTML — `<strong>` and `<em>` — plus the block rendering that markup for the
- * learner. Toolbar labels (localized) are never matched.
+ * HTML — bold, italic and underline runs and a heading. Toolbar labels (localized) are never matched.
  */
 test.describe(
   'Studio text component',
@@ -25,7 +24,7 @@ test.describe(
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
     test(
-      'authors bold and italic text in the editor',
+      'authors formatted text in the editor: inline styles and a heading',
       { tag: '@smoke', annotation: [testId('TC-00217'), testId('TC-00218')] },
       async ({
         page,
@@ -52,6 +51,14 @@ test.describe(
         await studioTextEditor.type(' ');
         await studioTextEditor.italic();
         await studioTextEditor.type('italic');
+        await studioTextEditor.italic();
+        await studioTextEditor.type(' ');
+        await studioTextEditor.underline();
+        await studioTextEditor.type('underlined');
+        await studioTextEditor.underline();
+        await studioTextEditor.newParagraph();
+        await studioTextEditor.heading(2);
+        await studioTextEditor.type('E2E heading');
         await studioTextEditor.save();
 
         const components = await fetchContainerChildren(page.request, config, unitKey);
@@ -61,6 +68,8 @@ test.describe(
         expect(data).toContain('<strong>bold</strong>');
         expect(data).toContain('<em>italic</em>');
         expect(data).toContain('E2E plain');
+        expect(data).toMatch(/<span style="text-decoration: underline;?">underlined<\/span>/);
+        expect(data).toMatch(/<h2[^>]*>E2E heading<\/h2>/);
       },
     );
   },

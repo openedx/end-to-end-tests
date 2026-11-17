@@ -145,7 +145,8 @@ test.describe(
         );
         const unitKey = section.units[0]?.usageKey ?? '';
 
-        // Published by the admin account, not by the author that built it.
+        // Published by the course's AuthZ admin — the worker author, whose rights
+        // on this course now come from AuthZ alone.
         await publishXBlock(admin.request, config, unitKey);
         expect((await fetchXBlockOutline(page.request, config, unitKey)).published).toBe(true);
 
@@ -276,7 +277,8 @@ test.describe(
         );
         const unitKey = section.units[0]?.usageKey ?? '';
 
-        // Tagged by the admin account; read back from the platform's own store.
+        // Tagged by the course's AuthZ admin (the worker author); read back from
+        // the platform's own store.
         const tag = TAG.childOneA;
         await setObjectTags(admin.request, config, unitKey, authoringTaxonomy.taxonomy.id, [tag]);
         const applied = await fetchObjectTags(page.request, config, unitKey);

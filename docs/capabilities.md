@@ -99,6 +99,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `cohorts` | declared | declared | declared | declared | declared | declared | |  |
 | `content-libraries` | declared | declared | — | — | — | — | |  |
 | `content-libraries-v1` | declared | declared | — | — | — | — | |  |
+| `content-libraries-v1-create` | — | declared | — | — | — | — | |  |
 | `courseware-navigation-sidebar` | declared | declared | — | — | — | — | |  |
 | `courseware-legacy-navigation` | — | — | declared | declared | declared | declared | |  |
 | `catalog-search` | declared | declared | declared | declared | declared | declared | |  |
@@ -126,6 +127,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `rbac-matrix-parity` | declared | — | — | — | — | — | |  |
 | `rbac-course-editor-auditor` | declared | — | — | — | — | — | |  |
 | `rbac-audit-team-layout` | declared | — | — | — | — | — | |  |
+| `rbac-self-revoke-guard` | declared | — | — | — | — | — | |  |
 | `rbac-error-view-action` | — | declared | — | — | — | — | |  |
 | `certificate-web-view` | — | declared | declared | declared | declared | declared | |  |
 | `recommender-studio-settings` | declared | — | — | — | — | — | |  |
@@ -174,7 +176,7 @@ A target that differs from the stock setting declares the other half.
 | Capability | What it means | Tag | Known to support |
 | --- | --- | --- | --- |
 | `studio` | Studio (the CMS) and the course-authoring MFE are present and the suite may author against them. Makes `CMS_BASE_URL` required and enables the `author` role. Undeclared, the whole `tests/studio/` tree skips, so an LMS-only target runs cleanly. | Every Studio and authored-content spec (most carry it through a shared tag list). | every release CI runs |
-| `catalog-search` | Search and filtering in the catalog MFE, gated on the LMS's top-level `ENABLE_COURSE_DISCOVERY`. Without it the catalog has no search field, only a paginated list. Ask the install rather than assuming: `curl -s <LMS_BASE_URL>/api/mfe_config/v1 \| grep ENABLE_COURSE_DISCOVERY`. | The search cases of `tests/lms/catalog/discovery.spec.ts`. Discovery and enrollment journeys stay ungated. | every release CI runs |
+| `catalog-search` | Search and filtering in the catalog MFE, gated on the LMS's top-level `ENABLE_COURSE_DISCOVERY`. Without it the catalog has no search field, only a paginated list. Ask the install rather than assuming: `curl -s <LMS_BASE_URL>/api/mfe_config/v1 \| grep ENABLE_COURSE_DISCOVERY`. | The search cases of `tests/lms/catalog/discovery.spec.ts`, and the course reindex case (`tests/studio/outline/reindex.spec.ts`, which reads the catalog search). Discovery and enrollment journeys stay ungated. | every release CI runs |
 | `email-inbox` | A mailbox the suite can read is configured (`MAIL_PROVIDER`, see `src/mail/`) and the target's mail reaches it. Declaring it without `MAIL_PROVIDER` is a configuration error. | The e-mail cases: password reset, dashboard e-mail settings, notification e-mail, bulk e-mail. | `main`, `verawood` (CI's Mailpit service) |
 | `certificates` | Course certificates can be generated. The platform-wide switch is off on a fresh install. The suite turns it on through the admin account and skips without one. | The certificate specs: Studio settings, the instructor dashboard's Certificates tab and report, learner certificates, profile visibility. | every release CI runs |
 | `special-exams` | `ENABLE_SPECIAL_EXAMS` is on (LMS and CMS; off on a default install): timed subsections register as exams, and the instructor dashboard offers its Special Exams tab. | TC-00541, and TC-00514's expected tab set. | `main`, `verawood` |
@@ -199,6 +201,7 @@ A target that differs from the stock setting declares the other half.
 | --- | --- | --- | --- |
 | `content-libraries` | Content libraries v2 (Learning Core): the library-authoring MFE, `/api/libraries/v2/`, and reuse of library content in courses. Team management is `rbac`, not this. | `tests/studio/library/`, and the library cases in `tests/rbac/`. | `main`, `verawood`. `ulmo` and earlier are not covered. |
 | `content-libraries-v1` | Legacy (modulestore) libraries and the migrator into v2. Hidden once `contentstore.new_studio_mfe.disable_legacy_libraries` is on. | The legacy-library and migration cases in `tests/studio/library/`. | `main`, `verawood` (a default install still creates them) |
+| `content-libraries-v1-create` | Studio Home creates a legacy library: "New library" on the Legacy Libraries tab opens the authoring MFE's legacy create form (`/libraries-v1/create`). `master` dropped the form, so on `main` legacy libraries exist but are not created from the UI. Requires `content-libraries-v1`. | TC-00250. | `verawood` |
 | `taxonomies` | Content tagging: the taxonomy pages (`ENABLE_TAGGING_TAXONOMY_PAGES`) and the tag drawers. Managing taxonomies needs the admin account. | `tests/studio/tagging/`, and tag filters in `tests/studio/library/`. | `main`, `verawood` |
 | `competencies` | Competency taxonomies: the import wizard's Taxonomy Type select (Tags or Competency) and the type icon on each taxonomy card. Needs openedx-core `taxonomy_type` support, frontend-app-authoring #3208 / #3255, and openedx-platform #39086 / #39110 (the list and detail responses serve `taxonomy_type`); `verawood` pins openedx-core 1.0.3 and has none of them. Also the Competency Management entry points (the "Apply Competencies" menu item and card footer button) and the route guard on `/taxonomy/<id>/competencies`: frontend-app-authoring #3261 and #3264, from openedx-core #663 and #707. Requires `taxonomies`. | `tests/studio/tagging/taxonomy-type.spec.ts`, `tests/studio/tagging/competency-entry-points.spec.ts`, `tests/studio/tagging/competency-route-guard.spec.ts`. | `main` |
 | `studio-sidebar` | The Verawood authoring sidebar: the Info / Add / Align / Help rail on the outline and the Info / Add / Align rail on the unit page. | `tests/studio/sidebar/`, and the Align cases in `tests/studio/tagging/`. | `main`, `verawood`. Not rendered on `ulmo` and earlier. |
@@ -238,6 +241,7 @@ permanently red case. Declare one where the behaviour is right.
 | `rbac-matrix-parity` | The console's library permission matrix matches the API's own permission list. `verawood` (openedx-authz 1.21) renders 14 rows for 11 permissions (wg-build-test-release#609). | The fidelity half of the permission-matrix case. | `main` |
 | `rbac-course-editor-auditor` | The console offers Course Editor and Course Auditor like the other course roles (frontend-app-admin-console#209). `verawood` greys them out in the permission matrix as "coming soon". | The live-roles half of the permission-matrix case (TC-00569). | `main` |
 | `rbac-audit-team-layout` | The user audit view is laid out like the Team Members table (frontend-app-admin-console#255): Role, Scope, Organization, Permissions, Actions, and a greyed delete control with a tooltip on your own admin row. `verawood` has the older six-column table and omits that control. | The layout halves of TC-00565 and TC-00567. | `main` |
+| `rbac-self-revoke-guard` | The authz API refuses an admin removing its own admin role (`cannot_remove_own_admin_role`, openedx-authz ≥ 2.0.0, openedx-authz#543). `verawood` pins 1.23.0, which removes it (`RBAC-007`). Requires `rbac`. | The API half of TC-00567. | `main` |
 | `rbac-error-view-action` | The console's not-found view offers a working way back. On `main` the action does nothing (`RBAC-008`). | TC-00442. | `verawood` |
 | `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood`, `ulmo`, `teak`, `sumac`, `redwood` |
 | `recommender-studio-settings` | The recommender's Studio editor shows the settings it saved (recommender-xblock ≥ 5.1.0). `verawood` pins 5.0.0 (`XBLOCK-002`). | TC-00132. | `main` |

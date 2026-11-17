@@ -71,6 +71,14 @@ export const CAPABILITIES = [
   // default install (measured on `main`) still creates them, so `main` and
   // `verawood` declare this. Gates only the BTR migration cases.
   'content-libraries-v1',
+  // Studio Home can still **create** a legacy library: on the Legacy Libraries
+  // tab, "New library" opens the authoring MFE's legacy create form
+  // (`/libraries-v1/create`, `release/verawood`). `master` dropped that form —
+  // its "New library" only ever creates a v2 library — so on `main` legacy
+  // libraries exist (`content-libraries-v1`) but cannot be created from the UI.
+  // Declared where the form ships, like `rbac-error-view-action`. Requires
+  // `content-libraries-v1` (`CAPABILITY_REQUIRES`). Gates TC-00250.
+  'content-libraries-v1-create',
   // The learning MFE's in-course outline sidebar, behind the
   // `courseware.enable_navigation_sidebar` waffle flag. Its counterpart describes
   // the installations that keep the older in-course navigation instead (ulmo and
@@ -248,6 +256,13 @@ export const CAPABILITIES = [
   // shows the scope key, adds a separate expander column and omits the control
   // on your own admin row altogether. Declared where the new layout ships.
   'rbac-audit-team-layout',
+  // The **API refuses an admin removing its own admin role**: openedx-authz
+  // ≥ 2.0.0 (openedx-authz#543) answers the self-revoke with a
+  // `cannot_remove_own_admin_role` error row and keeps the role. `verawood`
+  // pins 1.23.0, which removes it (`RBAC-007`), so the guard there is the
+  // console's alone. Declared where the API guard ships. Requires `rbac`
+  // (`CAPABILITY_REQUIRES`).
+  'rbac-self-revoke-guard',
   // The console's **not-found view offers a working way back**. On `verawood`
   // its "Back to Studio" action carries a URL and leaves the route; on `main`
   // the same anchor has no `href` and its handler does nothing (`RBAC-008`), so
@@ -420,6 +435,8 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   'analytics-in-context-cards': 'analytics-in-context',
   'analytics-staff-video-counts': 'analytics',
   competencies: 'taxonomies',
+  'content-libraries-v1-create': 'content-libraries-v1',
+  'rbac-self-revoke-guard': 'rbac',
 };
 
 export function isCapability(value: string): value is Capability {

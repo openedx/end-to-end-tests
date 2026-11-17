@@ -3,6 +3,7 @@ import {
   deactivateAccount,
   fetchCourseIndex,
   fetchCourseTeam,
+  grantCourseTeamRole,
   listCourseAccessRoles,
   listRoleUsers,
   listUserAssignments,
@@ -40,10 +41,7 @@ test.describe(
     test(
       'lands a legacy role added from the instructor dashboard in AuthZ',
       {
-        annotation: [
-          testId('TC-00619'),
-          issue('https://github.com/openedx/frontend-app-admin-console/issues/259'),
-        ],
+        annotation: testId('TC-00619'),
       },
       async ({
         page,
@@ -83,17 +81,61 @@ test.describe(
           )
           .toEqual(['course_beta_tester']);
 
-        // The console lists the assignment without a display name for the role:
-        // it knows ten role names and this is not one of them (`RBAC-003`), which
-        // is the sheet's own note on this case. `verawood` leaves the Role cell
-        // empty; `main` shows the bare role key in the badge. The row is located
-        // by our account's e-mail, never by a label.
+        // The console lists the assignment. Whether it names the role is the
+        // held case below (`RBAC-003`). The row is located by our account's
+        // e-mail, never by a label.
         await adminConsole.console.goto(courseKey);
         const table = adminConsole.teamMembers;
         const row = table.rowsFor(newMember.identity.email);
         await expect(row).toHaveCount(1);
         await expect(table.roleMarker(row)).toHaveCount(1);
-        await expect.poll(() => table.namesRole(row, 'course_beta_tester')).toBe(false);
+      },
+    );
+
+    test(
+      'names a legacy-added Beta Tester’s role in the console',
+      {
+        annotation: [
+          testId('TC-00619'),
+          issue('https://github.com/openedx/frontend-app-admin-console/issues/259'),
+        ],
+      },
+      async ({ page, config, authzTarget, adminConsole, studioAuthorSession, rbacCast }) => {
+        test.fail(
+          true,
+          'RBAC-003: the console has no display name for course_beta_tester — verawood leaves ' +
+            'the Role cell empty, main shows the bare role key: ' +
+            'https://github.com/openedx/frontend-app-admin-console/issues/259',
+        );
+        void studioAuthorSession;
+        const courseKey = authzTarget.courseKey;
+        const member = await rbacCast('beta');
+        // Setup: the legacy grant the dashboard's beta-tester dialog makes (the
+        // case above drives the dialog itself), landing in AuthZ.
+        await grantCourseTeamRole(
+          page.request,
+          config,
+          courseKey,
+          [member.identity.username],
+          'beta',
+        );
+        await expect
+          .poll(
+            async () =>
+              (
+                await listRoleUsers(page.request, config, courseKey, { pageSize: 100 })
+              ).members.find((m) => m.username === member.identity.username)?.roles ?? [],
+            { timeout: TIMEOUTS.rbacMigration },
+          )
+          .toEqual(['course_beta_tester']);
+
+        // The sheet: "the user appears listed with the role 'Beta Tester'". The
+        // console's own reading of the role, never its label, decides.
+        await adminConsole.console.goto(courseKey);
+        const table = adminConsole.teamMembers;
+        const row = table.rowsFor(member.identity.email);
+        await expect(row).toHaveCount(1);
+        await expect.poll(() => table.namesRole(row, 'course_beta_tester')).toBe(true);
       },
     );
 

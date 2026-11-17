@@ -8,6 +8,7 @@ import {
   type LearnerListResult,
 } from '../../../src/api';
 import {
+  awaitCertificateDownloadable,
   mintCertificateByException,
   waitForLearnerProgress,
   waitForReport,
@@ -93,23 +94,36 @@ test.describe(
         void certificateGenerationEnabled;
         const courseKey = certificateCourse.courseKey;
         const username = certificateLearner.identity.username;
+        await instructorCertificates.gotoTab(courseKey);
 
-        // Grant + "generate exception certificates" (regeneration for allowlisted
-        // learners without one), then the learner's own reading turns downloadable.
-        const minted = await mintCertificateByException(
+        // Grant the learner an exception, filter the table to granted exceptions,
+        // then "Regenerate Certificates" for those without a certificate yet.
+        const granted = (await (
+          await instructorCertificates.grantException(
+            username,
+            `E2E ${test.info().testId.slice(-6)}`,
+          )
+        ).json()) as LearnerListResult;
+        expect(granted.success).toContain(username);
+        await instructorCertificates.filter('granted_exceptions');
+        await expect(instructorCertificates.rowFor(username)).toBeVisible();
+        const regenerate =
+          await instructorCertificates.generateForExceptions('without_certificate');
+        expect(regenerate.ok()).toBe(true);
+        const { task_id: taskId } = (await regenerate.json()) as { task_id?: string };
+        expect(taskId).toBeTruthy();
+
+        // The task completes and the learner's own reading turns downloadable.
+        const generated = await awaitCertificateDownloadable(
           page.request,
           certificateLearner.request,
           config,
           courseKey,
-          username,
-          `E2E ${test.info().testId.slice(-6)}`,
+          taskId as string,
         );
-        expect(minted.downloadable, JSON.stringify(minted)).toBe(true);
-        expect(minted.taskState).toBe('completed');
+        expect(generated.downloadable, JSON.stringify(generated)).toBe(true);
+        expect(generated.taskState).toBe('completed');
 
-        await instructorCertificates.gotoTab(courseKey);
-        await instructorCertificates.filter('granted_exceptions');
-        await expect(instructorCertificates.rowFor(username)).toBeVisible();
         const issued = await listIssuedCertificates(page.request, config, courseKey, {
           filter: 'granted_exceptions',
         });
@@ -117,8 +131,6 @@ test.describe(
           certificate_status: 'downloadable',
           special_case: 'Exception',
         });
-        // Once a certificate exists the regenerate action is offered.
-        await expect(instructorCertificates.regenerateButton).toBeEnabled();
         // The generation shows in the history tab and API.
         await instructorCertificates.historyTab.click();
         await expect(instructorCertificates.rows().first()).toBeVisible();

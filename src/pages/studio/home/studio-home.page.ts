@@ -100,6 +100,17 @@ export class StudioHomePage {
     await this.page.waitForURL((u) => u.pathname.endsWith('/library/create'));
   }
 
+  /**
+   * Opens the Legacy Libraries tab, then "New library" — which, from that tab,
+   * leads to the legacy create form (`verawood`) — and waits for the form's route.
+   */
+  async newLegacyLibrary(): Promise<void> {
+    await this.page.locator(LIBRARY_SELECTORS.homeLegacyLibrariesTab).click();
+    await this.page.waitForURL((u) => u.pathname.endsWith('/libraries-v1'));
+    await this.newLibraryLink.click();
+    await this.page.waitForURL((u) => u.pathname.endsWith('/libraries-v1/create'));
+  }
+
   /** Reveals the "Create a new course" form. */
   async openNewCourseForm(): Promise<void> {
     await this.newCourseButton.click();
@@ -218,6 +229,26 @@ export class StudioHomePage {
   async openCardMenu(courseKey: string): Promise<void> {
     await this.courseCard(courseKey).locator(STUDIO_HOME_SELECTORS.courseCardActions).click();
     await this.page.locator(STUDIO_HOME_SELECTORS.openMenu).waitFor();
+  }
+
+  /**
+   * Re-runs a course from its card: the card menu's "Re-run course" (global
+   * staff only), then the re-run page's form with `run` as the new run — the
+   * name, organization and number come prefilled from the source — and "Create
+   * re-run". Returns Studio's answer to the `POST /course/` it causes; the copy
+   * itself then runs on the CMS worker.
+   */
+  async rerunFromCard(courseKey: string, run: string): Promise<{ status: number; body: string }> {
+    await this.openCardMenu(courseKey);
+    await this.page.locator(STUDIO_HOME_SELECTORS.cardRerunLink).click();
+    await this.page.waitForURL((u) => u.pathname.includes(`/course_rerun/${courseKey}`));
+    await this.page.locator(STUDIO_HOME_SELECTORS.rerunRunInput).fill(run);
+    const response = await waitForWrite(
+      this.page,
+      { method: 'POST', predicate: (r) => new URL(r.url()).pathname === '/course/' },
+      () => this.page.locator(STUDIO_HOME_SELECTORS.rerunSubmitButton).click(),
+    );
+    return { status: response.status(), body: await response.text() };
   }
 
   /** The "View live" link inside the open card menu. */

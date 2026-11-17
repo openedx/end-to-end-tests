@@ -1,6 +1,9 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Locator, Response } from '@playwright/test';
 
 import { pollUntil, type PollOutcome } from './poll';
+import type { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
+import type { LibraryPickerDialog } from '../pages/studio/library/library-picker.dialog';
+import type { AuthoringSidebar } from '../pages/studio/sidebar/authoring-sidebar.page';
 import { TIMEOUTS, type AppConfig, type LibraryContainerType } from '../config';
 import {
   addCollectionItems,
@@ -251,4 +254,30 @@ export async function waitForLearnerBlock(
     (ids) => ids.includes(usageKey),
     TIMEOUTS.contentPublish,
   );
+}
+
+/**
+ * Reuses a published library unit from the course outline, the way an author
+ * does: the subsection's "Use unit from library", then the library and the unit
+ * by its title — through whichever surface the outline opens: the Add
+ * sidebar's "Add Existing" pane (filter to the library, search, "Add"; `main`
+ * and `verawood`) or the modal library picker (choose the library, then "Add"
+ * on the unit in the embedded library page; an outline without the authoring
+ * sidebar). Returns the `POST /xblock/` import response,
+ * whose body carries the new unit's `locator` and `upstreamRef`.
+ */
+export async function addLibraryUnitFromOutline(
+  outline: StudioCourseOutlinePage,
+  surfaces: { readonly picker: LibraryPickerDialog; readonly sidebar: AuthoringSidebar },
+  subsectionCard: Locator,
+  library: { readonly key: string; readonly title: string },
+  unitTitle: string,
+): Promise<Response> {
+  const surface = await outline.openUseLibraryUnit(subsectionCard);
+  if (surface === 'sidebar') {
+    return surfaces.sidebar.addExistingFromLibrary(library.key, library.title, unitTitle);
+  }
+  await surfaces.picker.selectLibrary(library.key, library.title);
+  await surfaces.picker.cardFor(unitTitle).first().waitFor({ timeout: TIMEOUTS.librarySearch });
+  return surfaces.picker.addToCourse(unitTitle);
 }

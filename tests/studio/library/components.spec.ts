@@ -52,6 +52,14 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
       await studioTextEditor.type(' ');
       await studioTextEditor.italic();
       await studioTextEditor.type('italic');
+      await studioTextEditor.italic();
+      await studioTextEditor.type(' ');
+      await studioTextEditor.underline();
+      await studioTextEditor.type('underlined');
+      await studioTextEditor.underline();
+      await studioTextEditor.newParagraph();
+      await studioTextEditor.heading(2);
+      await studioTextEditor.type(`${text} heading`);
       const created = (await (await libraryPage.saveNewComponent()).json()) as LibraryBlock;
       expect(created.block_type).toBe('html');
 
@@ -67,6 +75,9 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
           { timeout: TIMEOUTS.contentWrite },
         )
         .toContain(`${text} plain <strong>bold</strong> <em>italic</em>`);
+      const olx = await fetchLibraryBlockOlx(page.request, config, created.id);
+      expect(olx).toMatch(/<span style="text-decoration: underline;?">underlined<\/span>/);
+      expect(olx).toContain(`<h2>${text} heading</h2>`);
       expect((await listLibraryBlocks(page.request, config, authoringLibrary.id)).count).toBe(1);
     },
   );

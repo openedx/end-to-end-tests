@@ -105,6 +105,14 @@ export class UnitPage {
     return `${this.config.mfeUrls.learning}/course/${courseKey}/${sequentialId}/${unitId}`;
   }
 
+  /**
+   * The learning MFE's preview of a unit — where Studio's "Preview" opens it,
+   * showing the draft to course staff.
+   */
+  previewUrl(courseKey: string, sequentialId: string, unitId: string): string {
+    return `${this.config.mfeUrls.learning}/preview/course/${courseKey}/${sequentialId}/${unitId}`;
+  }
+
   /** Opens a unit by ID and waits for its content to finish loading. */
   async goto(courseKey: string, sequentialId: string, unitId: string): Promise<void> {
     await this.page.goto(this.url(courseKey, sequentialId, unitId));

@@ -57,6 +57,10 @@ export const STUDIO_SIDEBAR_SELECTORS = {
    * `.text-danger-700`. Anchored by size class, not its localized `aria-label`.
    */
   itemMenuButton: '.sidebar-content .btn-icon-md.pgn__dropdown-toggle-iconbutton',
+  /** The open item menu's entries, in {@link SIDEBAR_ITEM_MENU_ORDER} order. */
+  itemMenuItems: '.dropdown-menu.show .dropdown-item',
+  /** The delete-confirmation dialog's "Delete" (Paragon danger button). */
+  deleteConfirmButton: '[role="dialog"] button.btn-danger',
   /**
    * The back button shown in the panel *title row* when a component is selected
    * on the unit page — the inline-size icon button inside the SidebarTitle's
@@ -86,6 +90,29 @@ export const STUDIO_SIDEBAR_SELECTORS = {
   unitAddTab: (key: 'add-new' | 'add-existing') => `#unit-add-sidebar-tab-${key}`,
   /** The outline Add sidebar's tabs. */
   outlineAddTab: (key: 'addNew' | 'addExisting') => `#add-content-tabs-tab-${key}`,
+  /**
+   * The outline Add sidebar's "Add Existing" pane — what the outline's "Use …
+   * from library" buttons open on `main` and `verawood`: the library content of
+   * every library the author may reuse from, embedded, with a library filter, a
+   * search field and an "Add" per card. (An outline without the authoring
+   * sidebar opens the modal library picker instead — `LIBRARY_PICKER_SELECTORS`.)
+   */
+  addExistingPane: '#add-content-tabs-tabpane-addExisting',
+  /** The pane's library filter ("All libraries"): a toggle and one checkbox per library, its `value` the library key. */
+  addExistingLibraryFilter: '#library-filter-dropdown-toggle',
+  addExistingLibraryOption: (libraryKey: string) =>
+    `.dropdown-menu.show input[type="checkbox"][value="${libraryKey}"]`,
+  /** The library filter's own name search ("Search Library Name"), inside the open menu. */
+  addExistingLibrarySearch: '.dropdown-menu.show input[name="searchfield-input"]',
+  /**
+   * The content search field. The library filter's own name search is the same
+   * Paragon field inside the filter's menu, so this is the one still visible
+   * once that menu has closed (no class tells them apart on both releases).
+   */
+  addExistingSearch: 'input[name="searchfield-input"]:visible',
+  /** A content card, and its "Add" (the card header's action button). */
+  addExistingCard: '.library-item-card',
+  addExistingCardAdd: '.pgn__card-header-actions button',
 
   /**
    * The outline Info panel's Publish button (the `PublishButon` status button),
@@ -93,6 +120,12 @@ export const STUDIO_SIDEBAR_SELECTORS = {
    * publish control is a different widget ({@link unitPublishButton}).
    */
   publishButton: '.sidebar-content button.status-button',
+  /**
+   * The outline publish modal's confirm ("Publish") that the Info panel's
+   * Publish button opens — the outline's shared publish confirmation, a Paragon
+   * primary button in the dialog. The unit page publishes without a confirm.
+   */
+  publishConfirmButton: '[role="dialog"] button.btn-primary',
   /**
    * The unit page's publish button in the sidebar's publish-controls widget
    * (`.course-unit-sidebar-footer`), present while the unit has unpublished
@@ -114,3 +147,21 @@ export const STUDIO_SIDEBAR_SELECTORS = {
   /** A dropdown menu item that is not tagged (used to reach an untagged menu action). */
   openDropdownDangerItem: '.dropdown-menu.show .dropdown-item.text-danger-700',
 } as const;
+
+/** An action in the sidebar's item menu. */
+export type SidebarItemAction = 'duplicate' | 'copy' | 'move' | 'moveUp' | 'moveDown' | 'delete';
+
+/**
+ * The item menu's entries, in the order they render, per kind of selected item
+ * — the items carry no test id or non-localized attribute, so position is the
+ * anchor (measured on `main`, 2026-11-09). An outline section or subsection:
+ * Duplicate, Move Up, Move Down, Delete (the moves `aria-disabled` at either
+ * end). A unit's component: Duplicate, Copy to Clipboard, Move (to another
+ * unit), Delete. Delete is also the menu's only `.text-danger-700` entry.
+ */
+export const SIDEBAR_ITEM_MENU_ORDER: Readonly<
+  Record<'outline' | 'component', readonly SidebarItemAction[]>
+> = {
+  outline: ['duplicate', 'moveUp', 'moveDown', 'delete'],
+  component: ['duplicate', 'copy', 'move', 'delete'],
+};

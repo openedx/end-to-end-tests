@@ -1,6 +1,7 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 
-import type { AppConfig } from '../../../config';
+import { TIMEOUTS, type AppConfig } from '../../../config';
+import { waitForWrite } from '../../studio/wait-for-write';
 
 /**
  * The authn MFE forgot-password screen (`frontend-app-authn` `/reset` route),
@@ -23,6 +24,8 @@ export class ForgotPasswordPage {
   readonly supportLink: Locator;
   /** The reset form a reset link opens: its new-password fields. */
   readonly newPasswordFields: Locator;
+  /** That form's "Reset my password" — matched by its stable element id. */
+  readonly newPasswordSubmit: Locator;
 
   constructor(
     private readonly page: Page,
@@ -36,6 +39,7 @@ export class ForgotPasswordPage {
     this.error = page.locator('#validation-errors.alert-danger');
     this.supportLink = this.confirmation.locator('a[href]');
     this.newPasswordFields = page.locator('form input[type="password"]');
+    this.newPasswordSubmit = page.locator('#submit-new-password');
   }
 
   /** Navigates to the reset screen (the authn MFE `/reset` route). */
@@ -57,5 +61,20 @@ export class ForgotPasswordPage {
   async openResetLink(url: string): Promise<void> {
     await this.page.goto(url);
     await this.newPasswordFields.first().waitFor();
+  }
+
+  /**
+   * On the reset form, enters `password` as the new password and its
+   * confirmation, and submits — waiting for the `POST /password/reset/<token>/`
+   * it fires. Returns that response; the spec judges the outcome by signing in.
+   */
+  async setNewPassword(password: string): Promise<Response> {
+    await this.page.locator('input[name="newPassword"]').fill(password);
+    await this.page.locator('input[name="confirmPassword"]').fill(password);
+    return waitForWrite(
+      this.page,
+      { method: 'POST', urlIncludes: '/password/reset/', timeout: TIMEOUTS.navigation },
+      () => this.newPasswordSubmit.click(),
+    );
   }
 }

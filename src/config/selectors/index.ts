@@ -42,7 +42,12 @@ export {
   subsectionCardContaining,
   unitCardFor,
 } from './studio-outline';
-export { STUDIO_SIDEBAR_SELECTORS, type SidebarPageKey } from './studio-sidebar';
+export {
+  SIDEBAR_ITEM_MENU_ORDER,
+  STUDIO_SIDEBAR_SELECTORS,
+  type SidebarItemAction,
+  type SidebarPageKey,
+} from './studio-sidebar';
 export { TAG_DRAWER_SELECTORS, encodedTagValue } from './tag-drawer';
 export { TAXONOMY_SELECTORS } from './taxonomies';
 export { STUDIO_FILES_SELECTORS, FILES_ROW_MENU } from './studio-files';
@@ -67,7 +72,7 @@ export {
 } from './studio-tools';
 export { STUDIO_PAGES_RESOURCES_SELECTORS } from './studio-pages-resources';
 export { STUDIO_CUSTOM_PAGES_SELECTORS } from './studio-custom-pages';
-export { STUDIO_UNIT_PAGE_SELECTORS, advancedComponentOption } from './studio-unit';
+export { STUDIO_UNIT_PAGE_SELECTORS, componentTemplateOption } from './studio-unit';
 export { ADVANCED_BLOCK_SELECTORS, advancedBlockRoot } from './advanced-blocks';
 export {
   LEGACY_EDITOR_SELECTORS,

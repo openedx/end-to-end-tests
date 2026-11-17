@@ -1,9 +1,11 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 
 import {
+  SIDEBAR_ITEM_MENU_ORDER,
   STUDIO_SIDEBAR_SELECTORS,
   TIMEOUTS,
   type AppConfig,
+  type SidebarItemAction,
   type SidebarPageKey,
 } from '../../../config';
 import { XBLOCK_PATH } from '../../../api';
@@ -99,7 +101,79 @@ export class AuthoringSidebar {
   /** Opens the selected item's overflow ("Item Menu") and returns its items. */
   async openItemMenu(): Promise<Locator> {
     await this.itemMenuButton.click();
-    return this.page.locator('.dropdown-menu.show .dropdown-item');
+    return this.page.locator(this.s.itemMenuItems);
+  }
+
+  /**
+   * Opens the item menu and returns one action's entry, named rather than
+   * counted: `kind` is what is selected — an outline section/subsection, or a
+   * unit's component — whose menus list different actions
+   * (`SIDEBAR_ITEM_MENU_ORDER`).
+   */
+  async itemMenuAction(kind: 'outline' | 'component', action: SidebarItemAction): Promise<Locator> {
+    const index = SIDEBAR_ITEM_MENU_ORDER[kind].indexOf(action);
+    if (index < 0) throw new Error(`The ${kind} item menu has no "${action}" action.`);
+    return (await this.openItemMenu()).nth(index);
+  }
+
+  /**
+   * Deletes the selected item from its item menu: Delete, then the confirmation
+   * dialog's Delete, waiting for the `DELETE /xblock/<key>` it fires.
+   */
+  async deleteSelected(kind: 'outline' | 'component'): Promise<void> {
+    await (await this.itemMenuAction(kind, 'delete')).click();
+    await waitForWrite(
+      this.page,
+      {
+        method: 'DELETE',
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
+        timeout: TIMEOUTS.contentWrite,
+      },
+      () => this.page.locator(this.s.deleteConfirmButton).click(),
+    );
+  }
+
+  /** The outline Add sidebar's "Add Existing" pane (library content to reuse). */
+  get addExistingPane(): Locator {
+    return this.page.locator(this.s.addExistingPane);
+  }
+
+  /**
+   * Adds a library item from the "Add Existing" pane into the course: narrows the
+   * pane to `libraryKey` with its library filter (searching the filter for
+   * `libraryTitle`, since it lists every reusable library), searches the content
+   * for `itemTitle` (the test's own data), and clicks that card's "Add", waiting
+   * for the `POST /xblock/` that imports it. Returns that response — its body
+   * carries the new block's `locator` and `upstreamRef`.
+   */
+  async addExistingFromLibrary(
+    libraryKey: string,
+    libraryTitle: string,
+    itemTitle: string,
+  ): Promise<Response> {
+    const pane = this.addExistingPane;
+    await pane.locator(this.s.addExistingLibraryFilter).click();
+    await this.page.locator(this.s.addExistingLibrarySearch).fill(libraryTitle);
+    const option = this.page.locator(this.s.addExistingLibraryOption(libraryKey));
+    // A just-seeded library can lag in the search index the filter reads.
+    await option.waitFor({ timeout: TIMEOUTS.librarySearch });
+    await option.check();
+    await this.page.keyboard.press('Escape');
+    await this.page.locator(this.s.addExistingLibrarySearch).waitFor({ state: 'hidden' });
+    const search = pane.locator(this.s.addExistingSearch);
+    await search.fill(itemTitle);
+    await search.press('Enter');
+    const card = pane.locator(this.s.addExistingCard).filter({ hasText: itemTitle }).first();
+    await card.waitFor({ timeout: TIMEOUTS.librarySearch });
+    return waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => new URL(r.url()).pathname === XBLOCK_PATH,
+        timeout: TIMEOUTS.contentWrite,
+      },
+      () => card.locator(this.s.addExistingCardAdd).first().click(),
+    );
   }
 
   /** A panel tab by its non-localized element id (see the selector helpers). */
@@ -134,10 +208,40 @@ export class AuthoringSidebar {
    * only while the item has unpublished changes), waiting for the `POST /xblock/`
    * the publish fires. Retries the click once if the first press produces no
    * request — under a loaded CMS the button can be pressed before its handler is
-   * wired, and a lost click leaves the item unpublished.
+   * wired, and a lost click leaves the item unpublished. For an item whose
+   * Publish opens a confirmation (the course outline), use
+   * {@link publishAndConfirm}.
    */
   async publish(): Promise<void> {
     await this.clickPublish(this.publishButton);
+  }
+
+  /**
+   * Publishes the selected outline item from the Info panel: its Publish button
+   * opens the outline's publish confirmation, and the confirm is what fires the
+   * `POST /xblock/`. The outline re-renders while it settles, so a press that
+   * opens no dialog is retried once before the confirm is clicked.
+   */
+  async publishAndConfirm(): Promise<void> {
+    const confirm = this.page.locator(this.s.publishConfirmButton);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await this.publishButton.click();
+      try {
+        await confirm.waitFor({ timeout: TIMEOUTS.contentWrite });
+        break;
+      } catch (error) {
+        if (attempt === 1) throw error;
+      }
+    }
+    await waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PATCH'],
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
+        timeout: TIMEOUTS.contentWrite,
+      },
+      () => confirm.click(),
+    );
   }
 
   /** Publishes the unit from the unit-page publish-controls widget (with the same retry). */

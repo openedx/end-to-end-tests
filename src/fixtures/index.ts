@@ -23,6 +23,7 @@ import {
 import { StudioHomePage } from '../pages/studio/home/studio-home.page';
 import { StudioCourseOutlinePage } from '../pages/studio/course-outline.page';
 import { StudioOutlineConfigureDialog } from '../pages/studio/outline-configure.dialog';
+import { StudioOutlineHighlightsDialog } from '../pages/studio/outline-highlights.dialog';
 import { StudioUnitPage } from '../pages/studio/unit.page';
 import { StudioVideoEditor } from '../pages/studio/editors/video-editor';
 import { StudioTextEditor } from '../pages/studio/editors/text-editor';
@@ -88,6 +89,7 @@ import {
 } from '../steps';
 import {
   CourseLibrariesPage,
+  CreateLegacyLibraryPage,
   CreateLibraryPage,
   LegacyMigrationPage,
   LibraryContainerPage,
@@ -501,6 +503,8 @@ export interface TestFixtures {
   studioCourseOutlinePage: StudioCourseOutlinePage;
   /** The Configure dialog opened from an outline card (release dates, visibility, grading, prerequisites). */
   outlineConfigureDialog: StudioOutlineConfigureDialog;
+  /** Course highlight e-mails on the outline: the status bar's enable, and a section's highlights dialog. */
+  outlineHighlightsDialog: StudioOutlineHighlightsDialog;
   /** The unit (container) page object. */
   studioUnitPage: StudioUnitPage;
   /** The Verawood authoring sidebar (outline and unit page). */
@@ -833,6 +837,8 @@ export interface TestFixtures {
   libraryContainerPage: LibraryContainerPage;
   /** The "Create new library" form. */
   createLibraryPage: CreateLibraryPage;
+  /** The legacy "Create new library" form (`verawood`, `content-libraries-v1-create`). */
+  createLegacyLibraryPage: CreateLegacyLibraryPage;
   /** The course-side "Library Content" picker modal. */
   libraryPicker: LibraryPickerDialog;
   /** The "Preview changes" (accept / ignore a library update) modal. */
@@ -968,6 +974,13 @@ export interface TestFixtures {
    * learner's request context are disposed after the test.
    */
   inboxLearner: InboxLearner;
+  /**
+   * A fresh inbox of the configured mailbox provider at an address **no
+   * account uses** — for mail the platform sends to someone who has not
+   * registered (a course invitation). Specs using it carry `@email-inbox`. The
+   * inbox is disposed after the test.
+   */
+  emptyInbox: Inbox;
   /**
    * {@link WorkerFixtures.contentCourse} once its forum is ready for the UI: the
    * topic list is synced from the course structure by a task after the course is
@@ -2302,9 +2315,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           { ...context, viewportWidth: page.viewportSize()?.width ?? 0 },
           testIdsFromAnnotations(testInfo.annotations),
         );
+        // The note names the chrome the defect was matched on, so a case that
+        // passes on one release and is masked on another reads as such.
+        const on = `(masked on the ${[...new Set(context.generations)].join(' / ')} chrome)`;
         for (const defect of defects) {
-          if (defect.intermittent) testInfo.fixme(true, defect.reason);
-          else testInfo.fail(true, defect.reason);
+          if (defect.intermittent) testInfo.fixme(true, `${defect.reason} ${on}`);
+          else testInfo.fail(true, `${defect.reason} ${on}`);
         }
       },
       requireSupportUrl: (chrome, configured) => {
@@ -3268,6 +3284,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   studioCourseOutlinePage: pageObjectFixture(StudioCourseOutlinePage),
 
   outlineConfigureDialog: pageObjectFixture(StudioOutlineConfigureDialog),
+  outlineHighlightsDialog: pageObjectFixture(StudioOutlineHighlightsDialog),
 
   studioUnitPage: pageObjectFixture(StudioUnitPage),
 
@@ -3693,6 +3710,21 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       try {
         const identity = await provisionLearnerSession(request, config, { email: inbox.address });
         await use({ identity, request, inbox });
+      } finally {
+        await inbox.dispose(request);
+      }
+    } finally {
+      await request.dispose();
+    }
+  },
+
+  emptyInbox: async ({ playwright, config }, use) => {
+    const provider = await resolveMailProvider(config);
+    const request = await newCleanRequestContext(playwright.request);
+    try {
+      const inbox = await provider.createInbox({ config, request });
+      try {
+        await use(inbox);
       } finally {
         await inbox.dispose(request);
       }
@@ -4181,6 +4213,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   libraryContainerPage: pageObjectFixture(LibraryContainerPage),
 
   createLibraryPage: pageObjectFixture(CreateLibraryPage),
+  createLegacyLibraryPage: pageObjectFixture(CreateLegacyLibraryPage),
 
   libraryPicker: pageObjectFixture(LibraryPickerDialog),
 

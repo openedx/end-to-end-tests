@@ -13,7 +13,7 @@ import {
 } from '../../../src/api';
 import { LIBRARY_SELECTORS, TIMEOUTS, libraryPath } from '../../../src/config';
 import { seedScopeAssignments } from '../../../src/steps';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { disputed, issue, knownGap, testId } from '../../../src/reporting';
 import { RBAC_LIBRARY_TAGS, authorBlock, libraryLabel, statusOf } from './helpers';
 
 /**
@@ -88,10 +88,17 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
     {
       annotation: [
         testId('TC-00571'),
-        issue('https://github.com/openedx/wg-build-test-release/issues/589'),
+        disputed(
+          'RBAC-012 (product call open): `library_author` holds `publish_library_content`, so the ' +
+            'author can publish the whole library (Publish All, commit 200), where the sheet ' +
+            'expects it denied. Either the role model or this clause should change.',
+        ),
       ],
     },
-    async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {
+    async (
+      { page, config, adminConsole, authoringLibrary, studioAuthorSession, rbacCast },
+      testInfo,
+    ) => {
       void studioAuthorSession;
       const library = authoringLibrary.id;
       const author = await rbacCast('libraryAuthor');
@@ -134,15 +141,16 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
       await expect(author.libraryPage.sidebar.publishAllButton).toBeVisible();
       expect(await statusOf(commitLibrary(author.request, config, library))).toBe(200);
 
-      // Team management, though, is not theirs: the switch is read-only, and the
-      // platform refuses the right the console's Assign Role action needs. (The
-      // console still *offers* that action to this role — wg#603, reported by
-      // TC-00396 — so what the button does, not whether it is drawn, is what
-      // this case can assert.)
+      // Team management, though, is not theirs: the switch is read-only, the
+      // console offers no Assign Role, and the platform refuses both the right
+      // and the write.
       await expect(author.libraryPage.sidebar.publicReadSwitch).toBeDisabled();
       expect(
         await canI(author.request, config, 'content_libraries.manage_library_team', library),
       ).toBe(false);
+      const authorConsole = adminConsole.consoleFor(author.page);
+      await authorConsole.goto(library);
+      await expect(authorConsole.assignRoleButton).toHaveCount(0);
       await expect(
         assignRole(author.request, config, {
           role: 'library_user',
@@ -162,7 +170,10 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
         issue('https://github.com/openedx/frontend-app-authoring/issues/3310'),
       ],
     },
-    async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {
+    async (
+      { page, config, adminConsole, authoringLibrary, studioAuthorSession, rbacCast },
+      testInfo,
+    ) => {
       void studioAuthorSession;
       const library = authoringLibrary.id;
       const contributor = await rbacCast('libraryContributor');
@@ -225,12 +236,14 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
         )
         .toBe(true);
 
-      // And no team management: the platform refuses the write the console's
-      // Assign Role action makes (which it offers this role anyway — wg#603,
-      // TC-00396).
+      // And no team management: no Assign Role in the console, and the platform
+      // refuses the write it would make.
       expect(
         await canI(contributor.request, config, 'content_libraries.manage_library_team', library),
       ).toBe(false);
+      const contributorConsole = adminConsole.consoleFor(contributor.page);
+      await contributorConsole.goto(library);
+      await expect(contributorConsole.assignRoleButton).toHaveCount(0);
       await expect(
         assignRole(contributor.request, config, {
           role: 'library_user',
@@ -249,7 +262,10 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
         issue('https://github.com/openedx/wg-build-test-release/issues/589'),
       ],
     },
-    async ({ page, config, authoringLibrary, studioAuthorSession, rbacCast }, testInfo) => {
+    async (
+      { page, config, adminConsole, authoringLibrary, studioAuthorSession, rbacCast },
+      testInfo,
+    ) => {
       void studioAuthorSession;
       const library = authoringLibrary.id;
       const reader = await rbacCast('libraryUser');
@@ -303,11 +319,13 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
         0,
       );
 
-      // No team management either (wg#603 again: the action is offered, the
-      // write is refused).
+      // No team management either: no Assign Role, and the write is refused.
       expect(
         await canI(reader.request, config, 'content_libraries.manage_library_team', library),
       ).toBe(false);
+      const readerConsole = adminConsole.consoleFor(reader.page);
+      await readerConsole.goto(library);
+      await expect(readerConsole.assignRoleButton).toHaveCount(0);
       await expect(
         assignRole(reader.request, config, {
           role: 'library_user',

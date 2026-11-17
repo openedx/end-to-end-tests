@@ -239,6 +239,15 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   certificatesFilterDropdown: '#filter-dropdown',
   /** "Regenerate Certificates" ("Generate Certificates" while none exist) — the only `flex-shrink-0` outline button. */
   regenerateButton: 'button.btn-outline-primary.flex-shrink-0',
+  /**
+   * The modal "Regenerate Certificates" opens under the Granted Exceptions filter
+   * ("Generate certificates for granted exceptions?"): a radio set whose values
+   * are `all` ("All learners with exceptions") and `without_certificate` ("Only
+   * those without a certificate"), then "Generate" (the dialog's primary button).
+   * Other filters open a plain confirm without the radios.
+   */
+  generateCertificatesOption: (option: 'all' | 'without_certificate') =>
+    `[role="dialog"] input[name="generate-option"][value="${option}"]`,
   /** Grant-exceptions modal: Individual / Bulk tabs, then the learner and notes fields. */
   grantExceptionsModal: '[role="dialog"].grant-exceptions-modal',
   grantExceptionsIndividualTab: '#grant-exceptions-tabs-tab-single',

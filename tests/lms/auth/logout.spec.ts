@@ -9,8 +9,8 @@ import { expect, test } from '../../../src/fixtures';
  * configured account backend's UI flows, so this is not gated on `mfe-authn` —
  * it exercises whatever screens the install has.
  *
- * The BTR sheet has no dedicated logout case, so
- * this is folded under TC-00003 pending confirmation with the BTR Working Group.
+ * The BTR sheet has no dedicated logout case, so this carries TC-00003, the
+ * sign-in case (docs/findings.md, "Sheet notes", asks for a row of its own).
  * Because auth cookies are scoped to the shared parent domain, clearing them
  * signs the learner out of every declared origin at once.
  */

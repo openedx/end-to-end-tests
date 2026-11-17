@@ -1,4 +1,4 @@
-import type { Download, Locator, Page } from '@playwright/test';
+import type { Download, Locator, Page, Response } from '@playwright/test';
 
 import { FILES_ROW_MENU, STUDIO_FILES_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 import { authoringCourseBaseUrl } from '../authoring-base';
@@ -51,6 +51,20 @@ export class FilesPage {
     this.selectAllCheckbox = page.locator(this.s.selectAllCheckbox);
     this.rowCheckboxes = page.locator(this.s.rowCheckbox);
     this.uploadInput = page.locator(this.s.uploadInput);
+  }
+
+  /**
+   * Clicks "Agree" on the first outstanding upload-agreement banner, waiting for
+   * the `agreement_record` write it fires. Returns that response; the spec
+   * judges acceptance by the `agreement_record` API and the banners left.
+   */
+  async acceptFirstAgreement(): Promise<Response> {
+    const banner = this.page.locator(STUDIO_FILES_SELECTORS.agreementAlert).first();
+    return waitForWrite(
+      this.page,
+      { method: 'POST', urlIncludes: '/agreement_record/', timeout: TIMEOUTS.studioSettingsSave },
+      () => banner.locator(STUDIO_FILES_SELECTORS.agreementAgreeButton).click(),
+    );
   }
 
   /** Opens the Files page and waits for the table or the empty-state dropzone. */

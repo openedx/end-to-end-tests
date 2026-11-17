@@ -2,14 +2,16 @@ import { checkA11y } from '../../../src/a11y';
 import {
   courseExists,
   courseKeyFor,
+  fetchCourseHomeOutline,
   listStudioCourses,
   rerunCourse,
+  type CourseIdentity,
   updateCourseDetails,
   waitForRerun,
-  type CourseIdentity,
 } from '../../../src/api';
 import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
+import { StudioHomePage } from '../../../src/pages/studio/home/studio-home.page';
 import { testId } from '../../../src/reporting';
 
 /** A course end well in the past, so the platform files the course as archived. */
@@ -19,12 +21,16 @@ const PAST_END = '2020-01-01T00:00:00Z';
 const liveUrl = (courseKey: string) => new RegExp(`/courses/${courseKey.replace(/[+:]/g, '\\$&')}`);
 
 /**
- * The course lifecycle from Studio Home: re-run, View live, and archival. The
- * author cannot reach the legacy re-run page (it is global-staff-only — `403` for
- * the author on every release), so the re-run is driven through the same
- * `POST /course/` the MFE's re-run action makes, and the MFE is where its result
- * — the new course in the list, and its archival — is observed. One re-run course
- * is spent for both the re-run and the archive case (§2.4 course budget).
+ * The course lifecycle from Studio Home: re-run, View live, and archival.
+ *
+ * "Re-run course" is a global-staff action — Studio offers it on the course
+ * card only to global staff, so a course author's card menu has View live alone
+ * — so TC-00251 drives it as the administrator, on `adminPage`: the card's
+ * "Re-run course", then the authoring MFE's re-run form. Archival (TC-00253)
+ * needs a course of the author's own to end, so it re-runs the worker course
+ * through the same `POST /course/` the form makes (setup, not the case), and the
+ * MFE is where its archival is observed. Each test spends one re-run course
+ * (§2.4 course budget).
  */
 test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'] }, () => {
   // The re-run copy runs on the CMS worker under `TIMEOUTS.courseRerun`, longer
@@ -32,8 +38,35 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
   test(
-    're-runs a course into a new run, and archives it once ended',
-    { tag: '@regression', annotation: [testId('TC-00251'), testId('TC-00253')] },
+    're-runs a course from its Studio Home card into a new run',
+    { tag: '@regression', annotation: testId('TC-00251') },
+    async ({ config, authoredCourse, studioAuthorSession, adminPage }, testInfo) => {
+      void studioAuthorSession;
+      // The administrator's own browser session; its API calls ride the same
+      // session (`adminPage.request`). Re-run keeps org + number, takes a new run.
+      const admin = adminPage.request;
+      const run = `rerunui${testInfo.retry}`;
+      const destKey = courseKeyFor(authoredCourse.org, authoredCourse.number, run);
+      const home = new StudioHomePage(adminPage, config);
+
+      await home.goto();
+      await home.search(authoredCourse.number);
+      const created = await home.rerunFromCard(authoredCourse.courseKey, run);
+      expect(created.status, created.body).toBe(200);
+
+      // The copy runs on the CMS worker; then the new run exists and Studio Home
+      // lists it beside its source.
+      await waitForRerun(admin, config, destKey);
+      expect(await courseExists(admin, config, destKey)).toBe(true);
+      await home.goto();
+      await home.search(authoredCourse.number);
+      await expect.poll(() => home.renderedCourseKeys()).toContain(destKey);
+    },
+  );
+
+  test(
+    'archives a re-run once it has ended',
+    { tag: '@regression', annotation: testId('TC-00253') },
     async ({ page, config, authoredCourse, studioHomePage, studioAuthorSession }) => {
       void studioAuthorSession;
 
@@ -61,7 +94,7 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
       expect(destKey).toBe(destination.courseKey);
       await waitForRerun(api, config, destKey);
 
-      // TC-00251: the re-run destination exists and appears in Studio Home.
+      // The re-run destination exists and appears in Studio Home.
       expect(await courseExists(api, config, destKey)).toBe(true);
       await studioHomePage.goto();
       await studioHomePage.search(authoredCourse.number);
@@ -92,20 +125,51 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
   test(
     'a course card offers the View live action to the live course',
     { tag: '@regression', annotation: [testId('TC-00252'), testId('TC-00258')] },
-    async ({ authoredCourse, studioHomePage, studioAuthorSession }) => {
+    async ({
+      page,
+      config,
+      contentCourse,
+      studioHomePage,
+      courseOutlinePage,
+      studioAuthorSession,
+    }) => {
       void studioAuthorSession;
+      // The content course, not the settings one: a course nothing was ever
+      // published in has no outline, and the learning MFE cannot render it.
       await studioHomePage.goto();
-      await studioHomePage.search(authoredCourse.number);
+      await studioHomePage.search(contentCourse.number);
 
       // TC-00258: the card's three-dot menu opens and offers course actions.
-      await studioHomePage.openCardMenu(authoredCourse.courseKey);
+      await studioHomePage.openCardMenu(contentCourse.courseKey);
       await expect(studioHomePage.cardViewLiveLink).toBeVisible();
 
       // TC-00252: "View live" targets the course on the LMS.
       await expect(studioHomePage.cardViewLiveLink).toHaveAttribute(
         'href',
-        liveUrl(authoredCourse.courseKey),
+        liveUrl(contentCourse.courseKey),
       );
+      // …and following it lands on that course in the learning MFE, which
+      // renders: its tabs show. (TC-00171 and TC-00197 assert a live unit
+      // rendering.) The MFE can render the course only once the CMS worker has
+      // written its outline (`PLAT-009`: until then it shows an error).
+      await expect
+        .poll(
+          async () =>
+            (await fetchCourseHomeOutline(page.request, config, contentCourse.courseKey)) !==
+            undefined,
+          {
+            timeout: TIMEOUTS.contentPublish,
+          },
+        )
+        .toBe(true);
+      const href = await studioHomePage.cardViewLiveLink.getAttribute('href');
+      await page.goto(href ?? '');
+      await expect(page).toHaveURL((url) =>
+        url.href.startsWith(`${config.mfeUrls.learning}/course/${contentCourse.courseKey}`),
+      );
+      await expect(courseOutlinePage.courseTabs.first()).toBeVisible({
+        timeout: TIMEOUTS.navigation,
+      });
     },
   );
 });

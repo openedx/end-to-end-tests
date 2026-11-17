@@ -99,11 +99,11 @@ test.describe('summarizeCoverage', { tag: '@unit' }, () => {
 
   test('sorts case IDs deterministically', () => {
     const summary = summarizeCoverage([
-      { title: 'b', status: 'passed', testIds: ['TC-00005'] },
+      { title: 'b', status: 'passed', testIds: ['TC-99905'] },
       { title: 'a', status: 'passed', testIds: ['TC-00001'] },
     ]);
 
-    expect(summary.byTestId.map((entry) => entry.testId)).toEqual(['TC-00001', 'TC-00005']);
+    expect(summary.byTestId.map((entry) => entry.testId)).toEqual(['TC-00001', 'TC-99905']);
   });
 
   test('treats an empty run as fully covered', () => {
