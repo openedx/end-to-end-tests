@@ -28,8 +28,8 @@ it, and `tests/config/capabilities-doc.spec.ts` keeps the two in step.
 - **Required partners.** A few capabilities describe part of another's
   deployment (`analytics-in-context`, `analytics-pii` and
   `analytics-staff-video-counts` are parts of `analytics`,
-  `analytics-in-context-cards` of `analytics-in-context`, and `competencies` of
-  `taxonomies`).
+  `analytics-in-context-cards` of `analytics-in-context`, `competencies` of
+  `taxonomies`, and `rbac-console-next` of `rbac`).
   Declaring one without its partner fails validation.
 - **Mutually exclusive pairs.** Some capabilities are two implementations or two
   configurations of one surface; declaring both fails validation. Where one half
@@ -124,9 +124,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `analytics-staff-video-counts` | — | — | — | — | — | — | | + |
 | `rbac` | declared | declared | — | — | — | — | |  |
 | `rbac-global` | — | — | — | — | — | — | |  |
-| `rbac-matrix-parity` | declared | — | — | — | — | — | |  |
-| `rbac-course-editor-auditor` | declared | — | — | — | — | — | |  |
-| `rbac-audit-team-layout` | declared | — | — | — | — | — | |  |
+| `rbac-console-next` | declared | — | — | — | — | — | |  |
 | `rbac-self-revoke-guard` | declared | — | — | — | — | — | |  |
 | `rbac-error-view-action` | — | declared | — | — | — | — | |  |
 | `certificate-web-view` | — | declared | declared | declared | declared | declared | |  |
@@ -238,9 +236,7 @@ permanently red case. Declare one where the behaviour is right.
 
 | Capability | What it means | Tag | Known to support |
 | --- | --- | --- | --- |
-| `rbac-matrix-parity` | The console's library permission matrix matches the API's own permission list. `verawood` (openedx-authz 1.21) renders 14 rows for 11 permissions (wg-build-test-release#609). | The fidelity half of the permission-matrix case. | `main` |
-| `rbac-course-editor-auditor` | The console offers Course Editor and Course Auditor like the other course roles (frontend-app-admin-console#209). `verawood` greys them out in the permission matrix as "coming soon". | The live-roles half of the permission-matrix case (TC-00569). | `main` |
-| `rbac-audit-team-layout` | The user audit view is laid out like the Team Members table (frontend-app-admin-console#255): Role, Scope, Organization, Permissions, Actions, and a greyed delete control with a tooltip on your own admin row. `verawood` has the older six-column table and omits that control. | The layout halves of TC-00565 and TC-00567. | `main` |
+| `rbac-console-next` | The Roles and Permissions console of the release after `verawood` (`@openedx/frontend-app-admin-console` 1.0.0-alpha.13 and later, on openedx-authz 4.x). One capability for everything that console does differently, since it all ships together: Assign Role is a full-screen modal opened from the console, not the `/authz/assign-role` route (frontend-app-admin-console#283); the permission matrix offers only the scope types the viewer may see a team for (#268); its library half has one row per API permission (`verawood` renders 14 rows for 11, wg-build-test-release#609); Course Editor and Course Auditor are live instead of greyed "coming soon" (#209); and the user audit view is laid out like the Team Members table, with a greyed delete control on your own admin row (#255). Requires `rbac`. | How `AssignRoleWizard` opens (every wizard case), the both-halves setup of the permission-matrix cases, and the fidelity and live-roles halves of TC-00569 and the layout halves of TC-00565 and TC-00567. | `main` |
 | `rbac-self-revoke-guard` | The authz API refuses an admin removing its own admin role (`cannot_remove_own_admin_role`, openedx-authz ≥ 2.0.0, openedx-authz#543). `verawood` pins 1.23.0, which removes it (`RBAC-007`). Requires `rbac`. | The API half of TC-00567. | `main` |
 | `rbac-error-view-action` | The console's not-found view offers a working way back. On `main` the action does nothing (`RBAC-008`). | TC-00442. | `verawood` |
 | `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood`, `ulmo`, `teak`, `sumac`, `redwood` |

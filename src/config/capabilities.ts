@@ -233,29 +233,35 @@ export const CAPABILITIES = [
   // console, which the authoring MFE renders from the flag read with no course
   // context (BTR TC-00560's first entry point).
   'rbac-global',
-  // The console's **library permission matrix matches the API's own permission
-  // list**, one row per permission. On `main` (openedx-authz 1.23) it does:
-  // eleven rows for eleven library permissions, and each role column's ticks
-  // equal that role's permission count in the role catalog. On `verawood` (1.21) the
-  // same tab renders fourteen rows — the inaccuracy
-  // [wg-build-test-release#609](https://github.com/openedx/wg-build-test-release/issues/609)
-  // reported against that release. So the matrix's **structure** is asserted
-  // everywhere and its **fidelity to the API** only where the fix has landed.
-  'rbac-matrix-parity',
-  // The console offers **Course Editor and Course Auditor** like any other
-  // course role. `verawood` holds them back as a greyed "coming soon" pair in
-  // the permission matrix (the sheet's TC-00569 as first written);
-  // frontend-app-admin-console#209 made them assignable on `main`. The matrix's
-  // structure is asserted everywhere and the pair being live only where it is.
-  'rbac-course-editor-auditor',
-  // The console's **user audit view is laid out like the Team Members table**
-  // (frontend-app-admin-console#255): Role, Scope, Organization, Permissions and
-  // Actions, the scope named by its title, the permission count doubling as the
-  // row's expander, and your own admin row carrying a greyed delete control
-  // with an explanatory tooltip. `verawood` orders Organization before Scope,
-  // shows the scope key, adds a separate expander column and omits the control
-  // on your own admin row altogether. Declared where the new layout ships.
-  'rbac-audit-team-layout',
+  // The **Roles and Permissions console of the release after `verawood`** — the
+  // frontend-base admin-console app (`@openedx/frontend-app-admin-console`
+  // 1.0.0-alpha.13 and later) on openedx-authz 4.x. One capability for every
+  // place that console differs from `verawood`'s, because those differences
+  // ship together in the next named release and no install has only some:
+  //
+  // - **Assign Role is a full-screen modal** opened from the console and the
+  //   audit view (frontend-app-admin-console#283). `verawood` serves the wizard
+  //   at its own route, `/authz/assign-role`, which this console answers with
+  //   its not-found view. `AssignRoleWizard.open()` takes whichever applies.
+  //   A failed save is reported inside the modal, not as a toast.
+  // - **The permission matrix offers only the scope types the viewer may see
+  //   a team for** (#268): a library-only viewer gets a Libraries half and no
+  //   Courses half. `verawood` always renders both.
+  // - **The library half matches the API's own permission list**, one row per
+  //   permission. `verawood` (openedx-authz 1.21) renders fourteen rows for
+  //   eleven permissions
+  //   ([wg-build-test-release#609](https://github.com/openedx/wg-build-test-release/issues/609)).
+  // - **Course Editor and Course Auditor are live** like any other course role
+  //   (#209). `verawood` holds them back as a greyed "coming soon" pair.
+  // - **The user audit view is laid out like the Team Members table** (#255):
+  //   Role, Scope, Organization, Permissions and Actions, the scope named by
+  //   its title, the permission count doubling as the row's expander, and your
+  //   own admin row carrying a greyed delete control with a tooltip. `verawood`
+  //   has the older six-column table and omits that control.
+  //
+  // Structure both consoles share is asserted everywhere; only what differs is
+  // tagged. Requires `rbac`.
+  'rbac-console-next',
   // The **API refuses an admin removing its own admin role**: openedx-authz
   // ≥ 2.0.0 (openedx-authz#543) answers the self-revoke with a
   // `cannot_remove_own_admin_role` error row and keeps the role. `verawood`
@@ -437,6 +443,7 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   competencies: 'taxonomies',
   'content-libraries-v1-create': 'content-libraries-v1',
   'rbac-self-revoke-guard': 'rbac',
+  'rbac-console-next': 'rbac',
 };
 
 export function isCapability(value: string): value is Capability {

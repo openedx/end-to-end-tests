@@ -21,10 +21,13 @@ import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
  * instead of encoded here.
  *
  * The tab is not flag-gated, but the role catalog is permission-gated: the
- * viewer must hold a role in the scope the console was opened on (§1.8.12;
- * openedx-authz 2.x wants the scope type's view-team permission in any scope).
- * The worker author is its library's `library_admin`, which satisfies both, and
- * is why these run on a library scope.
+ * viewer must hold a role in the scope the console was opened on (openedx-authz
+ * 2.x wants the scope type's view-team permission in any scope). The worker
+ * author is its library's `library_admin`, which is why these run on a library
+ * scope. From frontend-app-admin-console#268 (`rbac-console-next`) the same
+ * permission also decides which **halves** exist — a library-only viewer gets
+ * no Courses half — so every case takes `matrixBothHalves`, which has the
+ * author hold a course role too.
  */
 test.describe(
   'Roles and Permissions console — permission matrix',
@@ -40,8 +43,9 @@ test.describe(
           issue('https://github.com/openedx/wg-build-test-release/issues/609'),
         ],
       },
-      async ({ page, adminConsole, authoringLibrary, studioAuthorSession }) => {
+      async ({ page, adminConsole, authoringLibrary, studioAuthorSession, matrixBothHalves }) => {
         void studioAuthorSession;
+        void matrixBothHalves;
         const matrix = adminConsole.matrix;
         await adminConsole.console.goto(authoringLibrary.id);
         await matrix.open();
@@ -55,7 +59,7 @@ test.describe(
         // and every one of its cells — and its label carries a help cursor that
         // opens an explanation on hover. `verawood` holds back Course Editor and
         // Course Auditor this way; `main` holds back none
-        // (`rbac-course-editor-auditor`, asserted below).
+        // (`rbac-console-next`, asserted below).
         const courseRows = await matrix.rows.count();
         expect(courseRows).toBeGreaterThan(0);
         let heldBack = 0;
@@ -109,9 +113,10 @@ test.describe(
 
     test(
       'offers every course role, none of them held back',
-      { tag: '@rbac-course-editor-auditor', annotation: testId('TC-00569') },
-      async ({ adminConsole, authoringLibrary, studioAuthorSession }) => {
+      { tag: '@rbac-console-next', annotation: testId('TC-00569') },
+      async ({ adminConsole, authoringLibrary, studioAuthorSession, matrixBothHalves }) => {
         void studioAuthorSession;
+        void matrixBothHalves;
         const matrix = adminConsole.matrix;
         await adminConsole.console.goto(authoringLibrary.id);
         await matrix.open();
@@ -144,8 +149,9 @@ test.describe(
           ),
         ],
       },
-      async ({ adminConsole, authoringLibrary, studioAuthorSession }) => {
+      async ({ adminConsole, authoringLibrary, studioAuthorSession, matrixBothHalves }) => {
         void studioAuthorSession;
+        void matrixBothHalves;
         const matrix = adminConsole.matrix;
         await adminConsole.console.goto(authoringLibrary.id);
         await matrix.open();
@@ -169,14 +175,22 @@ test.describe(
     test(
       'renders one library permission per row, as the API lists them',
       {
-        tag: '@rbac-matrix-parity',
+        tag: '@rbac-console-next',
         annotation: [
           testId('TC-00569'),
           issue('https://github.com/openedx/wg-build-test-release/issues/609'),
         ],
       },
-      async ({ page, config, adminConsole, authoringLibrary, studioAuthorSession }) => {
+      async ({
+        page,
+        config,
+        adminConsole,
+        authoringLibrary,
+        studioAuthorSession,
+        matrixBothHalves,
+      }) => {
         void studioAuthorSession;
+        void matrixBothHalves;
         const matrix = adminConsole.matrix;
         await adminConsole.console.goto(authoringLibrary.id);
         await matrix.open();

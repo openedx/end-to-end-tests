@@ -84,6 +84,19 @@ export class TeamMembersTable {
   async grouping(): Promise<TeamMembersGrouping> {
     await this.table.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
     if (this.seen === undefined) {
+      // The table's frame can render before its first list request leaves: the
+      // console after `verawood` asks what the viewer may see first and only
+      // then queries the list. Give that request the chance to be made; the
+      // listener above records it.
+      await this.page
+        .waitForRequest(
+          (request) =>
+            request.method() === 'GET' && teamMembersGroupingOf(request.url()) !== undefined,
+          { timeout: TIMEOUTS.action },
+        )
+        .catch(() => undefined);
+    }
+    if (this.seen === undefined) {
       throw new Error(
         'The Team Members table rendered without this page object seeing its list request ' +
           '(GET authz assignments/ or users/), so its grouping is unknown. Construct the ' +

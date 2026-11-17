@@ -1,11 +1,19 @@
 import type { Locator, Page, Response } from '@playwright/test';
 
-import { ADMIN_CONSOLE_SELECTORS, TIMEOUTS } from '../../config';
+import { ADMIN_CONSOLE_SELECTORS, TIMEOUTS, type AppConfig } from '../../config';
 import { AUTHZ_BASE } from '../../api';
 
 /**
- * The console's **Assign Role wizard** (`/authz/assign-role`): who and which
- * role in step one, which course or library in step two.
+ * The console's **Assign Role wizard**: who and which role in step one, which
+ * course or library in step two.
+ *
+ * One wizard, two hosts. `verawood` serves it at its own route
+ * (`/authz/assign-role`) and returns to the Team Members table when it is
+ * done. From frontend-app-admin-console#283 (`rbac-console-next`) it is a
+ * full-screen modal over the page that opened it — the console or an account's
+ * audit view — and that route no longer exists. {@link open} takes whichever
+ * the target declares; everything inside the wizard is anchored the same way
+ * on both.
  *
  * What the probe established, and what this object is shaped around:
  *
@@ -17,9 +25,10 @@ import { AUTHZ_BASE } from '../../api';
  *   on step one with an error on the stepper and the typed text intact.
  * - Step two's scope picker is the only control the app gives a test id
  *   (`toggle-scope-<key>`).
- * - Saving sends `PUT roles/users/` and, on success, returns to the Team
- *   Members table; on a server failure it stays put and shows a toast with a
- *   retry.
+ * - Saving sends `PUT roles/users/` and, on success, leaves the wizard (back
+ *   to the Team Members table, or the modal closing over it); on a server
+ *   failure it stays put and reports the failure with a retry — a toast on
+ *   `verawood`, an alert inside the modal after it ({@link saveFailure}).
  */
 export class AssignRoleWizard {
   private readonly s = ADMIN_CONSOLE_SELECTORS;
@@ -32,11 +41,16 @@ export class AssignRoleWizard {
   readonly scopeToggles: Locator;
   readonly advanceButton: Locator;
   readonly cancelButton: Locator;
+  /** The success message a completed save raises. */
   readonly toast: Locator;
-  readonly toastRetry: Locator;
+  /** The report of a save the server refused, wherever this console puts it. */
+  readonly saveFailure: Locator;
+  readonly saveFailureRetry: Locator;
+  private readonly consoleAssignRoleButton: Locator;
 
   constructor(
     readonly page: Page,
+    private readonly config: AppConfig,
     /** The console's origin, e.g. `http://apps.example.org/admin-console`. */
     readonly origin: string,
   ) {
@@ -49,16 +63,32 @@ export class AssignRoleWizard {
     this.advanceButton = page.locator(this.s.wizardAdvance).last();
     this.cancelButton = page.locator(this.s.wizardCancel).last();
     this.toast = page.locator(this.s.toast);
-    this.toastRetry = page.locator(this.s.toastRetry);
+    this.saveFailure = page.locator(this.s.wizardSaveFailure);
+    this.saveFailureRetry = page.locator(this.s.wizardSaveFailureRetry);
+    this.consoleAssignRoleButton = page.locator(this.s.assignRoleButton).first();
   }
 
-  url(): string {
-    return `${this.origin}${this.s.assignRolePath}`;
+  /** Whether the wizard is a modal over the console rather than a route of its own. */
+  get isModal(): boolean {
+    return this.config.capabilities.has('rbac-console-next');
   }
 
-  /** Opens the wizard directly and waits for its first step. */
-  async goto(): Promise<void> {
-    await this.page.goto(this.url(), { waitUntil: 'domcontentloaded' });
+  /**
+   * Opens the wizard from scratch and waits for its first step: through the
+   * console's Assign Role button where the wizard is a modal, at its own route
+   * where it still has one.
+   */
+  async open(): Promise<void> {
+    if (this.isModal) {
+      await this.page.goto(`${this.origin}${this.s.authzPath}`, { waitUntil: 'domcontentloaded' });
+      // The button renders only once the console knows the viewer may manage
+      // a team, so its arrival is also the console having loaded.
+      await this.consoleAssignRoleButton.click({ timeout: TIMEOUTS.navigation });
+    } else {
+      await this.page.goto(`${this.origin}${this.s.assignRolePath}`, {
+        waitUntil: 'domcontentloaded',
+      });
+    }
     await this.usersInput.waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
   }
 
@@ -116,25 +146,26 @@ export class AssignRoleWizard {
   }
 
   /**
-   * Retries a failed save from the toast, returning the one request it sends —
+   * Retries a failed save from its report, returning the one request it sends —
    * "exactly one retry" is the assertion these cases are about.
    */
-  async retryFromToast(): Promise<Response> {
+  async retryFailedSave(): Promise<Response> {
     const [response] = await Promise.all([
       this.page.waitForResponse(
         (r) => r.url().includes(`${AUTHZ_BASE}/roles/users/`) && r.request().method() === 'PUT',
         { timeout: TIMEOUTS.navigation },
       ),
-      this.toastRetry.first().click(),
+      this.saveFailureRetry.first().click(),
     ]);
     return response;
   }
 
-  /** Leaves the wizard without assigning anything. */
+  /**
+   * Leaves the wizard without assigning anything, and waits for it to be gone:
+   * the route left behind, or the modal closed.
+   */
   async cancel(): Promise<void> {
     await this.cancelButton.click();
-    await this.page.waitForURL((url) => !url.pathname.endsWith('/assign-role'), {
-      timeout: TIMEOUTS.navigation,
-    });
+    await this.usersInput.waitFor({ state: 'hidden', timeout: TIMEOUTS.navigation });
   }
 }

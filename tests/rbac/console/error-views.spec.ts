@@ -136,9 +136,11 @@ test.describe(
           issue('https://github.com/openedx/wg-build-test-release/issues/619'),
         ],
       },
-      async ({ page, adminConsole, authoringLibrary, studioAuthorSession }) => {
+      async ({ page, adminConsole, authoringLibrary, studioAuthorSession, workerAuthor }) => {
         void studioAuthorSession;
         void authoringLibrary;
+        // `studioAuthorSession` is this account's session, so it is defined here.
+        const author = workerAuthor!.identity.username;
         // The Team Members list, whichever the console's generation reads
         // (`assignments/` or `users/`) — and no other authz route.
         const route = (url: URL) => teamMembersGroupingOf(url) !== undefined;
@@ -196,8 +198,11 @@ test.describe(
           expect(retries).toBeLessThanOrEqual(1);
 
           // TC-00443: leave while that retry is still in flight.
-          await page.goto(adminConsole.assignRole.url(), { waitUntil: 'domcontentloaded' });
-          await expect(adminConsole.assignRole.usersInput).toBeVisible();
+          // To a console route that reads no team list of its own, so the only
+          // list request left is the one abandoned here.
+          const elsewhere = adminConsole.console.routeAwayFromTeamList(author);
+          await page.goto(elsewhere.url, { waitUntil: 'domcontentloaded' });
+          await expect(elsewhere.landmark).toBeVisible();
           await expect(adminConsole.console.toast).toHaveCount(0);
 
           // Even once the abandoned request finally fails, its error does not

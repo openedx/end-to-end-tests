@@ -20,8 +20,15 @@ export type MatrixGroup = keyof typeof MATRIX_GROUPS;
  *
  * The tab is not flag-gated, but the role catalog (`roles/`) is
  * permission-gated, so the viewer must hold a role in the scope the console was
- * opened on (§1.8.12 of the plan): a library's admin, or a migrated course's
- * `course_admin`.
+ * opened on: a library's admin, or a migrated course's `course_admin`.
+ *
+ * The halves are told apart by **position** in the scope switch (Courses, then
+ * Libraries), because nothing else in the DOM names them. That holds only
+ * while both are rendered: `verawood` always renders both, but from
+ * frontend-app-admin-console#268 a half exists only for a scope type the
+ * viewer may see a team for. So this object refuses to guess — it throws when
+ * the switch does not offer both — and the specs make the viewer one who sees
+ * both (the `matrixBothHalves` fixture).
  */
 export class PermissionsMatrix {
   private readonly s = ADMIN_CONSOLE_SELECTORS;
@@ -61,9 +68,27 @@ export class PermissionsMatrix {
     await this.rows.first().waitFor({ state: 'visible', timeout: TIMEOUTS.navigation });
   }
 
+  /**
+   * The switch's buttons, once it is known to offer both halves. A switch with
+   * one button cannot be read by position, and answering as if it could is how
+   * a Libraries half passes for Courses.
+   */
+  private async bothGroupButtons(): Promise<Locator> {
+    const offered = await this.groupButtons.count();
+    if (offered !== Object.keys(MATRIX_GROUPS).length) {
+      throw new Error(
+        `The permission matrix offers ${offered} scope type(s), not both, so its halves cannot ` +
+          'be told apart by position. This console renders a half only for a scope type the ' +
+          'viewer may see a team for: take the `matrixBothHalves` fixture, so the viewer holds ' +
+          'a course role as well as a library one.',
+      );
+    }
+    return this.groupButtons;
+  }
+
   /** Switches halves and waits for the new half to be the one shown. */
   async showGroup(group: MatrixGroup): Promise<void> {
-    const button = this.groupButtons.nth(MATRIX_GROUPS[group]);
+    const button = (await this.bothGroupButtons()).nth(MATRIX_GROUPS[group]);
     await button.click();
     // The switch is Paragon's variant change, so "this half is shown" is the
     // button becoming primary; the table is rebuilt from state, not fetched.
@@ -73,9 +98,9 @@ export class PermissionsMatrix {
 
   /** Which half is shown, by the switch button carrying Paragon's primary variant. */
   async shownGroup(): Promise<MatrixGroup | undefined> {
+    const buttons = await this.bothGroupButtons();
     for (const group of Object.keys(MATRIX_GROUPS) as MatrixGroup[]) {
-      const classes =
-        (await this.groupButtons.nth(MATRIX_GROUPS[group]).getAttribute('class')) ?? '';
+      const classes = (await buttons.nth(MATRIX_GROUPS[group]).getAttribute('class')) ?? '';
       if (/\bbtn-primary\b/.test(classes)) {
         return group;
       }
@@ -109,9 +134,9 @@ export class PermissionsMatrix {
     await this.comingSoonHeaders.nth(index).locator(this.s.matrixHelpCursor).hover();
   }
 
-  /** Hovers the first functional-area heading's info icon. */
+  /** Hovers the first functional-area heading's info control. */
   async hoverGroupInfo(): Promise<void> {
-    await this.groupRows.first().locator(this.s.matrixGroupInfoIcon).hover();
+    await this.groupRows.first().locator(this.s.matrixGroupInfoIcon).first().hover();
   }
 
   /** The CSS `position` of a cell — how "the headers stay in view" is read. */

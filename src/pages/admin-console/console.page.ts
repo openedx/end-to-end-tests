@@ -132,6 +132,27 @@ export class AdminConsolePage {
   }
 
   /**
+   * A console route that never reads the Team Members list, with the element
+   * that says it has rendered — somewhere for a caller to "move on" to while a
+   * list request is still in flight. `verawood` has the Assign Role wizard's
+   * own route for that; where the wizard is a modal (`rbac-console-next`) that
+   * route is gone, and an account's audit view is the one that reads
+   * `users/<username>/assignments/` and not the list.
+   */
+  routeAwayFromTeamList(username: string): { url: string; landmark: Locator } {
+    if (this.config.capabilities.has('rbac-console-next')) {
+      return {
+        url: `${this.origin}${this.s.authzPath}/user/${encodeURIComponent(username)}`,
+        landmark: this.page.locator(this.s.auditBreadcrumb),
+      };
+    }
+    return {
+      url: `${this.origin}${this.s.assignRolePath}`,
+      landmark: this.page.locator(this.s.wizardUsersInput),
+    };
+  }
+
+  /**
    * The console's own Team Members list request for one scope — what a spec
    * waits for when it wants the table to show a particular course or library.
    */

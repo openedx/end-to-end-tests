@@ -587,6 +587,17 @@ export interface TestFixtures {
    */
   authzTarget: AuthzCourse;
   /**
+   * Makes the console's permission matrix show **both** halves to the worker
+   * author. `verawood` renders Courses and Libraries for anyone; the console
+   * after it (`rbac-console-next`) renders a half only for a scope type the
+   * viewer may see a team for, so the author — a library admin by way of
+   * {@link authoringLibrary} — also needs a course role, which
+   * {@link WorkerFixtures.authzCourse} gives it. Skips, with the reason, where
+   * that console is declared and the course could not be put under AuthZ (no
+   * admin account); changes nothing where both halves are always there.
+   */
+  matrixBothHalves: void;
+  /**
    * The Roles and Permissions console, addressed at the `ADMIN_CONSOLE_URL` this
    * installation advertises in its authoring MFE config. Where `rbac` is
    * declared but no console is configured this **fails** rather than skipping:
@@ -3503,7 +3514,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       console: new AdminConsolePage(page, config, origin),
       teamMembers: new TeamMembersTable(page),
       userAudit: new UserAuditPage(page, origin),
-      assignRole: new AssignRoleWizard(page, origin),
+      assignRole: new AssignRoleWizard(page, config, origin),
       matrix: new PermissionsMatrix(page),
       auditFor: (other: Page) => new UserAuditPage(other, origin),
       consoleFor: (other: Page) => new AdminConsolePage(other, config, origin),
@@ -3532,6 +3543,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           `(${authzTarget.modeEvidence})`,
       );
     }
+    await use();
+  },
+
+  matrixBothHalves: async ({ config, authzCourse }, use) => {
+    // skip-kind: suite-config
+    base.skip(
+      config.capabilities.has('rbac-console-next') && authzCourse === undefined,
+      'This console shows the permission matrix only for the scope types the viewer may see a ' +
+        'team for, so its Courses half needs the author to hold a course role — and the waffle ' +
+        'override that puts a course under openedx-authz is a Django-admin write, which needs ' +
+        'an admin account.',
+    );
     await use();
   },
 
