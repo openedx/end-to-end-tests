@@ -50,6 +50,7 @@ test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
     expect([...config.capabilities].sort()).toEqual([
       'authz-manual-migration',
       'course-creator-group',
+      'course-optimizer',
       'discussions',
       'frontend-base',
       'instructor-dashboard',
@@ -194,6 +195,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
     expect([...config.capabilities].sort()).toEqual([
       'authz-manual-migration',
       'course-creator-group',
+      'course-optimizer',
       'discussions',
       'frontend-base',
       'instructor-dashboard',
@@ -211,6 +213,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
     expect([...config.capabilities].sort()).toEqual([
       'authz-manual-migration',
       'course-creator-group',
+      'course-optimizer',
       'discussions',
       'frontend-base',
       'instructor-dashboard',
@@ -226,6 +229,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
     expect([...config.capabilities].sort()).toEqual([
       'authz-manual-migration',
       'course-creator-group',
+      'course-optimizer',
       'discussions',
       'instructor-dashboard',
       'mfe-authn',
