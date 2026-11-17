@@ -174,23 +174,27 @@ jobs:
 
   # Claude Code, headless, diagnoses the failure from `triage-input` and the
   # repo (the openedx-e2e skill, the specs, git history) and writes
-  # triage/out/triage.json + issue.md. It gets no GitHub token
-  # (`permissions: {}`, no GH_TOKEN; the checkout keeps no credentials) and,
-  # through .github/triage/claude-settings.json in `dontAsk` mode, only
+  # triage/out/triage.json + issue.md. Its GITHUB_TOKEN can do nothing: the
+  # only permission is `id-token: write`, which mints the OIDC token Anthropic
+  # exchanges for API access and grants no access to the repository. No
+  # GH_TOKEN, and the checkout keeps no credentials. Through
+  # .github/triage/claude-settings.json in `dontAsk` mode, Claude gets only
   # read-only tools: no network, no gh, writes only under triage/out/.
   # validate.py then checks the output against triage.schema.json, recomputes
   # the verdict and the re-run decision, redacts secret-shaped strings, and
   # falls back to a `verdict: unknown` record built from the failure summary
   # if the diagnosis is missing or invalid — so a later job can always act.
   #
-  # Needs the ANTHROPIC_API_KEY secret; without it the job still produces the
+  # Authenticates to Anthropic by workload identity federation (see the
+  # Diagnose step); if the exchange fails the job still produces the
   # fallback. Repository variables TRIAGE_MODEL and TRIAGE_MAX_USD override
   # the model and the spending cap.
   triage:
     needs: gather
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions: {}
+    permissions:
+      id-token: write
     env:
       CLAUDE_CODE_VERSION: 2.1.285
       TRIAGE_MODEL: ${{ vars.TRIAGE_MODEL || 'claude-opus-5-5' }}
@@ -225,38 +229,85 @@ jobs:
           npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
           claude --version
 
-      # Never fails the job: a missing key, a crash or the spending cap leaves
-      # error.txt for validate.py, which falls back.
+      # Authenticates with workload identity federation; no stored key. Claude
+      # Code exchanges the GitHub OIDC token in ANTHROPIC_IDENTITY_TOKEN_FILE
+      # for a short-lived Anthropic token itself, and exchanges again as that
+      # expires. GitHub's token lasts about 5 minutes and the Anthropic one at
+      # most twice what is left of it, so a background loop rewrites the file
+      # every 2 minutes for the whole diagnosis. Claude's own process gets
+      # neither the means to mint more GitHub tokens (ACTIONS_ID_TOKEN_* are
+      # unset for it) nor a way to read the file (claude-settings.json denies
+      # the runner's temp dir).
+      #
+      # Not `--bare`: bare mode reads no federation variables. What bare would
+      # skip is absent here anyway (no hooks, plugins, MCP servers or tracked
+      # CLAUDE.md on the runner), and `--setting-sources user` keeps a future
+      # .claude/settings.json in the repo from widening the permissions.
+      #
+      # Never fails the job: no OIDC token, a refused exchange, a crash or the
+      # spending cap leaves error.txt for validate.py, which falls back.
       - name: Diagnose
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_FEDERATION_RULE_ID: fdrl_016yWVbvUDQSMTdngm8E6MDk
+          ANTHROPIC_ORGANIZATION_ID: 7f2aa3fa-2827-45e8-b0d9-06c8e7c5b3c9
+          ANTHROPIC_SERVICE_ACCOUNT_ID: svac_01TTYY7nnP93Esd66rYX3CBj
+          ANTHROPIC_WORKSPACE_ID: wrkspc_012jzzuq3F2pUKdttnkR44zF
         run: |
           set -uo pipefail
           mkdir -p triage/out
-          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-            echo "::warning::No ANTHROPIC_API_KEY secret; skipping the diagnosis."
-            echo "no ANTHROPIC_API_KEY secret configured" > triage/out/error.txt
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "::warning::No GitHub OIDC token available (the job needs id-token: write); skipping the diagnosis."
+            echo "no GitHub OIDC token available" > triage/out/error.txt
             exit 0
           fi
-          claude -p --bare \
+          OIDC="${RUNNER_TEMP}/anthropic-oidc"
+          mkdir -m 700 "$OIDC"
+          export ANTHROPIC_IDENTITY_TOKEN_FILE="${OIDC}/jwt"
+          fetch_jwt() {
+            local jwt
+            jwt=$(curl -sSf -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://api.anthropic.com" | jq -r '.value // empty') \
+              && [ -n "$jwt" ] || return 1
+            echo "::add-mask::${jwt}"
+            printf '%s\n' "$jwt" >> "${OIDC}/issued"
+            printf '%s' "$jwt" > "${OIDC}/jwt.tmp" && mv "${OIDC}/jwt.tmp" "$ANTHROPIC_IDENTITY_TOKEN_FILE"
+          }
+          if ! fetch_jwt; then
+            echo "::warning::Could not get a GitHub OIDC token; skipping the diagnosis."
+            echo "could not get a GitHub OIDC token" > triage/out/error.txt
+            exit 0
+          fi
+          (while sleep 120; do fetch_jwt || echo "::warning::GitHub OIDC token refresh failed."; done) &
+          REFRESH=$!
+          # However the step ends, stop refreshing and drop the tokens.
+          trap 'kill "$REFRESH" 2> /dev/null; rm -rf "$OIDC"' EXIT
+
+          # A stray key or token would outrank federation, so none reaches Claude.
+          env -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
+              -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN \
+            claude -p \
             --model "$TRIAGE_MODEL" \
             --max-budget-usd "$TRIAGE_MAX_USD" \
             --permission-mode dontAsk \
             --settings .github/triage/claude-settings.json \
+            --setting-sources user \
             --strict-mcp-config \
             --no-session-persistence \
             --output-format json \
             < .github/triage/prompt.md \
             > triage/out/session.json 2> triage/out/claude-stderr.txt
           code=$?
+          kill "$REFRESH" 2> /dev/null
+          wait "$REFRESH" 2> /dev/null
           if [ "$code" -ne 0 ]; then
             echo "claude exited ${code}" > triage/out/error.txt
           fi
-          # The key must never leave the runner, whatever the artifacts said.
-          if grep -rqF -- "$ANTHROPIC_API_KEY" triage/out; then
+          # No credential may leave the runner, whatever the artifacts said:
+          # neither a GitHub token issued here nor an Anthropic key or token.
+          if grep -rqF -f "${OIDC}/issued" triage/out || grep -rqE 'sk-ant-[a-z]+[0-9]*-' triage/out; then
             rm -rf triage/out
             mkdir -p triage/out
-            echo "the diagnosis output contained the API key and was discarded" > triage/out/error.txt
+            echo "the diagnosis output contained a credential and was discarded" > triage/out/error.txt
           fi
 
       - name: Validate

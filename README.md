@@ -533,7 +533,9 @@ read-only tools (`.github/triage/claude-settings.json`), and uploads
 `test-defect`, `environment`, `mixed` or `unknown` — per-test categories,
 whether to re-run) and `issue.md`. `.github/triage/validate.py` checks it
 against `triage.schema.json` and falls back to `unknown` if it is missing or
-invalid. Needs the `ANTHROPIC_API_KEY` secret; the `TRIAGE_MODEL` and
+invalid. It authenticates to Anthropic with GitHub OIDC (workload identity
+federation, no stored key): the job's only permission is `id-token: write`,
+and the federation rule's ids are in the workflow. The `TRIAGE_MODEL` and
 `TRIAGE_MAX_USD` variables override the model and the per-run spending cap.
 
 Two later jobs act on `claude-triage`, without Claude. A first attempt whose
