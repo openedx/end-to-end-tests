@@ -2,6 +2,7 @@ import { checkA11y } from '../../../src/a11y';
 import {
   courseExists,
   courseKeyFor,
+  fetchAdvancedSettings,
   fetchCourseHomeOutline,
   listStudioCourses,
   rerunCourse,
@@ -49,10 +50,22 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
       const destKey = courseKeyFor(authoredCourse.org, authoredCourse.number, run);
       const home = new StudioHomePage(adminPage, config);
 
+      // Read the source's name as the form loads: other specs rename this course.
+      const sourceName = (await fetchAdvancedSettings(admin, config, authoredCourse.courseKey))
+        .display_name?.value;
+
       await home.goto();
       await home.search(authoredCourse.number);
       const created = await home.rerunFromCard(authoredCourse.courseKey, run);
       expect(created.status, created.body).toBe(200);
+      // The form started from the source course: only the run was filled in.
+      expect(created.sent).toMatchObject({
+        source_course_key: authoredCourse.courseKey,
+        display_name: sourceName,
+        org: authoredCourse.org,
+        number: authoredCourse.number,
+        run,
+      });
 
       // The copy runs on the CMS worker; then the new run exists and Studio Home
       // lists it beside its source.

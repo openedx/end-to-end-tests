@@ -13,7 +13,7 @@ import {
 } from '../../../src/api';
 import { getRunId, TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
-import { testId } from '../../../src/reporting';
+import { issue, testId } from '../../../src/reporting';
 
 /**
  * Advanced Settings (authoring MFE), on the worker's own course.
@@ -22,6 +22,10 @@ import { testId } from '../../../src/reporting';
  * drives the edit; Studio's `advanced_settings` echo and the LMS course /
  * enrollment / course-home APIs decide the outcome. Each test resets the setting
  * it touches through the API first, so the tests are independent.
+ *
+ * A value Studio refuses is reported in the page's error modal, one list item per
+ * refused setting; the modal's rendering is the case there, read structurally,
+ * and Studio's echo shows nothing was saved.
  */
 
 /** The value of one Advanced Setting as Studio echoes it back. */
@@ -297,6 +301,81 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
         .toBe(true);
 
       await updateAdvancedSettings(api, config, courseKey, { teams_configuration: teamsOff });
+    },
+  );
+
+  test(
+    'refuses a value that is not JSON and lists the setting in the error modal',
+    { tag: '@regression' },
+    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
+      void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
+      const { courseKey } = authoredCourse;
+      await updateAdvancedSettings(api, config, courseKey, {
+        max_student_enrollments_allowed: null,
+      });
+
+      // An unterminated object: the page's own JSON check refuses it before any
+      // write is sent.
+      await advancedSettingsPage.goto(courseKey);
+      await advancedSettingsPage.setFieldText('maxStudentEnrollmentsAllowed', '{250');
+      await advancedSettingsPage.saveRefusedLocally();
+
+      // The modal lists exactly the one refused setting, under the setting's name.
+      await expect(advancedSettingsPage.errorItems).toHaveCount(1);
+      await expect(
+        advancedSettingsPage.errorItemTitle(advancedSettingsPage.errorItems.first()),
+      ).toBeVisible();
+
+      await checkA11y(page, { label: 'studio-advanced-error-modal' });
+
+      // Nothing was saved.
+      expect(await settingValue(api, config, courseKey, 'max_student_enrollments_allowed')).toBe(
+        null,
+      );
+    },
+  );
+
+  test(
+    'refuses a value of the wrong type and lists the setting in the error modal',
+    {
+      tag: '@regression',
+      annotation: issue('https://github.com/openedx/frontend-app-authoring/pull/3366'),
+    },
+    async ({ page, config, authoredCourse, advancedSettingsPage, studioAuthorSession }) => {
+      test.fail(
+        true,
+        'STUDIO-014 (docs/findings.md): the error modal lists no setting when Studio refuses ' +
+          'a value — the page reads the error body as a list, Studio wraps it in ' +
+          '`developer_message`; frontend-app-authoring#3366 reads the error body of the new ' +
+          'advanced settings API instead: https://github.com/openedx/frontend-app-authoring/pull/3366',
+      );
+      void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
+      const { courseKey } = authoredCourse;
+      await updateAdvancedSettings(api, config, courseKey, {
+        max_student_enrollments_allowed: null,
+      });
+
+      // Valid JSON, so the page's own check lets it through, but not an integer:
+      // Studio's validation refuses it.
+      await advancedSettingsPage.goto(courseKey);
+      await advancedSettingsPage.setField('maxStudentEnrollmentsAllowed', 'not a number');
+      expect((await advancedSettingsPage.save(courseKey)).status).toBe(400);
+
+      // Nothing was saved…
+      expect(await settingValue(api, config, courseKey, 'max_student_enrollments_allowed')).toBe(
+        null,
+      );
+
+      // …and the modal lists exactly the one refused setting, under its name.
+      await expect(advancedSettingsPage.errorModal).toBeVisible();
+      await expect(advancedSettingsPage.errorItems).toHaveCount(1);
+      await expect(
+        advancedSettingsPage.errorItemTitle(advancedSettingsPage.errorItems.first()),
+      ).toBeVisible();
     },
   );
 });

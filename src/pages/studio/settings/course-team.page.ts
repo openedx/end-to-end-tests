@@ -16,6 +16,10 @@ export class StudioCourseTeamPage {
   readonly newMemberButton: Locator;
   readonly emailInput: Locator;
   readonly addSubmitButton: Locator;
+  /** Every member row's management controls (absent for a caller who may not manage the team). */
+  readonly memberActions: Locator;
+  /** The transfer-ownership hint the MFE shows the course's only admin. */
+  readonly ownershipHint: Locator;
 
   constructor(
     page: Page,
@@ -27,6 +31,8 @@ export class StudioCourseTeamPage {
     this.newMemberButton = page.locator(s.newMemberButton).first();
     this.emailInput = page.locator(s.emailInput);
     this.addSubmitButton = page.locator(s.addSubmitButton);
+    this.memberActions = page.locator(`${s.member} ${s.memberActions}`);
+    this.ownershipHint = page.locator(s.ownershipHint);
   }
 
   url(courseKey: string): string {
@@ -42,6 +48,24 @@ export class StudioCourseTeamPage {
   /** The row for the member with `email` (the test-supplied address). */
   memberRow(email: string): Locator {
     return this.members.filter({ has: this.page.locator(`a[href="mailto:${email}"]`) });
+  }
+
+  /** The "add another admin first" hint in the row of the member with `email`. */
+  memberHint(email: string): Locator {
+    return this.memberRow(email).locator(STUDIO_COURSE_TEAM_SELECTORS.memberHint);
+  }
+
+  /** The management controls in the row of the member with `email`. */
+  memberActionsOf(email: string): Locator {
+    return this.memberRow(email).locator(STUDIO_COURSE_TEAM_SELECTORS.memberActions);
+  }
+
+  /** The emails of the listed members, read from each row's `mailto:` link. */
+  async memberEmails(): Promise<string[]> {
+    const hrefs = await this.members
+      .locator(STUDIO_COURSE_TEAM_SELECTORS.memberEmailLink)
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+    return hrefs.map((href) => decodeURIComponent(href.replace(/^mailto:/, '')));
   }
 
   /**

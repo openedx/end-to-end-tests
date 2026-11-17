@@ -18,6 +18,19 @@ export const STUDIO_ADVANCED_SETTINGS_SELECTORS = {
   field: (name: string) => `textarea[name="${name}"]`,
   /** Marks the page as rendered: the display-name field is always present. */
   ready: 'textarea[name="displayName"]',
+  /**
+   * The validation-error modal (a Paragon alert modal) that opens when a save is
+   * refused, by the MFE's own JSON check or by Studio's validation. (The save
+   * bar is a `role="dialog"` alert too, hence the modal class.)
+   */
+  errorModal: '.pgn__alert-modal[role="dialog"]',
+  /** One refused setting in the error modal — one list item per setting. */
+  errorItem: '.pgn__alert-modal[role="dialog"] li.modal-error-item',
+  /**
+   * The heading of a refused setting's list item, naming the setting (its display
+   * name). Rendered only for an error tied to a setting the page knows.
+   */
+  errorItemTitle: '.modal-error-item-title',
 } as const;
 
 export const STUDIO_COURSE_TEAM_SELECTORS = {
@@ -50,6 +63,25 @@ export const STUDIO_COURSE_TEAM_SELECTORS = {
   deleteButton: '[data-testid="delete-button"]',
   /** The confirmation modal's "Delete" button. */
   deleteConfirmButton: '.pgn__modal button.btn.btn-primary',
+  /**
+   * A member row's management controls (the role toggle and the delete button).
+   * The MFE renders them only for a caller who may manage the team, and never on
+   * the row of the course's only admin.
+   */
+  memberActions: '.member-actions',
+  /**
+   * What the only admin's row shows in place of its controls: a hint that the
+   * course needs another admin first. Rendered only for a caller who may manage
+   * the team.
+   */
+  memberHint: '.member-hint',
+  /** A member row's email link; its `href` is `mailto:<email>`, the member's own data. */
+  memberEmailLink: 'a[href^="mailto:"]',
+  /**
+   * The transfer-ownership hint ("Transferring ownership"): the sidebar's second
+   * help panel, after a rule, which the MFE renders only for the course's only admin.
+   */
+  ownershipHint: '.course-team-sidebar hr + .help-sidebar',
 } as const;
 
 export const STUDIO_GROUP_CONFIGURATIONS_SELECTORS = {
@@ -72,6 +104,35 @@ export const STUDIO_GROUP_CONFIGURATIONS_SELECTORS = {
   newGroupNameInput: 'input[name="newGroupName"]',
   /** The new-group form's "Create" button — the only `btn-primary` while the form is open. */
   createGroupButton: '.group-configurations button.btn.btn-primary',
+  /**
+   * The page's main column. It replaces the loading spinner once the page's data
+   * has arrived, and every section is rendered with it, so it marks the sections
+   * as complete.
+   */
+  mainColumn: '[data-testid="group-configurations-main-content-wrapper"]',
+  /**
+   * One section of the main column (team sets, enrollment tracks, content groups,
+   * experiment groups): a block headed by its section title. The experiment-groups
+   * section, when the course offers it, is rendered after all the others.
+   */
+  section:
+    '[data-testid="group-configurations-main-content-wrapper"] > div:has(> .configuration-section-name)',
+  /**
+   * Inside the experiment-groups section, the button that opens the new
+   * configuration form: a solid primary "Create new group configuration" while the
+   * section is empty, an outline "New group configuration" below existing cards.
+   * The cards' own buttons are icon buttons with a `data-testid`.
+   */
+  sectionAddButton:
+    'button.btn-primary:not([data-testid]), button.btn-outline-primary:not([data-testid])',
+  /** The new experiment-group configuration form. */
+  experimentForm: '[data-testid="experiment-configuration-form"]',
+  /** The experiment form's configuration-name field. */
+  experimentNameInput: '[data-testid="experiment-configuration-form"] input[name="name"]',
+  /** The experiment form's "Create" button: the primary one of its action row (the other is Cancel). */
+  experimentCreateButton: '[data-testid="experiment-configuration-actions"] button.btn-primary',
+  /** One experiment-group configuration card. */
+  experimentCard: '[data-testid="configuration-card"]',
 } as const;
 
 export const STUDIO_CERTIFICATES_SELECTORS = {

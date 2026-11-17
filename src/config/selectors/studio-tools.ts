@@ -2,7 +2,8 @@
  * The authoring MFE's Tools pages: Export, Import and the two Checklists, reached
  * through the Studio URLs `/export/<key>`, `/import/<key>` and `/checklists/<key>`
  * (which redirect to the MFE, whose mount path differs by release, so nothing
- * here depends on it).
+ * here depends on it), and the Course Optimizer, which has no Studio alias and is
+ * reached at `<course base>/optimizer` (see `authoringCourseBaseUrl`).
  *
  * Little on these pages identifies a control but its label, so anchors are the stable layout
  * classes (`.export`, `.import`) and the shared course-stepper structure. Never
@@ -55,3 +56,30 @@ export const LAUNCH_CHECKLIST_ITEMS = [
   'assignmentDeadlines',
   'proctoringEmail',
 ] as const;
+
+export const STUDIO_OPTIMIZER_SELECTORS = {
+  /**
+   * The card that holds the scan and its results — marks the optimizer route as
+   * rendered. (The page's layout container reuses the Export page's `.export`
+   * class, so the card is the anchor that tells the two apart.)
+   */
+  page: '.scan-card',
+  /** "Scan course" — the page's one stateful action, which starts a link check. */
+  scanButton: 'button.scan-course-btn',
+  /**
+   * One course section in the results of the last finished scan, a collapsible
+   * whose header carries the section's display name (`.section-title`) and its
+   * broken / manual / locked counts. Only sections holding a flagged link are listed.
+   */
+  resultSection: '.scan-card .section',
+  /** A result section's display name — the author's own title, never platform copy. */
+  resultSectionTitle: '.section-title',
+  /** The header that opens or closes a result section. */
+  resultSectionToggle: '.collapsible-trigger',
+  /**
+   * A flagged link in an open result section, by a fragment of its URL: the
+   * anchor points at the link as the platform reports it, which may be rewritten
+   * from what the author wrote (a `/static/` path becomes the asset's URL).
+   */
+  flaggedLink: (fragment: string) => `a.broken-link[href*="${fragment}"]`,
+} as const;

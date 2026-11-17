@@ -70,6 +70,7 @@ export {
   STUDIO_STEPPER_STATE,
   STUDIO_CHECKLISTS_SELECTORS,
   LAUNCH_CHECKLIST_ITEMS,
+  STUDIO_OPTIMIZER_SELECTORS,
 } from './studio-tools';
 export { STUDIO_PAGES_RESOURCES_SELECTORS } from './studio-pages-resources';
 export { STUDIO_CUSTOM_PAGES_SELECTORS } from './studio-custom-pages';

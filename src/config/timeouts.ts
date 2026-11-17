@@ -75,6 +75,14 @@ export const TIMEOUTS = {
   courseTransfer: 180_000,
 
   /**
+   * Budget for a Course Optimizer link check to finish. It runs on the CMS
+   * worker and requests every link in the course's published content, each with
+   * a 5 s timeout and up to three retries for a Studio link that does not answer,
+   * so a course whose links point nowhere reachable takes the longest.
+   */
+  linkCheck: 180_000,
+
+  /**
    * Budget for the worker-scoped course fixture (`authoredCourse`) to provision
    * its course: one Studio API call plus the search that makes it idempotent.
    */
