@@ -1,8 +1,8 @@
 # Updating tests across named releases
 
 The suite runs against **several Open edX versions at once**: every PR runs it
-against `Tutor main` _and_ against the last named release, and
-`run_tests_tutor.yml` can target any release listed in
+against `Tutor main`, the last named release (`verawood`) _and_ the one before
+it (`ulmo`), and `run_tests_tutor.yml` can target any release listed in
 `.ci/openedx-releases.json` (currently `main`, `verawood`, `ulmo`, `teak`,
 `sumac`, `redwood`). A change that only works on `main` breaks those jobs.
 
@@ -12,7 +12,9 @@ expressed in configuration and in version-tolerant code, never by forking specs.
 ## `.ci/openedx-releases.json` is the source of truth per release
 
 Each entry carries the Tutor version constraint and the default `CAPABILITIES` to
-declare for that release. Adding or removing a supported release is an edit to
+declare for that release, and optionally `workers`, the Playwright worker count
+a CI shard runs there (`ulmo` runs one, because concurrent course saves deadlock in
+its Studio: `PLAT-012`). Adding or removing a supported release is an edit to
 that file **plus** the matching `openedx_release` dropdown option in
 `run_tests_tutor.yml` — `ci.yml` has a step that fails the build if the two drift
 apart. `ci.yml`'s "last release" job also hardcodes the newest non-`main` release

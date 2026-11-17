@@ -6,8 +6,8 @@ need to reproduce locally first.
 
 ## What a `ci-tests` run uploads
 
-`ci.yml` fans out to `run_tests_tutor.yml` once per release (`main` plus the
-newest named release, e.g. `verawood`). Within a release, one job per shard of
+`ci.yml` fans out to `run_tests_tutor.yml` once per release (`main`, the newest
+named release, e.g. `verawood`, and the one before it, `ulmo`). Within a release, one job per shard of
 each CI profile (`.ci/profiles.json`) runs against its own Tutor install and
 uploads a `blob-report-<release>-<profile>-<shard>` and a
 `tutor-logs-<release>-<profile>-<shard>`; the release's `Merge reports` job

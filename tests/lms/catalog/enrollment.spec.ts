@@ -13,7 +13,7 @@ import { catalogSearchTermFor, locateCourseInCatalog } from '../../../src/steps'
  * the enrolled state is not a disabled button at all, but a link into the
  * courseware, which is what the structural assertion below checks.
  */
-test.describe('Course enrollment', () => {
+test.describe('Course enrollment', { tag: '@mfe-catalog' }, () => {
   test(
     'enrolls a learner from the course About page',
     { tag: ['@smoke', '@authenticated'], annotation: testId('TC-00008') },

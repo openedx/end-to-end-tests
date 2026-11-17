@@ -15,7 +15,7 @@ const TOLERANCE_PX = 1;
 
 test(
   'keeps the header and footer logos one size across the LMS',
-  { tag: ['@regression', '@authenticated'], annotation: testId('TC-00060') },
+  { tag: ['@regression', '@authenticated', '@mfe-catalog'], annotation: testId('TC-00060') },
   async ({
     siteHeader,
     siteFooter,

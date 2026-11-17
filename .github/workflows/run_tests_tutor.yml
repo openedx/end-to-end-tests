@@ -11,7 +11,7 @@ name: Tutor E2E Test
 # A failed scheduled run is picked up by triage_scheduled_run.yml.
 #
 # Also callable (`workflow_call`) so `ci.yml` can run it as a non-blocking,
-# Docker-based check against the "main" and last-released environments on
+# Docker-based check against the "main", last-released and ulmo environments on
 # every PR/push, without duplicating the Tutor provisioning steps.
 #
 # For the "main" release, and for a profile with an image variant (`images` in
@@ -110,6 +110,10 @@ on:
         description: 'CI profiles to run (keys of .ci/profiles.json), space-separated, e.g. "default extended". Each profile runs as its shards, and the merge job combines them into one report.'
         type: string
         default: 'default'
+      allow_failure:
+        description: 'Do not fail the calling workflow when a shard fails. The shard still reports its failure and the merged report still shows it. For a release whose known failures should not turn every run red.'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -137,6 +141,7 @@ jobs:
     outputs:
       release: ${{ steps.release.outputs.release }}
       tutor_constraint: ${{ steps.release.outputs.tutor_constraint }}
+      workers: ${{ steps.release.outputs.workers }}
       matrix: ${{ steps.matrix.outputs.matrix }}
       shard_count: ${{ steps.matrix.outputs.shard_count }}
       sheet_url: ${{ steps.btr.outputs.sheet_url }}
@@ -162,6 +167,9 @@ jobs:
             exit 1
           }
           CONSTRAINT=$(echo "$ENTRY" | jq -r '.tutorConstraint')
+          # Optional: how many Playwright workers a shard runs (WORKERS). Unset
+          # leaves the suite's CI default.
+          WORKERS=$(echo "$ENTRY" | jq -r '.workers // ""')
           RELEASE_CAPABILITIES=$(echo "$ENTRY" | jq -r '.capabilities')
           if [ "$RELEASE" != "main" ]; then
             echo "Open edX '${RELEASE}' -> Tutor constraint '${CONSTRAINT}'"
@@ -171,6 +179,7 @@ jobs:
           {
             echo "release=${RELEASE}"
             echo "tutor_constraint=${CONSTRAINT}"
+            echo "workers=${WORKERS}"
             echo "capabilities=${RELEASE_CAPABILITIES}"
           } >> "$GITHUB_OUTPUT"
 
@@ -240,12 +249,20 @@ jobs:
     needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # Callers only (`allow_failure`); unset on dispatch and schedule runs, which
+    # therefore fail as before.
+    continue-on-error: ${{ inputs.allow_failure == true }}
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.matrix) }}
     env:
       OPENEDX_RELEASE: ${{ needs.plan.outputs.release }}
+      # The release's Playwright worker count, where .ci/openedx-releases.json
+      # sets one (empty: the suite's CI default). `ulmo` runs one: two authors
+      # saving Schedule & Details on different courses at once deadlock in
+      # MySQL there (`PLAT-012`), and one of the saves answers 500.
+      WORKERS: ${{ needs.plan.outputs.workers }}
     steps:
       - name: Checkout (test ref)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

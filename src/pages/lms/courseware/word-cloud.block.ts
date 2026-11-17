@@ -20,14 +20,16 @@ export class WordCloudBlock extends AdvancedBlock {
 
   /**
    * Types `words` into the first inputs and saves, returning the block's
-   * `handle_submit_state` response.
+   * submit response.
    */
   async submit(words: readonly string[]): Promise<Response> {
     for (const [i, word] of words.entries()) await this.inputs.nth(i).fill(word);
     const [response] = await Promise.all([
-      this.page.waitForResponse((r) => r.url().endsWith('/handler/handle_submit_state'), {
-        timeout: TIMEOUTS.navigation,
-      }),
+      // The extracted block's handler, or the built-in block's (`ulmo`).
+      this.page.waitForResponse(
+        (r) => /\/handler\/(?:handle_submit_state|xmodule_handler\/submit)$/.test(r.url()),
+        { timeout: TIMEOUTS.navigation },
+      ),
       this.saveButton.click(),
     ]);
     return response;

@@ -35,9 +35,14 @@ export const STUDIO_OUTLINE_PAGE_SELECTORS = {
    * `data-testid`, but the only non-localized attribute the button has.
    */
   sectionHighlightsButton: '[data-destid="section-card-highlights-button"]',
-  /** The highlights dialog ("Highlights for <section>") and its "Save" (the form's submit). */
+  /**
+   * The highlights dialog ("Highlights for <section>") and its "Save": the
+   * form's submit from verawood on, and on `ulmo` the footer's primary button
+   * (a plain button beside the tertiary Cancel).
+   */
   highlightsModal: '[role="dialog"]:has(.highlights-modal__header)',
-  highlightsSaveButton: 'form button[type="submit"]',
+  highlightsSaveButton:
+    'form button[type="submit"], .pgn__modal-footer button.btn-primary:not([type="submit"])',
 
   /** A section (chapter) card, and its header sub-parts. */
   sectionCard: '[data-testid="section-card"]',
