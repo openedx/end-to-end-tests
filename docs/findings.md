@@ -45,7 +45,7 @@ measured, and issues are opened by hand from them.
 | `RBAC-014`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#258](https://github.com/openedx/frontend-app-admin-console/issues/258) (tracked here as [#136](https://github.com/openedx/end-to-end-tests/issues/136)), `fixme` sibling on TC-00620 |
 | `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | **filed** - [authz#521](https://github.com/openedx/openedx-authz/issues/521) (tracked here as [#118](https://github.com/openedx/end-to-end-tests/issues/118)), `test.fail` on TC-00640 |
 | `RBAC-016`  | BTR test plan (TC-00632 expectation)                     | **resolved** — by design: re-runs never copied the team; [wg#617](https://github.com/openedx/wg-build-test-release/issues/617) (tracked here as [#119](https://github.com/openedx/end-to-end-tests/issues/119)), TC-00632 marked `disputed` |
-| `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-matrix-parity` |
+| `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-console-next` |
 | `AUTH-004`  | `openedx/frontend-app-authoring`                         | open, not asserted — Help topics are, their doc links are not                  |
 | `AUTH-005`  | `openedx/frontend-app-authoring` (outline card selection is mouse-only) | open, not asserted — found while re-measuring `AUTH-002` |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
@@ -2094,7 +2094,7 @@ which is closed against `main`.
 
 **Coverage impact:** open on `verawood` only. TC-00569's structural clauses run
 everywhere; the comparison against the API is a second test gated on the
-`rbac-matrix-parity` capability, declared for `main`. The gap is therefore
+`rbac-console-next` capability, declared for `main`. The gap is therefore
 visible as a capability `verawood` does not have, rather than as a red case on a
 release nobody is going to fix.
 

@@ -60,7 +60,7 @@ test.describe(
         });
 
         try {
-          await wizard.goto();
+          await wizard.open();
           await wizard.fillWhoAndRole(subject.identity.username, 'library_author');
           await wizard.validateAndAdvance();
           await wizard.chooseScope(library);
@@ -70,20 +70,23 @@ test.describe(
           expect(attempts).toBe(1);
 
           // The wizard stays where it was, with its scope step intact, and says
-          // so with a toast that offers a retry.
+          // so with one report that offers a retry (a toast on `verawood`, an
+          // alert inside the modal wizard after it).
           await expect(wizard.scopeToggles.first()).toBeVisible();
-          await expect(wizard.toast).toHaveCount(1);
-          await expect(wizard.toastRetry.first()).toBeVisible();
+          await expect(wizard.saveFailure).toHaveCount(1);
+          await expect(wizard.saveFailureRetry.first()).toBeVisible();
 
           // Retry sends exactly one more request — not a stream of them — and
-          // because it fails again the console reports it again.
-          const retried = await wizard.retryFromToast();
+          // because it fails again the console reports that failure too.
+          // `verawood` leaves the first toast up, so it takes a second one to
+          // show the retry was reported; the modal clears its alert as the
+          // retry starts, so the one on screen afterwards is the retry's.
+          const retried = await wizard.retryFailedSave();
           expect(retried.status()).toBe(500);
           expect(attempts).toBe(2);
-          // The console reports the second failure as its own toast rather than
-          // reusing the first, so two are on screen.
-          await expect(wizard.toast).toHaveCount(2);
-          await expect(wizard.toastRetry.first()).toBeVisible();
+          await expect(wizard.saveFailure).toHaveCount(wizard.saveFailuresAfterRetry);
+          await expect(wizard.saveFailureRetry.first()).toBeVisible();
+          await expect(wizard.scopeToggles.first()).toBeVisible();
         } finally {
           await page.unroute(route);
         }

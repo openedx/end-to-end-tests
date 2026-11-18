@@ -140,8 +140,14 @@ export const ADMIN_CONSOLE_SELECTORS = {
   toast: '.pgn__toast',
   toastRetry: '.pgn__toast button.btn-inverse-outline-primary',
 
-  // --- the Assign Role wizard (`/authz/assign-role`) ----------------------------------------
+  // --- the Assign Role wizard ---------------------------------------------------------------
 
+  /**
+   * The wizard's own route — `verawood` only. From
+   * frontend-app-admin-console#283 (`rbac-console-next`) the wizard is a
+   * full-screen modal opened by {@link assignRoleButton} and this route
+   * renders the console's not-found view.
+   */
   assignRolePath: '/authz/assign-role',
   /** Step 1's users field: a textarea taking usernames or e-mails, comma-separated. */
   wizardUsersInput: '#users-input',
@@ -163,14 +169,28 @@ export const ADMIN_CONSOLE_SELECTORS = {
   wizardAdvance: '.pgn__stateful-btn',
   /** Cancel. Excludes the footer's language dropdown, which shares its class. */
   wizardCancel: 'button.btn-outline-primary:not(.dropdown-toggle)',
+  /**
+   * How the wizard reports a save the server refused, and that report's retry.
+   * `verawood` raises a toast carrying the retry. The modal wizard
+   * (`rbac-console-next`) reports inside itself instead — a danger alert
+   * between its body and footer, because a toast portals outside the modal —
+   * whose actions are Paragon's tertiary Dismiss and the primary retry.
+   */
+  wizardSaveFailure: '.pgn__toast, .assign-role-wizard .alert-danger',
+  wizardSaveFailureRetry:
+    '.pgn__toast button.btn-inverse-outline-primary, ' +
+    '.assign-role-wizard .alert-danger .pgn__alert-actions button:not(.btn-tertiary)',
 
   // --- the Roles and Permissions (permission matrix) tab ------------------------------------
 
   /**
-   * The tab's scope switch: a two-button `role="group"` ("Courses", then
-   * "Libraries"). The chosen one is Paragon's *primary* variant and the other
+   * The tab's scope switch: a `role="group"` of buttons, "Courses" then
+   * "Libraries". The chosen one is Paragon's *primary* variant and the other
    * its *outline* variant, which is how "which half is shown" is read without
-   * touching the labels.
+   * touching the labels. `verawood` always renders both; from
+   * frontend-app-admin-console#268 (`rbac-console-next`) a button exists only
+   * for a scope type the viewer may see a team for, so a library-only viewer
+   * gets one button and nothing structural says which half it is.
    */
   matrixGroupButton: '[role="group"] button',
   matrixGroupButtonActive: '[role="group"] button.btn-primary',
@@ -183,7 +203,7 @@ export const ADMIN_CONSOLE_SELECTORS = {
    * A role column the build offers but has not implemented — on `verawood`,
    * "Course Editor" and "Course Auditor", the sheet's *coming soon* pair. They
    * are greyed (`text-gray-200`) and their label carries a help cursor that
-   * opens the explanatory tooltip. `main` has none (`rbac-course-editor-auditor`).
+   * opens the explanatory tooltip. `main` has none (`rbac-console-next`).
    */
   matrixHeaderComingSoon: 'table.permission-table thead th.text-gray-200',
   matrixHelpCursor: 'span[style*="cursor: help"]',
@@ -192,10 +212,12 @@ export const ADMIN_CONSOLE_SELECTORS = {
 
   /**
    * A functional-area heading row (one `colspan` cell, `<strong>` label) and
-   * its trailing info icon, which carries that group's tooltip.
+   * its trailing info control, which carries that group's tooltip: a greyed
+   * icon on `verawood`, an icon button opening a popover (still
+   * `role="tooltip"`) on `rbac-console-next`.
    */
   matrixGroupRow: 'table.permission-table tbody tr.bg-info-100',
-  matrixGroupInfoIcon: 'span.pgn__icon.text-gray-300',
+  matrixGroupInfoIcon: 'span.pgn__icon.text-gray-300, button.btn-icon',
   /** A permission row, and the cells of its Nth role column (1-based). */
   matrixRow: 'table.permission-table tbody tr.border-top',
   matrixRoleCell: (column: number): string =>

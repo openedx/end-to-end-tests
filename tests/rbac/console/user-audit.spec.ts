@@ -56,7 +56,7 @@ test.describe(
 
         // The view is about this account, and lists one row per assignment, each
         // naming our library — by its key on `verawood`, by its title on `main`
-        // (whose column layout `rbac-audit-team-layout` asserts).
+        // (whose column layout `rbac-console-next` asserts).
         await expect(audit.subjectHeading).toHaveText(subject.identity.username);
         await expect(audit.rows).toHaveCount(assignments.count);
         await expect(audit.row(0)).toContainText(
@@ -216,7 +216,7 @@ test.describe(
 
         // Exactly the admin assignment is unremovable: every other row has a live
         // delete control. (`main` greys the admin row's control out, which
-        // `rbac-audit-team-layout` asserts; `verawood` renders none.)
+        // `rbac-console-next` asserts; `verawood` renders none.)
         const adminAssignments = mine.assignments.filter((row) => row.role.endsWith('_admin'));
         expect(adminAssignments).toHaveLength(1);
         await expect(audit.deleteControls).toHaveCount(mine.count - adminAssignments.length);
@@ -264,7 +264,7 @@ test.describe(
     test(
       'lays the table out as Team Members does, greying out your own admin role',
       {
-        tag: '@rbac-audit-team-layout',
+        tag: '@rbac-console-next',
         annotation: [testId('TC-00565'), testId('TC-00567')],
       },
       async ({

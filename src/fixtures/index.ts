@@ -587,6 +587,17 @@ export interface TestFixtures {
    */
   authzTarget: AuthzCourse;
   /**
+   * Makes the console's permission matrix show **both** halves to the worker
+   * author. `verawood` renders Courses and Libraries for anyone; the console
+   * after it (`rbac-console-next`) renders a half only for a scope type the
+   * viewer may see a team for, so the author — a library admin by way of
+   * {@link authoringLibrary} — also needs a course role, which
+   * {@link WorkerFixtures.authzCourseLater} gives it. Skips, with the reason,
+   * where that console is declared and the course could not be put under AuthZ
+   * (no admin account); provisions nothing where both halves are always there.
+   */
+  matrixBothHalves: void;
+  /**
    * The Roles and Permissions console, addressed at the `ADMIN_CONSOLE_URL` this
    * installation advertises in its authoring MFE config. Where `rbac` is
    * declared but no console is configured this **fails** rather than skipping:
@@ -1392,6 +1403,12 @@ export interface WorkerFixtures {
    */
   authzMigrationMode: MigrationModeProbe | undefined;
   /**
+   * {@link authzMigrationMode}, probed on first call rather than when the
+   * fixture is set up, for a fixture that needs it only on some targets. The
+   * probe runs once per worker however it is reached.
+   */
+  authzMigrationModeLater: () => Promise<MigrationModeProbe | undefined>;
+  /**
    * A course of this worker's own with `authz.enable_course_authoring` forced
    * **on**, and its roles in authz — migrated by the target where it does that
    * itself, assigned here where it does not, because a flag-on course with no
@@ -1452,6 +1469,14 @@ export interface WorkerFixtures {
   instructorCast: (part: InstructorCastPart) => Promise<InstructorCastMember>;
 
   authzCourse: AuthzCourse | undefined;
+  /**
+   * {@link authzCourse}, provisioned on first call rather than when the fixture
+   * is set up — one course per worker however it is reached. For a fixture that
+   * needs the course only on some targets ({@link TestFixtures.matrixBothHalves}):
+   * depending on `authzCourse` itself would probe, create the course and write
+   * its AuthZ override everywhere.
+   */
+  authzCourseLater: () => Promise<AuthzCourse | undefined>;
   /**
    * The course the Studio settings specs act on — one per worker, created on
    * first use through the Studio API by the `author` session the project loaded,
@@ -2963,25 +2988,34 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
 
-  authzMigrationMode: [
+  authzMigrationModeLater: [
     async ({ playwright }, use, workerInfo) => {
       const config = getConfig();
       const admin = config.credentials.admin;
-      if (!config.capabilities.has('rbac') || admin === undefined) {
-        await use(undefined);
-        return;
-      }
-      // The probe organization holds no courses, so forcing the flag on for it
-      // changes nobody's access; a target that migrates by itself still records
-      // a run (with nothing in it), which is the whole signal.
-      const org = `E2EAUTHZ${getRunId()}W${workerInfo.parallelIndex}`.toUpperCase();
-      const probe = await withAdminLmsSession(
-        playwright,
-        config,
-        { emailOrUsername: admin.username, password: admin.password },
-        (session) => probeMigrationMode(session, config, org),
-      );
-      await use(probe);
+      let pending: Promise<MigrationModeProbe | undefined> | undefined;
+      const probeOnce = async (): Promise<MigrationModeProbe | undefined> => {
+        if (!config.capabilities.has('rbac') || admin === undefined) {
+          return undefined;
+        }
+        // The probe organization holds no courses, so forcing the flag on for it
+        // changes nobody's access; a target that migrates by itself still records
+        // a run (with nothing in it), which is the whole signal.
+        const org = `E2EAUTHZ${getRunId()}W${workerInfo.parallelIndex}`.toUpperCase();
+        return withAdminLmsSession(
+          playwright,
+          config,
+          { emailOrUsername: admin.username, password: admin.password },
+          (session) => probeMigrationMode(session, config, org),
+        );
+      };
+      await use(() => (pending ??= probeOnce()));
+    },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
+  authzMigrationMode: [
+    async ({ authzMigrationModeLater }, use) => {
+      await use(await authzMigrationModeLater());
     },
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
@@ -3158,93 +3192,111 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
   ],
 
-  authzCourse: [
-    async ({ playwright, workerAuthor, authzMigrationMode }, use, workerInfo) => {
+  authzCourseLater: [
+    async ({ playwright, workerAuthor, authzMigrationModeLater }, use, workerInfo) => {
       const config = getConfig();
       const admin = config.credentials.admin;
-      if (workerAuthor === undefined || authzMigrationMode === undefined || admin === undefined) {
-        await use(undefined);
-        return;
-      }
-      const identity = newCourseIdentity(
-        config,
-        getRunId(),
-        `W${workerInfo.parallelIndex}Z`,
-        'authz',
-      );
-      const course = await provisionWorkerCourse(playwright, workerAuthor, identity);
-      const note = `e2e ${getRunId()} authz course`;
+      let pending: Promise<AuthzCourse | undefined> | undefined;
+      let neutralize: (() => Promise<void>) | undefined;
 
-      const withAdminLms = async (work: (session: APIRequestContext) => Promise<void>) =>
-        withAdminLmsSession(
-          playwright,
+      const provision = async (): Promise<AuthzCourse | undefined> => {
+        if (workerAuthor === undefined || admin === undefined) return undefined;
+        const authzMigrationMode = await authzMigrationModeLater();
+        if (authzMigrationMode === undefined) return undefined;
+        const identity = newCourseIdentity(
           config,
-          { emailOrUsername: admin.username, password: admin.password },
-          work,
+          getRunId(),
+          `W${workerInfo.parallelIndex}Z`,
+          'authz',
         );
+        const course = await provisionWorkerCourse(playwright, workerAuthor, identity);
+        const note = `e2e ${getRunId()} authz course`;
 
-      await withAdminLms(async (session) => {
-        // Clear first **only if there is something to clear**: a previous attempt
-        // in this slot may have left the override on, because worker teardown
-        // does not always run. Writing a neutralizing row unconditionally would
-        // land it in the same second as the enabling row, and the platform picks
-        // the previous record by timestamp — with both in the same second it can
-        // conclude nothing changed and skip the migration.
-        const states = await fetchWaffleFlagStates(session, config);
-        const stale = [...states.courseOverrides.on, ...states.courseOverrides.off].includes(
-          course.courseKey,
-        );
-        if (stale) {
-          await disableAuthzForCourse(session, config, course.courseKey, {
-            mode: authzMigrationMode.mode,
-            note: `${note} preflight`,
-          });
-        }
-        await enableAuthzForCourse(session, config, course.courseKey, {
-          mode: authzMigrationMode.mode,
-          note,
-        });
-        if (authzMigrationMode.mode === 'manual') {
-          // Nothing migrated the legacy team, and a flag-on course with no authz
-          // roles refuses everyone — including the author who created it. Grant
-          // the role the author's legacy `instructor` row would have become.
-          await assignRole(session, config, {
-            role: 'course_admin',
-            scopes: [course.courseKey],
-            users: [workerAuthor.identity.username],
-          });
-        }
-      });
+        const withAdminLms = async (work: (session: APIRequestContext) => Promise<void>) =>
+          withAdminLmsSession(
+            playwright,
+            config,
+            { emailOrUsername: admin.username, password: admin.password },
+            work,
+          );
 
-      await use({
-        ...course,
-        mode: authzMigrationMode.mode,
-        modeEvidence: authzMigrationMode.evidence,
-      });
-
-      // Neutralize the override. Where the target migrates by itself this is
-      // also the rollback, so the course goes back to legacy roles.
-      //
-      // Best-effort, and it says so when it fails: the course is unique to this
-      // run, so a leftover override strands only a course nothing else uses, and
-      // failing the worker here would report a teardown problem as a test
-      // failure. Playwright also does not always reach worker teardown, which is
-      // why setup clears the override before enabling it.
-      try {
         await withAdminLms(async (session) => {
-          await disableAuthzForCourse(session, config, course.courseKey, {
+          // Clear first **only if there is something to clear**: a previous attempt
+          // in this slot may have left the override on, because worker teardown
+          // does not always run. Writing a neutralizing row unconditionally would
+          // land it in the same second as the enabling row, and the platform picks
+          // the previous record by timestamp — with both in the same second it can
+          // conclude nothing changed and skip the migration.
+          const states = await fetchWaffleFlagStates(session, config);
+          const stale = [...states.courseOverrides.on, ...states.courseOverrides.off].includes(
+            course.courseKey,
+          );
+          if (stale) {
+            await disableAuthzForCourse(session, config, course.courseKey, {
+              mode: authzMigrationMode.mode,
+              note: `${note} preflight`,
+            });
+          }
+          await enableAuthzForCourse(session, config, course.courseKey, {
             mode: authzMigrationMode.mode,
-            note: `${note} teardown`,
+            note,
           });
+          if (authzMigrationMode.mode === 'manual') {
+            // Nothing migrated the legacy team, and a flag-on course with no authz
+            // roles refuses everyone — including the author who created it. Grant
+            // the role the author's legacy `instructor` row would have become.
+            await assignRole(session, config, {
+              role: 'course_admin',
+              scopes: [course.courseKey],
+              users: [workerAuthor.identity.username],
+            });
+          }
         });
-      } catch (error) {
-        console.warn(
-          `[authzCourse] could not turn AuthZ off again for ${course.courseKey}: ` +
-            `${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
+
+        // Neutralize the override. Where the target migrates by itself this is
+        // also the rollback, so the course goes back to legacy roles.
+        //
+        // Best-effort, and it says so when it fails: the course is unique to this
+        // run, so a leftover override strands only a course nothing else uses, and
+        // failing the worker here would report a teardown problem as a test
+        // failure. Playwright also does not always reach worker teardown, which is
+        // why setup clears the override before enabling it.
+        neutralize = async () => {
+          try {
+            await withAdminLms(async (session) => {
+              await disableAuthzForCourse(session, config, course.courseKey, {
+                mode: authzMigrationMode.mode,
+                note: `${note} teardown`,
+              });
+            });
+          } catch (error) {
+            console.warn(
+              `[authzCourse] could not turn AuthZ off again for ${course.courseKey}: ` +
+                `${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        };
+
+        return {
+          ...course,
+          mode: authzMigrationMode.mode,
+          modeEvidence: authzMigrationMode.evidence,
+        };
+      };
+
+      await use(() => (pending ??= provision()));
+      // Only a course that was actually provisioned has an override to clear.
+      await neutralize?.();
     },
-    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 2 },
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
+  authzCourse: [
+    async ({ authzCourseLater }, use) => {
+      await use(await authzCourseLater());
+    },
+    // The probe and the course are both provisioned inside this setup.
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 3 },
   ],
 
   studioAuthorSession: async ({ page, request, config, studio, workerAuthor }, use) => {
@@ -3503,7 +3555,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       console: new AdminConsolePage(page, config, origin),
       teamMembers: new TeamMembersTable(page),
       userAudit: new UserAuditPage(page, origin),
-      assignRole: new AssignRoleWizard(page, origin),
+      assignRole: new AssignRoleWizard(page, config, origin),
       matrix: new PermissionsMatrix(page),
       auditFor: (other: Page) => new UserAuditPage(other, origin),
       consoleFor: (other: Page) => new AdminConsolePage(other, config, origin),
@@ -3534,6 +3586,28 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     }
     await use();
   },
+
+  matrixBothHalves: [
+    async ({ config, authzCourseLater }, use) => {
+      // `verawood` renders both halves for anyone, so nothing is provisioned
+      // there: asking for the course is what would build it.
+      if (config.capabilities.has('rbac-console-next')) {
+        const course = await authzCourseLater();
+        // skip-kind: suite-config
+        base.skip(
+          course === undefined,
+          'This console shows the permission matrix only for the scope types the viewer may see ' +
+            'a team for, so its Courses half needs the author to hold a course role — and the ' +
+            'waffle override that puts a course under openedx-authz is a Django-admin write, ' +
+            'which needs an admin account.',
+        );
+      }
+      await use();
+    },
+    // Its own budget: the first case in a worker may provision the probe and
+    // the course here, which must not come out of the test's.
+    { timeout: TIMEOUTS.studioSetup * 3 },
+  ],
 
   authzTarget: async ({ authzCourse }, use) => {
     // skip-kind: suite-config

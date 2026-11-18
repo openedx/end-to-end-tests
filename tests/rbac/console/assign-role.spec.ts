@@ -44,7 +44,7 @@ test.describe(
         const second = await studioColleague();
 
         // One account.
-        await wizard.goto();
+        await wizard.open();
         await wizard.fillWhoAndRole(first.identity.username, 'library_author');
         await wizard.validateAndAdvance();
         await wizard.chooseScope(library);
@@ -60,7 +60,7 @@ test.describe(
         // Several at once, with padding and a repeat — TC-00386's trim and
         // deduplicate. Two distinct accounts named three times must produce two
         // assignments, not three.
-        await wizard.goto();
+        await wizard.open();
         await wizard.fillWhoAndRole(
           `  ${first.identity.username} , ${second.identity.username},  ${second.identity.username}  `,
           'library_user',
@@ -115,7 +115,7 @@ test.describe(
         const unknown = 'e2e_no_such_account_zz';
         const typed = `${known.identity.username}, ${unknown}`;
 
-        await wizard.goto();
+        await wizard.open();
         await wizard.fillWhoAndRole(typed, 'library_user');
         const validated = await wizard.validateAndAdvance();
         const body = (await validated.json()) as { valid_users: string[]; invalid_users: string[] };
@@ -201,7 +201,7 @@ test.describe(
         const wizard = adminConsole.assignRole;
         const subject = await studioColleague();
 
-        await wizard.goto();
+        await wizard.open();
         await wizard.fillWhoAndRole(subject.identity.username, 'library_user');
         await wizard.validateAndAdvance();
         await wizard.chooseScope(authoringLibrary.id);

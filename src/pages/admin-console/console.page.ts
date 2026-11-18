@@ -2,6 +2,7 @@ import type { Locator, Page, Response } from '@playwright/test';
 
 import { ADMIN_CONSOLE_SELECTORS, TIMEOUTS, type AppConfig } from '../../config';
 import { authzScopeKey, teamMembersGroupingOf } from '../../api';
+import { UserAuditPage } from './user-audit.page';
 
 /**
  * The **Roles and Permissions console** shell: its two tabs, the Assign Role
@@ -129,6 +130,25 @@ export class AdminConsolePage {
   /** The scope filter's toggle (the third), whose state reflects `?scope=`. */
   get scopeFilter(): Locator {
     return this.filters.nth(2);
+  }
+
+  /**
+   * A console route that never reads the Team Members list, with the element
+   * that says it has rendered — somewhere for a caller to "move on" to while a
+   * list request is still in flight. `verawood` has the Assign Role wizard's
+   * own route for that; where the wizard is a modal (`rbac-console-next`) that
+   * route is gone, and an account's audit view is the one that reads
+   * `users/<username>/assignments/` and not the list.
+   */
+  routeAwayFromTeamList(username: string): { url: string; landmark: Locator } {
+    if (this.config.capabilities.has('rbac-console-next')) {
+      const audit = new UserAuditPage(this.page, this.origin);
+      return { url: audit.url(username), landmark: audit.breadcrumb };
+    }
+    return {
+      url: `${this.origin}${this.s.assignRolePath}`,
+      landmark: this.page.locator(this.s.wizardUsersInput),
+    };
   }
 
   /**
