@@ -2,6 +2,7 @@ import type { Locator, Page, Response } from '@playwright/test';
 
 import { ADMIN_CONSOLE_SELECTORS, TIMEOUTS, type AppConfig } from '../../config';
 import { AUTHZ_BASE } from '../../api';
+import { AdminConsolePage } from './console.page';
 
 /**
  * The console's **Assign Role wizard**: who and which role in step one, which
@@ -46,7 +47,7 @@ export class AssignRoleWizard {
   /** The report of a save the server refused, wherever this console puts it. */
   readonly saveFailure: Locator;
   readonly saveFailureRetry: Locator;
-  private readonly consoleAssignRoleButton: Locator;
+  private readonly console: AdminConsolePage;
 
   constructor(
     readonly page: Page,
@@ -65,12 +66,23 @@ export class AssignRoleWizard {
     this.toast = page.locator(this.s.toast);
     this.saveFailure = page.locator(this.s.wizardSaveFailure);
     this.saveFailureRetry = page.locator(this.s.wizardSaveFailureRetry);
-    this.consoleAssignRoleButton = page.locator(this.s.assignRoleButton).first();
+    this.console = new AdminConsolePage(page, config, origin);
   }
 
   /** Whether the wizard is a modal over the console rather than a route of its own. */
   get isModal(): boolean {
     return this.config.capabilities.has('rbac-console-next');
+  }
+
+  /**
+   * How many failure reports are on screen once a failed save has been retried
+   * and has failed again. `verawood` leaves the first toast up and adds one for
+   * the retry, so only **two** show the retry's failure was reported. The modal
+   * clears its alert as the retry starts and raises it again: **one**, and it
+   * is the retry's.
+   */
+  get saveFailuresAfterRetry(): number {
+    return this.isModal ? 1 : 2;
   }
 
   /**
@@ -80,10 +92,10 @@ export class AssignRoleWizard {
    */
   async open(): Promise<void> {
     if (this.isModal) {
-      await this.page.goto(`${this.origin}${this.s.authzPath}`, { waitUntil: 'domcontentloaded' });
+      await this.page.goto(this.console.url(), { waitUntil: 'domcontentloaded' });
       // The button renders only once the console knows the viewer may manage
       // a team, so its arrival is also the console having loaded.
-      await this.consoleAssignRoleButton.click({ timeout: TIMEOUTS.navigation });
+      await this.console.assignRoleButton.click({ timeout: TIMEOUTS.navigation });
     } else {
       await this.page.goto(`${this.origin}${this.s.assignRolePath}`, {
         waitUntil: 'domcontentloaded',

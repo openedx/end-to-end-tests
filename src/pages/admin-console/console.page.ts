@@ -2,6 +2,7 @@ import type { Locator, Page, Response } from '@playwright/test';
 
 import { ADMIN_CONSOLE_SELECTORS, TIMEOUTS, type AppConfig } from '../../config';
 import { authzScopeKey, teamMembersGroupingOf } from '../../api';
+import { UserAuditPage } from './user-audit.page';
 
 /**
  * The **Roles and Permissions console** shell: its two tabs, the Assign Role
@@ -141,10 +142,8 @@ export class AdminConsolePage {
    */
   routeAwayFromTeamList(username: string): { url: string; landmark: Locator } {
     if (this.config.capabilities.has('rbac-console-next')) {
-      return {
-        url: `${this.origin}${this.s.authzPath}/user/${encodeURIComponent(username)}`,
-        landmark: this.page.locator(this.s.auditBreadcrumb),
-      };
+      const audit = new UserAuditPage(this.page, this.origin);
+      return { url: audit.url(username), landmark: audit.breadcrumb };
     }
     return {
       url: `${this.origin}${this.s.assignRolePath}`,
