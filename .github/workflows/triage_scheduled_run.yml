@@ -280,9 +280,12 @@ jobs:
           (while sleep 120; do fetch_jwt || echo "::warning::GitHub OIDC token refresh failed."; done) &
           REFRESH=$!
           # However the step ends, stop refreshing and drop the tokens.
-          trap 'kill "$REFRESH" 2> /dev/null; rm -rf "$OIDC"' EXIT
+          trap 'pkill -P "$REFRESH" 2> /dev/null; kill "$REFRESH" 2> /dev/null; rm -rf "$OIDC"' EXIT
 
           # A stray key or token would outrank federation, so none reaches Claude.
+          # Actions runs this with `bash -e`; `|| code=$?` keeps a failing
+          # claude from ending the step before its error is recorded.
+          code=0
           env -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
               -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN \
             claude -p \
@@ -295,26 +298,33 @@ jobs:
             --no-session-persistence \
             --output-format json \
             < .github/triage/prompt.md \
-            > triage/out/session.json 2> triage/out/claude-stderr.txt
-          code=$?
-          kill "$REFRESH" 2> /dev/null
-          wait "$REFRESH" 2> /dev/null
-          if [ "$code" -ne 0 ]; then
-            echo "claude exited ${code}" > triage/out/error.txt
-          fi
+            > triage/out/session.json 2> triage/out/claude-stderr.txt || code=$?
           # No credential may leave the runner, whatever the artifacts said:
           # neither a GitHub token issued here nor an Anthropic key or token.
           if grep -rqF -f "${OIDC}/issued" triage/out || grep -rqE 'sk-ant-[a-z]+[0-9]*-' triage/out; then
             rm -rf triage/out
             mkdir -p triage/out
             echo "the diagnosis output contained a credential and was discarded" > triage/out/error.txt
+            exit 0
+          fi
+          # Claude Code reports API and auth failures (a refused token
+          # exchange, say) in the JSON's `result`, not on stderr.
+          if [ "$code" -ne 0 ] || jq -e '.is_error == true' triage/out/session.json > /dev/null 2>&1; then
+            REASON=$(jq -r '.result // empty' triage/out/session.json 2> /dev/null | tr '\n' ' ' | cut -c1-500)
+            [ -n "$REASON" ] || REASON=$(tail -c 500 triage/out/claude-stderr.txt | tr '\n' ' ')
+            echo "claude exited ${code}: ${REASON:-no error message}" > triage/out/error.txt
+            echo "::warning::Diagnosis failed (claude exited ${code}): ${REASON:-no error message}"
           fi
 
+      # These run even if an earlier step failed, so whatever the diagnosis
+      # left (claude-stderr.txt, session.json) is always uploaded.
       - name: Validate
         id: validate
+        if: ${{ !cancelled() }}
         run: python3 -I .github/triage/validate.py triage
 
       - name: Summarize
+        if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
           {
@@ -329,6 +339,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload diagnosis
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: claude-triage
