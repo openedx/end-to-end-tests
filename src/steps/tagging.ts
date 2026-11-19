@@ -7,7 +7,6 @@ import {
   listTaxonomies,
   setTaxonomyOrgs,
   type ImportableTaxonomyType,
-  type ImportTaxonomyOptions,
   type Taxonomy,
 } from '../api';
 
@@ -229,8 +228,8 @@ export async function deleteTaxonomiesBestEffort(
 }
 
 /**
- * Imports a run-unique taxonomy of `type` (the eight-tag file unless `file` is given, no org
- * assignment) and records its id in `created` for the caller's teardown. The name carries the
+ * Imports a run-unique taxonomy of `type` (the eight-tag file, no org assignment)
+ * and records its id in `created` for the caller's teardown. The name carries the
  * run id, `label`, a slice of the test id and the retry number, so parallel tests
  * and retries never share one; two imports in one test differ by `label`.
  * Admin-only: call on an admin request context.
@@ -243,14 +242,12 @@ export async function importTypedTaxonomy(
     readonly label: string;
     readonly testInfo: TestInfo;
     readonly created: number[];
-    /** The tag file to import; the eight-tag {@link taxonomyImportFile} when unset. */
-    readonly file?: ImportTaxonomyOptions['file'];
   },
 ): Promise<Taxonomy> {
   const taxonomy = await importTaxonomy(request, config, {
     name: `E2E entry ${getRunId()} ${options.label} ${options.testInfo.testId.slice(-6)}R${options.testInfo.retry}`,
     description: 'E2E suite taxonomy',
-    file: options.file ?? taxonomyImportFile(),
+    file: taxonomyImportFile(),
     taxonomyType: options.type,
   });
   options.created.push(taxonomy.id);
