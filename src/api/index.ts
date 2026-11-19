@@ -409,6 +409,7 @@ export {
 } from './legacy-libraries';
 export {
   TAGGING_BASE,
+  CBE_BASE,
   deleteTaxonomy,
   fetchObjectTagCounts,
   fetchObjectTags,

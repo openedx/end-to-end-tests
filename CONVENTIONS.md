@@ -349,6 +349,12 @@ deployment-agnostic and stable.
   `authoringTaxonomy` and `competencyTaxonomySeeder` for each seed and
   teardown, and `staffTaxonomyColleague` through `adminLms` for each staff
   grant and revoke.
+  A read-only check of a Competency taxonomy needs no admin in the test.
+  `competencyTree` and `competencyScrollTree` hand it a taxonomy that the worker
+  fixtures `seededCompetencyTree` and `seededCompetencyScrollTree` seeded once,
+  holding the admin lock only for the seed and the teardown. The test opens it as
+  the worker author, whose `authoredCourse` in the suite org gives the role that
+  makes it visible.
   Never combine `taxonomyAdmin` with any of them in one test — the lock is not
   reentrant and the two deadlock; the taxonomy-page cases seed their own
   taxonomies through the UI or through `taxonomyAdmin.seed`.

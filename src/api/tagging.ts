@@ -22,6 +22,9 @@ import { studioJson, studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from
  */
 export const TAGGING_BASE = '/api/content_tagging/v1';
 
+/** The competency-based education API the Competency Management page reads and writes. */
+export const CBE_BASE = '/api/cbe/v1';
+
 /** The types an import can create (`taxonomy_type` on the import request). */
 export type ImportableTaxonomyType = 'tags' | 'competency';
 
