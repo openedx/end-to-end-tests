@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-import { AUTH_JWT_COOKIE, JWT_REFRESH_MARGIN_MS, storedJwtIsFresh } from '../../src/auth';
+import { JWT_REFRESH_MARGIN_MS, storedJwtIsFresh } from '../../src/auth';
+import { DEFAULT_JWT_COOKIE_HEADER_PAYLOAD } from '../../src/config';
 
 /**
  * Pure unit tests for {@link storedJwtIsFresh}, the gate that refreshes a worker
@@ -12,32 +13,40 @@ import { AUTH_JWT_COOKIE, JWT_REFRESH_MARGIN_MS, storedJwtIsFresh } from '../../
 const NOW = 1_700_000_000_000;
 
 function jwt(expiresSeconds: number | undefined) {
-  return { name: AUTH_JWT_COOKIE, expires: expiresSeconds };
+  return { name: DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, expires: expiresSeconds };
 }
 
 test.describe('storedJwtIsFresh', { tag: '@unit' }, () => {
   test('is false when the login JWT cookie is absent (anonymous or logged-out state)', () => {
-    expect(storedJwtIsFresh([{ name: 'sessionid', expires: -1 }], NOW)).toBe(false);
-    expect(storedJwtIsFresh([], NOW)).toBe(false);
+    expect(
+      storedJwtIsFresh(
+        [{ name: 'sessionid', expires: -1 }],
+        DEFAULT_JWT_COOKIE_HEADER_PAYLOAD,
+        NOW,
+      ),
+    ).toBe(false);
+    expect(storedJwtIsFresh([], DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, NOW)).toBe(false);
   });
 
   test('is true when the JWT expires comfortably beyond the refresh margin', () => {
     const wellAhead = (NOW + JWT_REFRESH_MARGIN_MS + 60_000) / 1000;
-    expect(storedJwtIsFresh([jwt(wellAhead)], NOW)).toBe(true);
+    expect(storedJwtIsFresh([jwt(wellAhead)], DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, NOW)).toBe(true);
   });
 
   test('is false when the JWT has already expired', () => {
     const past = (NOW - 60_000) / 1000;
-    expect(storedJwtIsFresh([jwt(past)], NOW)).toBe(false);
+    expect(storedJwtIsFresh([jwt(past)], DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, NOW)).toBe(false);
   });
 
   test('is false within the refresh margin, so a context is not picked up about to lapse', () => {
     const insideMargin = (NOW + JWT_REFRESH_MARGIN_MS - 60_000) / 1000;
-    expect(storedJwtIsFresh([jwt(insideMargin)], NOW)).toBe(false);
+    expect(storedJwtIsFresh([jwt(insideMargin)], DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, NOW)).toBe(
+      false,
+    );
   });
 
   test('treats a JWT stored as a session cookie (no expiry) as fresh — nothing to pre-empt', () => {
-    expect(storedJwtIsFresh([jwt(-1)], NOW)).toBe(true);
-    expect(storedJwtIsFresh([jwt(undefined)], NOW)).toBe(true);
+    expect(storedJwtIsFresh([jwt(-1)], DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, NOW)).toBe(true);
+    expect(storedJwtIsFresh([jwt(undefined)], DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, NOW)).toBe(true);
   });
 });

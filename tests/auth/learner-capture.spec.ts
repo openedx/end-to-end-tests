@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext, Browser } from '@playwright/test';
 
-import { AUTH_JWT_COOKIE, ApiAuthProvider } from '../../src/auth';
+import { ApiAuthProvider } from '../../src/auth';
 import { LOGIN_SESSION_PATH } from '../../src/api';
-import { loadConfig, type Env } from '../../src/config';
+import { DEFAULT_JWT_COOKIE_HEADER_PAYLOAD, loadConfig, type Env } from '../../src/config';
 
 /**
  * The learner role captures a session that is genuinely authenticated.
@@ -33,7 +33,7 @@ const noopBrowser = {} as Browser;
 
 function stubRequest({ authenticated }: { authenticated: boolean }) {
   const calls: string[] = [];
-  const cookies = authenticated ? [{ name: AUTH_JWT_COOKIE }] : [];
+  const cookies = authenticated ? [{ name: DEFAULT_JWT_COOKIE_HEADER_PAYLOAD }] : [];
   const request = {
     get: (url: string) => {
       calls.push(`GET ${url}`);
@@ -69,7 +69,7 @@ test.describe('ApiAuthProvider — learner capture', { tag: '@unit' }, () => {
       browser: noopBrowser,
     });
 
-    expect(state.cookies.map((cookie) => cookie.name)).toContain(AUTH_JWT_COOKIE);
+    expect(state.cookies.map((cookie) => cookie.name)).toContain(DEFAULT_JWT_COOKIE_HEADER_PAYLOAD);
     expect(calls.filter((call) => call.includes(LOGIN_SESSION_PATH))).toEqual([]);
   });
 

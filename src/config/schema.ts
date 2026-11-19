@@ -35,6 +35,11 @@ const envShape = z.object({
   // helpers.ts), defaults to 'learner-dashboard'.
   NOTIFICATION_TRAY_HOST: z.enum(['learner-dashboard', 'course-home']).optional(),
 
+  // The login JWT's header/payload cookie name: the install's
+  // JWT_AUTH['JWT_AUTH_COOKIE_HEADER_PAYLOAD'], defaults to
+  // 'edx-jwt-cookie-header-payload'.
+  JWT_AUTH_COOKIE_HEADER_PAYLOAD: z.string().min(1).optional(),
+
   // Credentials (paired admin/staff account; validated together in load.ts).
   ADMIN_USERNAME: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),
