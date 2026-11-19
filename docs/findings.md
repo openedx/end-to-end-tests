@@ -1677,8 +1677,9 @@ list was checked at by hand, so the overflow is accepted below that width.
 [openedx-core#571](https://github.com/openedx/openedx-core/pull/571) and extended
 to taxonomy deletes in
 [openedx-core#575](https://github.com/openedx/openedx-core/pull/575). It is on
-`main` and in the 1.0.x line that `verawood` pins. Measured on local Tutor dev
-(openedx-core `7e150e7`) on 2026-11-12.
+`main` and in the 1.0.x line that `verawood` pins. The timings below were
+measured on local Tutor dev with openedx-core `7e150e7` on 2026-11-12.
+`signal_handlers.py` is unchanged on openedx-core `main` at `62e3ff2`.
 
 **What happens:** before a tag is deleted, the handler collects the objects to
 re-index with `ObjectTag.objects.filter(tag__lineage__startswith=instance.lineage)`.
