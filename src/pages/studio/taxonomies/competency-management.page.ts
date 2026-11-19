@@ -23,9 +23,6 @@ export interface TreeLayoutReading {
   readonly viewportWidth: number;
   readonly documentScrollHeight: number;
   readonly scrollY: number;
-  readonly treeHeight: number;
-  /** The tree's computed `max-height` in pixels, or `null` when it is `none`. */
-  readonly treeMaxHeight: number | null;
   readonly container: {
     readonly right: number;
     readonly bottom: number;
@@ -104,8 +101,8 @@ export class CompetencyManagementPage {
     this.tree = page.locator(this.s.competencyPage);
     this.errorAlert = page.locator(this.s.connectionError);
     this.toggleButton = this.tree.locator(this.s.competencyToggle);
-    this.scrollContainer = page.locator(this.s.competencyScroll);
-    this.rootRow = page.locator(this.s.competencyRootRow);
+    this.scrollContainer = this.tree.locator(this.s.competencyScroll);
+    this.rootRow = this.tree.locator(this.s.competencyRootRow);
     this.disclosures = this.tree.locator(this.s.competencyDisclosure);
     this.rootDisclosure = this.rootRow.locator(this.s.competencyDisclosure);
     this.topLevelNodes = this.tree.locator(this.s.competencyTopLevelNodes);
@@ -229,7 +226,6 @@ export class CompetencyManagementPage {
           throw new Error('The competency tree is not on the page.');
         }
         const box = container.getBoundingClientRect();
-        const maxHeight = Number.parseFloat(getComputedStyle(tree).maxHeight);
         const rows = [...tree.querySelectorAll(s.node)].flatMap((li) => {
           const row = li.querySelector(s.rowOf);
           return row === null ? [] : [row];
@@ -246,8 +242,6 @@ export class CompetencyManagementPage {
           viewportWidth: window.innerWidth,
           documentScrollHeight: document.documentElement.scrollHeight,
           scrollY: window.scrollY,
-          treeHeight: tree.getBoundingClientRect().height,
-          treeMaxHeight: Number.isNaN(maxHeight) ? null : maxHeight,
           container: {
             right: box.right,
             bottom: box.bottom,

@@ -329,13 +329,14 @@ test.describe(
         });
         await competency.goto(taxonomy.id);
         // openedx-core #835 states the scroll requirement with a competency selected, which
-        // opens the course panel and gives the tree a fixed height. Without a selection only
-        // `max-height` caps the tree, a state the ticket does not describe, so only the
+        // opens the course panel and gives the tree a fixed height. Without a selection the
+        // tree is not capped that way, a state the ticket does not describe, so only the
         // selected state is checked.
         const firstRoot = competency.topLevelNodes.first();
         await competency.clickNodeAt(firstRoot, 'center');
         await expect(firstRoot).toHaveAttribute('aria-selected', 'true');
-        const scrollYBefore = (await competency.readLayout()).scrollY;
+        const before = await competency.readLayout();
+        const scrollYBefore = before.scrollY;
 
         await competency.toggleAll();
 
@@ -344,7 +345,9 @@ test.describe(
           .poll(() => treeMismatches(competency, request, config, taxonomy.id))
           .toEqual([]);
         await expect
-          .poll(async () => expandedLayoutProblems(await competency.readLayout()))
+          .poll(async () =>
+            expandedLayoutProblems(await competency.readLayout(), before.documentScrollHeight),
+          )
           .toEqual([]);
 
         await competency.scrollToEnd();
@@ -491,7 +494,7 @@ async function badgeCountMismatches(
  * What is wrong with a fully expanded tree that should scroll inside its box; empty when
  * nothing is.
  */
-function expandedLayoutProblems(layout: TreeLayoutReading): string[] {
+function expandedLayoutProblems(layout: TreeLayoutReading, pageHeightBefore: number): string[] {
   const { container } = layout;
   const problems: string[] = [];
   if (!['auto', 'scroll'].includes(container.overflowY)) {
@@ -502,9 +505,9 @@ function expandedLayoutProblems(layout: TreeLayoutReading): string[] {
       `the content (${container.scrollHeight}) does not exceed the box (${container.clientHeight})`,
     );
   }
-  if (layout.treeMaxHeight === null || layout.treeHeight > layout.treeMaxHeight + 1) {
+  if (layout.documentScrollHeight > pageHeightBefore) {
     problems.push(
-      `the tree is ${layout.treeHeight} px tall, its max-height ${layout.treeMaxHeight}`,
+      `the page grew from ${pageHeightBefore} to ${layout.documentScrollHeight} on Expand All`,
     );
   }
   if (layout.documentScrollHeight >= container.scrollHeight) {
