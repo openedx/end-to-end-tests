@@ -950,8 +950,8 @@ export interface TestFixtures {
   /**
    * The suite's twelve-tag Competency taxonomy ({@link WorkerFixtures.seededCompetencyTree},
    * seeded once per worker) with the Competency Management page on the worker
-   * author's browser, for read-only checks of the tree. Takes the admin lock never:
-   * the admin only seeds and tears down at worker level. For cases tagged
+   * author's browser, for read-only checks of the tree. The test never takes the
+   * admin lock: the admin only seeds and deletes at worker level. For cases tagged
    * `@competencies`: refuses an untagged test, fails when the content-tagging API
    * serves no `taxonomy_type`, and fails when the author cannot tag the taxonomy
    * (the page redirects such a user away). A test that writes to the taxonomy
@@ -1428,12 +1428,12 @@ export interface WorkerFixtures {
    */
   seededUploadAgreements: UploadAgreements;
   /**
-   * The suite's twelve-tag Competency taxonomy, imported and assigned to the suite's
-   * org once per worker by the admin under the admin lock (for the calls only) and
-   * deleted when the worker ends. `undefined` without the `competencies` and
-   * `taxonomies` capabilities or an admin, so a worker whose tests never ask for
-   * it, or an installation that lacks it, is not failed here; the
-   * {@link TestFixtures.competencyTree} gate skips or fails with the reason.
+   * The suite's twelve-tag Competency taxonomy. Once per worker, the admin imports it
+   * and assigns it to the suite's org, and deletes it when the worker ends, holding
+   * the admin lock for each call only. It is `undefined` when the `competencies` or
+   * `taxonomies` capability or an admin is missing, so an installation without the
+   * coverage fails no worker here; the {@link TestFixtures.competencyTree} gate skips
+   * or fails with the reason.
    */
   seededCompetencyTree: Taxonomy | undefined;
   /** {@link seededCompetencyTree} with the 104-tag file the scroll check needs. */
