@@ -9,6 +9,7 @@ import {
   type Page,
   type PlaywrightWorkerArgs,
   type TestInfo,
+  type WorkerInfo,
 } from '@playwright/test';
 
 import {
@@ -74,6 +75,8 @@ import {
   enableAuthzForCourse,
   ensureDataResearcher,
   probeMigrationMode,
+  competencyScrollTreeImportFile,
+  competencyTreeImportFile,
   deleteTaxonomiesBestEffort,
   importTypedTaxonomy,
   seedTaxonomy,
@@ -193,6 +196,7 @@ import {
   listCollections,
   listLibraryBlocks,
   deleteTaxonomy,
+  fetchTaxonomy,
   importTaxonomy,
   listTaxonomies,
   setTaxonomyEnabled,
@@ -944,6 +948,22 @@ export interface TestFixtures {
    */
   competencyTaxonomySeeder: (options: SeedTaxonomyOptions) => Promise<Taxonomy>;
   /**
+   * The suite's twelve-tag Competency taxonomy ({@link WorkerFixtures.seededCompetencyTree},
+   * seeded once per worker) with the Competency Management page on the worker
+   * author's browser, for read-only checks of the tree. Takes the admin lock never:
+   * the admin only seeds and tears down at worker level. For cases tagged
+   * `@competencies`: refuses an untagged test, fails when the content-tagging API
+   * serves no `taxonomy_type`, and fails when the author cannot tag the taxonomy
+   * (the page redirects such a user away). A test that writes to the taxonomy
+   * needs one of its own, not this shared one.
+   */
+  competencyTree: CompetencyTree;
+  /**
+   * {@link competencyTree} with the 104-tag file, for the case that needs a tree
+   * taller than its column ({@link WorkerFixtures.seededCompetencyScrollTree}).
+   */
+  competencyScrollTree: CompetencyTree;
+  /**
    * The upload-agreement gating declared for this installation, with its
    * `UserAgreement` rows seeded (see {@link WorkerFixtures.seededUploadAgreements},
    * which does the work once per worker). Skips without a configured admin or
@@ -1110,6 +1130,16 @@ export interface TaxonomyAdmin {
 export interface AuthorTaxonomyPages {
   readonly detail: TaxonomyDetailPage;
   readonly competency: CompetencyManagementPage;
+}
+
+/** What {@link TestFixtures.competencyTree} hands a spec. */
+export interface CompetencyTree {
+  /** The shared taxonomy, as the worker author sees it. */
+  readonly taxonomy: Taxonomy;
+  /** The Competency Management page on the author's browser. */
+  readonly competency: CompetencyManagementPage;
+  /** The author's API context (same session as the page), for the tag-list oracles. */
+  readonly request: APIRequestContext;
 }
 
 /** What a spec passes to {@link TestFixtures.competencyTaxonomySeeder}. */
@@ -1397,6 +1427,17 @@ export interface WorkerFixtures {
    * skips instead.
    */
   seededUploadAgreements: UploadAgreements;
+  /**
+   * The suite's twelve-tag Competency taxonomy, imported and assigned to the suite's
+   * org once per worker by the admin under the admin lock (for the calls only) and
+   * deleted when the worker ends. `undefined` without the `competencies` and
+   * `taxonomies` capabilities or an admin, so a worker whose tests never ask for
+   * it, or an installation that lacks it, is not failed here; the
+   * {@link TestFixtures.competencyTree} gate skips or fails with the reason.
+   */
+  seededCompetencyTree: Taxonomy | undefined;
+  /** {@link seededCompetencyTree} with the 104-tag file the scroll check needs. */
+  seededCompetencyScrollTree: Taxonomy | undefined;
   /**
    * Which of the two migration models this target follows, probed once per
    * worker with **no blast radius**: a waffle override is saved for an
@@ -2059,6 +2100,83 @@ function withStudioAdminRequest<T>(
       await admin.dispose();
     }
   });
+}
+
+/**
+ * Imports one Competency taxonomy for a worker, assigns it to the suite's org and hands
+ * it to `use`, then deletes it best-effort. The admin lock is held for each call only.
+ * Hands `use` `undefined` where the installation lacks the coverage (see
+ * {@link WorkerFixtures.seededCompetencyTree}).
+ */
+async function withSeededCompetencyTree(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  workerInfo: WorkerInfo,
+  options: { readonly label: string; readonly file: ImportTaxonomyOptions['file'] },
+  use: (taxonomy: Taxonomy | undefined) => Promise<void>,
+): Promise<void> {
+  const config = getConfig();
+  if (
+    !config.capabilities.has('competencies') ||
+    !config.capabilities.has('taxonomies') ||
+    config.credentials.admin === undefined ||
+    !isUsableStateFile(authStateFile('staff'))
+  ) {
+    await use(undefined);
+    return;
+  }
+  const org = config.org ?? DEFAULT_COURSE_ORG;
+  const taxonomy = await withStudioAdminRequest(playwright, config, async (admin) => {
+    const imported = await importTaxonomy(admin, config, {
+      name: `E2E ${getRunId()} ${options.label} W${workerInfo.workerIndex}`,
+      description: 'E2E suite taxonomy',
+      file: options.file,
+      taxonomyType: 'competency',
+    });
+    await setTaxonomyOrgs(admin, config, imported.id, [org]);
+    return imported;
+  });
+  try {
+    await use(taxonomy);
+  } finally {
+    try {
+      await withStudioAdminRequest(playwright, config, (admin) =>
+        deleteTaxonomiesBestEffort(admin, config, [taxonomy.id]),
+      );
+    } catch {
+      // Best-effort teardown: a run-unique name means a leftover never collides.
+    }
+  }
+}
+
+/**
+ * The gate and the author's view behind {@link TestFixtures.competencyTree}: refuses an
+ * untagged test, reads the taxonomy as the author, and fails when the author cannot tag it.
+ */
+async function authorCompetencyTree(
+  config: AppConfig,
+  testInfo: TestInfo,
+  seeded: Taxonomy | undefined,
+  request: APIRequestContext,
+  competency: CompetencyManagementPage,
+): Promise<CompetencyTree> {
+  requireCapabilityTag(testInfo, 'competencies');
+  requireTaxonomyAdmin(config);
+  if (seeded === undefined) {
+    throw new Error('The worker did not seed the competency tree although the gate passed.');
+  }
+  if (seeded.taxonomyType === undefined) {
+    throw capabilityContradicted(
+      'competencies',
+      'the content-tagging API serves no `taxonomy_type`',
+    );
+  }
+  const taxonomy = await fetchTaxonomy(request, config, seeded.id);
+  if (!taxonomy.canTagObject) {
+    throw new Error(
+      `The worker author cannot tag taxonomy ${seeded.id}, so the competencies page would redirect them away.`,
+    );
+  }
+  return { taxonomy, competency, request };
 }
 
 /**
@@ -2941,6 +3059,34 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       await use(await provisionWorkerCourse(playwright, workerAuthor, identity));
     },
     { scope: 'worker', timeout: TIMEOUTS.studioSetup },
+  ],
+
+  seededCompetencyTree: [
+    async ({ playwright }, use, workerInfo) => {
+      await withSeededCompetencyTree(
+        playwright,
+        workerInfo,
+        { label: 'tree', file: competencyTreeImportFile() },
+        use,
+      );
+    },
+    // The delete at worker end can take 15-30 s on a stack with leftover ObjectTags
+    // (TAG-007), on top of the import, the org assignment and any wait for the admin lock.
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 3 },
+  ],
+
+  seededCompetencyScrollTree: [
+    async ({ playwright }, use, workerInfo) => {
+      await withSeededCompetencyTree(
+        playwright,
+        workerInfo,
+        { label: 'tree-scroll', file: competencyScrollTreeImportFile() },
+        use,
+      );
+    },
+    // The delete at worker end can take 15-30 s on a stack with leftover ObjectTags
+    // (TAG-007), and this taxonomy has 104 tags to import and delete.
+    { scope: 'worker', timeout: TIMEOUTS.studioSetup * 3 },
   ],
 
   seededUploadAgreements: [
@@ -4448,6 +4594,42 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         }
       }
     }
+  },
+
+  competencyTree: async (
+    { config, page, authorTaxonomyPages, authoredCourse, seededCompetencyTree },
+    use,
+    testInfo,
+  ) => {
+    // The author's own course in the suite org gives a non-staff user the role that
+    // makes an org-assigned taxonomy visible to them.
+    void authoredCourse;
+    await use(
+      await authorCompetencyTree(
+        config,
+        testInfo,
+        seededCompetencyTree,
+        page.request,
+        authorTaxonomyPages.competency,
+      ),
+    );
+  },
+
+  competencyScrollTree: async (
+    { config, page, authorTaxonomyPages, authoredCourse, seededCompetencyScrollTree },
+    use,
+    testInfo,
+  ) => {
+    void authoredCourse;
+    await use(
+      await authorCompetencyTree(
+        config,
+        testInfo,
+        seededCompetencyScrollTree,
+        page.request,
+        authorTaxonomyPages.competency,
+      ),
+    );
   },
 
   uploadAgreements: async ({ config, seededUploadAgreements }, use) => {

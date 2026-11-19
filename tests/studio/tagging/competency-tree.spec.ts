@@ -1,18 +1,14 @@
 import type { APIRequestContext, Locator } from '@playwright/test';
 
 import { listTaxonomyTags } from '../../../src/api';
-import { TIMEOUTS, VIEWPORTS, viewportUse, type AppConfig } from '../../../src/config';
+import { VIEWPORTS, viewportUse, type AppConfig } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import type {
   CompetencyManagementPage,
   TreeLayoutReading,
   TreeNodeReading,
 } from '../../../src/pages/studio/taxonomies/competency-management.page';
-import {
-  COMPETENCY,
-  competencyScrollTreeImportFile,
-  competencyTreeImportFile,
-} from '../../../src/steps';
+import { COMPETENCY } from '../../../src/steps';
 
 /**
  * The competency tree on the Competency Management page
@@ -24,9 +20,13 @@ import {
  * (frontend-app-authoring #3277): the tree scrolls inside its column. No BTR case
  * maps to these.
  *
- * The admin ({@link competencyTaxonomyAdmin}) seeds a Competency taxonomy from the
- * suite's twelve-tag tree file and opens the page; the content-tagging API's tag
- * list is the oracle for what the tree must show. The page's access rules are
+ * The tests share one Competency taxonomy per worker ({@link competencyTree}, the
+ * suite's twelve-tag tree file; the scroll test's 104-tag one is
+ * {@link competencyScrollTree}), seeded by the admin at worker level and opened as
+ * the worker author, so no test holds the admin lock. Sharing is safe because the
+ * tree is read-only and its expanded and selected state is React state, reset by
+ * each test's own `goto`. The content-tagging API's tag list, read on the author's
+ * session, is the oracle for what the tree must show. The page's access rules are
  * `competency-route-guard.spec.ts`, which also scans this page for accessibility.
  *
  * Not covered: a tag created without an ID (openedx-core #758 gives it one) and a
@@ -38,18 +38,11 @@ test.describe(
   'Competency tree',
   { tag: ['@regression', '@studio', '@author', '@mfe-authoring', '@taxonomies', '@competencies'] },
   () => {
-    test.describe.configure({ timeout: TIMEOUTS.contentTest });
-
     test('opens with the root expanded and every group below it collapsed', async ({
-      competencyTaxonomyAdmin,
+      competencyTree,
       config,
     }) => {
-      const { competency, request, seed } = competencyTaxonomyAdmin;
-      const taxonomy = await seed({
-        type: 'competency',
-        label: 'tree-start',
-        file: competencyTreeImportFile(),
-      });
+      const { competency, request, taxonomy } = competencyTree;
 
       await competency.goto(taxonomy.id);
 
@@ -65,15 +58,10 @@ test.describe(
     });
 
     test('expands and collapses one node on its own and indents each level further', async ({
-      competencyTaxonomyAdmin,
+      competencyTree,
       config,
     }) => {
-      const { competency, request, seed } = competencyTaxonomyAdmin;
-      const taxonomy = await seed({
-        type: 'competency',
-        label: 'tree-node',
-        file: competencyTreeImportFile(),
-      });
+      const { competency, request, taxonomy } = competencyTree;
       await competency.goto(taxonomy.id);
       const technical = competency.node(COMPETENCY.technical.value);
       const communication = competency.node(COMPETENCY.communication.value);
@@ -113,15 +101,8 @@ test.describe(
       await expect(competency.descendantsOf(technical)).toHaveCount(0);
     });
 
-    test('indents each of the six levels deeper than its parent', async ({
-      competencyTaxonomyAdmin,
-    }) => {
-      const { competency, seed } = competencyTaxonomyAdmin;
-      const taxonomy = await seed({
-        type: 'competency',
-        label: 'tree-chain',
-        file: competencyTreeImportFile(),
-      });
+    test('indents each of the six levels deeper than its parent', async ({ competencyTree }) => {
+      const { competency, taxonomy } = competencyTree;
       await competency.goto(taxonomy.id);
 
       for (const link of COMPETENCY.chain.slice(0, -1)) {
@@ -138,15 +119,10 @@ test.describe(
     });
 
     test('Expand All opens every node, Collapse All closes them including the root', async ({
-      competencyTaxonomyAdmin,
+      competencyTree,
       config,
     }) => {
-      const { competency, request, seed } = competencyTaxonomyAdmin;
-      const taxonomy = await seed({
-        type: 'competency',
-        label: 'tree-all',
-        file: competencyTreeImportFile(),
-      });
+      const { competency, request, taxonomy } = competencyTree;
       await competency.goto(taxonomy.id);
 
       await competency.toggleAll();
@@ -167,15 +143,10 @@ test.describe(
     });
 
     test("shows each tag's Competency ID, equal to its external_id, on groups and leaves", async ({
-      competencyTaxonomyAdmin,
+      competencyTree,
       config,
     }) => {
-      const { competency, request, seed } = competencyTaxonomyAdmin;
-      const taxonomy = await seed({
-        type: 'competency',
-        label: 'tree-ids',
-        file: competencyTreeImportFile(),
-      });
+      const { competency, request, taxonomy } = competencyTree;
       const tags = await listTaxonomyTags(request, config, taxonomy.id);
       expect(tags.filter((t) => !t.externalId).map((t) => t.value)).toEqual([]);
       await competency.goto(taxonomy.id);
@@ -190,15 +161,10 @@ test.describe(
     });
 
     test('is read-only: no edit controls, and interacting with the tree writes nothing', async ({
-      competencyTaxonomyAdmin,
+      competencyTree,
       config,
     }) => {
-      const { competency, request, seed } = competencyTaxonomyAdmin;
-      const taxonomy = await seed({
-        type: 'competency',
-        label: 'tree-readonly',
-        file: competencyTreeImportFile(),
-      });
+      const { competency, request, taxonomy } = competencyTree;
       const before = await listTaxonomyTags(request, config, taxonomy.id);
       await competency.goto(taxonomy.id);
       const writes = competency.recordWrites();
@@ -227,14 +193,9 @@ test.describe(
     });
 
     test('highlights a row on hover over its whole area, bottom and edges included', async ({
-      competencyTaxonomyAdmin,
+      competencyTree,
     }) => {
-      const { competency, seed } = competencyTaxonomyAdmin;
-      const taxonomy = await seed({
-        type: 'competency',
-        label: 'tree-hover',
-        file: competencyTreeImportFile(),
-      });
+      const { competency, taxonomy } = competencyTree;
       await competency.goto(taxonomy.id);
       await competency.toggleAll();
 
@@ -268,14 +229,9 @@ test.describe(
     });
 
     test('selects a row when clicked anywhere on it, bottom edge included', async ({
-      competencyTaxonomyAdmin,
+      competencyTree,
     }) => {
-      const { competency, seed } = competencyTaxonomyAdmin;
-      const taxonomy = await seed({
-        type: 'competency',
-        label: 'tree-click',
-        file: competencyTreeImportFile(),
-      });
+      const { competency, taxonomy } = competencyTree;
       await competency.goto(taxonomy.id);
       await competency.toggleAll();
       const selected = competency.selectedNodes;
@@ -318,15 +274,10 @@ test.describe(
       test.use(viewportUse(VIEWPORTS.desktop));
 
       test('scrolls a fully expanded tree inside its column instead of growing the page', async ({
-        competencyTaxonomyAdmin,
+        competencyScrollTree,
         config,
       }) => {
-        const { competency, request, seed } = competencyTaxonomyAdmin;
-        const taxonomy = await seed({
-          type: 'competency',
-          label: 'tree-scroll',
-          file: competencyScrollTreeImportFile(),
-        });
+        const { competency, request, taxonomy } = competencyScrollTree;
         await competency.goto(taxonomy.id);
         // openedx-core #835 states the scroll requirement with a competency selected, which
         // opens the course panel and gives the tree a fixed height. Without a selection the
@@ -372,15 +323,10 @@ test.describe(
       test.use(viewportUse(VIEWPORTS.phone));
 
       test('keeps the tree and its badges inside the container on a phone screen', async ({
-        competencyTaxonomyAdmin,
+        competencyTree,
         config,
       }) => {
-        const { competency, request, seed } = competencyTaxonomyAdmin;
-        const taxonomy = await seed({
-          type: 'competency',
-          label: 'tree-phone',
-          file: competencyTreeImportFile(),
-        });
+        const { competency, request, taxonomy } = competencyTree;
         await competency.goto(taxonomy.id);
 
         await competency.toggleAll();
