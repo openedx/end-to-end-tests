@@ -71,6 +71,10 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
    */
   componentActionsMenuButton: 'button.show-actions-menu-button',
   componentCopyItem: 'a.copy-button',
+  /** A component's preview once its XBlock script has initialized it. */
+  componentInitialized: 'div.xblock.xblock-initialized',
+  /** The same menu's "Duplicate" item (legacy `studio_xblock_wrapper.html`). */
+  componentDuplicateItem: 'a.duplicate-button',
   /** The "Add component" tiles, one per offered block type, in API order. */
   addComponentButton: 'button.add-component-button',
   /**

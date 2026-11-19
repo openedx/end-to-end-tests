@@ -120,3 +120,4 @@ export {
   type CourseComparison,
   type ReportsDashboard,
 } from './analytics';
+export { seedReadyLtiBlock, type ReadyLtiBlock } from './lti';

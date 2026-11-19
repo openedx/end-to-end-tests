@@ -18,6 +18,9 @@
 #                     TUTOR_VARIANT_IMAGES to their names and TUTOR_VARIANT_REFS
 #                     to their full references. On main, run the stock call
 #                     first: the variant only replaces the images it builds.
+#   variant "lti"     the Open edX image the `lti` profile builds with LTI Store
+#                     installed (.ci/tutor/e2e_lti.py). Tag `<release>-lti`; same
+#                     variables as `aspects`.
 #
 # Tutor resolves a plugin's image names only while the plugin is enabled, and a
 # test job enables the profile's plugins after launch, so it pulls a variant by
@@ -49,6 +52,7 @@ declare -A IMAGE_KEYS=(
 case "$VARIANT" in
   "") IMAGES="openedx permissions mfe notes"; LIST_VAR=TUTOR_MAIN_IMAGES ;;
   aspects) IMAGES="openedx mfe aspects aspects-superset"; LIST_VAR=TUTOR_VARIANT_IMAGES ;;
+  lti) IMAGES="openedx"; LIST_VAR=TUTOR_VARIANT_IMAGES ;;
   *) echo "Unknown image variant '${VARIANT}'" >&2; exit 1 ;;
 esac
 

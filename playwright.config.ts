@@ -38,6 +38,14 @@ function resolveBaseURL(): string | undefined {
   return getConfigIfValid('playwright.config')?.baseUrls.lms;
 }
 
+/**
+ * The suite's LTI 1.3 test tool (`scripts/lti-tool.mts`), on a target that
+ * declares `lti-tool`. Playwright starts it before the run and stops it after;
+ * the browser reaches it at a host same-site with the LMS, which is mapped to
+ * this machine so no DNS entry is needed.
+ */
+const ltiTool = getConfigIfValid('playwright.config')?.ltiTool;
+
 export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
@@ -94,6 +102,10 @@ export default defineConfig({
     // runner's offset.
     timezoneId: 'UTC',
 
+    ...(ltiTool === undefined
+      ? {}
+      : { launchOptions: { args: [`--host-resolver-rules=MAP ${ltiTool.host} 127.0.0.1`] } }),
+
     // We deliberately do not launch with `--disable-web-security`. Disabling web
     // security masks real misconfiguration and makes tests stop reflecting real
     // users.
@@ -104,4 +116,19 @@ export default defineConfig({
   // `merge.config.ts`. Additional browsers (Firefox, WebKit) can be added there
   // once the suite is stable on Chromium.
   projects: buildProjects(externalTestDirs),
+
+  ...(ltiTool === undefined
+    ? {}
+    : {
+        webServer: {
+          command: 'node scripts/lti-tool.mts',
+          url: `${ltiTool.controlUrl}/_control/health`,
+          env: { LTI_TOOL_BASE_URL: ltiTool.baseUrl },
+          // A tool a developer already runs (or a previous run left up) is reused
+          // locally; CI always starts its own.
+          reuseExistingServer: !isCI,
+          stdout: 'ignore',
+          stderr: 'pipe',
+        },
+      }),
 });

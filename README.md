@@ -84,6 +84,7 @@ The essentials:
 | `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                             |
 | `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`             |
 | `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)              |
+| `LTI_TOOL_BASE_URL`                 | —        | LTI test tool origin (`lti-tool`); default `http://lti.<LMS host>:8765`      |
 | `CUSTOM_TEST_DIRS`                  | —        | Comma-separated dirs of your own specs to run (see “Running your own tests”) |
 | `RUN_ID_SUFFIX`                     | —        | Up to 3 lowercase letters/digits appended to the run id (CI shards)          |
 | `CI_PROFILE`                        | —        | The CI profile a job runs (`.ci/profiles.json`); set by CI                   |

@@ -68,6 +68,28 @@ export interface MfeUrls {
  * Validated, immutable configuration derived from the environment. Everything
  * outside `src/config/` consumes this object rather than reading `process.env`.
  */
+/** Where the suite's LTI 1.3 test tool is served and reached. */
+export interface LtiToolConfig {
+  /**
+   * The origin the **browser** reaches the tool at (`LTI_TOOL_BASE_URL`): the
+   * URLs written into an LTI block. Its host is same-site with the LMS and is
+   * mapped to this machine in the browser (`--host-resolver-rules`).
+   */
+  readonly baseUrl: string;
+  /** The host the browser maps to this machine. */
+  readonly host: string;
+  /** The port the tool listens on. */
+  readonly port: number;
+  /**
+   * The origin the **suite** reaches the tool's control API at — this machine
+   * directly, so no DNS entry for {@link host} is needed.
+   */
+  readonly controlUrl: string;
+}
+
+/** The tool's port when `LTI_TOOL_BASE_URL` does not name one. */
+export const DEFAULT_LTI_TOOL_PORT = 8765;
+
 export interface AppConfig {
   readonly baseUrls: BaseUrls;
   readonly mfeUrls: MfeUrls;
@@ -93,6 +115,11 @@ export interface AppConfig {
    * {@link DEFAULT_JWT_COOKIE_HEADER_PAYLOAD} unless it renames it.
    */
   readonly jwtCookieHeaderPayload: string;
+  /**
+   * The suite's LTI 1.3 test tool (`scripts/lti-tool.mts`), set whenever the
+   * `lti-tool` capability is declared. The run starts it on this machine.
+   */
+  readonly ltiTool?: LtiToolConfig;
   /** Mailbox provider plugin modules to load (existing file paths). */
   readonly customMailProviderPlugins: ReadonlySet<string>;
   /**
@@ -302,6 +329,47 @@ export function parseCapabilities(raw: string | undefined, issues: string[]): Se
 }
 
 /**
+ * Resolves the LTI test tool's origin: `LTI_TOOL_BASE_URL`, else
+ * `http://lti.<LMS host>:8765`. The host must be **same-site** with the LMS:
+ * a deep-linking tool answers with a top-level POST to the LMS, which carries the
+ * LMS's `SameSite=Lax` session cookie only from a same-site page.
+ */
+function parseLtiTool(
+  value: string | undefined,
+  lmsUrl: URL,
+  issues: string[],
+): LtiToolConfig | undefined {
+  const url =
+    value === undefined
+      ? new URL(`http://lti.${lmsUrl.hostname}:${DEFAULT_LTI_TOOL_PORT}`)
+      : parseUrl('LTI_TOOL_BASE_URL', value, issues);
+  if (url === undefined) return undefined;
+  if (url.protocol !== 'http:') {
+    issues.push(
+      `LTI_TOOL_BASE_URL must be http:// (the test tool serves plain HTTP); got ${url.origin}.`,
+    );
+    return undefined;
+  }
+  const lmsDomain = registrableDomain(lmsUrl.hostname);
+  if (url.hostname === lmsUrl.hostname || registrableDomain(url.hostname) !== lmsDomain) {
+    issues.push(
+      `LTI_TOOL_BASE_URL (${url.origin}) must be a host of its own on the LMS's site ` +
+        `(${lmsDomain ?? lmsUrl.hostname}), e.g. lti.${lmsUrl.hostname}: deep linking posts ` +
+        "back to the LMS from the tool's page, and the LMS session cookie travels only " +
+        'from a same-site page.',
+    );
+    return undefined;
+  }
+  const port = Number(url.port || DEFAULT_LTI_TOOL_PORT);
+  return {
+    baseUrl: `${url.protocol}//${url.hostname}:${port}`,
+    host: url.hostname,
+    port,
+    controlUrl: `http://127.0.0.1:${port}`,
+  };
+}
+
+/**
  * Validates the multi-origin relationship required for single-sign-in auth:
  * every origin shares one scheme and one registrable parent domain, so
  * Open edX's parent-scoped cookies cover them all.
@@ -462,6 +530,11 @@ export function loadConfig(env: Env = process.env): AppConfig {
     );
   }
 
+  const ltiTool =
+    lmsUrl && capabilities.has('lti-tool')
+      ? parseLtiTool(raw.LTI_TOOL_BASE_URL, lmsUrl, issues)
+      : undefined;
+
   let admin: AdminCredentials | undefined;
   const username = raw.ADMIN_USERNAME;
   const password = raw.ADMIN_PASSWORD;
@@ -535,6 +608,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     accountBackend,
     notificationTrayHost: raw.NOTIFICATION_TRAY_HOST ?? 'learner-dashboard',
     jwtCookieHeaderPayload: raw.JWT_AUTH_COOKIE_HEADER_PAYLOAD ?? DEFAULT_JWT_COOKIE_HEADER_PAYLOAD,
+    ...(ltiTool === undefined ? {} : { ltiTool: Object.freeze(ltiTool) }),
     customMailProviderPlugins,
     mailProvider,
     allowCrossSiteOrigins,

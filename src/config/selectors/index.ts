@@ -73,9 +73,14 @@ export {
 export { STUDIO_PAGES_RESOURCES_SELECTORS } from './studio-pages-resources';
 export { STUDIO_CUSTOM_PAGES_SELECTORS } from './studio-custom-pages';
 export { STUDIO_UNIT_PAGE_SELECTORS, componentTemplateOption } from './studio-unit';
-export { ADVANCED_BLOCK_SELECTORS, advancedBlockRoot } from './advanced-blocks';
+export {
+  ADVANCED_BLOCK_SELECTORS,
+  LTI_BLOCK_SELECTORS,
+  advancedBlockRoot,
+} from './advanced-blocks';
 export {
   LEGACY_EDITOR_SELECTORS,
+  LTI_EDITOR_SELECTORS,
   PDF_EDITOR_SELECTORS,
   STUDIO_EDITOR_SELECTORS,
 } from './studio-editors';
@@ -119,3 +124,4 @@ export {
   type LibraryTab,
 } from './library';
 export * from './studio-updates';
+export { LTI_TOOL_SELECTORS } from './lti-tool';

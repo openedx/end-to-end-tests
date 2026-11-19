@@ -482,6 +482,48 @@ export class StudioUnitPage {
   }
 
   /**
+   * Opens an LTI 1.3 block's deep-linking launch ("Deep Linking Launch - Configure
+   * tool") from its preview, and returns the window it opens on the tool. The
+   * link is located by its target — the block's tool login URL (`oidcUrl`) —
+   * not its text.
+   */
+  async openLtiDeepLinking(usageKey: string, oidcUrl: string): Promise<Page> {
+    const link = this.component(usageKey).locator(`a[href^="${oidcUrl}"]`);
+    const popup = this.page.context().waitForEvent('page', { timeout: TIMEOUTS.navigation });
+    await link.click();
+    const window = await popup;
+    await window.waitForLoadState('load', { timeout: TIMEOUTS.navigation });
+    return window;
+  }
+
+  /**
+   * Duplicates one component in place from its own three-dot menu inside the
+   * component iframe ("Duplicate"), waiting for the create it causes
+   * (`POST /xblock/` with a `duplicate_source_locator`). Returns the copy's
+   * usage key.
+   */
+  async duplicateComponent(usageKey: string): Promise<string> {
+    const header = this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`.xblock-header-primary[data-usage-id="${usageKey}"]`)
+      .first();
+    const item = header.locator(this.s.componentDuplicateItem);
+    // The menu is the container page script's: until the component has
+    // initialized, a click on its button opens nothing.
+    await this.page
+      .frameLocator(this.s.componentIframe)
+      .locator(`${this.s.componentInitialized}[data-usage-id="${usageKey}"]`)
+      .waitFor({ timeout: TIMEOUTS.navigation });
+    const menuButton = header.locator(this.s.componentActionsMenuButton);
+    await menuButton.click();
+    if (!(await item.isVisible())) {
+      // A click that landed while the script was still binding: open it again.
+      await item.waitFor({ timeout: TIMEOUTS.expect }).catch(() => menuButton.click());
+    }
+    return this.createdBlockKey(`a duplicate of ${usageKey}`, () => item.click());
+  }
+
+  /**
    * Copies this unit to the clipboard through the sidebar Item Menu's "Copy to
    * Clipboard" item (the first, non-danger item), waiting for the content-staging
    * write.

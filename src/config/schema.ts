@@ -64,6 +64,10 @@ const envShape = z.object({
   CUSTOM_MAIL_PROVIDER_PLUGINS: z.string().optional(),
   MAIL_PROVIDER: z.string().optional(),
 
+  // The origin the browser reaches the suite's LTI 1.3 test tool at, when the
+  // `lti-tool` capability is declared. Defaults to `http://lti.<LMS host>:8765`.
+  LTI_TOOL_BASE_URL: z.string().optional(),
+
   // External test directories (comma-separated paths). A provider points this at
   // its own spec folders; the suite mirrors the tier projects onto each so the
   // external specs run through the same tiers, tags and capability gating in one

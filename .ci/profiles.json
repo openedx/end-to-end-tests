@@ -90,5 +90,19 @@
     "images": "aspects",
     "select": "delta",
     "shards": 1
+  },
+  "lti": {
+    "description": "The installation with LTI Store (openedx-ltistore) in its Open edX image and wired into the LTI consumer's configuration filter, running only the reusable-configuration case (TC-00661). Its Open edX image is this profile's own variant (build_tutor_main_images.yml).",
+    "code": "l",
+    "releases": ["main"],
+    "tutorPlugins": [".ci/tutor/e2e_base.py", ".ci/tutor/e2e_lti.py"],
+    "seedScripts": [".ci/seed/lti.sh"],
+    "capabilities": {
+      "add": ["lti-store"],
+      "remove": []
+    },
+    "images": "lti",
+    "select": "delta",
+    "shards": 1
   }
 }

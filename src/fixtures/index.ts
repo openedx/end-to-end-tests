@@ -211,6 +211,8 @@ import {
   enableCourseEmail,
   setWaffleSwitch,
   updateAccount,
+  ltiToolClient,
+  type LtiToolClient,
 } from '../api';
 import {
   getConfig,
@@ -677,6 +679,14 @@ export interface TestFixtures {
    * three times over calls it three times.
    */
   newLearner: () => Promise<StudioLearner>;
+  /**
+   * The suite's LTI 1.3 test tool (`scripts/lti-tool.mts`), which the run starts
+   * on a target declaring `lti-tool`: its control API, to read the platform's
+   * registration into it, see what each launch carried, and call the platform's
+   * LTI Advantage services as the tool. A declared `lti-tool` whose tool does not
+   * answer fails the test. Needs the `@lti-tool` tag.
+   */
+  ltiTool: LtiToolClient;
   /**
    * The "Certificates available date" fields, which Schedule & Details shows
    * only while the `certificates.auto_certificate_generation` switch is on
@@ -3383,6 +3393,26 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   pagesResourcesPage: pageObjectFixture(StudioPagesResourcesPage),
 
   customPagesPage: pageObjectFixture(StudioCustomPagesPage),
+
+  ltiTool: async ({ playwright, config }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'lti-tool');
+    const request = await newCleanRequestContext(playwright.request);
+    try {
+      const tool = ltiToolClient(request, config);
+      try {
+        await tool.health();
+      } catch (error) {
+        throw capabilityContradicted(
+          'lti-tool',
+          `the LTI test tool does not answer at ${config.ltiTool?.controlUrl ?? '(none)'} ` +
+            `(${error instanceof Error ? error.message : String(error)})`,
+        );
+      }
+      await use(tool);
+    } finally {
+      await request.dispose();
+    }
+  },
 
   newLearner: async ({ playwright, config }, use) => {
     const contexts: APIRequestContext[] = [];

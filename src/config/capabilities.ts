@@ -155,6 +155,19 @@ export const CAPABILITIES = [
   'drag-and-drop-v2', // `drag-and-drop-v2` (xblock-drag-and-drop-v2)
   'pdf-xblock', // `pdf` (xblocks-contrib) under the "Advanced" tile
   'lti', // `lti_consumer` under the "Advanced" tile (no tool launch is asserted)
+  // The suite's own LTI 1.3 test tool (`scripts/lti-tool.mts`) can be launched
+  // from the target: the run starts it on this machine, the browser reaches it at
+  // `LTI_TOOL_BASE_URL` (a host same-site with the LMS, mapped to this machine),
+  // and the tool reaches the LMS. Gates the LTI 1.3 launch, grade, roster,
+  // deep-linking and personal-data cases (`tests/lms/lti/`). Requires `lti`
+  // (`CAPABILITY_REQUIRES`).
+  'lti-tool',
+  // LTI Store (`openedx-ltistore`, not in stock Tutor) is installed and wired
+  // into xblock-lti-consumer's configuration filter, so an author can point an
+  // LTI block at a reusable configuration (`lti_store:<slug>`) the operator keeps
+  // in Django admin. Declared only by the `lti` CI profile, whose image variant
+  // installs it. Requires `lti-tool` (`CAPABILITY_REQUIRES`).
+  'lti-store',
   'scorm', // `scorm` under the "Advanced" tile
   'edx-sga', // Staff Graded Assignment (`edx_sga`) under the "Advanced" tile, once listed
   // The LMS instructor dashboard as the instructor-dashboard MFE
@@ -442,6 +455,8 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   'analytics-staff-video-counts': 'analytics',
   competencies: 'taxonomies',
   'content-libraries-v1-create': 'content-libraries-v1',
+  'lti-tool': 'lti',
+  'lti-store': 'lti-tool',
   'rbac-self-revoke-guard': 'rbac',
   'rbac-console-next': 'rbac',
 };
