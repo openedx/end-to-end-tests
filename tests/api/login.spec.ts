@@ -19,6 +19,27 @@ const answer = (failing: boolean, failure: number) => {
   return { ok: () => status === 200, status: () => status, text: () => Promise.resolve('') };
 };
 
+/**
+ * A request whose token endpoint redirects anonymous visitors (302) and whose jar
+ * holds the LMS's `csrftoken`. `follows` records each GET on the token endpoint
+ * made with redirects followed.
+ */
+const redirectingTokenEndpoint = (follows: string[]): APIRequestContext =>
+  ({
+    get: (url: string, options?: { maxRedirects?: number }) => {
+      const tokenEndpoint = url.includes('/csrf/');
+      if (tokenEndpoint && options?.maxRedirects !== 0) follows.push(url);
+      return Promise.resolve({
+        ok: () => !tokenEndpoint,
+        status: () => (tokenEndpoint ? 302 : 200),
+        text: () => Promise.resolve(''),
+      });
+    },
+    post: () => Promise.resolve({ ok: () => true, status: () => 200 }),
+    storageState: () =>
+      Promise.resolve({ cookies: [csrftoken('lms.example.com', 'lms')], origins: [] }),
+  }) as unknown as APIRequestContext;
+
 test.describe('csrfTokenFromCookies', { tag: '@unit' }, () => {
   test('takes a host-only cookie for exactly the LMS host', () => {
     expect(csrfTokenFromCookies([csrftoken('lms.example.com')], LMS_LOGIN)).toBe('lms.example.com');
@@ -94,5 +115,22 @@ test.describe('loginSession — CSRF cookie fallback', { tag: '@unit' }, () => {
     await expect(
       loginSession(request, config, { emailOrUsername: 'learner', password: 'pw' }),
     ).rejects.toThrow(/CSRF endpoint \(HTTP 503\)/);
+  });
+
+  test("signs in without following the token endpoint's redirect", async () => {
+    const config = loadConfig({
+      LMS_BASE_URL: 'https://lms.example.com',
+      APPS_BASE_URL: 'https://apps.example.com',
+    });
+    // A signed-out context has no session for that redirect to restore, and on an
+    // install whose sign-in chain is slow, following it outlasts the timeout.
+    const follows: string[] = [];
+
+    await loginSession(redirectingTokenEndpoint(follows), config, {
+      emailOrUsername: 'learner',
+      password: 'pw',
+    });
+
+    expect(follows).toEqual([]);
   });
 });
