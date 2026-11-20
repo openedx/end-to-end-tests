@@ -4,6 +4,7 @@ import { rm } from 'node:fs/promises';
 import { initAccountBackends } from '../src/accounts';
 import { AUTH_STATE_DIR } from '../src/auth';
 import { getConfigIfValid, getRunId } from '../src/config';
+import { initLtiToolProviders, unsupportedFeatureCapabilities } from '../src/lti-tools';
 import { initMailProviders } from '../src/mail';
 
 /**
@@ -53,5 +54,23 @@ export default async function globalSetup(): Promise<void> {
     // Fails fast if MAIL_PROVIDER names a provider nothing registered.
     mail.get(config);
     console.log(`[global-setup] Mailbox provider: ${config.mailProvider}`);
+  }
+
+  if (config.capabilities.has('lti-tool')) {
+    const tools = await initLtiToolProviders(config);
+    // Fails fast if LTI_TOOL_PROVIDER names a provider nothing registered, or a
+    // plugin's own settings are missing.
+    const provider = tools.get(config.ltiToolProvider);
+    const unsupported = unsupportedFeatureCapabilities(config.capabilities, provider);
+    if (unsupported.length > 0) {
+      throw new Error(
+        `CAPABILITIES declares ${unsupported.join(', ')}, which the "${provider.name}" LTI tool ` +
+          `does not support (it supports: ${[...provider.features].join(', ') || 'a plain launch'}). ` +
+          'Remove them, or choose a tool that has them.',
+      );
+    }
+    console.log(
+      `[global-setup] LTI tool provider: ${provider.name} (${[...provider.features].join(', ')})`,
+    );
   }
 }

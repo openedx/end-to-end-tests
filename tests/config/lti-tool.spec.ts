@@ -4,7 +4,7 @@ import { createPublicKey, generateKeyPairSync, type KeyObject } from 'node:crypt
 
 import { test, expect } from '@playwright/test';
 
-import { parseLtiLaunchInfo } from '../../src/api/lti';
+import { parseLtiDeepLinkedItems, parseLtiLaunchInfo } from '../../src/api/lti';
 import { decodeJwt, signJwt, verifyJwt, type Jwks } from '../../scripts/lti-tool/jwt.mts';
 import { CLAIM, LtiTool, type LaunchRecord } from '../../scripts/lti-tool/tool.mts';
 
@@ -82,6 +82,17 @@ test.describe('LTI registration values from Studio', { tag: '@unit' }, () => {
       keysetUrl: 'http://local.openedx.io/api/lti_consumer/v1/public_keysets/lti_store/e2e-tool',
       tokenUrl: 'http://local.openedx.io/api/lti_consumer/v1/token/lti_store/e2e-tool',
     });
+  });
+
+  test('reads the deep-linked items stored for a block', () => {
+    const view =
+      '<p>Deep Linking is configured on this tool.</p><pre>[\n {\n &quot;url&quot;: ' +
+      '&quot;https://saltire.lti.app/tool&quot;,\n &quot;title&quot;: &quot;A &amp; B&quot;,' +
+      '\n &quot;custom&quot;: {&quot;page&quot;: &quot;103&quot;}\n }\n]</pre>';
+    expect(parseLtiDeepLinkedItems(view)).toEqual([
+      { url: 'https://saltire.lti.app/tool', title: 'A & B', custom: { page: '103' } },
+    ]);
+    expect(parseLtiDeepLinkedItems('<p>No items yet</p>')).toEqual([]);
   });
 
   test('finds nothing in a view with no LTI 1.3 configuration', () => {

@@ -162,6 +162,22 @@ export const CAPABILITIES = [
   // deep-linking and personal-data cases (`tests/lms/lti/`). Requires `lti`
   // (`CAPABILITY_REQUIRES`).
   'lti-tool',
+  // What the LTI tool can do beyond a plain launch (`src/lti-tools/`, a
+  // provider's `features`). Each requires `lti-tool`, and declaring one the
+  // selected provider lacks fails the run in global setup. The bundled tool has
+  // all four.
+  // - `lti-tool-claims`: it reports every claim a launch carried (roles, the
+  //   shared name and email, custom parameters).
+  // - `lti-tool-services`: it calls the platform's AGS and NRPS as the tool,
+  //   so the platform must be reachable from it.
+  // - `lti-tool-deep-linking`: it answers a deep-linking request with a
+  //   resource the test picks.
+  // - `lti-tool-inline`: it can be launched in the block's iframe, not only in
+  //   a new window.
+  'lti-tool-claims',
+  'lti-tool-services',
+  'lti-tool-deep-linking',
+  'lti-tool-inline',
   // LTI Store (`openedx-ltistore`, not in stock Tutor) is installed and wired
   // into xblock-lti-consumer's configuration filter, so an author can point an
   // LTI block at a reusable configuration (`lti_store:<slug>`) the operator keeps
@@ -456,6 +472,10 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   competencies: 'taxonomies',
   'content-libraries-v1-create': 'content-libraries-v1',
   'lti-tool': 'lti',
+  'lti-tool-claims': 'lti-tool',
+  'lti-tool-services': 'lti-tool',
+  'lti-tool-deep-linking': 'lti-tool',
+  'lti-tool-inline': 'lti-tool',
   'lti-store': 'lti-tool',
   'rbac-self-revoke-guard': 'rbac',
   'rbac-console-next': 'rbac',

@@ -293,3 +293,43 @@ export async function ltiEditorOffersConfigType(
   const body = await studioJson<{ html?: string }>(response, `Rendering ${usageKey}'s editor`);
   return (body.html ?? '').includes('id="xb-field-edit-config_type"');
 }
+
+/** A deep-linked item as the platform stored it for a block (its `attributes`). */
+export interface LtiDeepLinkedItem {
+  readonly url?: string;
+  readonly title?: string;
+  readonly custom?: Readonly<Record<string, string>>;
+  readonly [attribute: string]: unknown;
+}
+
+const HTML_ENTITIES: Readonly<Record<string, string>> = {
+  '&quot;': '"',
+  '&#34;': '"',
+  '&#x27;': "'",
+  '&#39;': "'",
+  '&lt;': '<',
+  '&gt;': '>',
+  '&amp;': '&',
+};
+
+/**
+ * The deep-linking items stored for a block, from its Studio `author_view`: the
+ * view renders them as JSON in a `<pre>` (`lti_1p3_studio.html`). Empty when a
+ * tool has stored none.
+ */
+export async function readLtiDeepLinkedItems(
+  request: APIRequestContext,
+  config: AppConfig,
+  usageKey: string,
+): Promise<readonly LtiDeepLinkedItem[]> {
+  return parseLtiDeepLinkedItems(await fetchLtiAuthorView(request, config, usageKey));
+}
+
+/** The deep-linking items in an LTI block's `author_view` HTML (its `<pre>` of JSON). */
+export function parseLtiDeepLinkedItems(html: string): readonly LtiDeepLinkedItem[] {
+  const pre = /<pre>([\s\S]*?)<\/pre>/.exec(html)?.[1];
+  if (pre === undefined) return [];
+  const json = pre.replace(/&(?:quot|#34|#x27|#39|lt|gt|amp);/g, (e) => HTML_ENTITIES[e] ?? e);
+  const items = JSON.parse(json) as unknown;
+  return Array.isArray(items) ? (items as LtiDeepLinkedItem[]) : [];
+}

@@ -211,9 +211,8 @@ import {
   enableCourseEmail,
   setWaffleSwitch,
   updateAccount,
-  ltiToolClient,
-  type LtiToolClient,
 } from '../api';
+import { resolveLtiToolProvider, type LtiToolSession } from '../lti-tools';
 import {
   getConfig,
   getRunId,
@@ -680,13 +679,14 @@ export interface TestFixtures {
    */
   newLearner: () => Promise<StudioLearner>;
   /**
-   * The suite's LTI 1.3 test tool (`scripts/lti-tool.mts`), which the run starts
-   * on a target declaring `lti-tool`: its control API, to read the platform's
-   * registration into it, see what each launch carried, and call the platform's
-   * LTI Advantage services as the tool. A declared `lti-tool` whose tool does not
-   * answer fails the test. Needs the `@lti-tool` tag.
+   * A session on the LTI 1.3 tool `LTI_TOOL_PROVIDER` selects (`src/lti-tools/`;
+   * by default the suite's bundled tool, which the run starts): the URLs and key
+   * to write into a block, the platform's registration, what each launch
+   * carried, and the platform's LTI Advantage services called as the tool. One
+   * per test, disposed after. A declared `lti-tool` whose tool cannot be reached
+   * fails the test. Needs the `@lti-tool` tag.
    */
-  ltiTool: LtiToolClient;
+  ltiTool: LtiToolSession;
   /**
    * The "Certificates available date" fields, which Schedule & Details shows
    * only while the `certificates.auto_certificate_generation` switch is on
@@ -3394,21 +3394,26 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   customPagesPage: pageObjectFixture(StudioCustomPagesPage),
 
-  ltiTool: async ({ playwright, config }, use, testInfo) => {
+  ltiTool: async ({ playwright, browser, config }, use, testInfo) => {
     requireCapabilityTag(testInfo, 'lti-tool');
+    const provider = await resolveLtiToolProvider(config);
     const request = await newCleanRequestContext(playwright.request);
     try {
-      const tool = ltiToolClient(request, config);
+      let session: LtiToolSession;
       try {
-        await tool.health();
+        session = await provider.openSession({ config, request, browser });
       } catch (error) {
         throw capabilityContradicted(
           'lti-tool',
-          `the LTI test tool does not answer at ${config.ltiTool?.controlUrl ?? '(none)'} ` +
+          `the "${provider.name}" LTI tool cannot be reached ` +
             `(${error instanceof Error ? error.message : String(error)})`,
         );
       }
-      await use(tool);
+      try {
+        await use(session);
+      } finally {
+        await session.dispose();
+      }
     } finally {
       await request.dispose();
     }

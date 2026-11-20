@@ -12,8 +12,8 @@ import {
   launchRoles,
   readLtiLaunchInfo,
   type LtiLaunch,
-  type LtiToolClient,
 } from '../../../src/api';
+import type { LtiToolSession } from '../../../src/lti-tools';
 import { StudioLtiEditor } from '../../../src/pages/studio/editors/lti-editor';
 import { issue, testId } from '../../../src/reporting';
 import { seedReadyLtiBlock } from '../../../src/steps';
@@ -22,7 +22,8 @@ import {
   LTI_TAGS,
   asCourseStaff,
   launchAsStaff,
-  launchOf,
+  launchFrom,
+  launchTargetFor,
   ltiLabel,
   ltiUnit,
   openUnitAs,
@@ -34,7 +35,7 @@ import {
  * (TC-00653); a duplicated component launches too (TC-00659, its LTI 1.3 half).
  *
  * The UI drives the setup and the launch; what the tool **received** decides:
- * the test tool records every launch's verified claims (`ltiTool.launches`), so
+ * the test tool reports each launch's verified claims (`ltiTool.readLaunch`), so
  * the assertions read the platform's own `id_token`, not the tool's page.
  *
  * Every block is in a section of this test's own in the worker's content
@@ -47,7 +48,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 async function staffLaunch(
   author: APIRequestContext,
   config: AppConfig,
-  tool: LtiToolClient,
+  tool: LtiToolSession,
   courseKey: string,
   staff: InstructorCastMember,
   label: string,
@@ -66,7 +67,7 @@ test.describe('LTI 1.3 launches', { tag: [...LTI_TAGS] }, () => {
 
   test(
     'an author sets up an LTI 1.3 component in Studio, and a learner launches it',
-    { annotation: testId('TC-00653') },
+    { tag: ['@lti-tool-claims', '@lti-tool-inline'], annotation: testId('TC-00653') },
     async (
       {
         page,
@@ -125,10 +126,8 @@ test.describe('LTI 1.3 launches', { tag: [...LTI_TAGS] }, () => {
       await studioUnitPage.publish();
 
       // The learner opens the unit; the block launches the tool inline.
-      await openUnitAs(roundTripLearner, courseKey, unit);
-      await roundTripLearner.unitPage.ltiBlock(blockKey).waitForInlineLaunch();
-
-      const launch = await launchOf(ltiTool, blockKey);
+      await openUnitAs(roundTripLearner, courseKey, unit, ltiTool);
+      const launch = await launchFrom(ltiTool, roundTripLearner.unitPage, blockKey, 'iframe');
       expect(launch.error).toBeUndefined();
       expect(launch).toMatchObject({
         verified: true,
@@ -147,7 +146,7 @@ test.describe('LTI 1.3 launches', { tag: [...LTI_TAGS] }, () => {
 
   test(
     'course staff launch it as an instructor, not a learner',
-    { annotation: testId('TC-00653') },
+    { tag: '@lti-tool-claims', annotation: testId('TC-00653') },
     async (
       { page, config, contentCourse, studioAuthorSession, instructorCast, ltiTool },
       testInfo,
@@ -170,6 +169,7 @@ test.describe('LTI 1.3 launches', { tag: [...LTI_TAGS] }, () => {
   test(
     'course staff are not sent the platform administrator role',
     {
+      tag: '@lti-tool-claims',
       annotation: [
         testId('TC-00653'),
         issue('https://github.com/openedx/xblock-lti-consumer/issues/618'),
@@ -220,7 +220,10 @@ test.describe('LTI 1.3 launches', { tag: [...LTI_TAGS] }, () => {
       // Seeding reads the block's registration from Studio, which creates its
       // LTI configuration; a duplicate of a configured block shares its
       // client id (a never-rendered one would get its own).
-      const original = await seedReadyLtiBlock(page.request, config, ltiTool, unit.usageKey);
+      const target = launchTargetFor(ltiTool);
+      const original = await seedReadyLtiBlock(page.request, config, ltiTool, unit.usageKey, {
+        launchTarget: target,
+      });
 
       await studioUnitPage.goto(unit.usageKey);
       const copyKey = await studioUnitPage.duplicateComponent(original.blockKey);
@@ -230,10 +233,8 @@ test.describe('LTI 1.3 launches', { tag: [...LTI_TAGS] }, () => {
       expect(copyKey).not.toBe(original.blockKey);
       expect(copy.clientId).toBe(original.info.clientId);
 
-      await openUnitAs(roundTripLearner, courseKey, unit);
-      await roundTripLearner.unitPage.ltiBlock(copyKey).waitForInlineLaunch();
-
-      const launch = await launchOf(ltiTool, copyKey);
+      await openUnitAs(roundTripLearner, courseKey, unit, ltiTool);
+      const launch = await launchFrom(ltiTool, roundTripLearner.unitPage, copyKey, target);
       expect(launch.error).toBeUndefined();
       expect(launch).toMatchObject({
         verified: true,

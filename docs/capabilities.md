@@ -114,6 +114,10 @@ profile. Each profile's column shows what that profile changes on top.
 | `pdf-xblock` | declared | declared | — | — | — | — | |  |  |
 | `lti` | declared | declared | declared | declared | declared | declared | |  |  |
 | `lti-tool` | declared | — | — | — | — | — | |  |  |
+| `lti-tool-claims` | declared | — | — | — | — | — | |  |  |
+| `lti-tool-services` | declared | — | — | — | — | — | |  |  |
+| `lti-tool-deep-linking` | declared | — | — | — | — | — | |  |  |
+| `lti-tool-inline` | declared | — | — | — | — | — | |  |  |
 | `lti-store` | — | — | — | — | — | — | |  | + |
 | `scorm` | declared | declared | declared | declared | declared | declared | |  |  |
 | `edx-sga` | declared | declared | declared | declared | declared | declared | |  |  |
@@ -222,6 +226,10 @@ missing one fails.
 | `pdf-xblock` | `pdf` (xblocks-contrib) under the Advanced tile. | The PDF component and library-PDF cases (TC-00508–00512). | `main`, `verawood` |
 | `lti` | `lti_consumer` under the Advanced tile. The block is added and configured; no tool launch is asserted. | TC-00212 (LTI) and the advanced-module matrix. | every release CI runs |
 | `lti-tool` | The suite's LTI 1.3 test tool (`scripts/lti-tool.mts`) can be launched from the target. The run starts it on this machine; the browser reaches it at `LTI_TOOL_BASE_URL` (default `http://lti.<LMS host>:8765`, which must be same-site with the LMS and is mapped to this machine), and the tool reaches the LMS. Blocks hold the tool's public key, so the LMS never calls the tool. Requires `lti`. | The LTI 1.3 cases in `tests/lms/lti/`: launches and roles (TC-00653), grades through AGS (TC-00655, TC-00656), deep linking (TC-00657), course membership through NRPS (TC-00658), a duplicated component (TC-00659), personal-data sharing and consent (TC-00660). | `main` (lti-consumer-xblock 11.5) |
+| `lti-tool-claims` | The LTI tool reports every claim a launch carried: roles, the shared name and email, custom parameters. Requires `lti-tool`; a declared feature the selected provider (`LTI_TOOL_PROVIDER`) lacks fails the run. | The launch-role cases (TC-00653), personal-data sharing (TC-00660), deep linking's `custom` (TC-00657). | `main` (`local`) |
+| `lti-tool-services` | The LTI tool calls the platform's AGS and NRPS as the tool, so the platform must be reachable from it. Requires `lti-tool`. | Grades (TC-00655, TC-00656), the roster (TC-00658), and their negatives. | `main` (`local`) |
+| `lti-tool-deep-linking` | The LTI tool answers a deep-linking request with a resource the test picks. Requires `lti-tool`. | TC-00657. | `main` (`local`) |
+| `lti-tool-inline` | The LTI tool can be launched in the block's iframe, not only in a new window. Requires `lti-tool`. | The inline launch cases: TC-00653's learner launch and TC-00660's inline consent. | `main` (`local`) |
 | `lti-store` | LTI Store (`openedx-ltistore`) is installed with its `OPEN_EDX_FILTERS_CONFIG` pipeline in the LMS and Studio, so an LTI block can use a reusable configuration (`lti_store:<slug>`) kept in Django admin. Not in stock Tutor. The suite creates the configuration and turns the course's `lti_consumer.enable_external_config_filter` flag on through the admin account, and skips without one. Requires `lti-tool`. | TC-00661 (`tests/lms/lti/lti-store.spec.ts`). | `main` with openedx-ltistore 1.1.4 (CI's `lti` profile) |
 | `scorm` | `scorm` under the Advanced tile. The block is added; no package is played. | TC-00212 (SCORM). | every release CI runs |
 | `edx-sga` | Staff Graded Assignment (`edx_sga`) under the Advanced tile. | TC-00212 (SGA) and the matrix. | every release CI runs |

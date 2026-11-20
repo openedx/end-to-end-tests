@@ -16,6 +16,7 @@ export type {
 export {
   DEFAULT_JWT_COOKIE_HEADER_PAYLOAD,
   DEFAULT_LTI_TOOL_PORT,
+  LOCAL_LTI_TOOL_PROVIDER,
   loadConfig,
   mfeMountPath,
   parseCapabilities,

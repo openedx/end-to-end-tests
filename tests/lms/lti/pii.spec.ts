@@ -3,12 +3,8 @@ import type { APIRequestContext } from '@playwright/test';
 import { expect, test } from '../../../src/fixtures';
 import type { AdminLmsRunner } from '../../../src/fixtures';
 import { TIMEOUTS, type AppConfig } from '../../../src/config';
-import {
-  allowLtiPiiSharing,
-  type AuthoredUnit,
-  type Lti13Settings,
-  type LtiToolClient,
-} from '../../../src/api';
+import { allowLtiPiiSharing, type AuthoredUnit, type Lti13Settings } from '../../../src/api';
+import type { LtiToolSession } from '../../../src/lti-tools';
 import { disputed, testId } from '../../../src/reporting';
 import { seedReadyLtiBlock } from '../../../src/steps';
 import { LTI_TAGS, launchOf, ltiLabel, ltiUnit, openUnitAs } from './helpers';
@@ -41,7 +37,7 @@ async function sharingBlock(
   author: APIRequestContext,
   config: AppConfig,
   adminLms: AdminLmsRunner,
-  tool: LtiToolClient,
+  tool: LtiToolSession,
   courseKey: string,
   label: string,
   settings: Pick<Lti13Settings, 'askToSend' | 'launchTarget' | 'description'>,
@@ -52,7 +48,7 @@ async function sharingBlock(
   return { unit, blockKey };
 }
 
-test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS] }, () => {
+test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS, '@lti-tool-claims'] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
   test(
@@ -76,13 +72,13 @@ test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS] }, () => {
           askToSend: { username: false, fullName: false, email: false },
         },
       );
-      await openUnitAs(roundTripLearner, courseKey, unit);
+      await openUnitAs(roundTripLearner, courseKey, unit, ltiTool);
       const block = roundTripLearner.unitPage.ltiBlock(blockKey);
       const window = await block.launchInNewWindow();
+      const launch = await launchOf(ltiTool, blockKey, { surface: window });
       await window.close();
       await expect(block.consentPrompt).toHaveCount(0);
 
-      const launch = await launchOf(ltiTool, blockKey);
       expect(launch.verified).toBe(true);
       for (const { claim } of FIELDS) expect(launch.claims, claim).not.toHaveProperty(claim);
     },
@@ -116,20 +112,21 @@ test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS] }, () => {
           ltiLabel(`pii ${setting}`, testInfo),
           { launchTarget: 'new_window', askToSend: { [setting]: true }, description: NOTICE },
         );
-        await openUnitAs(roundTripLearner, courseKey, unit);
+        await openUnitAs(roundTripLearner, courseKey, unit, ltiTool);
         const block = roundTripLearner.unitPage.ltiBlock(blockKey);
         // The author's own notice, beside the launch button.
         await expect(block.notice).toHaveText(NOTICE);
 
-        // The button asks first, and nothing reaches the tool before the learner agrees.
+        // The button asks first: no window opens on the tool before the learner agrees.
+        const windows = roundTripLearner.context.pages().length;
         await block.requestNewWindowLaunch();
         await expect(block.consentPrompt).toBeVisible();
         await expect(block.consentCancel).toBeVisible();
-        expect(await ltiTool.launches(blockKey)).toHaveLength(0);
+        expect(roundTripLearner.context.pages()).toHaveLength(windows);
 
         const window = await block.agreeAndOpenWindow();
+        const launch = await launchOf(ltiTool, blockKey, { surface: window });
         await window.close();
-        const launch = await launchOf(ltiTool, blockKey);
         expect(launch.verified).toBe(true);
         const { identity } = roundTripLearner;
         const expected = {
@@ -163,20 +160,19 @@ test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS] }, () => {
         ltiLabel('pii cancel', testInfo),
         { launchTarget: 'new_window', askToSend: { email: true } },
       );
-      await openUnitAs(roundTripLearner, courseKey, unit);
+      await openUnitAs(roundTripLearner, courseKey, unit, ltiTool);
       const block = roundTripLearner.unitPage.ltiBlock(blockKey);
       const windows = roundTripLearner.context.pages().length;
 
       await block.requestNewWindowLaunch();
       await block.decline();
       expect(roundTripLearner.context.pages()).toHaveLength(windows);
-      expect(await ltiTool.launches(blockKey)).toHaveLength(0);
     },
   );
 
   test(
     'an inline launch waits for the learner to agree, then sends the shared field',
-    { annotation: testId('TC-00660') },
+    { tag: '@lti-tool-inline', annotation: testId('TC-00660') },
     async (
       { page, config, adminLms, contentCourse, studioAuthorSession, roundTripLearner, ltiTool },
       testInfo,
@@ -192,7 +188,7 @@ test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS] }, () => {
         ltiLabel('pii inline', testInfo),
         { launchTarget: 'iframe', askToSend: { email: true } },
       );
-      await openUnitAs(roundTripLearner, courseKey, unit);
+      await openUnitAs(roundTripLearner, courseKey, unit, ltiTool);
       const block = roundTripLearner.unitPage.ltiBlock(blockKey);
 
       // Inline, the prompt is there from the start and offers only OK; the
@@ -200,11 +196,10 @@ test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS] }, () => {
       await expect(block.consentPrompt).toBeVisible();
       await expect(block.consentCancel).toHaveCount(0);
       await expect(block.startedLaunchFrame).toHaveCount(0);
-      expect(await ltiTool.launches(blockKey)).toHaveLength(0);
 
       await block.agree();
       await block.waitForInlineLaunch();
-      const launch = await launchOf(ltiTool, blockKey);
+      const launch = await launchOf(ltiTool, blockKey, { surface: block.launchFrame });
       expect(launch.claims.email).toBe(roundTripLearner.identity.email);
     },
   );

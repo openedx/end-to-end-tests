@@ -84,7 +84,9 @@ The essentials:
 | `CUSTOM_ACCOUNT_BACKEND_PLUGINS`    | —        | Comma-separated paths of custom account backends                             |
 | `MAIL_PROVIDER`                     | —        | Mailbox the suite reads e-mail from; required with `email-inbox`             |
 | `CUSTOM_MAIL_PROVIDER_PLUGINS`      | —        | Comma-separated paths of mailbox provider plugins (`src/mail/`)              |
-| `LTI_TOOL_BASE_URL`                 | —        | LTI test tool origin (`lti-tool`); default `http://lti.<LMS host>:8765`      |
+| `LTI_TOOL_PROVIDER`                 | `local`  | LTI tool the LTI specs launch: `local` (bundled) or a plugin's name          |
+| `CUSTOM_LTI_TOOL_PROVIDER_PLUGINS`  | —        | Comma-separated paths of LTI tool provider plugins (`src/lti-tools/`)        |
+| `LTI_TOOL_BASE_URL`                 | —        | The `local` tool's origin; default `http://lti.<LMS host>:8765`              |
 | `CUSTOM_TEST_DIRS`                  | —        | Comma-separated dirs of your own specs to run (see “Running your own tests”) |
 | `RUN_ID_SUFFIX`                     | —        | Up to 3 lowercase letters/digits appended to the run id (CI shards)          |
 | `CI_PROFILE`                        | —        | The CI profile a job runs (`.ci/profiles.json`); set by CI                   |
@@ -692,6 +694,8 @@ tests/                 # specs, grouped by platform domain (lms/, studio/)
   lms/dashboard/       # learner dashboard
   lms/instructor/      # instructor dashboard MFE: course info, enrollments, grading,
                        #   date extensions, data downloads, certificates
+  lms/lti/             # LTI 1.3 consumer: launches, grades (AGS), roster (NRPS), deep
+                       #   linking, data sharing, LTI Store, against the suite's own tool
   lms/landing.spec.ts  # proof-of-life smoke test
   studio/              # authoring MFE + Studio APIs (bootstrap: author session, course factory)
   conventions/         # suite-wide rules enforced as tests (no displayed text)
@@ -705,12 +709,15 @@ src/
   accounts/            # user-choosable account backends (+ plugin loader)
   auth/                # provider-swappable authentication contract
   pages/{lms,studio}/  # page objects, one per surface, in the spec's domain folder
+  pages/lti-tool/      # the suite's LTI test tool's own pages (deep-linking picker)
   steps/               # reusable multi-page business flows
   fixtures/            # composition root (config + pages + api + auth + skips)
     assets/            # bundled media served in place of course-hosted sources
   reporting/           # BTR test_id annotations, coverage + run-detail + a11y reporters
   a11y/                # @axe-core/playwright WCAG 2.2 AA gate
 plugins/               # example account-backend plugin (openinbox)
+scripts/               # Node scripts: CI profiles, BTR sheet publisher, and the LTI 1.3
+                       #   test tool (lti-tool.mts) the run starts for `lti-tool`
 .ci/                   # CI configuration: releases, profiles, Tutor plugins, seeds
 docs/
   decisions/           # ADRs

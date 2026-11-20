@@ -14,14 +14,15 @@ import {
   ltiEditorOffersConfigType,
   readLtiLaunchInfo,
   setCourseFlagOverride,
+  updateXBlock,
   type LtiLaunch,
   type LtiLaunchInfo,
-  type LtiToolClient,
 } from '../../../src/api';
+import type { LtiToolSession } from '../../../src/lti-tools';
 import type { StudioUnitPage } from '../../../src/pages/studio/unit.page';
 import { StudioLtiEditor } from '../../../src/pages/studio/editors/lti-editor';
 import { issue, testId } from '../../../src/reporting';
-import { LTI_TAGS, launchOf, ltiLabel, ltiUnit, openUnitAs } from './helpers';
+import { LTI_TAGS, launchFrom, launchTargetFor, ltiLabel, ltiUnit, openUnitAs } from './helpers';
 
 /**
  * An LTI component that uses a reusable configuration from LTI Store
@@ -48,7 +49,7 @@ interface StoreCase {
   readonly courseKey: string;
   readonly studioUnitPage: StudioUnitPage;
   readonly learner: RoundTripLearner;
-  readonly tool: LtiToolClient;
+  readonly tool: LtiToolSession;
 }
 
 /**
@@ -114,13 +115,16 @@ async function launchStoredConfiguration(
 
   const { metadata } = await fetchXBlock(request, c.config, blockKey);
   expect(metadata).toMatchObject({ config_type: 'external', external_config: filterKey });
+  // Where it launches is not this case's subject: wherever the tool can be launched.
+  const target = launchTargetFor(c.tool);
+  await updateXBlock(request, c.config, blockKey, { metadata: { launch_target: target } });
   const info = await readLtiLaunchInfo(request, c.config, blockKey);
   await c.tool.register(info);
   await c.studioUnitPage.publish();
 
-  await openUnitAs(c.learner, c.courseKey, unit);
-  await c.learner.unitPage.ltiBlock(blockKey).waitForInlineLaunch();
-  return { slug, info, blockKey, launch: await launchOf(c.tool, blockKey) };
+  await openUnitAs(c.learner, c.courseKey, unit, c.tool);
+  const launch = await launchFrom(c.tool, c.learner.unitPage, blockKey, target);
+  return { slug, info, blockKey, launch };
 }
 
 test.describe(

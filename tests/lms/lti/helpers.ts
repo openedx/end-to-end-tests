@@ -1,16 +1,15 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, FrameLocator, Page } from '@playwright/test';
 
-import { expect } from '../../../src/fixtures';
 import type { InstructorCastMember, RoundTripLearner } from '../../../src/fixtures';
-import { TIMEOUTS, type AppConfig } from '../../../src/config';
+import type { AppConfig } from '../../../src/config';
 import {
   buildSection,
   grantCourseTeamRole,
   primeCoursewareForLearner,
   type AuthoredUnit,
   type LtiLaunch,
-  type LtiToolClient,
 } from '../../../src/api';
+import type { LtiToolSession } from '../../../src/lti-tools';
 import { UnitPage } from '../../../src/pages/lms/courseware/unit.page';
 
 /**
@@ -51,35 +50,65 @@ export async function ltiUnit(
 }
 
 /**
- * The newest launch the tool received for `blockKey`, once there is one — newer
- * than the launch `after` when given, for a relaunch of the same block.
+ * Where a block launches when the case is not about where: inline when the tool
+ * can be launched in the block's iframe, else in a new window.
  */
-export async function launchOf(
-  tool: LtiToolClient,
-  blockKey: string,
-  after?: LtiLaunch,
-): Promise<LtiLaunch> {
-  let newest: LtiLaunch | undefined;
-  await expect
-    .poll(
-      async () => {
-        newest = (await tool.launches(blockKey))[0];
-        return newest !== undefined && newest.id > (after?.id ?? 0);
-      },
-      { message: `the tool receives a launch of ${blockKey}`, timeout: TIMEOUTS.navigation },
-    )
-    .toBe(true);
-  return newest!;
+export function launchTargetFor(tool: LtiToolSession): 'iframe' | 'new_window' {
+  return tool.features.has('inline') ? 'iframe' : 'new_window';
 }
 
-/** A learner opens `unit` in the learning MFE (its subsection primed first). */
+/**
+ * The newest launch the tool received for `blockKey`, read from the window or
+ * frame it landed in (`surface`) where the tool needs that — newer than `after`
+ * when given, for a relaunch of the same block.
+ */
+export async function launchOf(
+  tool: LtiToolSession,
+  blockKey: string,
+  options: { readonly after?: LtiLaunch; readonly surface?: Page | FrameLocator } = {},
+): Promise<LtiLaunch> {
+  return tool.readLaunch({ resourceLinkId: blockKey, ...options });
+}
+
+/**
+ * A learner opens `unit` in the learning MFE (its subsection primed first),
+ * admitted to the tool session so its launches reach the test's registration.
+ */
 export async function openUnitAs(
   learner: RoundTripLearner,
   courseKey: string,
   unit: AuthoredUnit,
+  tool: LtiToolSession,
 ): Promise<void> {
+  await tool.admit(learner.context);
   await learner.prime(unit.sequentialUsageKey);
   await learner.unitPage.goto(courseKey, unit.sequentialUsageKey, unit.usageKey);
+}
+
+/**
+ * Launches block `blockKey` on an open unit page — inline (the block's iframe
+ * starts) or in a new window (its button) as the block is set up — and returns
+ * what the tool received, read before the window closes.
+ */
+export async function launchFrom(
+  tool: LtiToolSession,
+  unitPage: UnitPage,
+  blockKey: string,
+  target: 'iframe' | 'new_window',
+  after?: LtiLaunch,
+): Promise<LtiLaunch> {
+  const block = unitPage.ltiBlock(blockKey);
+  const options = after === undefined ? {} : { after };
+  if (target === 'iframe') {
+    await block.waitForInlineLaunch();
+    return launchOf(tool, blockKey, { ...options, surface: block.launchFrame });
+  }
+  const window = await block.launchInNewWindow();
+  try {
+    return await launchOf(tool, blockKey, { ...options, surface: window });
+  } finally {
+    await window.close();
+  }
 }
 
 /** Runs `work` while the cast's staff member holds the course Staff role, revoking it after. */
@@ -106,23 +135,23 @@ export async function asCourseStaff<T>(
 }
 
 /**
- * Course staff (see {@link asCourseStaff}) open `unit` and launch the
- * new-window LTI block `blockKey`. Returns what the tool received.
+ * Course staff (see {@link asCourseStaff}), admitted to the tool session, open
+ * `unit` and launch the new-window LTI block `blockKey`. Returns what the tool
+ * received.
  */
 export async function launchAsStaff(
   config: AppConfig,
-  tool: LtiToolClient,
+  tool: LtiToolSession,
   staff: InstructorCastMember,
   courseKey: string,
   unit: AuthoredUnit,
   blockKey: string,
 ): Promise<LtiLaunch> {
+  await tool.admit(staff.context);
   await primeCoursewareForLearner(staff.request, config, unit.sequentialUsageKey);
   const unitPage = new UnitPage(staff.page, config);
   await unitPage.goto(courseKey, unit.sequentialUsageKey, unit.usageKey);
-  const window = await unitPage.ltiBlock(blockKey).launchInNewWindow();
-  await window.close();
-  return launchOf(tool, blockKey);
+  return launchFrom(tool, unitPage, blockKey, 'new_window');
 }
 
 /** A label unique to this test and attempt, for the sections it builds. */

@@ -87,6 +87,9 @@ export interface LtiToolConfig {
   readonly controlUrl: string;
 }
 
+/** The built-in LTI tool provider: the suite's bundled tool. */
+export const LOCAL_LTI_TOOL_PROVIDER = 'local';
+
 /** The tool's port when `LTI_TOOL_BASE_URL` does not name one. */
 export const DEFAULT_LTI_TOOL_PORT = 8765;
 
@@ -116,8 +119,16 @@ export interface AppConfig {
    */
   readonly jwtCookieHeaderPayload: string;
   /**
-   * The suite's LTI 1.3 test tool (`scripts/lti-tool.mts`), set whenever the
-   * `lti-tool` capability is declared. The run starts it on this machine.
+   * The LTI tool provider the LTI specs launch (`src/lti-tools/`): `local` (the
+   * bundled tool, the default) or a plugin's name.
+   */
+  readonly ltiToolProvider: string;
+  /** LTI tool provider plugin modules to load (existing file paths). */
+  readonly customLtiToolProviderPlugins: ReadonlySet<string>;
+  /**
+   * The bundled LTI 1.3 test tool (`scripts/lti-tool.mts`), set whenever the
+   * `lti-tool` capability is declared with the `local` provider. The run starts
+   * it on this machine.
    */
   readonly ltiTool?: LtiToolConfig;
   /** Mailbox provider plugin modules to load (existing file paths). */
@@ -530,8 +541,25 @@ export function loadConfig(env: Env = process.env): AppConfig {
     );
   }
 
+  const customLtiToolProviderPlugins = parsePluginPaths(
+    'CUSTOM_LTI_TOOL_PROVIDER_PLUGINS',
+    raw.CUSTOM_LTI_TOOL_PROVIDER_PLUGINS,
+    issues,
+  );
+  const ltiToolProvider = raw.LTI_TOOL_PROVIDER ?? LOCAL_LTI_TOOL_PROVIDER;
+  // `local` is the only built-in; any other name comes from a plugin, and only
+  // the provider registry knows the plugins' names.
+  if (ltiToolProvider !== LOCAL_LTI_TOOL_PROVIDER && customLtiToolProviderPlugins.size === 0) {
+    issues.push(
+      `LTI_TOOL_PROVIDER is "${ltiToolProvider}" but CUSTOM_LTI_TOOL_PROVIDER_PLUGINS is empty. ` +
+        `Other than the built-in "${LOCAL_LTI_TOOL_PROVIDER}", LTI tool providers are plugins: ` +
+        'list the module that provides it (e.g. ./plugins/saltire.plugin.ts).',
+    );
+  }
+  // The bundled tool's own rules (its host, same-site with the LMS; HTTP only)
+  // apply only when it is the provider.
   const ltiTool =
-    lmsUrl && capabilities.has('lti-tool')
+    lmsUrl && capabilities.has('lti-tool') && ltiToolProvider === LOCAL_LTI_TOOL_PROVIDER
       ? parseLtiTool(raw.LTI_TOOL_BASE_URL, lmsUrl, issues)
       : undefined;
 
@@ -608,6 +636,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     accountBackend,
     notificationTrayHost: raw.NOTIFICATION_TRAY_HOST ?? 'learner-dashboard',
     jwtCookieHeaderPayload: raw.JWT_AUTH_COOKIE_HEADER_PAYLOAD ?? DEFAULT_JWT_COOKIE_HEADER_PAYLOAD,
+    ltiToolProvider,
+    customLtiToolProviderPlugins,
     ...(ltiTool === undefined ? {} : { ltiTool: Object.freeze(ltiTool) }),
     customMailProviderPlugins,
     mailProvider,

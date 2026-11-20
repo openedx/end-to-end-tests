@@ -8,8 +8,18 @@ import {
   readLtiLaunchInfo,
   type Lti13Settings,
   type LtiLaunchInfo,
-  type LtiToolClient,
 } from '../api';
+
+/**
+ * What seeding needs of an LTI tool: where a block points, the key it holds,
+ * and the registration. An LTI tool session (`src/lti-tools/`) has all of it.
+ */
+export interface LtiBlockTool {
+  readonly launchUrl: string;
+  readonly oidcUrl: string;
+  publicKey(): Promise<string>;
+  register(info: LtiLaunchInfo): Promise<void>;
+}
 
 /** An LTI 1.3 block the test tool can be launched from. */
 export interface ReadyLtiBlock {
@@ -34,7 +44,7 @@ export interface ReadyLtiBlock {
 export async function seedReadyLtiBlock(
   request: APIRequestContext,
   config: AppConfig,
-  tool: LtiToolClient,
+  tool: LtiBlockTool,
   unitKey: string,
   settings: Omit<Lti13Settings, 'launchUrl' | 'oidcUrl' | 'toolPublicKey'> & {
     readonly displayName?: string;

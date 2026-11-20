@@ -435,6 +435,32 @@ test.describe('loadConfig — the LTI test tool', { tag: '@unit' }, () => {
     expect(issues.join('\n')).toContain('LTI_TOOL_BASE_URL must be http://');
   });
 
+  test('uses the bundled tool unless LTI_TOOL_PROVIDER names another', () => {
+    const config = loadConfig(validEnv({ CAPABILITIES: 'lti,lti-tool' }));
+    expect(config.ltiToolProvider).toBe('local');
+    expect(config.customLtiToolProviderPlugins.size).toBe(0);
+  });
+
+  test('requires a provider plugin for any provider but local', () => {
+    const issues = issuesFrom(() =>
+      loadConfig(validEnv({ CAPABILITIES: 'lti,lti-tool', LTI_TOOL_PROVIDER: 'saltire' })),
+    );
+    expect(issues.join('\n')).toContain('CUSTOM_LTI_TOOL_PROVIDER_PLUGINS is empty');
+  });
+
+  test("applies the bundled tool's host rules only when it is the provider", () => {
+    const config = loadConfig(
+      validEnv({
+        CAPABILITIES: 'lti,lti-tool',
+        LTI_TOOL_PROVIDER: 'class-fixture',
+        CUSTOM_LTI_TOOL_PROVIDER_PLUGINS: 'tests/lti-tools/fixtures/class-provider.plugin.ts',
+        LTI_TOOL_BASE_URL: 'https://elsewhere.example.com',
+      }),
+    );
+    expect(config.ltiToolProvider).toBe('class-fixture');
+    expect(config.ltiTool).toBeUndefined();
+  });
+
   test('requires lti alongside lti-tool', () => {
     const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'lti-tool' })));
     expect(issues.join('\n')).toContain('lti');

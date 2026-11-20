@@ -111,9 +111,12 @@ export {
   ltiEditorOffersConfigType,
   fetchLtiAuthorView,
   lti13Metadata,
+  parseLtiDeepLinkedItems,
   parseLtiLaunchInfo,
+  readLtiDeepLinkedItems,
   readLtiLaunchInfo,
   type Lti13Settings,
+  type LtiDeepLinkedItem,
   type LtiLaunchInfo,
   type LtiStoreConfiguration,
 } from './lti';

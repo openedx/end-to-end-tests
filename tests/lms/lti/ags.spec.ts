@@ -10,11 +10,11 @@ import {
   updateXBlock,
   type AuthoredUnit,
   type LtiLaunch,
-  type LtiToolClient,
 } from '../../../src/api';
+import type { LtiToolSession } from '../../../src/lti-tools';
 import { issue, testId } from '../../../src/reporting';
 import { seedReadyLtiBlock } from '../../../src/steps';
-import { LTI_TAGS, launchOf, ltiLabel, ltiUnit, openUnitAs } from './helpers';
+import { LTI_TAGS, launchFrom, launchTargetFor, ltiLabel, ltiUnit, openUnitAs } from './helpers';
 
 /**
  * Grades an LTI 1.3 tool returns through Assignment and Grade Services:
@@ -35,21 +35,22 @@ const ASSIGNMENT_TYPE = 'Homework';
 async function launchedGradedBlock(
   author: APIRequestContext,
   config: AppConfig,
-  tool: LtiToolClient,
+  tool: LtiToolSession,
   learner: RoundTripLearner,
   courseKey: string,
   label: string,
   agsMode: 'declarative' | 'programmatic',
 ): Promise<{ unit: AuthoredUnit; blockKey: string; launch: LtiLaunch }> {
   const unit = await ltiUnit(author, config, courseKey, label, { gradedAs: ASSIGNMENT_TYPE });
+  const target = launchTargetFor(tool);
   const { blockKey } = await seedReadyLtiBlock(author, config, tool, unit.usageKey, {
     hasScore: true,
     weight: 10,
     agsMode,
+    launchTarget: target,
   });
-  await openUnitAs(learner, courseKey, unit);
-  await learner.unitPage.ltiBlock(blockKey).waitForInlineLaunch();
-  return { unit, blockKey, launch: await launchOf(tool, blockKey) };
+  await openUnitAs(learner, courseKey, unit, tool);
+  return { unit, blockKey, launch: await launchFrom(tool, learner.unitPage, blockKey, target) };
 }
 
 /** The learner's points in the subsection holding `unit`, as their Progress reports them. */
@@ -66,7 +67,7 @@ async function subsectionScore(
     : { earned: subsection.num_points_earned, possible: subsection.num_points_possible };
 }
 
-test.describe('LTI 1.3 grades (AGS)', { tag: [...LTI_TAGS] }, () => {
+test.describe('LTI 1.3 grades (AGS)', { tag: [...LTI_TAGS, '@lti-tool-services'] }, () => {
   test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
   test(
