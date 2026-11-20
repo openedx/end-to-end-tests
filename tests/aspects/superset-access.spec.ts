@@ -2,7 +2,6 @@ import { expect, test } from '../../src/fixtures';
 import { TIMEOUTS } from '../../src/config';
 import {
   ApiError,
-  enrollInCourseViaApi,
   fetchGuestToken,
   fetchInContextDashboard,
   fetchInstructorCourse,
@@ -141,11 +140,11 @@ test.describe('Superset access', { tag: [...TAGS] }, () => {
   test(
     'a learner cannot sign in to Superset and has no instructor dashboard',
     { annotation: testId('TC-00552') },
-    async ({ config, authoringCourse, supersetColleague, reportsViewer }) => {
+    async ({ config, authoringCourse, supersetColleague, reportsViewer, enrollLearner }) => {
       const { member } = await reportsViewer(authoringCourse.courseKey);
       const { origin } = await supersetFor(member.request, config, authoringCourse.courseKey);
       const learner = await supersetColleague();
-      await enrollInCourseViaApi(learner.request, config, authoringCourse.courseKey);
+      await enrollLearner(learner.request, authoringCourse.courseKey);
 
       const user = await signInToSuperset(learner.page, origin);
       // A refused sign-in leaves a visitor: `Public` on Superset 6.1, no role on 6.0.
@@ -175,7 +174,7 @@ test.describe('Superset access', { tag: [...TAGS] }, () => {
         ),
       ],
     },
-    async ({ config, authoringCourse, supersetColleague }) => {
+    async ({ config, authoringCourse, supersetColleague, enrollLearner }) => {
       const { courseKey } = authoringCourse;
       // Aspects' three LMS views hand out what an embedded dashboard needs: the
       // Reports tab's dashboards, a Superset guest token for the course, and the
@@ -189,7 +188,7 @@ test.describe('Superset access', { tag: [...TAGS] }, () => {
           (error: unknown) => (error instanceof ApiError ? error.status : error),
         );
       const enrolled = await supersetColleague();
-      await enrollInCourseViaApi(enrolled.request, config, courseKey);
+      await enrollLearner(enrolled.request, courseKey);
       const stranger = await supersetColleague();
 
       for (const [who, account] of [

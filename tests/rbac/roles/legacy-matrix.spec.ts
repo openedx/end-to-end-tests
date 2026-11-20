@@ -1,7 +1,6 @@
 import { expect, test } from '../../../src/fixtures';
 import {
   courseUsageKey,
-  enrollInCourseViaApi,
   grantCourseTeamRole,
   grantLegacyRole,
   revokeLegacyRole,
@@ -219,7 +218,15 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'gives a beta tester a learner’s access, early',
     { annotation: testId('TC-00583') },
     async (
-      { page, config, contentCourse, studioAuthorSession, rbacCast, resyncStudioAuthor },
+      {
+        page,
+        config,
+        contentCourse,
+        studioAuthorSession,
+        rbacCast,
+        resyncStudioAuthor,
+        enrollLearner,
+      },
       testInfo,
     ) => {
       void studioAuthorSession;
@@ -227,7 +234,7 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
       const beta = await rbacCast('beta');
       const student = await rbacCast('learner');
       await grantCourseTeamRole(page.request, config, courseKey, [beta.identity.email], 'beta');
-      await enrollInCourseViaApi(student.request, config, courseKey);
+      await enrollLearner(student.request, courseKey);
       await resyncStudioAuthor();
       const writableBlock = await writableSection(
         page.request,
@@ -268,14 +275,22 @@ test.describe('Legacy course roles', { tag: ['@regression', ...LEGACY_ROLE_TAGS]
     'lets an enrolled student consume the course and nothing more',
     { annotation: testId('TC-00584') },
     async (
-      { page, config, contentCourse, studioAuthorSession, rbacCast, resyncStudioAuthor },
+      {
+        page,
+        config,
+        contentCourse,
+        studioAuthorSession,
+        rbacCast,
+        resyncStudioAuthor,
+        enrollLearner,
+      },
       testInfo,
     ) => {
       void studioAuthorSession;
       const courseKey = contentCourse.courseKey;
       const student = await rbacCast('learner');
       const outsider = await rbacCast('outsider');
-      await enrollInCourseViaApi(student.request, config, courseKey);
+      await enrollLearner(student.request, courseKey);
       await resyncStudioAuthor();
       const writableBlock = await writableSection(
         page.request,

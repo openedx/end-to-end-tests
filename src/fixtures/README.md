@@ -54,7 +54,11 @@ Rules:
   the `setup` admin session where it is still alive.
 - **Learners for the LMS half of a Studio case.** `newLearner()` provisions a
   fresh learner per call on a request context of its own (the author's `request`
-  must stay the author's), disposed when the test ends.
+  must stay the author's), disposed when the test ends. `enrollLearner` enrolls
+  one: on the learner's own session where learners may enroll themselves
+  (`self-enrollment`, on by default), otherwise through the admin with
+  `force_enrollment`. Only a spec about a learner enrolling themselves calls
+  `enrollInCourseViaApi` directly, and it carries the `@self-enrollment` tag.
 - **Two content courses per worker.** `contentCourse` (seeded past-start with
   subsection gating on) is where the authoring round-trip specs build content —
   each builds its own section (`ownSection` / `authorSection`) and never touches

@@ -330,6 +330,15 @@ export const CAPABILITIES = [
   // staff grant it (Studio Home reports the status). An install that turns it off,
   // where every account may create courses, opts out with `-course-creator-group`.
   'course-creator-group',
+  // A learner may enroll **themselves**: the enrollment API and the About page's
+  // Enroll button accept a signed-in learner's own request for a course whose
+  // enrollment window is open. On by default, as a stock install allows it. An
+  // install where courses are invitation-only site-wide (`COURSES_INVITE_ONLY`),
+  // and enrollments are created by staff or an external service, opts out with
+  // `-self-enrollment`: the specs about a learner enrolling themselves skip, and
+  // every other spec's learner is enrolled by the administrator instead
+  // (`force_enrollment`, which needs ADMIN_USERNAME / ADMIN_PASSWORD).
+  'self-enrollment',
   // --- Content a test depends on ------------------------------------------------
   // Properties of the target's catalog and configured course that a case needs
   // and a default install lacks, declared like the settings above (and checked
@@ -388,11 +397,12 @@ export type Capability = (typeof CAPABILITIES)[number];
  * enable notifications platform-wide and render the tray; ulmo and earlier opt
  * out with `-notifications`.
  *
- * `authz-manual-migration`, `no-support-url` and `course-creator-group` describe
- * the stock settings (automatic AuthZ migration off, no `SUPPORT_URL`,
- * `ENABLE_CREATOR_GROUP` on). The first two are one half of an exclusive pair:
- * declaring the other half (`authz-auto-migration`, `support-url`) replaces the
- * default-on one without an opt-out, as `parseCapabilities` in `load.ts` applies.
+ * `authz-manual-migration`, `no-support-url`, `course-creator-group` and
+ * `self-enrollment` describe the stock settings (automatic AuthZ migration off,
+ * no `SUPPORT_URL`, `ENABLE_CREATOR_GROUP` on, `COURSES_INVITE_ONLY` off). The
+ * first two are one half of an exclusive pair: declaring the other half
+ * (`authz-auto-migration`, `support-url`) replaces the default-on one without an
+ * opt-out, as `parseCapabilities` in `load.ts` applies.
  */
 export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = [
   'mfe-authn',
@@ -403,6 +413,7 @@ export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = [
   'authz-manual-migration',
   'no-support-url',
   'course-creator-group',
+  'self-enrollment',
 ];
 
 /** Marks an opt-out in `CAPABILITIES`, e.g. `-mfe-authn`. */

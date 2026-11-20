@@ -74,6 +74,19 @@ export async function fetchAccount(
   return lmsGet(request, accountsUrl(config, username), `Reading the account of "${username}"`);
 }
 
+/** The username of the LMS session `request` holds (`/api/user/v1/me`). */
+export async function fetchSignedInUsername(
+  request: APIRequestContext,
+  config: AppConfig,
+): Promise<string> {
+  const { username } = await lmsGet<{ readonly username: string }>(
+    request,
+    `${config.baseUrls.lms}/api/user/v1/me`,
+    'Reading the signed-in user',
+  );
+  return username;
+}
+
 /**
  * Updates the caller's own account. Clear the bio with `""`: `bio: null` is
  * answered 500 by the platform.
