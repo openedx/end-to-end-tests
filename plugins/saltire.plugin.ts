@@ -77,6 +77,8 @@ const S = {
   },
   /** The launch page's "Raw POST Parameters" (`id_token=…`). */
   rawParameters: '#id_card_home_rawparameters pre',
+  /** The nav link back to the registration form, once a launch shows the message view. */
+  securityModel: '#id_securitymodel',
   servicesMenu: '#id_navbar_services',
   card: (id: string) => `#id_${id}`,
   scope: (scope: string) => `#id_c_scope_${scope}`,
@@ -247,6 +249,11 @@ class SaltireSession implements LtiToolSession {
 
   async register(info: LtiLaunchInfo): Promise<void> {
     const p = this.page;
+    // After a launch or a service call the page shows another view; the form
+    // is on the Security Model one (its script must be ready to switch views).
+    await this.declineModals();
+    await p.reload({ waitUntil: 'networkidle', timeout: TIMEOUTS.navigation });
+    await p.locator(S.securityModel).click();
     await p.locator(S.signatureMethod).selectOption('RS256');
     await p.locator(S.platform.issuer).fill(info.issuer);
     await p.locator(S.platform.clientId).fill(info.clientId);
@@ -260,7 +267,8 @@ class SaltireSession implements LtiToolSession {
     );
     await p.locator(S.save).click();
     await saved;
-    await p.waitForLoadState('networkidle');
+    // Bounded: an unbounded `networkidle` wait here once held a run until its timeout.
+    await p.waitForLoadState('load', { timeout: TIMEOUTS.navigation });
     this.registration = info;
     this.tokenExpires = 0;
   }
@@ -394,7 +402,7 @@ class SaltireSession implements LtiToolSession {
   /** An access token with every scope the specs use, from the platform (once per hour). */
   private async ensureToken(): Promise<void> {
     if (Date.now() < this.tokenExpires) return;
-    await this.page.reload({ waitUntil: 'networkidle' });
+    await this.page.reload({ waitUntil: 'networkidle', timeout: TIMEOUTS.navigation });
     await this.openCard('accesstoken');
     for (const scope of SCOPES) await this.page.locator(S.scope(scope)).check();
     const token = await this.serviceCall<unknown>(() => this.page.locator(S.requestToken).click());
@@ -516,6 +524,11 @@ class SaltireSession implements LtiToolSession {
     });
     await window.locator(d.returnSelection).click();
     const response = await answer;
+    // The answer is a top-level form post to the platform: let the window land on
+    // its page before the caller closes it (closing mid-navigation can hang).
+    if (!window.isClosed()) {
+      await window.waitForURL(response.url(), { timeout: TIMEOUTS.navigation });
+    }
     const item = contentItemFromResponseBody(response.request().postData() ?? '');
     if (item === undefined) throw new Error('saLTIre returned no content item.');
     return { answerStatus: response.status(), ...item };
