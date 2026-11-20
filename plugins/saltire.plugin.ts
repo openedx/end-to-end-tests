@@ -32,6 +32,8 @@
  *
  * saLTIre's pages are its own markup, not the platform's, so they are anchored
  * by saLTIre's ids. It publishes no rate limits: keep it out of scheduled CI.
+ *
+ * Setup, limits and what it was validated against: docs/lti.md.
  */
 
 import { createPublicKey, verify, type webcrypto } from 'node:crypto';

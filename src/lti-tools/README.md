@@ -1,5 +1,7 @@
 # `src/lti-tools/` — LTI tool providers
 
+> Running the LTI specs, choosing a provider and writing one: [`docs/lti.md`](../../docs/lti.md).
+
 **Single responsibility:** give the LTI 1.3 specs (`tests/lms/lti/`) a tool to
 launch, and a way to see what each launch carried. It is the oracle behind the
 `lti-tool` capability: a launch is judged by the claims the tool received, and

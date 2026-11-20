@@ -87,6 +87,7 @@ The essentials:
 | `LTI_TOOL_PROVIDER`                 | `local`  | LTI tool the LTI specs launch: `local` (bundled) or a plugin's name          |
 | `CUSTOM_LTI_TOOL_PROVIDER_PLUGINS`  | —        | Comma-separated paths of LTI tool provider plugins (`src/lti-tools/`)        |
 | `LTI_TOOL_BASE_URL`                 | —        | The `local` tool's origin; default `http://lti.<LMS host>:8765`              |
+| `SALTIRE_BASE_URL`                  | —        | The `saltire` provider's origin; default `https://saltire.lti.app`           |
 | `CUSTOM_TEST_DIRS`                  | —        | Comma-separated dirs of your own specs to run (see “Running your own tests”) |
 | `RUN_ID_SUFFIX`                     | —        | Up to 3 lowercase letters/digits appended to the run id (CI shards)          |
 | `CI_PROFILE`                        | —        | The CI profile a job runs (`.ci/profiles.json`); set by CI                   |
@@ -407,6 +408,14 @@ legacy half is different: `./manage.py cms delete_v1_libraries` (run it with
 
 CI's Tutor installs are ephemeral, so nothing accumulates there.
 
+## LTI coverage
+
+The LTI 1.3 specs (`tests/lms/lti/`) launch an LTI tool and check what it
+received. The tool is pluggable (`LTI_TOOL_PROVIDER`): the suite's bundled
+`local` tool, which CI runs, or the public saLTIre emulator for a public
+instance. [`docs/lti.md`](docs/lti.md) covers the cases, choosing and setting
+up a provider, LTI Store, the known defects and writing a provider plugin.
+
 ## Quality gates
 
 ```sh
@@ -589,6 +598,7 @@ rules) stay isolated from each other:
 | `account_backend`          | `automatic` (default; works on the default install, see above) or `manual` (interactive — not usable in CI).                                                                       |
 | `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                                                                                 |
 | `mail_provider`            | `none` (default) or `openinbox`: where the target's notification e-mail is read. `openinbox` needs an `OPENINBOX_API_KEY` Environment secret; add `email-inbox` to `capabilities`. |
+| `lti_tool_provider`        | `local` (default) or `saltire` (a public HTTPS target): the LTI tool to launch. Add `lti-tool` and its features to `capabilities`; see [`docs/lti.md`](docs/lti.md).               |
 | `domains` / `features`     | Same filters as above.                                                                                                                                                             |
 | `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                                                |
 | `openedx_release`          | Release the target runs (a key of `.ci/openedx-releases.json`). Enables publishing to that release's BTR results sheet. Empty = no publish.                                        |
@@ -695,7 +705,7 @@ tests/                 # specs, grouped by platform domain (lms/, studio/)
   lms/instructor/      # instructor dashboard MFE: course info, enrollments, grading,
                        #   date extensions, data downloads, certificates
   lms/lti/             # LTI 1.3 consumer: launches, grades (AGS), roster (NRPS), deep
-                       #   linking, data sharing, LTI Store, against the suite's own tool
+                       #   linking, data sharing, LTI Store, against a pluggable tool (docs/lti.md)
   lms/landing.spec.ts  # proof-of-life smoke test
   studio/              # authoring MFE + Studio APIs (bootstrap: author session, course factory)
   conventions/         # suite-wide rules enforced as tests (no displayed text)
@@ -710,12 +720,14 @@ src/
   auth/                # provider-swappable authentication contract
   pages/{lms,studio}/  # page objects, one per surface, in the spec's domain folder
   pages/lti-tool/      # the suite's LTI test tool's own pages (deep-linking picker)
+  lti-tools/           # pluggable LTI 1.3 tools the LTI specs launch (`local` built in)
   steps/               # reusable multi-page business flows
   fixtures/            # composition root (config + pages + api + auth + skips)
     assets/            # bundled media served in place of course-hosted sources
   reporting/           # BTR test_id annotations, coverage + run-detail + a11y reporters
   a11y/                # @axe-core/playwright WCAG 2.2 AA gate
-plugins/               # example account-backend plugin (openinbox)
+plugins/               # plugins: openinbox and mailpit (accounts, mail), and the
+                       #   saLTIre LTI tool provider (saltire.plugin.ts)
 scripts/               # Node scripts: CI profiles, BTR sheet publisher, and the LTI 1.3
                        #   test tool (lti-tool.mts) the run starts for `lti-tool`
 .ci/                   # CI configuration: releases, profiles, Tutor plugins, seeds

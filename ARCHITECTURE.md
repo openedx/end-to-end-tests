@@ -48,7 +48,7 @@ into a sibling or downward into a consumer.
 | Auth contract      | `src/auth/`      | Provider-swappable sign-in → one multi-origin storage state per role.                        | `config`, `accounts`                 |
 | Account backends   | `src/accounts/`  | User-choosable account creation/activation and the default sign-in/sign-out flows.           | `config`, `api`, `pages`             |
 | Mailbox providers  | `src/mail/`      | Pluggable inboxes the suite reads e-mail from (`MAIL_PROVIDER`); the `email-inbox` oracle.   | `config`                             |
-| LTI tool providers | `src/lti-tools/` | Pluggable LTI 1.3 tools the LTI specs launch (`LTI_TOOL_PROVIDER`); what a launch carried.   | `config`, `api`, `pages`             |
+| LTI tool providers | `src/lti-tools/` | Pluggable LTI 1.3 tools the LTI specs launch (`LTI_TOOL_PROVIDER`, [LTI](docs/lti.md)).      | `config`, `api`, `pages`             |
 | API client / data  | `src/api/`       | Typed HTTP clients and deterministic, unique-per-run data factories.                         | `config`                             |
 | Page objects       | `src/pages/`     | Locators and single-surface actions for one screen. One per surface, in its domain folder.   | `config`, `api`                      |
 | Steps              | `src/steps/`     | Compose page objects into reusable business flows (actions/navigation, not assertions).      | `pages`, `api`, `accounts`, `config` |
