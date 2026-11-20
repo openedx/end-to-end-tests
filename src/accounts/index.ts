@@ -28,7 +28,8 @@ export {
   defaultSignOutThroughUi,
 } from './default-flows';
 export { AccountNotConfiguredError } from './errors';
-export { withAdminSession } from './admin-lock';
+export { createAdminSessionLock, withAdminSession } from './admin-lock';
+export type { AdminSessionHoldOptions, WithAdminSession } from './admin-lock';
 export { AutomaticLoginBackend } from './automatic-backend';
 export { ManualActivationBackend } from './manual-backend';
 export { AccountPluginRegistry, initAccountBackends, resolveAccountBackend } from './registry';

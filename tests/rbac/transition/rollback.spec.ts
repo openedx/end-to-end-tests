@@ -3,7 +3,6 @@ import {
   AUTHZ_COURSE_AUTHORING_FLAG,
   clearOrgFlagOverride,
   courseUsageKey,
-  enrollInCourseViaApi,
   grantLegacyRole,
   hasCompletedMigrationRun,
   listCourseAccessRoles,
@@ -85,6 +84,7 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
         studioAuthorSession,
         rbacCast,
         resyncStudioAuthor,
+        enrollLearner,
       },
       testInfo,
     ) => {
@@ -116,7 +116,7 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
         actors.map(({ role, actor }) => ({ email: actor.identity.email, role })),
       );
       const learner = await rbacCast('learner');
-      await enrollInCourseViaApi(learner.request, config, courseKey);
+      await enrollLearner(learner.request, courseKey);
       await resyncStudioAuthor();
       const writableBlock = await writableSection(
         page.request,

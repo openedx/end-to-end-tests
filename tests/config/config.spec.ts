@@ -56,6 +56,7 @@ test.describe('loadConfig — valid environments', { tag: '@unit' }, () => {
       'mfe-authn',
       'no-support-url',
       'notifications',
+      'self-enrollment',
     ]);
   });
 
@@ -201,6 +202,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
       'no-support-url',
       'notes',
       'notifications',
+      'self-enrollment',
       'teams',
     ]);
   });
@@ -216,6 +218,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
       'instructor-dashboard',
       'no-support-url',
       'notifications',
+      'self-enrollment',
       'teams',
     ]);
   });
@@ -231,6 +234,7 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
       'mfe-authn',
       'no-support-url',
       'notifications',
+      'self-enrollment',
     ]);
   });
 
@@ -274,6 +278,27 @@ test.describe('loadConfig — capabilities', { tag: '@unit' }, () => {
     expect(config.capabilities.has('no-support-url')).toBe(true);
     expect(config.capabilities.has('authz-manual-migration')).toBe(true);
     expect(config.capabilities.has('course-creator-group')).toBe(true);
+    expect(config.capabilities.has('self-enrollment')).toBe(true);
+  });
+
+  test('requires the admin account when self-enrollment is opted out of', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: '-self-enrollment' })));
+
+    expect(issues.join('\n')).toContain(
+      'opts out of "self-enrollment", so learners are enrolled by the administrator',
+    );
+  });
+
+  test('opts out of self-enrollment with an admin account to enroll learners', () => {
+    const config = loadConfig(
+      validEnv({
+        CAPABILITIES: '-self-enrollment',
+        ADMIN_USERNAME: 'admin',
+        ADMIN_PASSWORD: 'secret',
+      }),
+    );
+
+    expect(config.capabilities.has('self-enrollment')).toBe(false);
   });
 
   test('lets the other half of a pair replace its default-on partner', () => {

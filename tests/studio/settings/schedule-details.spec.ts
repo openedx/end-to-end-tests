@@ -146,6 +146,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       scheduleDetailsPage,
       studioAuthorSession,
       newLearner,
+      enrollLearner,
     }) => {
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
@@ -155,7 +156,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
       // An enrolled learner, kept out only by the schedule.
       const learner = await newLearner();
-      await enrollInCourseViaApi(learner.request, config, courseKey);
+      await enrollLearner(learner.request, courseKey);
       expect(
         (await fetchCourseMetadata(learner.request, config, courseKey)).course_access,
       ).toMatchObject({
@@ -233,6 +234,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       scheduleDetailsPage,
       studioAuthorSession,
       newLearner,
+      enrollLearner,
     }) => {
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
@@ -240,7 +242,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       const { courseKey } = authoredCourse;
       await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
       const learner = await newLearner();
-      await enrollInCourseViaApi(learner.request, config, courseKey);
+      await enrollLearner(learner.request, courseKey);
 
       // Today, a couple of hours from now: not started yet.
       const laterToday = hoursFromNow(2);
@@ -340,7 +342,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
   test(
     'enrollment is allowed only within the enrollment dates',
-    { tag: '@smoke', annotation: testId('TC-00298') },
+    { tag: ['@smoke', '@self-enrollment'], annotation: testId('TC-00298') },
     async ({
       page,
       config,
@@ -417,7 +419,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
 
   test(
     'enrollment start and end times are honoured to the minute, in UTC',
-    { tag: '@regression', annotation: testId('TC-00299') },
+    { tag: ['@regression', '@self-enrollment'], annotation: testId('TC-00299') },
     async ({
       page,
       config,
@@ -603,6 +605,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       scheduleDetailsPage,
       studioAuthorSession,
       newLearner,
+      enrollLearner,
     }) => {
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
@@ -615,7 +618,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       expect(details.pre_requisite_courses).toHaveLength(1);
 
       const learner = await newLearner();
-      await enrollInCourseViaApi(learner.request, config, courseKey);
+      await enrollLearner(learner.request, courseKey);
       await expect
         .poll(
           async () => (await fetchCourseMetadata(learner.request, config, courseKey)).course_access,

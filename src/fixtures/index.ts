@@ -110,6 +110,7 @@ import {
   storedSessionNeedsRefresh,
   persistStorageState,
 } from '../auth';
+import { isDeadAdminSessionError, signInAdminSession } from './admin-session';
 import {
   ApiError,
   GENERAL_TOPIC_ID,
@@ -169,6 +170,8 @@ import {
   type CourseTeamRoleV2,
   courseKeySkipReason,
   enrollInCourseViaApi,
+  fetchSignedInUsername,
+  forceEnrollUserViaApi,
   setGlobalStaff,
   fetchCourseDetail,
   fetchCourseOutline,
@@ -440,6 +443,22 @@ export interface TestFixtures {
   courseLearner: CourseLearner;
   /** {@link courseLearner}, enrolled in {@link courseKey} through the API. */
   enrolledCourse: EnrolledCourse;
+  /**
+   * Enrolls the learner whose session `learner` holds in `courseKey`, for a spec
+   * that needs an enrolled learner rather than a learner enrolling themselves.
+   * Where the install lets learners enroll themselves (the default-on
+   * `self-enrollment` capability) this is `enrollInCourseViaApi` on the
+   * learner's own session. Where it does not, the administrator enrolls them
+   * (`forceEnrollUserViaApi`), under the admin lock. `mode` picks the track of a
+   * new enrollment, as for `enrollInCourseViaApi`. Pass the learner's
+   * `username` when it is at hand; the admin path otherwise reads it off the
+   * learner's session.
+   */
+  enrollLearner: (
+    learner: APIRequestContext,
+    courseKey: string,
+    options?: EnrollLearnerOptions,
+  ) => Promise<void>;
   /** Course structure (units keyed by block ID) as seen by the enrolled learner. */
   courseOutline: CourseOutline;
   /**
@@ -1786,12 +1805,6 @@ async function withAdminLmsSession<T>(
   work: (session: APIRequestContext) => Promise<T>,
 ): Promise<T> {
   const stateFile = authStateFile('staff');
-  const isDeadSession = (error: unknown): boolean =>
-    error instanceof ApiError &&
-    // "did not render" is an admin page that came back as the login redirect;
-    // "redirected/bounced to sign-in" is the Studio half of the same session having
-    // decayed, which a `StudioSessionExpiredError` reports.
-    /did not render|(?:redirected|bounced) to sign-in|HTTP 40[13]/.test(error.message);
 
   return withAdminSession(async () => {
     const run = async (signIn: boolean): Promise<T> => {
@@ -1801,12 +1814,7 @@ async function withAdminLmsSession<T>(
       });
       try {
         if (!reuse) {
-          await loginSession(session, config, credentials);
-          // Both halves, like `setup` writes them: the account-creator grant
-          // reads this same state and drives a **Studio** admin form, so
-          // publishing an LMS-only session would send that path back to a fresh
-          // sign-in — and every sign-in evicts the other's session.
-          await establishStudioSession(session, config);
+          await signInAdminSession(session, config, credentials);
           persistStorageState(await session.storageState(), stateFile);
         }
         return await work(session);
@@ -1817,10 +1825,53 @@ async function withAdminLmsSession<T>(
     try {
       return await run(false);
     } catch (error) {
-      if (!isDeadSession(error)) throw error;
+      if (!isDeadAdminSessionError(error)) throw error;
       return await run(true);
     }
   });
+}
+
+/** Options of {@link enrollLearnerInCourse} and the `enrollLearner` fixture. */
+interface EnrollLearnerOptions {
+  /** The track of a new enrollment, as for `enrollInCourseViaApi`. */
+  readonly mode?: string;
+  /** The learner's username, which spares the admin path a `/api/user/v1/me` read. */
+  readonly username?: string;
+}
+
+/**
+ * Enrolls the learner whose session `learner` holds in `courseKey`, the way the
+ * install enrolls learners: the learner themselves where the `self-enrollment`
+ * capability is declared (the default), otherwise the administrator, with
+ * `force_enrollment` on the run's admin session. See the `enrollLearner`
+ * fixture.
+ */
+async function enrollLearnerInCourse(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  config: AppConfig,
+  learner: APIRequestContext,
+  courseKey: string,
+  { username: knownUsername, ...options }: EnrollLearnerOptions = {},
+): Promise<void> {
+  if (config.capabilities.has('self-enrollment')) {
+    await enrollInCourseViaApi(learner, config, courseKey, options);
+    return;
+  }
+  const admin = config.credentials.admin;
+  if (admin === undefined) {
+    // `loadConfig` refuses this combination; kept for the type, not reachable.
+    throw new Error(
+      'Learners are enrolled by the administrator where "self-enrollment" is opted out of: ' +
+        'set ADMIN_USERNAME and ADMIN_PASSWORD.',
+    );
+  }
+  const username = knownUsername ?? (await fetchSignedInUsername(learner, config));
+  await withAdminLmsSession(
+    playwright,
+    config,
+    { emailOrUsername: admin.username, password: admin.password },
+    (session) => forceEnrollUserViaApi(session, config, courseKey, username, options),
+  );
 }
 
 async function provisionWorkerCourse(
@@ -1900,7 +1951,10 @@ async function provisionRoundTripLearner(
 ): Promise<RoundTripLearner> {
   const request = await newCleanRequestContext(playwright.request);
   const identity = await provisionLearnerSession(request, config, options.identity);
-  await enrollInCourseViaApi(request, config, courseKey, { mode: options.mode });
+  await enrollLearnerInCourse(playwright, config, request, courseKey, {
+    mode: options.mode,
+    username: identity.username,
+  });
   const context = await newCleanBrowserContext(browser);
   await context.addCookies((await request.storageState()).cookies);
   const page = await context.newPage();
@@ -2704,9 +2758,17 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use({ courseKey, identity });
   },
 
-  enrolledCourse: async ({ request, config, courseLearner }, use) => {
-    await enrollInCourseViaApi(request, config, courseLearner.courseKey);
+  enrolledCourse: async ({ request, courseLearner, enrollLearner }, use) => {
+    await enrollLearner(request, courseLearner.courseKey, {
+      username: courseLearner.identity.username,
+    });
     await use(courseLearner);
+  },
+
+  enrollLearner: async ({ playwright, config }, use) => {
+    await use((learner, courseKey, options) =>
+      enrollLearnerInCourse(playwright, config, learner, courseKey, options),
+    );
   },
 
   courseOutline: async ({ request, config, enrolledCourse }, use) => {
@@ -3638,19 +3700,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     // does not drive the interactive Studio SSO (see signInToStudioThroughUi).
     // Held under the admin-session lock for the whole test: another worker's
     // admin sign-in would end this browser's session (PREVENT_CONCURRENT_LOGINS).
-    await withAdminSession(async () => {
-      const context = await newCleanBrowserContext(browser);
-      try {
-        const page = await context.newPage();
-        await signInToStudioThroughUi(page, config, {
-          emailOrUsername: (admin as NonNullable<typeof admin>).username,
-          password: (admin as NonNullable<typeof admin>).password,
-        });
-        await use(page);
-      } finally {
-        await context.close();
-      }
-    });
+    await withAdminSession(
+      async () => {
+        const context = await newCleanBrowserContext(browser);
+        try {
+          const page = await context.newPage();
+          await signInToStudioThroughUi(page, config, {
+            emailOrUsername: (admin as NonNullable<typeof admin>).username,
+            password: (admin as NonNullable<typeof admin>).password,
+          });
+          await use(page);
+        } finally {
+          await context.close();
+        }
+      },
+      { forWholeTest: true },
+    );
   },
 
   adminApi: async ({ playwright, config }, use) => {
@@ -3662,15 +3727,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     );
     // Held under the admin lock for the whole test: another worker signing in as
     // the admin would evict this session (PREVENT_CONCURRENT_LOGINS).
-    await withAdminSession(async () => {
-      const admin = await playwright.request.newContext({ storageState: staffState });
-      try {
-        await establishStudioSession(admin, config);
-        await use(admin);
-      } finally {
-        await admin.dispose();
-      }
-    });
+    await withAdminSession(
+      async () => {
+        const admin = await playwright.request.newContext({ storageState: staffState });
+        try {
+          await establishStudioSession(admin, config);
+          await use(admin);
+        } finally {
+          await admin.dispose();
+        }
+      },
+      { forWholeTest: true },
+    );
   },
 
   adminLms: async ({ playwright, config }, use) => {
@@ -3793,18 +3861,21 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         'and ADMIN_PASSWORD, or allow authors to create organizations.',
     );
     // Under the admin-session lock for the whole test, like `adminPage`.
-    await withAdminSession(async () => {
-      await signInToStudioThroughUi(page, config, {
-        emailOrUsername: (admin as NonNullable<typeof admin>).username,
-        password: (admin as NonNullable<typeof admin>).password,
-      });
-      const staff = await playwright.request.newContext({ storageState: state });
-      try {
-        await use({ request: staff, role: 'staff' });
-      } finally {
-        await staff.dispose();
-      }
-    });
+    await withAdminSession(
+      async () => {
+        await signInToStudioThroughUi(page, config, {
+          emailOrUsername: (admin as NonNullable<typeof admin>).username,
+          password: (admin as NonNullable<typeof admin>).password,
+        });
+        const staff = await playwright.request.newContext({ storageState: state });
+        try {
+          await use({ request: staff, role: 'staff' });
+        } finally {
+          await staff.dispose();
+        }
+      },
+      { forWholeTest: true },
+    );
   },
 
   ownSection: async ({ request, config, contentCourse }, use, testInfo) => {
@@ -4507,33 +4578,36 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     // whole test (like `adminPage`): another worker's admin sign-in would end this
     // session (PREVENT_CONCURRENT_LOGINS). The page's own API context shares the
     // session, so the content-tagging oracles and cleanup run on `page.request`.
-    await withAdminSession(async () => {
-      const context = await newCleanBrowserContext(browser, { viewport, isMobile, hasTouch });
-      try {
-        const page = await context.newPage();
-        await signInToStudioThroughUi(page, config, {
-          emailOrUsername: admin.username,
-          password: admin.password,
-        });
-        const created: number[] = [];
+    await withAdminSession(
+      async () => {
+        const context = await newCleanBrowserContext(browser, { viewport, isMobile, hasTouch });
         try {
-          await use({
-            list: new TaxonomyListPage(page, config),
-            detail: new TaxonomyDetailPage(page, config),
-            competency: new CompetencyManagementPage(page, config),
-            seed: ({ type, label }) =>
-              importServedTaxonomy(page.request, config, { type, label, testInfo, created }),
-            page,
-            request: page.request,
-            org,
+          const page = await context.newPage();
+          await signInToStudioThroughUi(page, config, {
+            emailOrUsername: admin.username,
+            password: admin.password,
           });
+          const created: number[] = [];
+          try {
+            await use({
+              list: new TaxonomyListPage(page, config),
+              detail: new TaxonomyDetailPage(page, config),
+              competency: new CompetencyManagementPage(page, config),
+              seed: ({ type, label }) =>
+                importServedTaxonomy(page.request, config, { type, label, testInfo, created }),
+              page,
+              request: page.request,
+              org,
+            });
+          } finally {
+            await deleteTaxonomiesBestEffort(page.request, config, created);
+          }
         } finally {
-          await deleteTaxonomiesBestEffort(page.request, config, created);
+          await context.close();
         }
-      } finally {
-        await context.close();
-      }
-    });
+      },
+      { forWholeTest: true },
+    );
   },
 
   competencyTaxonomyAdmin: async ({ taxonomyAdmin, config }, use, testInfo) => {

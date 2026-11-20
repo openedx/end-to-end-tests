@@ -14,7 +14,10 @@ test.describe(
     test(
       'lets global staff view the dashboard as a learner',
       { tag: '@authenticated', annotation: testId('TC-00045') },
-      async ({ adminDashboardPage, enrolledCourse }) => {
+      // `enrolledCourse` first: where learners cannot self-enroll the admin enrolls
+      // them, and that must finish before `adminDashboardPage` holds the admin
+      // session for the rest of the test.
+      async ({ enrolledCourse, adminDashboardPage }) => {
         const { courseKey, identity } = enrolledCourse;
         await adminDashboardPage.goto();
         await expect(adminDashboardPage.masqueradeInput).toBeVisible();

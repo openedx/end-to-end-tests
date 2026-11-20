@@ -31,7 +31,9 @@ Contains:
   sends, for the `manual` and plugin account backends.
 - `enrollment.ts` — `isEnrolled` / `enrollInCourseViaApi`: the enrollment API,
   both the outcome the catalog specs assert on and the portable seeding the
-  course-state fixtures use.
+  course-state fixtures use. `forceEnrollUserViaApi` is global staff enrolling
+  another user, which the `enrollLearner` fixture uses where learners cannot
+  enroll themselves (the `self-enrollment` capability undeclared).
 - `course-detail.ts` — `fetchCourseDetail`: the course's own name/org/number,
   so a spec can search or match on data the platform supplied rather than on
   hard-coded copy — plus dates, pacing, effort, visibility and media, the LMS-side

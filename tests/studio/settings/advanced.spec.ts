@@ -131,7 +131,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
 
   test(
     'enables invitation-only enrollment',
-    { tag: '@regression', annotation: testId('TC-00271') },
+    { tag: ['@regression', '@self-enrollment'], annotation: testId('TC-00271') },
     async ({
       page,
       config,
@@ -197,6 +197,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       advancedSettingsPage,
       studioAuthorSession,
       newLearner,
+      enrollLearner,
     }) => {
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
@@ -204,7 +205,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       const { courseKey } = authoredCourse;
       await updateAdvancedSettings(api, config, courseKey, { show_calculator: false });
       const learner = await newLearner();
-      await enrollInCourseViaApi(learner.request, config, courseKey);
+      await enrollLearner(learner.request, courseKey);
 
       await advancedSettingsPage.goto(courseKey);
       await advancedSettingsPage.setField('showCalculator', true);
@@ -254,6 +255,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       advancedSettingsPage,
       studioAuthorSession,
       newLearner,
+      enrollLearner,
     }) => {
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
@@ -285,7 +287,7 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
       // off the CourseOverview, which the CMS worker refreshes on the publish the
       // save triggers — so the reading is polled under the publish budget.
       const learner = await newLearner();
-      await enrollInCourseViaApi(learner.request, config, courseKey);
+      await enrollLearner(learner.request, courseKey);
       await expect
         .poll(
           async () => {
