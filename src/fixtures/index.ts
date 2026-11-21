@@ -110,6 +110,7 @@ import {
   storedSessionNeedsRefresh,
   persistStorageState,
 } from '../auth';
+import { isDeadAdminSessionError } from './admin-session';
 import {
   ApiError,
   GENERAL_TOPIC_ID,
@@ -169,6 +170,8 @@ import {
   type CourseTeamRoleV2,
   courseKeySkipReason,
   enrollInCourseViaApi,
+  fetchSignedInUsername,
+  forceEnrollUserViaApi,
   setGlobalStaff,
   fetchCourseDetail,
   fetchCourseOutline,
@@ -440,6 +443,20 @@ export interface TestFixtures {
   courseLearner: CourseLearner;
   /** {@link courseLearner}, enrolled in {@link courseKey} through the API. */
   enrolledCourse: EnrolledCourse;
+  /**
+   * Enrolls the learner whose session `learner` holds in `courseKey`, for a spec
+   * that needs an enrolled learner rather than a learner enrolling themselves.
+   * Where the install lets learners enroll themselves (the default-on
+   * `self-enrollment` capability) this is `enrollInCourseViaApi` on the
+   * learner's own session. Where it does not, the administrator enrolls them
+   * (`forceEnrollUserViaApi`), under the admin lock. `mode` picks the track of a
+   * new enrollment, as for `enrollInCourseViaApi`.
+   */
+  enrollLearner: (
+    learner: APIRequestContext,
+    courseKey: string,
+    options?: { readonly mode?: string },
+  ) => Promise<void>;
   /** Course structure (units keyed by block ID) as seen by the enrolled learner. */
   courseOutline: CourseOutline;
   /**
@@ -1786,12 +1803,6 @@ async function withAdminLmsSession<T>(
   work: (session: APIRequestContext) => Promise<T>,
 ): Promise<T> {
   const stateFile = authStateFile('staff');
-  const isDeadSession = (error: unknown): boolean =>
-    error instanceof ApiError &&
-    // "did not render" is an admin page that came back as the login redirect;
-    // "redirected/bounced to sign-in" is the Studio half of the same session having
-    // decayed, which a `StudioSessionExpiredError` reports.
-    /did not render|(?:redirected|bounced) to sign-in|HTTP 40[13]/.test(error.message);
 
   return withAdminSession(async () => {
     const run = async (signIn: boolean): Promise<T> => {
@@ -1817,10 +1828,45 @@ async function withAdminLmsSession<T>(
     try {
       return await run(false);
     } catch (error) {
-      if (!isDeadSession(error)) throw error;
+      if (!isDeadAdminSessionError(error)) throw error;
       return await run(true);
     }
   });
+}
+
+/**
+ * Enrolls the learner whose session `learner` holds in `courseKey`, the way the
+ * install enrolls learners: the learner themselves where the `self-enrollment`
+ * capability is declared (the default), otherwise the administrator, with
+ * `force_enrollment` on the run's admin session. See the `enrollLearner`
+ * fixture.
+ */
+async function enrollLearnerInCourse(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  config: AppConfig,
+  learner: APIRequestContext,
+  courseKey: string,
+  options: { readonly mode?: string } = {},
+): Promise<void> {
+  if (config.capabilities.has('self-enrollment')) {
+    await enrollInCourseViaApi(learner, config, courseKey, options);
+    return;
+  }
+  const admin = config.credentials.admin;
+  if (admin === undefined) {
+    // `loadConfig` refuses this combination; kept for the type, not reachable.
+    throw new Error(
+      'Learners are enrolled by the administrator where "self-enrollment" is opted out of: ' +
+        'set ADMIN_USERNAME and ADMIN_PASSWORD.',
+    );
+  }
+  const username = await fetchSignedInUsername(learner, config);
+  await withAdminLmsSession(
+    playwright,
+    config,
+    { emailOrUsername: admin.username, password: admin.password },
+    (session) => forceEnrollUserViaApi(session, config, courseKey, username, options),
+  );
 }
 
 async function provisionWorkerCourse(
@@ -1900,7 +1946,7 @@ async function provisionRoundTripLearner(
 ): Promise<RoundTripLearner> {
   const request = await newCleanRequestContext(playwright.request);
   const identity = await provisionLearnerSession(request, config, options.identity);
-  await enrollInCourseViaApi(request, config, courseKey, { mode: options.mode });
+  await enrollLearnerInCourse(playwright, config, request, courseKey, { mode: options.mode });
   const context = await newCleanBrowserContext(browser);
   await context.addCookies((await request.storageState()).cookies);
   const page = await context.newPage();
@@ -2704,9 +2750,15 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use({ courseKey, identity });
   },
 
-  enrolledCourse: async ({ request, config, courseLearner }, use) => {
-    await enrollInCourseViaApi(request, config, courseLearner.courseKey);
+  enrolledCourse: async ({ request, courseLearner, enrollLearner }, use) => {
+    await enrollLearner(request, courseLearner.courseKey);
     await use(courseLearner);
+  },
+
+  enrollLearner: async ({ playwright, config }, use) => {
+    await use((learner, courseKey, options) =>
+      enrollLearnerInCourse(playwright, config, learner, courseKey, options),
+    );
   },
 
   courseOutline: async ({ request, config, enrolledCourse }, use) => {

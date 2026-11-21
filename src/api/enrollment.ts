@@ -112,6 +112,12 @@ export async function isEnrolled(
  * enrollment is not moved to another track by a second call. Omitted, the
  * platform's default track (`audit`) applies.
  *
+ * This is the learner enrolling **themselves**, which an install where courses
+ * are invitation-only site-wide (`COURSES_INVITE_ONLY`) refuses for every
+ * learner. Specs that need an enrolled learner rather than a self-enrollment
+ * use the `enrollLearner` fixture, which enrolls through the administrator
+ * where the `self-enrollment` capability is not declared.
+ *
  * @throws {ApiError} when enrollment is refused (e.g. enrollment is closed).
  */
 export async function enrollInCourseViaApi(
@@ -131,10 +137,61 @@ export async function enrollInCourseViaApi(
   });
 
   if (!response.ok()) {
-    throw new ApiError(`Could not enroll in "${courseKey}" (HTTP ${response.status()}).`, {
+    // The platform answers every refusal of a self-enrollment with the same
+    // generic 400, whatever the reason, so name the site-wide one an operator
+    // can do something about.
+    const hint =
+      response.status() === 400
+        ? ' If learners cannot enroll themselves on this install (courses are ' +
+          'invitation-only site-wide), opt out with "-self-enrollment" in CAPABILITIES.'
+        : '';
+    throw new ApiError(`Could not enroll in "${courseKey}" (HTTP ${response.status()}).${hint}`, {
       status: response.status(),
       url,
       body: await response.text(),
     });
+  }
+}
+
+/**
+ * Enrolls **another** user, `username`, in `courseKey` as global staff, with
+ * `force_enrollment`: the enrollment an install that does not let learners
+ * enroll themselves creates for them (staff, or an external service, enrolls
+ * them).
+ *
+ * `staffRequest` must hold a **global staff** session: the platform honours
+ * `user` for staff only and `force_enrollment` for global staff only, and
+ * without it refuses an invitation-only course for the target user exactly as
+ * it refuses that user's own request. Forcing also bypasses a closed enrollment
+ * window, so this is never a fallback for a refused self-enrollment; callers
+ * choose it up front (the `self-enrollment` capability). `mode` is as for
+ * {@link enrollInCourseViaApi}.
+ *
+ * @throws {ApiError} when the enrollment is refused.
+ */
+export async function forceEnrollUserViaApi(
+  staffRequest: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  username: string,
+  options: { readonly mode?: string } = {},
+): Promise<void> {
+  const token = await fetchCsrfToken(staffRequest, config);
+  const url = `${config.baseUrls.lms}${ENROLLMENT_PATH}`;
+  const response = await staffRequest.post(url, {
+    data: {
+      user: username,
+      course_details: { course_id: courseKey },
+      ...(options.mode ? { mode: options.mode } : {}),
+      force_enrollment: true,
+    },
+    headers: { [CSRF_HEADER]: token, Referer: config.baseUrls.lms },
+  });
+
+  if (!response.ok()) {
+    throw new ApiError(
+      `Could not enroll "${username}" in "${courseKey}" as staff (HTTP ${response.status()}).`,
+      { status: response.status(), url, body: await response.text() },
+    );
   }
 }

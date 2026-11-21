@@ -17,7 +17,6 @@ import {
   moveXBlock,
   setObjectTags,
   updateXBlock,
-  enrollInCourseViaApi,
   publishXBlock,
 } from '../../../src/api';
 import { STUDIO_OUTLINE_PAGE_SELECTORS, TIMEOUTS, getRunId } from '../../../src/config';
@@ -112,6 +111,7 @@ test.describe(
           automaticMigrationTarget,
           studioAuthorSession,
           rbacCast,
+          enrollLearner,
         },
         testInfo,
       ) => {
@@ -152,7 +152,7 @@ test.describe(
 
         // Visible in the LMS to an enrolled learner.
         const learner = await rbacCast('learner');
-        await enrollInCourseViaApi(learner.request, config, courseKey);
+        await enrollLearner(learner.request, courseKey);
         await expect
           .poll(
             async () =>

@@ -49,6 +49,7 @@ export {
   COURSE_ENROLLMENT_DETAILS_PATH,
   enrollInCourseViaApi,
   fetchCourseEnrollmentDetails,
+  forceEnrollUserViaApi,
   isEnrolled,
   type CourseEnrollmentDetails,
 } from './enrollment';
@@ -625,6 +626,7 @@ export {
   ADULT_YEAR_OF_BIRTH,
   fetchAccount,
   fetchPreferences,
+  fetchSignedInUsername,
   lmsServesLanguage,
   listLearnerCertificates,
   updateAccount,

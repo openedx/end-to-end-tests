@@ -9,7 +9,6 @@ import {
 import {
   authorVideo,
   courseKeyFor,
-  enrollInCourseViaApi,
   grantCourseTeamRole,
   rerunCourse,
   setObjectTags,
@@ -489,7 +488,7 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
   test(
     'a rerun is one course with two runs, and the run filter picks one',
     { annotation: testId('TC-00557') },
-    async ({ page, config, analyticsCourse, supersetColleague, newLearner }) => {
+    async ({ page, config, analyticsCourse, supersetColleague, newLearner, enrollLearner }) => {
       const { courseKey, displayName, org, number, run } = analyticsCourse;
       // The sheet makes the run by export and import; a rerun gives the same
       // grouping: same org and number, same name, a new run.
@@ -505,7 +504,7 @@ test.describe('Aspects Course Comparison', { tag: [...TAGS] }, () => {
       const staff = await supersetColleague({ courseKey, role: 'staff' });
       await grantCourseTeamRole(page.request, config, rerunKey, [staff.identity.username], 'staff');
       const learner = await newLearner();
-      await enrollInCourseViaApi(learner.request, config, rerunKey);
+      await enrollLearner(learner.request, rerunKey);
 
       const cc = await comparisonFor(staff.request, staff.page, config, courseKey, [displayName]);
       const info = findChart(await cc.chartsOn(COURSE_COMPARISON_TABS.courseMetrics), C.courseInfo);

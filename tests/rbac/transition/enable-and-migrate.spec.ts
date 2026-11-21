@@ -5,7 +5,6 @@ import {
   clearOrgFlagOverride,
   countCourseAccessRoles,
   courseUsageKey,
-  enrollInCourseViaApi,
   fetchMigrationRunLedger,
   grantLegacyRole,
   hasCompletedMigrationRun,
@@ -86,6 +85,7 @@ test.describe(
           studioAuthorSession,
           rbacCast,
           resyncStudioAuthor,
+          enrollLearner,
         },
         testInfo,
       ) => {
@@ -116,7 +116,7 @@ test.describe(
           actors.map(({ role, actor }) => ({ email: actor.identity.email, role })),
         );
         const learner = await rbacCast('learner');
-        await enrollInCourseViaApi(learner.request, config, courseKey);
+        await enrollLearner(learner.request, courseKey);
         await resyncStudioAuthor();
         const writableBlock = await writableSection(
           page.request,
