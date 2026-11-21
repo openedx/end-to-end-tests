@@ -50,9 +50,8 @@ export const LTI_BLOCK_SELECTORS = {
   launchFrame: 'iframe.ltiLaunchFrame',
   /** The same iframe once the block's script has pointed it at the tool. */
   launchFrameStarted: 'iframe.ltiLaunchFrame[src^="http"]',
-  /** "View resource in a new window" / "… in a modal window" (or the author's own text). */
+  /** "View resource in a new window" (or the author's own text). */
   newWindowButton: 'button.btn-lti-new-window',
-  modalButton: 'button.btn-lti-modal',
   /** The author's "Data Sharing Notice" (`description`). */
   notice: '.lti-description',
   /** The consent prompt, its "OK" and (modal/new window only) "Cancel". */

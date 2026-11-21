@@ -63,7 +63,7 @@ export interface LtiLaunchInfo {
 }
 
 /** The block metadata for {@link Lti13Settings}. */
-export function lti13Metadata(settings: Lti13Settings): Record<string, unknown> {
+function lti13Metadata(settings: Lti13Settings): Record<string, unknown> {
   return {
     lti_version: 'lti_1p3',
     lti_1p3_launch_url: settings.launchUrl,
@@ -145,7 +145,7 @@ export function parseLtiLaunchInfo(html: string): Omit<LtiLaunchInfo, 'issuer'> 
  * tool has answered a deep-linking request, the content it stored. Rendering it
  * creates the block's LTI configuration if this is its first render.
  */
-export async function fetchLtiAuthorView(
+async function fetchLtiAuthorView(
   request: APIRequestContext,
   config: AppConfig,
   usageKey: string,
@@ -186,7 +186,7 @@ export async function readLtiLaunchInfo(
 }
 
 /** The Django admin form that turns LTI personal-data sharing on for one course. */
-export const LTI_PII_SHARING_ADMIN_PATH = '/admin/lti_consumer/courseallowpiisharinginltiflag/add/';
+const LTI_PII_SHARING_ADMIN_PATH = '/admin/lti_consumer/courseallowpiisharinginltiflag/add/';
 
 /**
  * Lets a course's LTI blocks offer to share personal data (username, full name,
@@ -212,12 +212,13 @@ export async function allowLtiPiiSharing(
 export const LTI_EXTERNAL_CONFIG_FLAG = 'lti_consumer.enable_external_config_filter';
 
 /** LTI Store's admin form for a reusable configuration. */
-export const LTI_STORE_ADMIN_PATH = '/admin/lti_store/externallticonfiguration/add/';
+const LTI_STORE_ADMIN_PATH = '/admin/lti_store/externallticonfiguration/add/';
 
 /** An LTI 1.3 configuration to keep in LTI Store. */
 export interface LtiStoreConfiguration {
-  /** Unique name; the slug is derived the same way the admin would. */
+  /** The configuration's name, unique among the store's configurations. */
   readonly name: string;
+  /** Its slug, unique too: the block names the configuration `lti_store:<slug>`. */
   readonly slug: string;
   readonly launchUrl: string;
   readonly oidcUrl: string;
@@ -330,6 +331,14 @@ export function parseLtiDeepLinkedItems(html: string): readonly LtiDeepLinkedIte
   const pre = /<pre>([\s\S]*?)<\/pre>/.exec(html)?.[1];
   if (pre === undefined) return [];
   const json = pre.replace(/&(?:quot|#34|#x27|#39|lt|gt|amp);/g, (e) => HTML_ENTITIES[e] ?? e);
-  const items = JSON.parse(json) as unknown;
+  let items: unknown;
+  try {
+    items = JSON.parse(json);
+  } catch {
+    throw new ApiError(
+      `The LTI block's author view holds deep-linked items that are not JSON: ${json.slice(0, 200)}`,
+      { status: 200, url: '', body: html },
+    );
+  }
   return Array.isArray(items) ? (items as LtiDeepLinkedItem[]) : [];
 }

@@ -401,7 +401,6 @@ test.describe('loadConfig — the LTI test tool', { tag: '@unit' }, () => {
     expect(config.ltiTool).toEqual({
       baseUrl: 'http://lti.local.openedx.io:8765',
       host: 'lti.local.openedx.io',
-      port: 8765,
       controlUrl: 'http://127.0.0.1:8765',
     });
   });
@@ -411,7 +410,21 @@ test.describe('loadConfig — the LTI test tool', { tag: '@unit' }, () => {
       validEnv({ CAPABILITIES: 'lti,lti-tool', LTI_TOOL_BASE_URL: 'http://tool.openedx.io:9000' }),
     );
 
-    expect(config.ltiTool).toMatchObject({ host: 'tool.openedx.io', port: 9000 });
+    expect(config.ltiTool).toMatchObject({
+      host: 'tool.openedx.io',
+      controlUrl: 'http://127.0.0.1:9000',
+    });
+  });
+
+  test('reaches a tool on port 80 at port 80', () => {
+    const config = loadConfig(
+      validEnv({ CAPABILITIES: 'lti,lti-tool', LTI_TOOL_BASE_URL: 'http://tool.openedx.io:80' }),
+    );
+
+    expect(config.ltiTool).toMatchObject({
+      baseUrl: 'http://tool.openedx.io',
+      controlUrl: 'http://127.0.0.1:80',
+    });
   });
 
   test('rejects a tool host off the LMS site, or the LMS host itself', () => {
@@ -463,7 +476,7 @@ test.describe('loadConfig — the LTI test tool', { tag: '@unit' }, () => {
 
   test('requires lti alongside lti-tool', () => {
     const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'lti-tool' })));
-    expect(issues.join('\n')).toContain('lti');
+    expect(issues.join('\n')).toContain('declares "lti-tool" without "lti"');
   });
 });
 

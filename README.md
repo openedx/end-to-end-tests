@@ -503,13 +503,15 @@ artifacts. `scripts/ci-profiles.mts` reads the file, and the `unit` project
 validates it. Each shard's run id carries a `RUN_ID_SUFFIX` (profile code +
 shard number), so data created by different shards never collides.
 
-Three profiles exist, and `ci.yml` runs all three for `main` and `verawood`:
+Four profiles exist. `ci.yml` runs `default`, `extended` and `aspects` for `main`
+and `verawood`, and `lti` for `main` only:
 
 | Profile    | Runs                                                                   | Installation                                                                                                                                                                                                                                                                               |
 | ---------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `default`  | the whole suite, in 4 shards                                           | `.ci/tutor/e2e_base.py`                                                                                                                                                                                                                                                                    |
 | `extended` | only the cases `default` skips (`select: "delta"`)                     | plus `.ci/tutor/e2e_extended.py` (AuthZ migration left to an operator, a `SUPPORT_URL`), `.ci/seed/extended.sh` (a second-organization course, an intro video on the demo course) and, where the release has the plugin, `tutor-contrib-codejail` for Python-graded problems               |
 | `aspects`  | only the analytics cases (`select: "delta"`), on `main` and `verawood` | plus `tutor-contrib-aspects` (a line per release in the profile: 6.x on `main`, frontend-base 2; 5.1+ on `verawood`, frontend-base 1) and `.ci/tutor/e2e_aspects.py` (learner PII and in-context metrics on, Superset reachable from the LMS container), on its own prebuilt image variant |
+| `lti`      | only the LTI Store case, TC-00661 (`select: "delta"`), on `main`       | plus `.ci/tutor/e2e_lti.py` (openedx-ltistore 1.1.4, wired into the LTI consumer's configuration filter) and `.ci/seed/lti.sh` (its migrations), on its own prebuilt image variant                                                                                                         |
 
 A `select: "delta"` profile runs only the tests tagged with a capability it
 declares and `default` does not. The merge then reports those tests from it and
@@ -521,7 +523,7 @@ A profile can declare an **image variant** (`images`): `build_tutor_main_images.
 builds it nightly for each release the profile runs on, with the profile's Tutor
 plugins and extensions enabled, and pushes it under its own tags and BuildKit
 caches (`<image>:<release>-<variant>`). The `aspects` variant is the Open edX,
-MFE, Aspects and Superset images. A variant job pulls it; if the pull fails it
+MFE, Aspects and Superset images; the `lti` variant is the Open edX image. A variant job pulls it; if the pull fails it
 stops (a variant cannot be rebuilt on the runner, where the profile's plugins
 are enabled only after launch), so run the build workflow and retry.
 
@@ -599,6 +601,7 @@ rules) stay isolated from each other:
 | `allow_cross_site_origins` | Set when LMS/Studio/MFE origins are not same-site.                                                                                                                                 |
 | `mail_provider`            | `none` (default) or `openinbox`: where the target's notification e-mail is read. `openinbox` needs an `OPENINBOX_API_KEY` Environment secret; add `email-inbox` to `capabilities`. |
 | `lti_tool_provider`        | `local` (default) or `saltire` (a public HTTPS target): the LTI tool to launch. Add `lti-tool` and its features to `capabilities`; see [`docs/lti.md`](docs/lti.md).               |
+| `saltire_base_url`         | With `saltire`: its origin (https only). Empty = `https://saltire.lti.app`.                                                                                                        |
 | `domains` / `features`     | Same filters as above.                                                                                                                                                             |
 | `exclude_features`         | Space-separated tags to exclude (mapped to `--grep-invert`, e.g. `@unit`). Empty = exclude nothing.                                                                                |
 | `openedx_release`          | Release the target runs (a key of `.ci/openedx-releases.json`). Enables publishing to that release's BTR results sheet. Empty = no publish.                                        |

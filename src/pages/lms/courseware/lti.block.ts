@@ -5,20 +5,18 @@ import { AdvancedBlock } from './advanced.block';
 
 /**
  * An LTI consumer block (`lti_consumer`) as a learner sees it: an inline launch
- * iframe, or a button that opens the tool in a new window or a modal, with the
- * consent prompt in front of either when the block shares personal data.
+ * iframe, or a button that opens the tool in a new window, with the consent
+ * prompt in front of either when the block shares personal data.
  *
  * A launch is the tool being reached; what the tool received is the spec's to
  * read from the tool itself.
  */
 export class LtiBlock extends AdvancedBlock {
-  readonly launchFrameElement: Locator;
   /** The inline launch iframe once it points at the tool (the launch has started). */
   readonly startedLaunchFrame: Locator;
   /** The inline launch iframe's document, once its `src` is set. */
   readonly launchFrame: FrameLocator;
   readonly newWindowButton: Locator;
-  readonly modalButton: Locator;
   readonly notice: Locator;
   readonly consentPrompt: Locator;
   readonly consentConfirm: Locator;
@@ -31,11 +29,9 @@ export class LtiBlock extends AdvancedBlock {
   ) {
     super(contentFrame, blockId, 'lti_consumer');
     const s = LTI_BLOCK_SELECTORS;
-    this.launchFrameElement = this.wrapper.locator(s.launchFrame);
     this.startedLaunchFrame = this.wrapper.locator(s.launchFrameStarted);
     this.launchFrame = this.wrapper.frameLocator(s.launchFrame);
     this.newWindowButton = this.wrapper.locator(s.newWindowButton);
-    this.modalButton = this.wrapper.locator(s.modalButton);
     this.notice = this.wrapper.locator(s.notice);
     this.consentPrompt = this.wrapper.locator(s.consentPrompt);
     this.consentConfirm = this.consentPrompt.locator(s.consentConfirm);
@@ -88,12 +84,11 @@ export class LtiBlock extends AdvancedBlock {
   /**
    * Opens the tool from the new-window button and returns the window, once its
    * document has loaded. With consent asked, the button only opens the prompt:
-   * pass `consent: 'confirm'` to agree in the same step.
+   * use {@link requestNewWindowLaunch} and {@link agreeAndOpenWindow} instead.
    */
-  async launchInNewWindow(options: { readonly consent?: 'confirm' } = {}): Promise<Page> {
+  async launchInNewWindow(): Promise<Page> {
     const popup = this.page.waitForEvent('popup', { timeout: TIMEOUTS.navigation });
     await this.newWindowButton.click();
-    if (options.consent === 'confirm') await this.consentConfirm.click();
     const window = await popup;
     await window.waitForLoadState('load', { timeout: TIMEOUTS.navigation });
     return window;

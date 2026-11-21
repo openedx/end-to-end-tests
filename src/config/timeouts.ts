@@ -121,6 +121,14 @@ export const TIMEOUTS = {
   ltiGradePublish: 120_000,
 
   /**
+   * An LTI launch reaching the tool once the browser has started it: the OIDC
+   * login, the platform's authorization redirect and the form post of the
+   * `id_token`, three round trips through the LMS. They take a few seconds; the
+   * budget is a navigation's, since each hop is one.
+   */
+  ltiLaunchReceived: 30_000,
+
+  /**
    * Budget for a component editor's Save to be answered (`POST /xblock/<id>` with
    * the block's content) — the CMS renders the block's author view in the same
    * request, which is slow on a busy worker.

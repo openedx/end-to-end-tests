@@ -80,6 +80,10 @@ on:
         options:
           - local
           - saltire
+      saltire_base_url:
+        description: 'With lti_tool_provider "saltire": the saLTIre origin (https only). Empty = https://saltire.lti.app.'
+        type: string
+        default: ''
       domains:
         description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
         type: string
@@ -261,6 +265,7 @@ jobs:
           openinbox_api_key: ${{ secrets.OPENINBOX_API_KEY }}
           lti_tool_provider: ${{ inputs.lti_tool_provider }}
           lti_tool_provider_plugins: ${{ inputs.lti_tool_provider == 'saltire' && './plugins/saltire.plugin.ts' || '' }}
+          saltire_base_url: ${{ inputs.saltire_base_url }}
           allow_cross_site_origins: ${{ inputs.allow_cross_site_origins }}
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}

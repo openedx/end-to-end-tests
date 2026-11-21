@@ -1,10 +1,4 @@
-import type {
-  APIRequestContext,
-  Browser,
-  BrowserContext,
-  FrameLocator,
-  Page,
-} from '@playwright/test';
+import type { APIRequestContext, BrowserContext, FrameLocator, Page } from '@playwright/test';
 
 import type { AppConfig } from '../config';
 import type {
@@ -19,8 +13,9 @@ export type { AgsLineItem, LtiLaunch, LtiLaunchInfo, LtiServiceResponse, Members
 
 /**
  * What a tool can do beyond a plain launch. A spec that needs one carries the
- * matching capability tag (step 4 of the provider work), and a provider declares
- * only what it really supports, so a target never runs a case its tool can't.
+ * matching capability tag (`lti-tool-<feature>`, see {@link featureCapability}),
+ * and a provider declares only what it really supports, so a target never runs a
+ * case its tool can't.
  *
  * - `claims`: reports every claim a launch carried (roles, `name`, `email`, …).
  * - `services`: calls the platform's LTI Advantage services (AGS, NRPS) as the
@@ -42,8 +37,11 @@ export interface LtiToolContext {
   readonly config: AppConfig;
   /** A request context with no platform session, for the tool's own HTTP. */
   readonly request: APIRequestContext;
-  /** The run's browser, for a provider driven through the tool's own pages. */
-  readonly browser: Browser;
+  /**
+   * A new browser context with no storage state, for a provider driven through
+   * the tool's own pages. The provider closes it (in `dispose`).
+   */
+  readonly newBrowserContext: () => Promise<BrowserContext>;
 }
 
 /**

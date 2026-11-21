@@ -111,6 +111,7 @@ test.describe(
       const lineItems = agsEndpoint(launch)?.lineitems;
       expect(lineItems).toBeDefined();
       const membershipsUrl = lineItems!.replace(/\/lti-ags$/, '/memberships');
+      expect(membershipsUrl, 'the AGS container URL ends in /lti-ags').not.toBe(lineItems);
       const refused = await ltiTool.memberships(launch, membershipsUrl);
       expect(refused.status).toBe(403);
     });

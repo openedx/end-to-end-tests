@@ -216,11 +216,12 @@ test.describe('LTI 1.3 grades (AGS)', { tag: [...LTI_TAGS, '@lti-tool-services']
 
     const posted = await ltiTool.postScore(launch, 6, 10);
     expect(posted.status, JSON.stringify(posted.body)).toBe(403);
-    // The republish rebuilds the learner's view of the course; read the
-    // subsection once it is listed again. It never earned the refused score.
+    // The 403 decides this case. The republish rebuilds the learner's view of
+    // the course, so the poll only waits for the subsection to be listed again,
+    // and checks that it shows nothing earned when it is.
     await expect
       .poll(() => subsectionScore(roundTripLearner, config, courseKey, unit), {
-        message: "the learner's Progress lists the subsection, with nothing earned",
+        message: "the learner's Progress lists the subsection again, with nothing earned",
         timeout: TIMEOUTS.contentPublish,
       })
       .toMatchObject({ earned: 0 });

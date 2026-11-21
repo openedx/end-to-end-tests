@@ -3,11 +3,16 @@ import type { APIRequestContext } from '@playwright/test';
 import { expect, test } from '../../../src/fixtures';
 import type { AdminLmsRunner } from '../../../src/fixtures';
 import { TIMEOUTS, type AppConfig } from '../../../src/config';
-import { allowLtiPiiSharing, type AuthoredUnit, type Lti13Settings } from '../../../src/api';
+import {
+  allowLtiPiiSharing,
+  type AuthoredUnit,
+  type Lti13Settings,
+  type LtiLaunch,
+} from '../../../src/api';
 import type { LtiToolSession } from '../../../src/lti-tools';
 import { disputed, testId } from '../../../src/reporting';
 import { seedReadyLtiBlock } from '../../../src/steps';
-import { LTI_TAGS, launchOf, ltiLabel, ltiUnit, openUnitAs } from './helpers';
+import { LTI_TAGS, launchFrom, launchOf, ltiLabel, ltiUnit, openUnitAs } from './helpers';
 
 /**
  * Personal-data sharing and the learner's consent (TC-00660): with the site
@@ -73,11 +78,14 @@ test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS, '@lti-tool-c
         },
       );
       await openUnitAs(roundTripLearner, courseKey, unit, ltiTool);
-      const block = roundTripLearner.unitPage.ltiBlock(blockKey);
-      const window = await block.launchInNewWindow();
-      const launch = await launchOf(ltiTool, blockKey, { surface: window });
-      await window.close();
-      await expect(block.consentPrompt).toHaveCount(0);
+      // The button opens the tool's window straight away: a prompt in front of
+      // it would leave the launch waiting for a window that never opens.
+      const launch = await launchFrom(
+        ltiTool,
+        roundTripLearner.unitPage,
+        blockKey,
+        'new_window',
+      );
 
       expect(launch.verified).toBe(true);
       for (const { claim } of FIELDS) expect(launch.claims, claim).not.toHaveProperty(claim);
@@ -122,11 +130,16 @@ test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS, '@lti-tool-c
         await block.requestNewWindowLaunch();
         await expect(block.consentPrompt).toBeVisible();
         await expect(block.consentCancel).toBeVisible();
-        expect(roundTripLearner.context.pages()).toHaveLength(windows);
 
         const window = await block.agreeAndOpenWindow();
-        const launch = await launchOf(ltiTool, blockKey, { surface: window });
-        await window.close();
+        // The window agreeing opened is the only new one: the request alone opened none.
+        expect(roundTripLearner.context.pages()).toHaveLength(windows + 1);
+        let launch: LtiLaunch;
+        try {
+          launch = await launchOf(ltiTool, blockKey, { surface: window });
+        } finally {
+          await window.close();
+        }
         expect(launch.verified).toBe(true);
         const { identity } = roundTripLearner;
         const expected = {
@@ -166,7 +179,18 @@ test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS, '@lti-tool-c
 
       await block.requestNewWindowLaunch();
       await block.decline();
-      expect(roundTripLearner.context.pages()).toHaveLength(windows);
+
+      // The sentinel: ask again and agree. Its window is the only new one, so
+      // the cancelled request opened none, and no launch reached the tool.
+      await block.requestNewWindowLaunch();
+      const window = await block.agreeAndOpenWindow();
+      try {
+        expect(roundTripLearner.context.pages()).toHaveLength(windows + 1);
+        const launch = await launchOf(ltiTool, blockKey, { surface: window });
+        expect(launch.verified).toBe(true);
+      } finally {
+        await window.close();
+      }
     },
   );
 

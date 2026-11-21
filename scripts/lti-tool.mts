@@ -7,8 +7,9 @@
  *   LTI_TOOL_BASE_URL=http://lti.local.openedx.io:8765 node scripts/lti-tool.mts
  *
  * `LTI_TOOL_BASE_URL` is the origin the browser reaches the tool at (the suite
- * maps its host to this machine); the server listens on its port, on every
- * interface.
+ * maps its host to this machine); the server listens on its port on the
+ * loopback interface only, since its control API is unauthenticated and only
+ * this machine's browser and suite ever reach it.
  */
 
 import { createServer } from 'node:http';
@@ -21,9 +22,10 @@ if (baseUrl === undefined || baseUrl === '') {
   process.exit(1);
 }
 const url = new URL(baseUrl);
-const port = Number(url.port || (url.protocol === 'https:' ? 443 : 80));
+// `URL` drops the scheme's default port, so an empty one is 80 (the tool is http only).
+const port = url.port === '' ? 80 : Number(url.port);
 
 const tool = new LtiTool(url.origin);
-createServer((req, res) => void tool.handle(req, res)).listen(port, () => {
-  console.log(`LTI tool listening on :${port}, serving ${url.origin}`);
+createServer((req, res) => void tool.handle(req, res)).listen(port, '127.0.0.1', () => {
+  console.log(`LTI tool listening on 127.0.0.1:${port}, serving ${url.origin}`);
 });

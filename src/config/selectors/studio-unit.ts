@@ -73,6 +73,10 @@ export const STUDIO_UNIT_PAGE_SELECTORS = {
   componentCopyItem: 'a.copy-button',
   /** A component's preview once its XBlock script has initialized it. */
   componentInitialized: 'div.xblock.xblock-initialized',
+  /** One component's header (its title and action menus) in the component iframe. */
+  componentHeader: (usageKey: string) => `.xblock-header-primary[data-usage-id="${usageKey}"]`,
+  /** A link in a component's preview to `url` and beyond (an LTI block's tool launch). */
+  linkTo: (url: string) => `a[href^="${url}"]`,
   /** The same menu's "Duplicate" item (legacy `studio_xblock_wrapper.html`). */
   componentDuplicateItem: 'a.duplicate-button',
   /** The "Add component" tiles, one per offered block type, in API order. */

@@ -19,6 +19,9 @@ export interface Jwks {
   readonly keys: readonly webcrypto.JsonWebKey[];
 }
 
+/** How far ahead of this machine's clock a platform's `iat` may be (clocks drift). */
+const CLOCK_SKEW_SECONDS = 60;
+
 const base64url = (data: string | Buffer): string => Buffer.from(data).toString('base64url');
 
 /** Signs `payload` as an RS256 JWT whose header names `kid`. */
@@ -49,8 +52,9 @@ export function decodeJwt(token: string): DecodedJwt {
 /**
  * Verifies an RS256 JWT against `jwks`, choosing the key by the header's `kid`
  * (the only key when the header names none). Returns the decoded token, or
- * throws naming what failed. Checks the signature and `exp`; the claims an LTI
- * message must carry are the caller's to check.
+ * throws naming what failed. Checks the signature, and requires `exp` (not past)
+ * and `iat` (not in the future, beyond {@link CLOCK_SKEW_SECONDS}), which every
+ * LTI message carries; its other claims are the caller's to check.
  */
 export function verifyJwt(token: string, jwks: Jwks, nowSeconds: number): DecodedJwt {
   const decoded = decodeJwt(token);
@@ -67,7 +71,10 @@ export function verifyJwt(token: string, jwks: Jwks, nowSeconds: number): Decode
   if (!verify('RSA-SHA256', Buffer.from(decoded.signedPart), key, decoded.signature)) {
     throw new Error('The JWT signature does not verify.');
   }
-  const exp = decoded.payload.exp;
-  if (typeof exp === 'number' && exp < nowSeconds) throw new Error('The JWT has expired.');
+  const { exp, iat } = decoded.payload;
+  if (typeof exp !== 'number') throw new Error('The JWT has no exp.');
+  if (exp < nowSeconds) throw new Error('The JWT has expired.');
+  if (typeof iat !== 'number') throw new Error('The JWT has no iat.');
+  if (iat > nowSeconds + CLOCK_SKEW_SECONDS) throw new Error('The JWT was issued in the future.');
   return decoded;
 }

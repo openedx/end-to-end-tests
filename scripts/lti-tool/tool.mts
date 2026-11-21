@@ -8,7 +8,8 @@
  *
  * - **Stateless OIDC.** The launch's `state` and `nonce` travel in an
  *   HMAC-signed `state` parameter, not a tool cookie, so a launch inside the
- *   LMS's iframe works without third-party cookies.
+ *   LMS's iframe works without third-party cookies. The tool only remembers
+ *   which nonces it has seen, so a replayed launch is refused.
  * - **The platform never calls the tool.** Blocks hold the tool's public key
  *   (`lti_1p3_tool_key_mode: public_key`), so the LMS verifies the tool's client
  *   assertions and deep-linking responses with it; every server-to-server call
@@ -70,7 +71,7 @@ export interface LaunchRecord {
 }
 
 /** A service call the control API makes on the tool's behalf. */
-export interface ServiceCall {
+interface ServiceCall {
   readonly clientId: string;
   readonly scopes: readonly string[];
   readonly url: string;
@@ -81,7 +82,7 @@ export interface ServiceCall {
 }
 
 /** The two resources the deep-linking picker offers. */
-export const DEEP_LINK_CHOICES = ['a', 'b'] as const;
+const DEEP_LINK_CHOICES = ['a', 'b'] as const;
 
 const KID = 'e2e-lti-tool';
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -124,6 +125,33 @@ async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> 
 
 const str = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
 
+/** The control API's service-call body, checked. Throws naming what is missing. */
+function serviceCall(params: Readonly<Record<string, unknown>>): ServiceCall {
+  const clientId = str(params.clientId);
+  const url = str(params.url);
+  const scopes = params.scopes;
+  if (
+    clientId === undefined ||
+    url === undefined ||
+    !Array.isArray(scopes) ||
+    !scopes.every((scope) => typeof scope === 'string')
+  ) {
+    throw new Error('A service call needs clientId, url and scopes (strings).');
+  }
+  const method = str(params.method);
+  const contentType = str(params.contentType);
+  const accept = str(params.accept);
+  return {
+    clientId,
+    url,
+    scopes,
+    ...(method === undefined ? {} : { method }),
+    ...(params.body === undefined ? {} : { body: params.body }),
+    ...(contentType === undefined ? {} : { contentType }),
+    ...(accept === undefined ? {} : { accept }),
+  };
+}
+
 export class LtiTool {
   readonly baseUrl: string;
   readonly publicKeyPem: string;
@@ -132,6 +160,8 @@ export class LtiTool {
   private readonly registrations = new Map<string, Registration>();
   private readonly launches: LaunchRecord[] = [];
   private readonly keysets = new Map<string, Jwks>();
+  /** Nonces already launched with, and when: a replay within the state's life is refused. */
+  private readonly usedNonces = new Map<string, number>();
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -160,7 +190,7 @@ export class LtiTool {
             this.findLaunches(str(params.clientId), str(params.resourceLinkId)),
           );
         case '/_control/call':
-          return json(res, 200, await this.call(params as unknown as ServiceCall));
+          return json(res, 200, await this.call(serviceCall(params)));
         case '/login':
           return this.login(params, res);
         case '/launch':
@@ -215,6 +245,17 @@ export class LtiTool {
       : undefined;
   }
 
+  /** Marks `nonce` used; false when it already was (or is missing). Forgets expired ones. */
+  private consumeNonce(nonce: string | undefined): boolean {
+    const now = Date.now();
+    for (const [seen, at] of this.usedNonces) {
+      if (now - at >= STATE_TTL_MS) this.usedNonces.delete(seen);
+    }
+    if (nonce === undefined || this.usedNonces.has(nonce)) return false;
+    this.usedNonces.set(nonce, now);
+    return true;
+  }
+
   /** OIDC third-party-initiated login: answer with the platform's authentication request. */
   private login(params: Record<string, unknown>, res: ServerResponse): void {
     const clientId = str(params.client_id);
@@ -243,9 +284,15 @@ export class LtiTool {
     res.end();
   }
 
-  private async keyset(url: string): Promise<Jwks> {
+  /**
+   * The platform's keyset, cached per URL — fetched again when it lacks the
+   * token's `kid` (the platform rotated its key, or was re-provisioned).
+   */
+  private async keyset(url: string, kid: unknown): Promise<Jwks> {
     const cached = this.keysets.get(url);
-    if (cached !== undefined) return cached;
+    const hasKid = (jwks: Jwks) =>
+      typeof kid !== 'string' || jwks.keys.some((key) => (key as { kid?: unknown }).kid === kid);
+    if (cached !== undefined && hasKid(cached)) return cached;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`The platform keyset ${url} answered ${response.status}.`);
     const jwks = (await response.json()) as Jwks;
@@ -259,23 +306,25 @@ export class LtiTool {
     if (token === undefined) {
       return html(res, 400, '<main data-lti-tool="error">No id_token.</main>');
     }
-    const unverified = decodeJwt(token).payload;
-    const clientId = String(
-      Array.isArray(unverified.aud) ? unverified.aud[0] : (unverified.aud ?? ''),
-    );
-    let claims = unverified;
+    let clientId = '';
+    let claims: Readonly<Record<string, unknown>> = {};
     let error: string | undefined;
     try {
+      const unverified = decodeJwt(token);
+      claims = unverified.payload;
+      clientId = String(Array.isArray(claims.aud) ? claims.aud[0] : (claims.aud ?? ''));
       const registration = this.registrations.get(clientId);
       if (registration === undefined) throw new Error(`No registration for client ${clientId}.`);
       claims = verifyJwt(
         token,
-        await this.keyset(registration.keysetUrl),
+        await this.keyset(registration.keysetUrl, unverified.header.kid),
         Date.now() / 1000,
       ).payload;
       const state = this.readState(str(params.state));
       if (state === undefined) throw new Error('The state parameter is missing, forged or stale.');
+      if (state.clientId !== clientId) throw new Error('The token is for another client.');
       if (state.nonce !== claims.nonce) throw new Error('The nonce does not match the login.');
+      if (!this.consumeNonce(str(claims.nonce))) throw new Error('The nonce was already used.');
       if (claims.iss !== registration.issuer)
         throw new Error(`Unexpected issuer ${String(claims.iss)}.`);
       if (claims[CLAIM.deploymentId] !== registration.deploymentId) {
@@ -328,7 +377,12 @@ export class LtiTool {
   private chooseDeepLink(params: Record<string, unknown>, res: ServerResponse): void {
     const request = this.launches.find((l) => String(l.id) === str(params.launch));
     const choice = str(params.choice) ?? '';
-    if (request === undefined || !(DEEP_LINK_CHOICES as readonly string[]).includes(choice)) {
+    if (
+      request === undefined ||
+      !request.verified ||
+      request.messageType !== 'LtiDeepLinkingRequest' ||
+      !(DEEP_LINK_CHOICES as readonly string[]).includes(choice)
+    ) {
       return html(res, 400, '<main data-lti-tool="error">Unknown deep-linking request.</main>');
     }
     const settings = request.claims[CLAIM.deepLinkingSettings] as

@@ -13,6 +13,10 @@ import type {
   LtiToolSession,
 } from './types';
 
+/**
+ * How often to ask the tool for a launch. A hand-rolled poll, not
+ * `steps/pollUntil`: this layer sits above `steps`.
+ */
 const POLL_INTERVAL_MS = 500;
 
 /** Everything the LTI specs check. */
@@ -58,7 +62,7 @@ class LocalLtiToolSession implements LtiToolSession {
   }
 
   async readLaunch(source: LtiLaunchSource): Promise<LtiLaunch> {
-    const deadline = Date.now() + TIMEOUTS.navigation;
+    const deadline = Date.now() + TIMEOUTS.ltiLaunchReceived;
     for (;;) {
       const newest = (await this.client.launches(source.resourceLinkId))[0];
       if (newest !== undefined && newest.id > (source.after?.id ?? 0)) return newest;
@@ -66,7 +70,7 @@ class LocalLtiToolSession implements LtiToolSession {
         throw new Error(
           `The LTI test tool received no launch of ${source.resourceLinkId}` +
             `${source.after === undefined ? '' : ` after launch ${source.after.id}`} within ` +
-            `${TIMEOUTS.navigation} ms.`,
+            `${TIMEOUTS.ltiLaunchReceived} ms.`,
         );
       }
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));

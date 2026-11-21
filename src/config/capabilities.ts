@@ -155,21 +155,22 @@ export const CAPABILITIES = [
   'drag-and-drop-v2', // `drag-and-drop-v2` (xblock-drag-and-drop-v2)
   'pdf-xblock', // `pdf` (xblocks-contrib) under the "Advanced" tile
   'lti', // `lti_consumer` under the "Advanced" tile (no tool launch is asserted)
-  // The suite's own LTI 1.3 test tool (`scripts/lti-tool.mts`) can be launched
-  // from the target: the run starts it on this machine, the browser reaches it at
-  // `LTI_TOOL_BASE_URL` (a host same-site with the LMS, mapped to this machine),
-  // and the tool reaches the LMS. Gates the LTI 1.3 launch, grade, roster,
-  // deep-linking and personal-data cases (`tests/lms/lti/`). Requires `lti`
+  // An LTI 1.3 tool, chosen by `LTI_TOOL_PROVIDER` (`src/lti-tools/`,
+  // docs/lti.md), can be launched from the target: the bundled `local` tool,
+  // which the run starts on this machine, or a plugin's (saLTIre, for a public
+  // instance). Gates the LTI 1.3 launch, grade, roster, deep-linking and
+  // personal-data cases (`tests/lms/lti/`). Requires `lti`
   // (`CAPABILITY_REQUIRES`).
   'lti-tool',
   // What the LTI tool can do beyond a plain launch (`src/lti-tools/`, a
-  // provider's `features`). Each requires `lti-tool`, and declaring one the
-  // selected provider lacks fails the run in global setup. The bundled tool has
-  // all four.
+  // provider's `features`). Each requires `lti-tool` (`lti-tool-services`
+  // requires `lti-tool-claims`), and declaring one the selected provider lacks
+  // fails the run in global setup. The bundled tool has all four.
   // - `lti-tool-claims`: it reports every claim a launch carried (roles, the
   //   shared name and email, custom parameters).
   // - `lti-tool-services`: it calls the platform's AGS and NRPS as the tool,
-  //   so the platform must be reachable from it.
+  //   so the platform must be reachable from it. The service endpoints and the
+  //   learner's id arrive as launch claims, so it needs `lti-tool-claims`.
   // - `lti-tool-deep-linking`: it answers a deep-linking request with a
   //   resource the test picks.
   // - `lti-tool-inline`: it can be launched in the block's iframe, not only in
@@ -473,7 +474,7 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   'content-libraries-v1-create': 'content-libraries-v1',
   'lti-tool': 'lti',
   'lti-tool-claims': 'lti-tool',
-  'lti-tool-services': 'lti-tool',
+  'lti-tool-services': 'lti-tool-claims',
   'lti-tool-deep-linking': 'lti-tool',
   'lti-tool-inline': 'lti-tool',
   'lti-store': 'lti-tool',

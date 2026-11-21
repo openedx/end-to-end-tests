@@ -59,7 +59,7 @@ export interface LtiServiceResponse<T = unknown> {
 }
 
 /** LTI Advantage scopes the tool asks for. */
-export const LTI_SCOPE = {
+const LTI_SCOPE = {
   lineItem: 'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem',
   score: 'https://purl.imsglobal.org/spec/lti-ags/scope/score',
   memberships: 'https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly',
@@ -109,6 +109,27 @@ export function nrpsEndpoint(launch: LtiLaunch): NrpsEndpoint | undefined {
   return launch.claims[LTI_CLAIM.nrps] as NrpsEndpoint | undefined;
 }
 
+/** The line item a score goes to: `override`, else the block's own (declarative mode). Throws when neither. */
+export function agsLineItemUrl(launch: LtiLaunch, override?: string): string {
+  const url = override ?? agsEndpoint(launch)?.lineitem;
+  if (url === undefined) throw new Error('The launch carries no AGS line item to score.');
+  return url;
+}
+
+/** The launch's AGS line-item container. Throws when it carries none. */
+export function agsLineItemsUrl(launch: LtiLaunch): string {
+  const url = agsEndpoint(launch)?.lineitems;
+  if (url === undefined) throw new Error('The launch carries no AGS line-item container.');
+  return url;
+}
+
+/** The memberships URL to read: `override`, else the launch's NRPS claim. Throws when neither. */
+export function nrpsMembershipsUrl(launch: LtiLaunch, override?: string): string {
+  const url = override ?? nrpsEndpoint(launch)?.context_memberships_url;
+  if (url === undefined) throw new Error('The launch carries no NRPS memberships URL.');
+  return url;
+}
+
 /** The roles claim of a launch (empty when it carries none). */
 export function launchRoles(launch: LtiLaunch): readonly string[] {
   const roles = launch.claims[LTI_CLAIM.roles];
@@ -154,7 +175,14 @@ export class LtiToolClient {
         },
       );
     }
-    return JSON.parse(text) as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new ApiError(
+        `The LTI test tool answered ${path} with something other than JSON: ${text.slice(0, 200)}`,
+        { status: response.status(), url, body: text },
+      );
+    }
   }
 
   /** Whether the tool is up. Throws naming the tool's address when it is not. */
@@ -186,13 +214,6 @@ export class LtiToolClient {
     );
   }
 
-  /** The launches the tool received under one client id, newest first. */
-  async launchesFor(clientId: string): Promise<readonly LtiLaunch[]> {
-    return this.control<readonly LtiLaunch[]>(
-      `/_control/launches?clientId=${encodeURIComponent(clientId)}`,
-    );
-  }
-
   /**
    * Posts a completed, fully graded score for the launching user to a line item
    * — the block's own (`lineitem`, declarative mode) unless `lineItemUrl` names
@@ -204,8 +225,7 @@ export class LtiToolClient {
     scoreMaximum: number,
     lineItemUrl?: string,
   ): Promise<LtiServiceResponse> {
-    const url = lineItemUrl ?? agsEndpoint(launch)?.lineitem;
-    if (url === undefined) throw new Error('The launch carries no AGS line item to score.');
+    const url = agsLineItemUrl(launch, lineItemUrl);
     return this.call({
       clientId: launch.clientId,
       scopes: [LTI_SCOPE.score],
@@ -223,12 +243,6 @@ export class LtiToolClient {
     });
   }
 
-  private lineItemsUrl(launch: LtiLaunch): string {
-    const url = agsEndpoint(launch)?.lineitems;
-    if (url === undefined) throw new Error('The launch carries no AGS line-item container.');
-    return url;
-  }
-
   /** Creates a line item in the launch's container (programmatic mode). */
   async createLineItem(
     launch: LtiLaunch,
@@ -238,7 +252,7 @@ export class LtiToolClient {
       clientId: launch.clientId,
       scopes: [LTI_SCOPE.lineItem],
       method: 'POST',
-      url: this.lineItemsUrl(launch),
+      url: agsLineItemsUrl(launch),
       contentType: MEDIA_TYPE.lineItem,
       accept: MEDIA_TYPE.lineItem,
       body: item,
@@ -250,7 +264,7 @@ export class LtiToolClient {
     return this.call<readonly AgsLineItem[]>({
       clientId: launch.clientId,
       scopes: [LTI_SCOPE.lineItem],
-      url: this.lineItemsUrl(launch),
+      url: agsLineItemsUrl(launch),
       accept: MEDIA_TYPE.lineItems,
     });
   }
@@ -270,18 +284,16 @@ export class LtiToolClient {
    * launch's `context_memberships_url` unless `url` names another.
    */
   async memberships(launch: LtiLaunch, url?: string): Promise<LtiServiceResponse<Memberships>> {
-    const target = url ?? nrpsEndpoint(launch)?.context_memberships_url;
-    if (target === undefined) throw new Error('The launch carries no NRPS memberships URL.');
     return this.call<Memberships>({
       clientId: launch.clientId,
       scopes: [LTI_SCOPE.memberships],
-      url: target,
+      url: nrpsMembershipsUrl(launch, url),
       accept: MEDIA_TYPE.memberships,
     });
   }
 
   /** Calls a platform LTI Advantage service as the tool, with a fresh access token. */
-  async call<T = unknown>(options: {
+  private async call<T = unknown>(options: {
     readonly clientId: string;
     readonly scopes: readonly string[];
     readonly url: string;

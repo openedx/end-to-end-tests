@@ -87,6 +87,7 @@ test.describe(
         };
 
         const a = await select('a');
+        expect(Object.keys(a.custom), 'the tool names its resource in custom').not.toHaveLength(0);
         expect(await stored()).toEqual([
           expect.objectContaining({ custom: expect.objectContaining(a.custom) }),
         ]);

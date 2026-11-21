@@ -1,4 +1,11 @@
-import type { Dialog, Frame, Locator, Page, Response } from '@playwright/test';
+import {
+  errors,
+  type Dialog,
+  type Frame,
+  type Locator,
+  type Page,
+  type Response,
+} from '@playwright/test';
 
 import {
   COURSE_LIBRARY_SYNC_SELECTORS,
@@ -339,7 +346,7 @@ export class StudioUnitPage {
   async selectComponent(usageKey: string): Promise<void> {
     await this.page
       .frameLocator(this.s.componentIframe)
-      .locator(`.xblock-header-primary[data-usage-id="${usageKey}"]`)
+      .locator(this.s.componentHeader(usageKey))
       .first()
       .click();
   }
@@ -467,7 +474,7 @@ export class StudioUnitPage {
   async copyComponentToClipboard(usageKey: string): Promise<Response> {
     const header = this.page
       .frameLocator(this.s.componentIframe)
-      .locator(`.xblock-header-primary[data-usage-id="${usageKey}"]`)
+      .locator(this.s.componentHeader(usageKey))
       .first();
     await header.locator(this.s.componentActionsMenuButton).click();
     return waitForWrite(
@@ -488,7 +495,7 @@ export class StudioUnitPage {
    * not its text.
    */
   async openLtiDeepLinking(usageKey: string, oidcUrl: string): Promise<Page> {
-    const link = this.component(usageKey).locator(`a[href^="${oidcUrl}"]`);
+    const link = this.component(usageKey).locator(this.s.linkTo(oidcUrl));
     const popup = this.page.context().waitForEvent('page', { timeout: TIMEOUTS.navigation });
     await link.click();
     const window = await popup;
@@ -505,7 +512,7 @@ export class StudioUnitPage {
   async duplicateComponent(usageKey: string): Promise<string> {
     const header = this.page
       .frameLocator(this.s.componentIframe)
-      .locator(`.xblock-header-primary[data-usage-id="${usageKey}"]`)
+      .locator(this.s.componentHeader(usageKey))
       .first();
     const item = header.locator(this.s.componentDuplicateItem);
     // The menu is the container page script's: until the component has
@@ -518,7 +525,10 @@ export class StudioUnitPage {
     await menuButton.click();
     if (!(await item.isVisible())) {
       // A click that landed while the script was still binding: open it again.
-      await item.waitFor({ timeout: TIMEOUTS.expect }).catch(() => menuButton.click());
+      await item.waitFor({ timeout: TIMEOUTS.expect }).catch(async (error: unknown) => {
+        if (!(error instanceof errors.TimeoutError)) throw error;
+        await menuButton.click();
+      });
     }
     return this.createdBlockKey(`a duplicate of ${usageKey}`, () => item.click());
   }

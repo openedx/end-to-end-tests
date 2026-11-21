@@ -64,10 +64,6 @@ export interface MfeUrls {
   readonly discussions: string;
 }
 
-/**
- * Validated, immutable configuration derived from the environment. Everything
- * outside `src/config/` consumes this object rather than reading `process.env`.
- */
 /** Where the suite's LTI 1.3 test tool is served and reached. */
 export interface LtiToolConfig {
   /**
@@ -78,8 +74,6 @@ export interface LtiToolConfig {
   readonly baseUrl: string;
   /** The host the browser maps to this machine. */
   readonly host: string;
-  /** The port the tool listens on. */
-  readonly port: number;
   /**
    * The origin the **suite** reaches the tool's control API at — this machine
    * directly, so no DNS entry for {@link host} is needed.
@@ -90,9 +84,13 @@ export interface LtiToolConfig {
 /** The built-in LTI tool provider: the suite's bundled tool. */
 export const LOCAL_LTI_TOOL_PROVIDER = 'local';
 
-/** The tool's port when `LTI_TOOL_BASE_URL` does not name one. */
-export const DEFAULT_LTI_TOOL_PORT = 8765;
+/** The tool's port in the default `LTI_TOOL_BASE_URL`. */
+const DEFAULT_LTI_TOOL_PORT = 8765;
 
+/**
+ * Validated, immutable configuration derived from the environment. Everything
+ * outside `src/config/` consumes this object rather than reading `process.env`.
+ */
 export interface AppConfig {
   readonly baseUrls: BaseUrls;
   readonly mfeUrls: MfeUrls;
@@ -371,11 +369,11 @@ function parseLtiTool(
     );
     return undefined;
   }
-  const port = Number(url.port || DEFAULT_LTI_TOOL_PORT);
+  // `URL` drops the scheme's default port, so an empty one is 80 (http only).
+  const port = url.port === '' ? 80 : Number(url.port);
   return {
-    baseUrl: `${url.protocol}//${url.hostname}:${port}`,
+    baseUrl: url.origin,
     host: url.hostname,
-    port,
     controlUrl: `http://127.0.0.1:${port}`,
   };
 }

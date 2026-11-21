@@ -72,15 +72,17 @@ A target opts in by declaring the following in `CAPABILITIES`:
 
 A case needing an undeclared feature is skipped. A feature declared but missing
 from the selected provider fails the run at setup, so a target never silently
-runs a case its tool can't check. Both built-in providers support all four
-features.
+runs a case its tool can't check. `lti-tool-services` also needs
+`lti-tool-claims`, since the service endpoints and the learner's id arrive as
+launch claims. The built-in `local` provider and the `saltire` plugin both
+support all four features.
 
 Pick by where the target is:
 
 | Target                                                         | Provider  | Why                                                                                                                         |
 | -------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Tutor on this machine or a CI runner (`*.local.openedx.io`)    | `local`   | The tool runs beside the browser, and the LMS reaches it.                                                                   |
-| A public HTTPS instance                                        | `saltire` | saLTIre is public and calls the instance's token, AGS and NRPS endpoints over the internet; a runner's tool can't be reached. |
+| Tutor on this machine or a CI runner (`*.local.openedx.io`)    | `local`   | The tool runs beside the browser, which reaches it, and it reaches the LMS.                                                 |
+| A public HTTPS instance                                        | `saltire` | saLTIre is public and calls the instance's token, AGS and NRPS endpoints over the internet. `local` can't serve an HTTPS LMS: it is plain HTTP, and its host must be on the LMS's site. |
 | A private HTTPS instance                                       | —         | Neither fits. `local` serves plain HTTP (an HTTPS LMS blocks it inline), and saLTIre can't reach a private instance; write a plugin. |
 
 On GitHub, `run_tests_external.yml` takes an `lti_tool_provider` input (`local`
@@ -105,8 +107,8 @@ dependencies.
 - **Reaching the LMS:** the tool calls the LMS's token, AGS and NRPS endpoints.
   The LMS never calls the tool, because blocks hold the tool's public key.
 
-CI runs it on `main`, where the default profile declares `lti-tool` and all four
-features.
+CI runs it on `main`, whose entry in `.ci/openedx-releases.json` declares
+`lti-tool` and all four features.
 
 ## saLTIre, for a public instance
 

@@ -3401,7 +3401,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     try {
       let session: LtiToolSession;
       try {
-        session = await provider.openSession({ config, request, browser });
+        session = await provider.openSession({
+          config,
+          request,
+          newBrowserContext: () => newCleanBrowserContext(browser),
+        });
       } catch (error) {
         throw capabilityContradicted(
           'lti-tool',

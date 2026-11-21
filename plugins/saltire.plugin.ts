@@ -40,12 +40,12 @@ import { createPublicKey, verify, type webcrypto } from 'node:crypto';
 
 import type { APIRequestContext, BrowserContext, Cookie, Page } from '@playwright/test';
 
-import { newCleanBrowserContext } from '../src/auth';
 import { TIMEOUTS, registrableDomain, type AppConfig } from '../src/config';
 import {
   LTI_CLAIM,
-  agsEndpoint,
-  nrpsEndpoint,
+  agsLineItemUrl,
+  agsLineItemsUrl,
+  nrpsMembershipsUrl,
   type AgsLineItem,
   type LtiLaunch,
   type LtiLaunchInfo,
@@ -125,6 +125,24 @@ const AGS_SECTIONS = { lineItems: 'Line item service', score: 'Score publish ser
 
 const SCOPES = ['lineitem', 'result', 'score', 'membership'] as const;
 
+/**
+ * The most follow-up modals one service call raises: saLTIre offers to show the
+ * request, then the response (two each, measured), with room for an alert.
+ */
+const MAX_FOLLOW_UP_MODALS = 6;
+
+/**
+ * How long to wait for the next follow-up modal before taking there to be none:
+ * saLTIre opens each one just after the previous closes (well under a second).
+ */
+const NEXT_MODAL_WAIT_MS = 1_500;
+
+/**
+ * How long an access token is reused. The platform issues them for an hour;
+ * renewing ten minutes early keeps a long test from using an expired one.
+ */
+const TOKEN_REUSE_MS = 50 * 60 * 1000;
+
 /** Reads the provider's settings; throws a clear message for a bad one. */
 export function saltireBaseUrlFromEnv(env: NodeJS.ProcessEnv = process.env): string {
   const raw = (env.SALTIRE_BASE_URL ?? '').trim() || DEFAULT_BASE_URL;
@@ -168,6 +186,9 @@ export function contentItemFromResponseBody(
     custom: (first.custom ?? {}) as Record<string, string>,
   };
 }
+
+const stringOrUndefined = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined;
 
 /** True when an RS256 JWT verifies against one of `keys`. */
 function verifiesAgainst(token: string, keys: readonly webcrypto.JsonWebKey[]): boolean {
@@ -221,9 +242,9 @@ class SaltireSession implements LtiToolSession {
   static async open(
     features: ReadonlySet<LtiToolFeature>,
     baseUrl: string,
-    { config, request, browser }: LtiToolContext,
+    { config, request, newBrowserContext }: LtiToolContext,
   ): Promise<SaltireSession> {
-    const context = await newCleanBrowserContext(browser);
+    const context = await newBrowserContext();
     const page = await context.newPage();
     await page.goto(`${baseUrl}/tool`, { waitUntil: 'networkidle', timeout: TIMEOUTS.navigation });
     await page.locator(S.signatureMethod).selectOption('RS256');
@@ -280,16 +301,17 @@ class SaltireSession implements LtiToolSession {
    * in the partition of the LMS's site, which is where the block's iframe reads
    * it (Chromium keys a third-party iframe's partitioned cookies by the
    * top-level site and a cross-site-ancestor bit).
+   *
+   * `_crHasCrossSiteAncestor` is a Chromium-only cookie field Playwright passes
+   * through but does not type (measured on Playwright 1.64); without it the
+   * cookie lands in the same-site partition and the iframe never sees it.
    */
   async admit(context: BrowserContext): Promise<void> {
-    const lmsSite = registrableDomain(new URL(this.config.baseUrls.lms).hostname);
+    const lms = new URL(this.config.baseUrls.lms);
+    const partitionKey = `${lms.protocol}//${registrableDomain(lms.hostname) ?? lms.hostname}`;
     await context.addCookies([
       ...this.cookies,
-      ...this.cookies.map((c) => ({
-        ...c,
-        partitionKey: `https://${lmsSite ?? new URL(this.config.baseUrls.lms).hostname}`,
-        _crHasCrossSiteAncestor: true,
-      })),
+      ...this.cookies.map((c) => ({ ...c, partitionKey, _crHasCrossSiteAncestor: true })),
     ]);
   }
 
@@ -302,7 +324,7 @@ class SaltireSession implements LtiToolSession {
     }
     const raw = await source.surface
       .locator(S.rawParameters)
-      .textContent({ timeout: TIMEOUTS.navigation });
+      .textContent({ timeout: TIMEOUTS.ltiLaunchReceived });
     const token = idTokenFromRawParameters(raw ?? '');
     if (token === undefined) throw new Error('saLTIre shows no id_token for this launch.');
     const claims = jwtPayload(token);
@@ -336,9 +358,9 @@ class SaltireSession implements LtiToolSession {
       verified: error === undefined,
       ...(error === undefined ? {} : { error }),
       clientId: typeof aud === 'string' ? aud : '',
-      messageType: claims[LTI_CLAIM.messageType] as string | undefined,
-      targetLinkUri: claims[LTI_CLAIM.targetLinkUri] as string | undefined,
-      resourceLinkId: typeof resourceLink?.id === 'string' ? resourceLink.id : undefined,
+      messageType: stringOrUndefined(claims[LTI_CLAIM.messageType]),
+      targetLinkUri: stringOrUndefined(claims[LTI_CLAIM.targetLinkUri]),
+      resourceLinkId: stringOrUndefined(resourceLink?.id),
       claims,
     };
   }
@@ -384,11 +406,10 @@ class SaltireSession implements LtiToolSession {
    */
   private async declineModals(): Promise<void> {
     const modal = this.page.locator('.modal.show');
-    for (let i = 0; i < 6; i++) {
-      // The next modal opens just after the previous one closes.
+    for (let i = 0; i < MAX_FOLLOW_UP_MODALS; i++) {
       const shown = await modal
         .first()
-        .waitFor({ state: 'visible', timeout: 1_500 })
+        .waitFor({ state: 'visible', timeout: NEXT_MODAL_WAIT_MS })
         .then(() => true)
         .catch(() => false);
       if (!shown) return;
@@ -411,7 +432,7 @@ class SaltireSession implements LtiToolSession {
     if (token.status !== 200) {
       throw new Error(`saLTIre could not get an access token: HTTP ${token.status}.`);
     }
-    this.tokenExpires = Date.now() + 50 * 60 * 1000;
+    this.tokenExpires = Date.now() + TOKEN_REUSE_MS;
   }
 
   private async agsSection(section: keyof typeof AGS_SECTIONS): Promise<void> {
@@ -429,8 +450,7 @@ class SaltireSession implements LtiToolSession {
     scoreMaximum: number,
     lineItemUrl?: string,
   ): Promise<LtiServiceResponse> {
-    const url = lineItemUrl ?? agsEndpoint(launch)?.lineitem;
-    if (url === undefined) throw new Error('The launch carries no AGS line item to score.');
+    const url = agsLineItemUrl(launch, lineItemUrl);
     await this.ensureToken();
     const a = S.ags;
     // The score endpoint is not an input of its own: saLTIre derives it from
@@ -451,12 +471,6 @@ class SaltireSession implements LtiToolSession {
     return this.serviceCall(() => this.page.locator(a.scoreSend).click());
   }
 
-  private lineItemsUrl(launch: LtiLaunch): string {
-    const url = agsEndpoint(launch)?.lineitems;
-    if (url === undefined) throw new Error('The launch carries no AGS line-item container.');
-    return url;
-  }
-
   async createLineItem(
     launch: LtiLaunch,
     item: Omit<AgsLineItem, 'id'>,
@@ -465,7 +479,7 @@ class SaltireSession implements LtiToolSession {
     await this.agsSection('lineItems');
     const a = S.ags;
     await this.page.locator(a.containerChoice).check();
-    await this.page.locator(a.containerUrl).fill(this.lineItemsUrl(launch));
+    await this.page.locator(a.containerUrl).fill(agsLineItemsUrl(launch));
     await this.page.locator(a.label).fill(item.label ?? '');
     await this.page.locator(a.points).fill(String(item.scoreMaximum));
     await this.page.locator(a.resourceLinkId).fill(item.resourceLinkId ?? '');
@@ -479,13 +493,12 @@ class SaltireSession implements LtiToolSession {
     await this.agsSection('lineItems');
     const a = S.ags;
     await this.page.locator(a.containerChoice).check();
-    await this.page.locator(a.containerUrl).fill(this.lineItemsUrl(launch));
+    await this.page.locator(a.containerUrl).fill(agsLineItemsUrl(launch));
     for (const filter of a.listFilters) await this.page.locator(filter).uncheck();
     return this.serviceCall(() => this.page.locator(a.read).click());
   }
 
-  async deleteLineItem(launch: LtiLaunch, lineItemUrl: string): Promise<LtiServiceResponse> {
-    void launch;
+  async deleteLineItem(_launch: LtiLaunch, lineItemUrl: string): Promise<LtiServiceResponse> {
     await this.ensureToken();
     await this.agsSection('lineItems');
     const a = S.ags;
@@ -495,8 +508,7 @@ class SaltireSession implements LtiToolSession {
   }
 
   async memberships(launch: LtiLaunch, url?: string): Promise<LtiServiceResponse<Memberships>> {
-    const target = url ?? nrpsEndpoint(launch)?.context_memberships_url;
-    if (target === undefined) throw new Error('The launch carries no NRPS memberships URL.');
+    const target = nrpsMembershipsUrl(launch, url);
     await this.ensureToken();
     await this.openCard('nrp');
     await this.page.locator(S.nrps.url).fill(target);
@@ -542,7 +554,7 @@ class SaltireSession implements LtiToolSession {
 }
 
 /** The saLTIre provider: every feature, given a public platform. */
-export class SaltireProvider implements LtiToolProvider {
+class SaltireProvider implements LtiToolProvider {
   readonly name = 'saltire';
   readonly features: ReadonlySet<LtiToolFeature> = new Set([
     'claims',

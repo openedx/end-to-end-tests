@@ -30,12 +30,23 @@ test.describe('LTI test tool — JWT', { tag: '@unit' }, () => {
   test('verifies its own signature and rejects another key or an expired token', () => {
     const platform = rsaKeys('p1');
     const other = rsaKeys('p1');
-    const token = signJwt(platform.privateKey, 'p1', { iss: 'x', exp: now() + 60 });
+    const token = signJwt(platform.privateKey, 'p1', { iss: 'x', iat: now(), exp: now() + 60 });
 
     expect(verifyJwt(token, platform.jwks, now()).payload.iss).toBe('x');
     expect(() => verifyJwt(token, other.jwks, now())).toThrow('does not verify');
-    const expired = signJwt(platform.privateKey, 'p1', { exp: now() - 10 });
+    const expired = signJwt(platform.privateKey, 'p1', { iat: now() - 70, exp: now() - 10 });
     expect(() => verifyJwt(expired, platform.jwks, now())).toThrow('expired');
+  });
+
+  test('requires exp, and an iat that is not in the future', () => {
+    const platform = rsaKeys('p1');
+    const sign = (claims: Record<string, unknown>) => signJwt(platform.privateKey, 'p1', claims);
+
+    expect(() => verifyJwt(sign({ iat: now() }), platform.jwks, now())).toThrow('no exp');
+    expect(() => verifyJwt(sign({ exp: now() + 60 }), platform.jwks, now())).toThrow('no iat');
+    expect(() =>
+      verifyJwt(sign({ iat: now() + 600, exp: now() + 900 }), platform.jwks, now()),
+    ).toThrow('future');
   });
 });
 
@@ -162,6 +173,7 @@ test.describe('LTI test tool — launches', { tag: '@unit' }, () => {
     const idToken = signJwt(platform.privateKey, 'platform-key', {
       iss: issuer,
       aud: clientId,
+      iat: now(),
       exp: now() + 60,
       [CLAIM.deploymentId]: '1',
       ...claims,
@@ -197,14 +209,58 @@ test.describe('LTI test tool — launches', { tag: '@unit' }, () => {
     });
   });
 
-  test('records a forged state or a replayed nonce as unverified', async () => {
+  test('records a forged state or a mismatched nonce as unverified', async () => {
     const { state, nonce } = await login();
     const forged = await launch({ nonce }, `${state.split('.')[0]}.AAAA`);
     expect(forged.status).toBe(401);
     expect(forged.record).toMatchObject({ verified: false });
 
     const mismatched = await launch({ nonce: 'another' }, state);
-    expect(mismatched.record.error).toContain('nonce');
+    expect(mismatched.status).toBe(401);
+    expect(mismatched.record).toMatchObject({ verified: false });
+    expect(mismatched.record.error).toContain('nonce does not match');
+  });
+
+  test('refuses a replayed launch', async () => {
+    const { state, nonce } = await login();
+    const first = await launch({ nonce }, state);
+    expect(first.record.verified).toBe(true);
+
+    const replayed = await launch({ nonce }, state);
+    expect(replayed.status).toBe(401);
+    expect(replayed.record).toMatchObject({ verified: false });
+    expect(replayed.record.error).toContain('already used');
+  });
+
+  test('records a malformed id_token as an unverified launch', async () => {
+    const { state } = await login();
+    const response = await fetch(`${toolUrl}/launch`, {
+      method: 'POST',
+      body: new URLSearchParams({ id_token: 'not-a-jwt', state }),
+    });
+    expect(response.status).toBe(401);
+    const records = (await (await fetch(`${toolUrl}/_control/launches`)).json()) as LaunchRecord[];
+    expect(records[0]).toMatchObject({ verified: false });
+  });
+
+  test('answers no deep-linking choice for a launch that did not verify', async () => {
+    const { state, nonce } = await login();
+    const { record } = await launch(
+      {
+        nonce,
+        [CLAIM.messageType]: 'LtiDeepLinkingRequest',
+        [CLAIM.deepLinkingSettings]: { deep_link_return_url: 'https://elsewhere.example/dl' },
+      },
+      `${state.split('.')[0]}.AAAA`,
+    );
+    expect(record.verified).toBe(false);
+
+    const chosen = await fetch(`${toolUrl}/deep-link/choose`, {
+      method: 'POST',
+      body: new URLSearchParams({ launch: String(record.id), choice: 'a' }),
+    });
+    expect(chosen.status).toBe(400);
+    expect(await chosen.text()).not.toContain('elsewhere.example');
   });
 
   test('answers a deep-linking request with a resource the platform can verify', async () => {
