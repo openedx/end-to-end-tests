@@ -63,6 +63,18 @@ inputs:
     description: 'OPENINBOX_API_KEY for the openinbox provider. Pass via secrets in the caller.'
     required: false
     default: ''
+  lti_tool_provider:
+    description: 'LTI_TOOL_PROVIDER: the LTI 1.3 tool the LTI specs launch (local, saltire). Empty = local, the bundled tool.'
+    required: false
+    default: ''
+  lti_tool_provider_plugins:
+    description: 'CUSTOM_LTI_TOOL_PROVIDER_PLUGINS: comma-separated plugin paths providing lti_tool_provider (e.g. ./plugins/saltire.plugin.ts).'
+    required: false
+    default: ''
+  saltire_base_url:
+    description: 'SALTIRE_BASE_URL for the saltire provider. Empty = https://saltire.lti.app.'
+    required: false
+    default: ''
   domains:
     description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
     required: false
@@ -166,6 +178,9 @@ runs:
         MAIL_PROVIDER: ${{ inputs.mail_provider }}
         CUSTOM_MAIL_PROVIDER_PLUGINS: ${{ inputs.mail_provider_plugins }}
         MAILPIT_BASE_URL: ${{ inputs.mailpit_base_url }}
+        LTI_TOOL_PROVIDER: ${{ inputs.lti_tool_provider }}
+        CUSTOM_LTI_TOOL_PROVIDER_PLUGINS: ${{ inputs.lti_tool_provider_plugins }}
+        SALTIRE_BASE_URL: ${{ inputs.saltire_base_url }}
       run: |
         set -euo pipefail
         : > .env
@@ -180,6 +195,9 @@ runs:
         [ -n "$MAIL_PROVIDER" ] && echo "MAIL_PROVIDER=${MAIL_PROVIDER}" >> .env
         [ -n "$CUSTOM_MAIL_PROVIDER_PLUGINS" ] && echo "CUSTOM_MAIL_PROVIDER_PLUGINS=${CUSTOM_MAIL_PROVIDER_PLUGINS}" >> .env
         [ -n "$MAILPIT_BASE_URL" ] && echo "MAILPIT_BASE_URL=${MAILPIT_BASE_URL}" >> .env
+        [ -n "$LTI_TOOL_PROVIDER" ] && echo "LTI_TOOL_PROVIDER=${LTI_TOOL_PROVIDER}" >> .env
+        [ -n "$CUSTOM_LTI_TOOL_PROVIDER_PLUGINS" ] && echo "CUSTOM_LTI_TOOL_PROVIDER_PLUGINS=${CUSTOM_LTI_TOOL_PROVIDER_PLUGINS}" >> .env
+        [ -n "$SALTIRE_BASE_URL" ] && echo "SALTIRE_BASE_URL=${SALTIRE_BASE_URL}" >> .env
         echo "Wrote .env:"
         cat .env
 

@@ -11,6 +11,7 @@ import {
 import { AdvancedBlock } from './advanced.block';
 import { AnnotatableBlock } from './annotatable.block';
 import { DoneBlock } from './done.block';
+import { LtiBlock } from './lti.block';
 import { PollBlock } from './poll.block';
 import { WordCloudBlock } from './word-cloud.block';
 
@@ -144,6 +145,11 @@ export class UnitPage {
   /** An advanced component in the unit, by its usage ID and block type. */
   advancedBlock(blockId: string, category: string): AdvancedBlock {
     return new AdvancedBlock(this.contentFrame, blockId, category);
+  }
+
+  /** An LTI consumer (`lti_consumer`) block in the unit. */
+  ltiBlock(blockId: string): LtiBlock {
+    return new LtiBlock(this.page, this.contentFrame, blockId);
   }
 
   /** An `annotatable` block in the unit. */

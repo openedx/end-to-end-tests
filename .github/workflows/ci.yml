@@ -108,7 +108,7 @@ jobs:
     uses: ./.github/workflows/run_tests_tutor.yml
     with:
       openedx_release: main
-      profiles: default extended aspects
+      profiles: default extended aspects lti
 
   docker-last-release:
     name: 'Docker: last release (verawood)'

@@ -64,6 +64,29 @@ export interface MfeUrls {
   readonly discussions: string;
 }
 
+/** Where the suite's LTI 1.3 test tool is served and reached. */
+export interface LtiToolConfig {
+  /**
+   * The origin the **browser** reaches the tool at (`LTI_TOOL_BASE_URL`): the
+   * URLs written into an LTI block. Its host is same-site with the LMS and is
+   * mapped to this machine in the browser (`--host-resolver-rules`).
+   */
+  readonly baseUrl: string;
+  /** The host the browser maps to this machine. */
+  readonly host: string;
+  /**
+   * The origin the **suite** reaches the tool's control API at — this machine
+   * directly, so no DNS entry for {@link host} is needed.
+   */
+  readonly controlUrl: string;
+}
+
+/** The built-in LTI tool provider: the suite's bundled tool. */
+export const LOCAL_LTI_TOOL_PROVIDER = 'local';
+
+/** The tool's port in the default `LTI_TOOL_BASE_URL`. */
+const DEFAULT_LTI_TOOL_PORT = 8765;
+
 /**
  * Validated, immutable configuration derived from the environment. Everything
  * outside `src/config/` consumes this object rather than reading `process.env`.
@@ -93,6 +116,19 @@ export interface AppConfig {
    * {@link DEFAULT_JWT_COOKIE_HEADER_PAYLOAD} unless it renames it.
    */
   readonly jwtCookieHeaderPayload: string;
+  /**
+   * The LTI tool provider the LTI specs launch (`src/lti-tools/`): `local` (the
+   * bundled tool, the default) or a plugin's name.
+   */
+  readonly ltiToolProvider: string;
+  /** LTI tool provider plugin modules to load (existing file paths). */
+  readonly customLtiToolProviderPlugins: ReadonlySet<string>;
+  /**
+   * The bundled LTI 1.3 test tool (`scripts/lti-tool.mts`), set whenever the
+   * `lti-tool` capability is declared with the `local` provider. The run starts
+   * it on this machine.
+   */
+  readonly ltiTool?: LtiToolConfig;
   /** Mailbox provider plugin modules to load (existing file paths). */
   readonly customMailProviderPlugins: ReadonlySet<string>;
   /**
@@ -302,6 +338,47 @@ export function parseCapabilities(raw: string | undefined, issues: string[]): Se
 }
 
 /**
+ * Resolves the LTI test tool's origin: `LTI_TOOL_BASE_URL`, else
+ * `http://lti.<LMS host>:8765`. The host must be **same-site** with the LMS:
+ * a deep-linking tool answers with a top-level POST to the LMS, which carries the
+ * LMS's `SameSite=Lax` session cookie only from a same-site page.
+ */
+function parseLtiTool(
+  value: string | undefined,
+  lmsUrl: URL,
+  issues: string[],
+): LtiToolConfig | undefined {
+  const url =
+    value === undefined
+      ? new URL(`http://lti.${lmsUrl.hostname}:${DEFAULT_LTI_TOOL_PORT}`)
+      : parseUrl('LTI_TOOL_BASE_URL', value, issues);
+  if (url === undefined) return undefined;
+  if (url.protocol !== 'http:') {
+    issues.push(
+      `LTI_TOOL_BASE_URL must be http:// (the test tool serves plain HTTP); got ${url.origin}.`,
+    );
+    return undefined;
+  }
+  const lmsDomain = registrableDomain(lmsUrl.hostname);
+  if (url.hostname === lmsUrl.hostname || registrableDomain(url.hostname) !== lmsDomain) {
+    issues.push(
+      `LTI_TOOL_BASE_URL (${url.origin}) must be a host of its own on the LMS's site ` +
+        `(${lmsDomain ?? lmsUrl.hostname}), e.g. lti.${lmsUrl.hostname}: deep linking posts ` +
+        "back to the LMS from the tool's page, and the LMS session cookie travels only " +
+        'from a same-site page.',
+    );
+    return undefined;
+  }
+  // `URL` drops the scheme's default port, so an empty one is 80 (http only).
+  const port = url.port === '' ? 80 : Number(url.port);
+  return {
+    baseUrl: url.origin,
+    host: url.hostname,
+    controlUrl: `http://127.0.0.1:${port}`,
+  };
+}
+
+/**
  * Validates the multi-origin relationship required for single-sign-in auth:
  * every origin shares one scheme and one registrable parent domain, so
  * Open edX's parent-scoped cookies cover them all.
@@ -462,6 +539,28 @@ export function loadConfig(env: Env = process.env): AppConfig {
     );
   }
 
+  const customLtiToolProviderPlugins = parsePluginPaths(
+    'CUSTOM_LTI_TOOL_PROVIDER_PLUGINS',
+    raw.CUSTOM_LTI_TOOL_PROVIDER_PLUGINS,
+    issues,
+  );
+  const ltiToolProvider = raw.LTI_TOOL_PROVIDER ?? LOCAL_LTI_TOOL_PROVIDER;
+  // `local` is the only built-in; any other name comes from a plugin, and only
+  // the provider registry knows the plugins' names.
+  if (ltiToolProvider !== LOCAL_LTI_TOOL_PROVIDER && customLtiToolProviderPlugins.size === 0) {
+    issues.push(
+      `LTI_TOOL_PROVIDER is "${ltiToolProvider}" but CUSTOM_LTI_TOOL_PROVIDER_PLUGINS is empty. ` +
+        `Other than the built-in "${LOCAL_LTI_TOOL_PROVIDER}", LTI tool providers are plugins: ` +
+        'list the module that provides it (e.g. ./plugins/saltire.plugin.ts).',
+    );
+  }
+  // The bundled tool's own rules (its host, same-site with the LMS; HTTP only)
+  // apply only when it is the provider.
+  const ltiTool =
+    lmsUrl && capabilities.has('lti-tool') && ltiToolProvider === LOCAL_LTI_TOOL_PROVIDER
+      ? parseLtiTool(raw.LTI_TOOL_BASE_URL, lmsUrl, issues)
+      : undefined;
+
   let admin: AdminCredentials | undefined;
   const username = raw.ADMIN_USERNAME;
   const password = raw.ADMIN_PASSWORD;
@@ -535,6 +634,9 @@ export function loadConfig(env: Env = process.env): AppConfig {
     accountBackend,
     notificationTrayHost: raw.NOTIFICATION_TRAY_HOST ?? 'learner-dashboard',
     jwtCookieHeaderPayload: raw.JWT_AUTH_COOKIE_HEADER_PAYLOAD ?? DEFAULT_JWT_COOKIE_HEADER_PAYLOAD,
+    ltiToolProvider,
+    customLtiToolProviderPlugins,
+    ...(ltiTool === undefined ? {} : { ltiTool: Object.freeze(ltiTool) }),
     customMailProviderPlugins,
     mailProvider,
     allowCrossSiteOrigins,

@@ -35,6 +35,31 @@ export const ADVANCED_BLOCK_SELECTORS = {
   pdfLink: 'li.pdf-download-button a',
 } as const;
 
+/**
+ * xblock-lti-consumer `lti_consumer`, as a learner sees an LTI 1.3 block
+ * (`templates/html/student.html`, `static/js/xblock_lti_consumer.js`; measured on
+ * lti-consumer-xblock 11.5, 2026-11-19). The inline target is an iframe whose
+ * `src` the block's script sets to the tool's login URL — only after the
+ * learner agrees, when the block shares personal data. The modal and new-window
+ * targets are a launch button instead, with the "Data Sharing Notice" above it.
+ * The consent prompt is the block's own markup, not a browser dialog; its
+ * buttons' ids repeat per block, so scope them to the block.
+ */
+export const LTI_BLOCK_SELECTORS = {
+  /** The inline launch iframe. */
+  launchFrame: 'iframe.ltiLaunchFrame',
+  /** The same iframe once the block's script has pointed it at the tool. */
+  launchFrameStarted: 'iframe.ltiLaunchFrame[src^="http"]',
+  /** "View resource in a new window" (or the author's own text). */
+  newWindowButton: 'button.btn-lti-new-window',
+  /** The author's "Data Sharing Notice" (`description`). */
+  notice: '.lti-description',
+  /** The consent prompt, its "OK" and (modal/new window only) "Cancel". */
+  consentPrompt: '[id^="dialog-container-"]',
+  consentConfirm: '#confirm-button',
+  consentCancel: '#cancel-button',
+} as const;
+
 /** The element each advanced block renders first inside its wrapper. */
 const ROOTS: Readonly<Record<string, string>> = {
   annotatable: 'div.annotatable-wrapper',

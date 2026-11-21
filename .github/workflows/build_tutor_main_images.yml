@@ -31,7 +31,9 @@ name: Build Tutor main images
 # pulls never see them. The `aspects` variant installs tutor-contrib-aspects at
 # the profile's pin, with the profile's Tutor plugins enabled (in-context
 # metrics change what the MFE image installs), and builds the Open edX, MFE,
-# Aspects and Superset images for `main` and `verawood`. The matrix below lists
+# Aspects and Superset images for `main` and `verawood`. The `lti` variant
+# installs openedx-ltistore in the Open edX image (`.ci/tutor/e2e_lti.py`), for
+# `main` only. The matrix below lists
 # each profile's releases by hand; tests/config/ci-profiles.spec.ts checks it
 # against .ci/profiles.json.
 #
@@ -74,6 +76,9 @@ jobs:
             profile: aspects
           - release: verawood
             profile: aspects
+          # The `lti` profile's variant (LTI Store in the Open edX image), on `main`.
+          - release: main
+            profile: lti
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

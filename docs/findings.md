@@ -135,6 +135,9 @@ measured, and issues are opened by hand from them.
 | `ASPECTS-012` | `openedx/aspects-dbt` (`dim_most_recent_enrollment`: a ReplacingMergeTree with no version, read without `FINAL`) | open, no `fixme` — TC-00553 and TC-00545 no longer give a learner two enrollment events
 | `ASPECTS-A11Y-001` | `apache/superset` 6.1.0 (as Aspects 5.0.0 ships it): `html-has-lang`, `nested-interactive`, intermittently `aria-prohibited-attr`; 6.0.0 (Aspects 4.0.0) also `dlitem` | open, no `fixme` — baselined on Superset-page scans only (`SUPERSET_A11Y_BASELINE`)
 | `ASPECTS-007` | `openedx/aspects-dbt` (`dim_course_names` picks among course dumps tied on `modified`) | open, `fixme` on TC-00556's no-republish case; its filter case republishes (a commented workaround)
+| `LTI-001` | `openedx/xblock-lti-consumer` (LTI 1.3 launches send course staff the platform-administrator role set) | **filed** - [xblock-lti-consumer#618](https://github.com/openedx/xblock-lti-consumer/issues/618), fix in draft [#755](https://github.com/openedx/xblock-lti-consumer/pull/755); `test.fail` in `tests/lms/lti/launch.spec.ts` (TC-00653)
+| `LTI-002` | `openedx/xblock-lti-consumer` (AGS refuses every line-item DELETE with 403) | **filed** - [xblock-lti-consumer#745](https://github.com/openedx/xblock-lti-consumer/issues/745) (also reported as [#766](https://github.com/openedx/xblock-lti-consumer/issues/766)); `test.fail` in `tests/lms/lti/ags.spec.ts` (TC-00656)
+| `LTI-003` | `open-craft/openedx-ltistore` 1.1.4 + `openedx/xblock-lti-consumer` 11.5.1 (a stored LTI 1.3 configuration with the default Redirect URIs cannot launch) | **filed** - [openedx-ltistore#57](https://github.com/open-craft/openedx-ltistore/issues/57) (reported 2026-08-14; the maintainers suspect xblock-lti-consumer); `test.fail` in `tests/lms/lti/lti-store.spec.ts` (TC-00661), whose passing test lists the launch URL
 | `ASPECTS-008` | `openedx/tutor-contrib-aspects` (dashboard assets: "Clear all" empties the preselected course filter) | open, no `fixme` — TC-00544 clears only the learner filter, as the sheet asks
 | `ASPECTS-009` | `openedx/frontend-plugin-aspects` 3.0.1 on authoring `master`: the outline cards' Analytics buttons show the course | open, gated — TC-00314's card case needs `analytics-in-context-cards`, declared where it works
 
@@ -3130,6 +3133,73 @@ TC-00553 and TC-00545 now read their starting count once every chart agrees and
 assert exactly one more after the learner enrolls, so no account they count has
 two enrollment events.
 
+## LTI 1.3 findings (2026-11-02 … 2026-11-19)
+
+### `LTI-001` — course staff are launched with the platform-administrator role set
+
+**Where:** `openedx/xblock-lti-consumer` from 11.1.0 (PR #645), still on 11.5.1
+(`main`): `LtiConsumerXBlock._get_lti_1p3_user_role` (`lti_xblock.py:901-902`).
+
+**What happens:** a user who holds only the course Staff role, and is not global
+staff, launches an LTI 1.3 tool with the global-staff role set:
+`system/person#Administrator`; `institution/person#Administrator`, `#Staff`,
+`#Faculty` and `#Instructor`; `membership#Administrator` and `#Instructor`. The
+role code treats the XBlock user service's `user_is_staff` as global staff,
+but the LMS sets it from course access (`block_render.py`,
+`has_access(user, 'staff', course_id)`), so the course mapping
+(`staff` → `membership#Instructor`) is never reached. The roles claim goes to a
+third-party tool, and tools commonly grant tool-wide administration on
+`system/person#Administrator`. The roster service (NRPS) reports the same user
+as `membership#Instructor`.
+
+**Coverage impact:** `tests/lms/lti/launch.spec.ts` asserts the course mapping
+in two tests under TC-00653. The one that checks course staff are
+an instructor and not a learner passes. The one that checks they are not sent
+the administrator roles is a `test.fail` with the issue; it will pass
+unexpectedly once the fix ships, which is the signal to drop the marker.
+
+### `LTI-002` — a tool cannot delete an AGS line item
+
+**Where:** `openedx/xblock-lti-consumer` since the line-item service was added
+(PR #92, 2020), still on 11.5.1 (`main`):
+`LtiAgsPermissions.get_permission_scopes`
+(`lti_1p3/extensions/rest_framework/permissions.py:74`).
+
+**What happens:** the permission allows the `lineitem` scope for the actions
+`create`, `update`, `partial_update` and `delete`, but a DRF viewset calls its
+DELETE action `destroy`. No scope is ever allowed for it, so every
+`DELETE …/lti-ags/<id>` answers 403, whatever the token holds, and the line item
+stays listed. Creating, listing and scoring line items work.
+
+**Coverage impact:** TC-00656's step 4 cannot pass. `tests/lms/lti/ags.spec.ts`
+covers creating a line item and grading to it in a passing test, and the delete
+in a separate `test.fail` with the issue.
+
+### `LTI-003` — a stored LTI 1.3 configuration with the default redirect URIs cannot launch
+
+**Where:** `open-craft/openedx-ltistore` 1.1.4 with `openedx/xblock-lti-consumer`
+11.5.1 (`main`, 2026-11-19).
+
+**What happens:** LTI Store keeps "LTI 1.3 Redirect URIs" in a `TextField`
+whose default is an empty list, so the admin form starts it as `[]` and saves
+the text `"[]"`. Its filter pipeline hands configurations over with
+`model_to_dict`, so xblock-lti-consumer receives that text, not a list.
+`choose_lti_1p3_redirect_uris` falls back to the launch and deep-linking URLs
+only when the value is empty, and `"[]"` is not, so the consumer's redirect
+URIs are the string `"[]"`. Every launch then fails its preflight check
+(`assert redirect_uri in self.redirect_uris`, "The preflight response is not
+valid"), so a learner never reaches the tool. The field's own help text says an
+empty value falls back to the launch URL. A configuration that lists its URIs
+works, but only because `in` on the stored text is a substring test.
+
+**Status:** already reported as
+[openedx-ltistore#57](https://github.com/open-craft/openedx-ltistore/issues/57) (open since 2026-08-14, same cause and
+workaround). The maintainers' last comment (2026-08-24) suspects
+xblock-lti-consumer; no fix is linked.
+
+**Coverage impact:** TC-00661 passes with the launch URL listed as the redirect
+URI. The same case with the form's default is a `test.fail` citing #57.
+
 ## CI split — sharded runs and profiles (2026-09-24/25, suite-side)
 
 Splitting CI into shards, each against its own fresh Tutor install, and adding
@@ -3178,6 +3248,7 @@ the release team carries it to the sheet.
 | TC-00571 | `tests/rbac/library/library-roles.spec.ts` | See `RBAC-012` (product call open): a Library Author can publish the library — if the role model stands. |
 | TC-00453 | `tests/rbac/console/assign-role.spec.ts` | The wizard checks every identifier on leaving step one, before anything is written: a mixed batch is refused there with the typed text kept — no partial apply, no summary toast. |
 | TC-00423 | `tests/studio/library/public-read.spec.ts` | Without the manage-team right the reuse switch is shown read-only (disabled), not hidden — the sheet's own tester note ("not hide but is blocked"); this makes TC-00423 and TC-00424 one scenario. |
+| TC-00660 | `tests/lms/lti/pii.spec.ts` | The data-sharing notice shows next to the launch button (new-window and modal launches only), not in the consent prompt; the prompt itself names the fields being sent. |
 
 ## Sheet notes (2026-11-09)
 

@@ -43,6 +43,9 @@ can reuse — e.g.:
   `waitForLearnerBlock` (a learner's outline lists a block), each returning its
   last reading rather than throwing. The course-side import itself is the
   single API call `importLibraryContent` (`src/api/library-sync.ts`).
+- `lti.ts` — `seedReadyLtiBlock`: an LTI 1.3 block configured for a tool,
+  registered with it from Studio's values, and published, in one call. It takes
+  the tool structurally (`LtiBlockTool`), so it does not depend on `lti-tools/`.
 - `notifications.ts` — `waitForNotification(recipient, config, match)` (the
   recipient's own list, polled under `notificationDelivery`, returning the match
   and every row read), `aboutThread(type, threadId)` (the grouping-safe match:
