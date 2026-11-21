@@ -201,53 +201,56 @@ test.describe.serial(
       },
     );
 
-    test(// No case id: the sheet's TC-00506 describes a separate Videos page that
-    // does not exist, and its row is marked for deprecation. What is checked
-    // here — that the two surfaces' terms are accepted independently — stands
-    // on its own.
-    'the videos terms are separate from the files terms', async ({ config, uploadAgreements }) => {
-      // The two surfaces must be gated by **different** types for the case to
-      // mean anything; that much is configuration, so it is a precondition
-      // rather than the assertion.
-      // Each surface's **own** types: what gates it and neither the other
-      // surface nor the shared `upload` key, which by definition gates both.
-      const shared = uploadAgreements.gating.upload ?? [];
-      const onlyFor = (mine: readonly string[], theirs: readonly string[]): string[] =>
-        mine.filter((t) => !theirs.includes(t) && !shared.includes(t));
-      const filesOnly = onlyFor(
-        uploadAgreements.gating['upload.files'] ?? [],
-        uploadAgreements.gating['upload.videos'] ?? [],
-      );
-      const videosOnly = onlyFor(
-        uploadAgreements.gating['upload.videos'] ?? [],
-        uploadAgreements.gating['upload.files'] ?? [],
-      );
-      expect(
-        filesOnly.length,
-        'AGREEMENT_GATING must gate files by a type videos does not use',
-      ).toBeGreaterThan(0);
-      expect(
-        videosOnly.length,
-        'AGREEMENT_GATING must gate videos by a type files does not use',
-      ).toBeGreaterThan(0);
+    test(
+      // No case id: the sheet's TC-00506 describes a separate Videos page that
+      // does not exist, and its row is marked for deprecation. What is checked
+      // here — that the two surfaces' terms are accepted independently — stands
+      // on its own.
+      'the videos terms are separate from the files terms',
+      async ({ config, uploadAgreements }) => {
+        // The two surfaces must be gated by **different** types for the case to
+        // mean anything; that much is configuration, so it is a precondition
+        // rather than the assertion.
+        // Each surface's **own** types: what gates it and neither the other
+        // surface nor the shared `upload` key, which by definition gates both.
+        const shared = uploadAgreements.gating.upload ?? [];
+        const onlyFor = (mine: readonly string[], theirs: readonly string[]): string[] =>
+          mine.filter((t) => !theirs.includes(t) && !shared.includes(t));
+        const filesOnly = onlyFor(
+          uploadAgreements.gating['upload.files'] ?? [],
+          uploadAgreements.gating['upload.videos'] ?? [],
+        );
+        const videosOnly = onlyFor(
+          uploadAgreements.gating['upload.videos'] ?? [],
+          uploadAgreements.gating['upload.files'] ?? [],
+        );
+        expect(
+          filesOnly.length,
+          'AGREEMENT_GATING must gate files by a type videos does not use',
+        ).toBeGreaterThan(0);
+        expect(
+          videosOnly.length,
+          'AGREEMENT_GATING must gate videos by a type files does not use',
+        ).toBeGreaterThan(0);
 
-      // The assertion is the platform's: accepting the files terms says
-      // nothing about the videos terms, and the account is still outstanding
-      // for the surface it has not agreed to.
-      const files = filesOnly[0] as string;
-      const videos = videosOnly[0] as string;
-      await withFreshUser(config, async (session) => {
-        await acceptAgreement(session, config, files);
-        expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
-        expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(false);
+        // The assertion is the platform's: accepting the files terms says
+        // nothing about the videos terms, and the account is still outstanding
+        // for the surface it has not agreed to.
+        const files = filesOnly[0] as string;
+        const videos = videosOnly[0] as string;
+        await withFreshUser(config, async (session) => {
+          await acceptAgreement(session, config, files);
+          expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
+          expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(false);
 
-        // …and the reverse, on the same account: accepting videos leaves the
-        // files acceptance alone.
-        await acceptAgreement(session, config, videos);
-        expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(true);
-        expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
-      });
-    });
+          // …and the reverse, on the same account: accepting videos leaves the
+          // files acceptance alone.
+          await acceptAgreement(session, config, videos);
+          expect((await fetchAgreementRecord(session, config, videos)).isCurrent).toBe(true);
+          expect((await fetchAgreementRecord(session, config, files)).isCurrent).toBe(true);
+        });
+      },
+    );
 
     test(
       'a key may require multiple agreement terms',

@@ -80,12 +80,7 @@ test.describe('LTI 1.3 personal-data sharing', { tag: [...LTI_TAGS, '@lti-tool-c
       await openUnitAs(roundTripLearner, courseKey, unit, ltiTool);
       // The button opens the tool's window straight away: a prompt in front of
       // it would leave the launch waiting for a window that never opens.
-      const launch = await launchFrom(
-        ltiTool,
-        roundTripLearner.unitPage,
-        blockKey,
-        'new_window',
-      );
+      const launch = await launchFrom(ltiTool, roundTripLearner.unitPage, blockKey, 'new_window');
 
       expect(launch.verified).toBe(true);
       for (const { claim } of FIELDS) expect(launch.claims, claim).not.toHaveProperty(claim);
