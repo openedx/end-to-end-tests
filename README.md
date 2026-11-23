@@ -10,7 +10,8 @@ code.
 See [ADR-0002](docs/decisions/0002-core-principles.rst) for the core principles
 guiding development, and [`docs/findings.md`](docs/findings.md) for the defects
 this suite has surfaced upstream — the reason behind every `test.fixme()` and
-workaround in the tree.
+workaround in the tree. [`docs/coverage_gaps.md`](docs/coverage_gaps.md) lists
+what the suite does not cover, and which BTR cases still need a manual check.
 
 ## Prerequisites
 
@@ -715,6 +716,7 @@ docs/
   decisions/           # ADRs
   capabilities.md      # every capability: meaning, releases, CI declarations
   findings.md          # defects the suite has surfaced
+  coverage_gaps.md     # untested areas; BTR cases needing a manual check
 ```
 
 The layers have a strict dependency direction —
