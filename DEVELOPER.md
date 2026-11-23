@@ -211,6 +211,30 @@ provisions an account for nothing. Add an `issue(...)` annotation beside the
 the case is held back. Never soften the assertion or reach for `force`.
 [CONVENTIONS › Known upstream defects](CONVENTIONS.md#known-upstream-defects).
 
+## Refreshing the coverage-gaps table
+
+[`docs/coverage_gaps.md`](docs/coverage_gaps.md) ends with a table, "Cases
+needing a manual check", that the BTR results publisher reads: a case listed
+there is marked as needing a person even when its tests pass. Nothing
+regenerates it, so it is only as current as its last review.
+
+Update it in the same PR when you:
+
+- add or extend a spec so that a `partial`, `gap` or `no test` row no longer
+  applies: delete the row (or narrow its text);
+- tag a test with a case whose sheet row asks for more than the test checks
+  (specific wording, an e-mail, a judgement by eye, steps the test skips): add
+  a row.
+
+Review the whole table when the BTR sheet gets a new version: read each new or
+reworded case against the tests that carry its id, then update the "Reviewed
+against:" line with the sheet version and the commit. Do not list cases the run
+already reports (`test.fixme`, `test.fail`, `disputed`, capability skips).
+
+Keep one row per case, sorted by Test ID, with a `Reason` from the legend above
+the table. `npx playwright test --project=unit tests/reporting/coverage-gaps.spec.ts`
+checks the shape.
+
 ## Accessibility
 
 `await checkA11y(page, { label: '<surface>' })` on every surface a spec visits.
