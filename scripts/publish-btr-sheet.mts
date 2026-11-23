@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
  * Publishes one run's `test-results/btr-run.json` to a per-release BTR results
- * spreadsheet: bootstraps an empty sheet, overwrites `Latest` (when allowed), adds
- * a timestamped run tab and appends a `Runs` row. Runs natively on Node 24
+ * spreadsheet: bootstraps an empty sheet, overwrites `Latest` and `Export` (when
+ * allowed), adds a timestamped run tab and appends a `Runs` row. `Export` is the
+ * flat per-case view a BTR test-plan sheet imports; its manual-check column also
+ * draws on the table in `docs/coverage_gaps.md`. Runs natively on Node 24
  * (type stripping); no build step.
  *
  *   node scripts/publish-btr-sheet.mts --release verawood --sheet <url> \
  *     [--from test-results/btr-run.json] [--update-latest true|false] \
- *     [--environment <github-environment>]
+ *     [--environment <github-environment>] [--coverage-gaps docs/coverage_gaps.md]
  *
  * Credentials come from the environment only, never from an argument: a
  * service-account JSON key in `BTR_SHEET_CREDENTIALS` (in CI, the secret of that
@@ -24,6 +26,8 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 
 import type { BtrRun } from '../src/reporting/btr-run.ts';
+
+import { parseCoverageGaps, type CoverageGaps } from './btr-sheet/coverage-gaps.mts';
 import {
   SheetsClient,
   mintAccessToken,
@@ -31,12 +35,14 @@ import {
   parseSpreadsheetId,
 } from './btr-sheet/google.mts';
 import {
+  EXPORT_TAB,
   LATEST_TAB,
   META_TAB,
   PlanRefusal,
   planPublish,
   type SpreadsheetState,
 } from './btr-sheet/plan.mts';
+import { staleGapRows } from './btr-sheet/render.mts';
 
 const PUBLISHER = 'openedx/end-to-end-tests publish-btr-sheet v1';
 
@@ -78,6 +84,34 @@ function loadRun(path: string): BtrRun {
   return run;
 }
 
+/**
+ * The manual-check table, or `undefined` when the file is missing. Never fatal:
+ * `Export` is still worth publishing by the run alone, and the `@unit` spec is
+ * what keeps the committed table well-formed.
+ */
+function loadCoverageGaps(path: string, run: BtrRun): CoverageGaps | undefined {
+  let text: string;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch {
+    console.warn(
+      `::warning::Coverage gaps file '${path}' not found; Export's manual-check column goes by the run alone.`,
+    );
+    return undefined;
+  }
+  const gaps = parseCoverageGaps(text);
+  for (const problem of gaps.problems) {
+    console.warn(`::warning::${path}: ${problem}`);
+  }
+  const stale = staleGapRows(run, gaps);
+  if (stale.length > 0) {
+    console.log(
+      `::notice::${path} lists ${stale.join(', ')} as 'no test', but this run has tests for ${stale.length === 1 ? 'it' : 'them'}; the ${stale.length === 1 ? 'row was' : 'rows were'} ignored. Refresh the table.`,
+    );
+  }
+  return gaps;
+}
+
 async function main(): Promise<void> {
   const { values: args } = parseArgs({
     options: {
@@ -86,6 +120,7 @@ async function main(): Promise<void> {
       from: { type: 'string', default: 'test-results/btr-run.json' },
       'update-latest': { type: 'string', default: 'true' },
       environment: { type: 'string', default: '' },
+      'coverage-gaps': { type: 'string', default: 'docs/coverage_gaps.md' },
     },
   });
   if (!args.release) fail('--release is required (e.g. --release verawood).');
@@ -114,6 +149,8 @@ async function main(): Promise<void> {
   const updateLatest = parseBool(args['update-latest'], '--update-latest');
   const run = loadRun(args.from);
   const ctx = { release, environment: args.environment || undefined };
+  // Only a run that replaces `Latest` rewrites `Export`, so only it needs the table.
+  const gaps = updateLatest ? loadCoverageGaps(args['coverage-gaps'], run) : undefined;
 
   const key = parseServiceAccountKey(credentials);
   const token = await mintAccessToken(key);
@@ -145,6 +182,7 @@ async function main(): Promise<void> {
       run,
       ctx,
       updateLatest,
+      gaps,
       now: new Date().toISOString(),
       publisher: PUBLISHER,
     });
@@ -168,8 +206,8 @@ async function main(): Promise<void> {
     plan.bootstrapping ? 'bootstrapped the spreadsheet' : '',
     `added tab '${plan.runTab.title}'`,
     plan.updateLatest
-      ? `updated '${LATEST_TAB}'`
-      : `left '${LATEST_TAB}' unchanged (filtered, off-branch or incomplete run)`,
+      ? `updated '${LATEST_TAB}' and '${EXPORT_TAB}'`
+      : `left '${LATEST_TAB}' and '${EXPORT_TAB}' unchanged (filtered, off-branch or incomplete run)`,
   ]
     .filter(Boolean)
     .join(', ');
