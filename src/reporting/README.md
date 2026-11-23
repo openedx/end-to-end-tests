@@ -176,7 +176,29 @@ merge job, finding fewer blobs than the matrix has shards, publishes the
 shards that did run to their own tab, leaves `Latest` alone and fails. The
 workflow's job summary links the new tab.
 
-**Tab order.** `Latest`, `Runs` and the hidden `_meta` come first, then the run
+**`Export`, for a BTR test-plan sheet.** A publish that replaces `Latest` also
+rewrites `Export`: one row per case in A:E (`BTR Test ID`, `E2E Result`,
+`E2E Manual Check`, `E2E Notes`, `E2E Test Run URL`) and the run it came from
+in G:H. A test-plan sheet pulls it in with one
+`=IMPORTRANGE("<this sheet's URL>", "Export!A:H")` on a hidden tab and looks
+each row up by test id, so the publisher never writes to the plan sheet. The
+column order is a contract with those formulas: append, never reorder.
+
+- **E2E Result** is the run's verdict (`verified` / `partial` / `unverified` /
+  `failed`).
+- **E2E Manual Check** is `yes` unless the case is `verified`, disputes nothing
+  and is not listed in the "Cases needing a manual check" table of
+  [`docs/coverage_gaps.md`](../../docs/coverage_gaps.md), which the publisher
+  reads from the checkout (`--coverage-gaps`). A missing or malformed table is
+  a `::warning::`, not a failure.
+- **E2E Notes** leads with that table's reason (`manual check (wording): …`),
+  then the run's notes, shortened: a capability skip reads
+  `not run in CI: needs <capability>`.
+- A case the table lists as `no test` gets a row (`unverified`) so the plan
+  sheet can say why; a case in neither has no row and takes the lookup's
+  default.
+
+**Tab order.** `Latest`, `Runs`, the hidden `_meta` and `Export` come first, then the run
 tabs newest first, then any tab a person added. Every publish puts the tabs
 back in that order, so a sheet from before this rule (run tabs oldest first) is
 reordered by its next publish, and re-publishing an old run files its tab by

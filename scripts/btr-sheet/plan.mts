@@ -8,7 +8,7 @@
  *   1. `structure`  — `spreadsheets.batchUpdate`: add tabs, hide `_meta`, freeze,
  *                     title the spreadsheet, delete the empty default tab, and
  *                     put the run tabs newest first.
- *   2. `clear`      — `values.clear` on each range (the old `Latest` content).
+ *   2. `clear`      — `values.clear` on each range (the old `Latest` and `Export` content).
  *   3. `writes`     — `values.batchUpdate` with every grid (RAW so nothing we
  *                     wrote as text is re-parsed; formulas are USER_ENTERED).
  *   4. `append`     — `values.append` of the `Runs` row (server allocates the row,
@@ -17,12 +17,15 @@
  */
 
 import type { BtrRun } from '../../src/reporting/btr-run.ts';
+
+import type { CoverageGaps } from './coverage-gaps.mts';
 import {
   HEADER_ROWS,
   RUNS_HEADER,
   TABLE_HEADER,
   TABLE_HEADER_ROW,
   parseMeta,
+  renderExport,
   renderMeta,
   renderRunSheet,
   renderRunsRow,
@@ -34,6 +37,8 @@ import {
 export const LATEST_TAB = 'Latest';
 export const RUNS_TAB = 'Runs';
 export const META_TAB = '_meta';
+/** The flat per-case view a BTR test-plan sheet imports; rewritten with `Latest`. */
+export const EXPORT_TAB = 'Export';
 
 /** Google's default title for a fresh spreadsheet (English locale). */
 const UNTITLED = 'Untitled spreadsheet';
@@ -87,6 +92,8 @@ export interface PlanInput {
   readonly now: string;
   /** Publisher identification written to `_meta`. */
   readonly publisher: string;
+  /** The manual-check table from `docs/coverage_gaps.md`; without it `Export` goes by the run alone. */
+  readonly gaps?: CoverageGaps;
 }
 
 /** Thrown when publishing must stop before any write. */
@@ -140,7 +147,7 @@ function moveSheet(sheetId: number, index: number): SheetsRequest {
 }
 
 /** The tabs the publisher owns besides the run tabs, in the order they lead the spreadsheet. */
-const FIXED_TABS: readonly string[] = [LATEST_TAB, RUNS_TAB, META_TAB];
+const FIXED_TABS: readonly string[] = [LATEST_TAB, RUNS_TAB, META_TAB, EXPORT_TAB];
 
 /**
  * A run tab's title starts with the UTC stamp `formatStamp` writes
@@ -263,6 +270,16 @@ export function planPublish(input: PlanInput): PublishPlan {
     writes.push({ range: rangeFor(META_TAB, meta), values: meta });
     order.splice(2, 0, { sheetId: metaId, title: META_TAB });
   }
+  // `Export` came after the first sheets were bootstrapped, so it is added to
+  // those on their next publish, in its place after the other fixed tabs.
+  if (!byTitle.has(EXPORT_TAB)) {
+    const exportId = nextId();
+    const index = FIXED_TABS.filter(
+      (t) => t !== EXPORT_TAB && order.some((o) => o.title === t),
+    ).length;
+    structure.push(addSheet(exportId, EXPORT_TAB, index), freezeRows(exportId, 1));
+    order.splice(index, 0, { sheetId: exportId, title: EXPORT_TAB });
+  }
   if (bootstrapping) {
     if (state.title === UNTITLED || state.title === '') {
       structure.push({
@@ -275,7 +292,7 @@ export function planPublish(input: PlanInput): PublishPlan {
     // The single tab Google creates with a new spreadsheet, if still empty.
     if (state.sheets.length === 1 && state.defaultSheetHasValues === false) {
       const [only] = state.sheets;
-      if (only && ![LATEST_TAB, RUNS_TAB, META_TAB].includes(only.title)) {
+      if (only && !FIXED_TABS.includes(only.title)) {
         structure.push({ deleteSheet: { sheetId: only.sheetId } });
         order.splice(order.indexOf(only), 1);
       }
@@ -303,6 +320,10 @@ export function planPublish(input: PlanInput): PublishPlan {
   if (input.updateLatest) {
     clear.push(`'${LATEST_TAB}'`);
     writes.push({ range: rangeFor(LATEST_TAB, grid), values: grid });
+    // `Export` follows `Latest`: only a complete, unfiltered default-branch run feeds it.
+    const exported = renderExport(run, ctx, input.gaps);
+    clear.push(`'${EXPORT_TAB}'`);
+    writes.push({ range: rangeFor(EXPORT_TAB, exported), values: exported });
   }
 
   const runsRow = renderRunsRow(run, ctx, { title: runTabTitle, sheetId: runTabId });
