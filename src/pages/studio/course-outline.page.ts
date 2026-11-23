@@ -353,19 +353,78 @@ export class StudioCourseOutlinePage {
    * Info panel for it — and waits for the card to gain the selected class. Uses
    * the content row (not the whole card) so a click never lands on the kebab,
    * expander or a child card.
+   *
+   * A unit is different: the middle of its row is the title link, which
+   * navigates to the unit page, and its content row is empty. It selects on a
+   * click whose target is the header element itself — its blank space between
+   * the title and the badges, which Verawood has only at a wide viewport
+   * (`AUTH-002`) and later releases not at all, the header's children covering
+   * it — or from the keyboard, the card's sortable row being focusable and
+   * selecting on Enter. So a unit is clicked on its header's blank space where
+   * there is any, and otherwise selected from the keyboard.
    */
   async select(card: Locator, level: OutlineLevel): Promise<void> {
-    await card.locator(STUDIO_OUTLINE_PAGE_SELECTORS.cardContent(level)).first().click();
+    if (level === 'unit') {
+      const header = card.locator(STUDIO_OUTLINE_PAGE_SELECTORS.unitCardHeader).first();
+      await header.scrollIntoViewIfNeeded();
+      const point = await this.blankHeaderPoint(header);
+      if (point !== null) {
+        await this.page.mouse.click(point.x, point.y);
+      } else {
+        const row = card.locator(STUDIO_OUTLINE_PAGE_SELECTORS.focusableRowAncestor);
+        if ((await row.count()) === 0) {
+          throw new Error(
+            'The unit card has neither blank header space to click nor a focusable row, so it cannot be selected from the outline.',
+          );
+        }
+        await row.focus();
+        await row.press('Enter');
+      }
+    } else {
+      await card.locator(STUDIO_OUTLINE_PAGE_SELECTORS.cardContent(level)).first().click();
+    }
     await card
       .and(this.page.locator(`.${STUDIO_OUTLINE_PAGE_SELECTORS.selectedCardClass}`))
       .waitFor();
   }
 
   /**
+   * A viewport point on `header` where the topmost element is the header itself
+   * rather than one of its children — the middle of the widest such run on any
+   * horizontal line through it — or `null` when the children leave none.
+   */
+  private async blankHeaderPoint(header: Locator): Promise<{ x: number; y: number } | null> {
+    return header.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const last = Math.floor(box.right) - 1;
+      let bestX = 0;
+      let bestY = 0;
+      let bestWidth = 0;
+      for (let y = Math.ceil(box.top) + 1; y < Math.floor(box.bottom) - 1; y += 1) {
+        let runStart: number | null = null;
+        for (let x = Math.ceil(box.left); x <= last + 1; x += 1) {
+          const own = x <= last && document.elementFromPoint(x, y) === element;
+          if (own) {
+            runStart ??= x;
+          } else if (runStart !== null) {
+            const width = x - runStart;
+            if (width > bestWidth) {
+              bestX = runStart + (width - 1) / 2;
+              bestY = y;
+              bestWidth = width;
+            }
+            runStart = null;
+          }
+        }
+      }
+      return bestWidth === 0 ? null : { x: bestX, y: bestY };
+    });
+  }
+
+  /**
    * Opens the tag drawer for a card through its "Manage tags" kebab item. This
    * selects the card and opens the Align sidebar's embedded drawer — the reliable
-   * opener at every level, including units (which select only on a click of
-   * their header's blank space, AUTH-002). Waits for the drawer to render.
+   * opener at every level, including units (see `select`). Waits for the drawer to render.
    */
   async openManageTags(card: Locator, level: OutlineLevel): Promise<void> {
     await this.openMenu(card, level);

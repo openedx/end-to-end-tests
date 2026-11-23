@@ -195,6 +195,18 @@ export const ADMIN_CONSOLE_SELECTORS = {
   matrixGroupButton: '[role="group"] button',
   matrixGroupButtonActive: '[role="group"] button.btn-primary',
 
+  /**
+   * The card around the matrix. At phone width it is the matrix's scroller, in
+   * both directions (`overflow: auto`, `max-height: 80vh`); wider, the matrix
+   * fits and only the page scrolls.
+   */
+  matrixScroller: '.permission-table-scroll',
+  /**
+   * The tab's scroll-to-top control (`AnchorButton`): an up-arrow icon button
+   * pinned to the window's bottom corner, rendered only once the page has
+   * scrolled more than 300 px. Its name ("Scroll to top") is localized.
+   */
+  matrixScrollToTop: 'button.fixed-bottom',
   /** The matrix itself, which carries its own class (not a Paragon data table). */
   permissionTable: 'table.permission-table',
   /** Header cells: the row-label column first, then one per role. */

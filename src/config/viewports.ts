@@ -52,6 +52,17 @@ export const VIEWPORTS = {
     isMobile: false,
     hasTouch: false,
   },
+  /**
+   * Wider than the default: room for layouts whose targets only exist once
+   * their row stops being full — the authoring outline's unit header has blank
+   * space of its own to click (which is what selects a unit) only from here up.
+   */
+  wideDesktop: {
+    name: 'wide desktop',
+    viewport: { width: 1600, height: 900 },
+    isMobile: false,
+    hasTouch: false,
+  },
 } as const satisfies Record<string, ViewportSpec>;
 
 /** The three sizes the public-site responsiveness case (TC-00061) walks. */

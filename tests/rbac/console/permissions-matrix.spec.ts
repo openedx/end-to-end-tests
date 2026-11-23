@@ -1,8 +1,8 @@
 import { expect, test } from '../../../src/fixtures';
 import { checkA11y } from '../../../src/a11y';
 import { LIBRARY_ROLES, listRoles } from '../../../src/api';
-import { TIMEOUTS } from '../../../src/config';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { TIMEOUTS, VIEWPORTS } from '../../../src/config';
+import { issue, testId } from '../../../src/reporting';
 import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
 
 /**
@@ -29,6 +29,11 @@ import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
  * no Courses half — so every case takes `matrixBothHalves`, which has the
  * author hold a course role too.
  */
+/** How far the matrix is scrolled inside its card: enough to move every header out if it were not pinned. */
+const SCROLL_BY = { x: 60, y: 400 } as const;
+/** The page scroll past which the console renders its scroll-to-top control (`AnchorButton`). */
+const SCROLL_TO_TOP_APPEARS_AFTER = 300;
+
 test.describe(
   'Roles and Permissions console — permission matrix',
   { tag: ['@regression', ...RBAC_TAGS, '@content-libraries'] },
@@ -136,39 +141,45 @@ test.describe(
       },
     );
 
-    test.fixme(
+    test(
       'keeps the matrix headers in view while it is scrolled',
-      {
-        annotation: [
-          testId('TC-00569'),
-          knownGap(
-            'Suite gap: the row labels are not sticky, but since admin-console#250 the matrix ' +
-              'scrolls sideways only on phone-width screens, and the scroll-to-top control exists ' +
-              'but appears only after 300 px of page scroll (`RBAC-009`, resolved). This case ' +
-              'needs rewriting for both.',
-          ),
-        ],
-      },
-      async ({ adminConsole, authoringLibrary, studioAuthorSession, matrixBothHalves }) => {
+      // The card that scrolls the matrix at phone width came with
+      // frontend-app-admin-console#250; `verawood`'s console has none.
+      { tag: '@rbac-console-next', annotation: testId('TC-00569') },
+      async ({ page, adminConsole, authoringLibrary, studioAuthorSession, matrixBothHalves }) => {
         void studioAuthorSession;
         void matrixBothHalves;
         const matrix = adminConsole.matrix;
         await adminConsole.console.goto(authoringLibrary.id);
         await matrix.open();
 
-        // Implemented: the column headers stay put as the table scrolls.
-        expect(await matrix.cellPosition(matrix.headers.first())).toBe('sticky');
+        // Since admin-console#250 the matrix fits a desktop window, so there is
+        // nothing to scroll it by; the window is narrowed to a phone's, where
+        // the card around the matrix becomes its scroller in both directions.
+        // (Narrowed after the tab is open: at this width Paragon folds the tabs
+        // into an overflow menu.)
+        await page.setViewportSize(VIEWPORTS.phone.viewport);
+        await expect.poll(async () => (await matrix.overflow()).x).toBeGreaterThan(0);
+        expect((await matrix.overflow()).y).toBeGreaterThan(SCROLL_BY.y);
 
-        // Written before admin-console#250: the matrix now scrolls sideways only
-        // at `xs` widths, and the scroll-to-top button (`AnchorButton`) renders
-        // only after the window has scrolled 300 px, outside this panel. Both
-        // clauses need a narrow viewport and a page scroll to assert
-        // (`RBAC-009`, resolved; its section in docs/findings.md lists what a
-        // rewrite needs).
-        expect(await matrix.cellPosition(matrix.column(0).first())).toBe('sticky');
-        await expect(matrix.panel.locator('button')).not.toHaveCount(
-          await matrix.groupButtons.count(),
-        );
+        // The role columns' headers stay where they are while the rows scroll
+        // under them, down and sideways.
+        const pinned = await matrix.headerOffset();
+        await matrix.scrollMatrixBy(0, SCROLL_BY.y);
+        await expect.poll(async () => (await matrix.matrixScroll()).y).toBe(SCROLL_BY.y);
+        expect(await matrix.headerOffset()).toBe(pinned);
+        await matrix.scrollMatrixBy(SCROLL_BY.x, 0);
+        await expect.poll(async () => (await matrix.matrixScroll()).x).toBeGreaterThan(0);
+        expect(await matrix.headerOffset()).toBe(pinned);
+
+        // The scroll-to-top control is not there until the page itself has
+        // scrolled well down; then it takes the page back to the top and goes.
+        await expect(matrix.scrollToTopButton).toHaveCount(0);
+        await matrix.scrollPageTo(SCROLL_TO_TOP_APPEARS_AFTER + 100);
+        await expect(matrix.scrollToTopButton).toBeVisible();
+        await matrix.scrollToTopButton.click();
+        await expect.poll(() => matrix.pageScroll()).toBe(0);
+        await expect(matrix.scrollToTopButton).toHaveCount(0);
       },
     );
 

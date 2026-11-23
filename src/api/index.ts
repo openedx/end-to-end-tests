@@ -548,6 +548,7 @@ export {
 } from './authz-migration';
 export {
   AUTHZ_COURSE_AUTHORING_FLAG,
+  RELATIVE_DATES_FLAG,
   WAFFLE_COURSE_OVERRIDE_ADMIN,
   WAFFLE_ORG_OVERRIDE_ADMIN,
   clearCourseFlagOverride,
@@ -662,9 +663,13 @@ export {
   type UserTours,
 } from './user-tours';
 export {
+  assignmentDateFor,
   courseTool,
+  fetchCourseDates,
   fetchCourseHomeOutline,
   fetchCoursewareCourse,
+  type CourseDateBlock,
+  type CourseDates,
   type CourseHomeBlock,
   type CourseHomeOutline,
   type CourseTool,

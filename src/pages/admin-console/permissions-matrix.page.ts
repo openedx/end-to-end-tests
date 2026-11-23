@@ -47,6 +47,10 @@ export class PermissionsMatrix {
   readonly rows: Locator;
   /** Paragon's tooltip — asserted by presence, never by its copy. */
   readonly tooltip: Locator;
+  /** The card that scrolls the matrix when the window is too narrow for it. */
+  readonly scroller: Locator;
+  /** The scroll-to-top button, present only once the page has scrolled far enough. */
+  readonly scrollToTopButton: Locator;
 
   constructor(readonly page: Page) {
     this.tab = page.locator(this.s.permissionsTab);
@@ -59,6 +63,8 @@ export class PermissionsMatrix {
     this.groupRows = this.panel.locator(this.s.matrixGroupRow);
     this.rows = this.panel.locator(this.s.matrixRow);
     this.tooltip = page.locator(this.s.tooltip);
+    this.scroller = this.panel.locator(this.s.matrixScroller);
+    this.scrollToTopButton = page.locator(this.s.matrixScrollToTop);
   }
 
   /** Opens the tab from an already-loaded console and waits for the matrix. */
@@ -142,5 +148,50 @@ export class PermissionsMatrix {
   /** The CSS `position` of a cell — how "the headers stay in view" is read. */
   async cellPosition(cell: Locator): Promise<string> {
     return cell.evaluate((el) => getComputedStyle(el).position);
+  }
+
+  /**
+   * How far the matrix overflows its card, in pixels each way — both zero while
+   * the matrix fits and the card is not a scroller.
+   */
+  async overflow(): Promise<{ x: number; y: number }> {
+    return this.scroller.evaluate((el) => ({
+      x: el.scrollWidth - el.clientWidth,
+      y: el.scrollHeight - el.clientHeight,
+    }));
+  }
+
+  /** Scrolls the matrix inside its card. */
+  async scrollMatrixBy(x: number, y: number): Promise<void> {
+    await this.scroller.evaluate((el, by) => el.scrollBy(by.x, by.y), { x, y });
+  }
+
+  /** How far the card has scrolled the matrix. */
+  async matrixScroll(): Promise<{ x: number; y: number }> {
+    return this.scroller.evaluate((el) => ({ x: el.scrollLeft, y: el.scrollTop }));
+  }
+
+  /**
+   * The gap, in whole pixels, between the top of the card and the top of the
+   * first role column's header — constant while the header row stays pinned,
+   * negative once it scrolls away.
+   */
+  async headerOffset(): Promise<number> {
+    const header = await this.headers.nth(1).boundingBox();
+    const card = await this.scroller.boundingBox();
+    if (header === null || card === null) {
+      throw new Error('The permission matrix or its header row is not rendered.');
+    }
+    return Math.round(header.y - card.y);
+  }
+
+  /** Scrolls the page (not the matrix) to `y`. */
+  async scrollPageTo(y: number): Promise<void> {
+    await this.page.evaluate((top) => window.scrollTo(0, top), y);
+  }
+
+  /** How far the page has scrolled. */
+  async pageScroll(): Promise<number> {
+    return this.page.evaluate(() => Math.round(window.scrollY));
   }
 }

@@ -68,6 +68,17 @@ export const STUDIO_OUTLINE_PAGE_SELECTORS = {
    */
   cardContent: (level: 'section' | 'subsection' | 'unit') =>
     `[data-testid="${level}-card__content"]`,
+  /**
+   * A unit card's header. On Verawood a unit selects only on a click whose
+   * target is this element itself — its blank space between the title link and
+   * the actions; a click on the title navigates to the unit page instead.
+   */
+  unitCardHeader: '[data-testid="unit-card-header"]',
+  /**
+   * From a card, the sortable row that wraps it (`SortableItem`'s `Row`, with
+   * `tabindex="0"`): focused, it selects its card on Enter or Space.
+   */
+  focusableRowAncestor: 'xpath=ancestor::*[@tabindex="0"][1]',
   /** The class a selected card carries while the sidebar shows its Info. */
   selectedCardClass: 'outline-card-selected',
 
