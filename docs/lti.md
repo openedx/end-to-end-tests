@@ -135,8 +135,15 @@ How it works:
 Things to know:
 
 - **Validation:** the plugin was checked against a public `main` instance on
-  2026-11-20, with saLTIre 3.3.2. Launches (inline and new window), both AGS
-  modes, NRPS, deep linking, personal-data consent and LTI Store all passed.
+  2026-11-20 and 2026-11-23, with saLTIre 3.3.2, case by case as the specs do:
+  - **Launches:** set up in the editor, inline and in a new window; learner and
+    course-staff roles; a duplicated component.
+  - **Services:** both AGS modes, NRPS and their refusals.
+  - **Deep linking**, with a republish after each pick.
+  - **Personal data:** none shared, each field alone, cancel, inline consent.
+  - **LTI Store.**
+
+  `LTI-001` and `LTI-002` reproduce there too.
 - **Fragility:** saLTIre is a third party with no published rate limits. Run it
   on demand, not in scheduled CI. Its markup can change; the plugin anchors on
   saLTIre's element ids.

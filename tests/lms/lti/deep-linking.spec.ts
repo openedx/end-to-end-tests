@@ -1,6 +1,6 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { LTI_CLAIM, readLtiDeepLinkedItems, type LtiLaunch } from '../../../src/api';
+import { LTI_CLAIM, publishXBlock, readLtiDeepLinkedItems, type LtiLaunch } from '../../../src/api';
 import type { LtiDeepLinkChoice } from '../../../src/lti-tools';
 import { testId } from '../../../src/reporting';
 import { seedReadyLtiBlock } from '../../../src/steps';
@@ -57,17 +57,22 @@ test.describe(
         });
         await ltiTool.admit(page.context());
 
-        /** The author picks `choice` in the tool from Studio; returns what the tool sent. */
+        /**
+         * The author picks `choice` in the tool from Studio, then publishes the
+         * unit (the sheet's "publish" and "republish"); returns what the tool sent.
+         */
         const select = async (choice: 'a' | 'b'): Promise<LtiDeepLinkChoice> => {
           await studioUnitPage.goto(unit.usageKey);
           const window = await studioUnitPage.openLtiDeepLinking(blockKey, ltiTool.oidcUrl);
+          let picked: LtiDeepLinkChoice;
           try {
-            const picked = await ltiTool.chooseDeepLink(window, choice);
-            expect(picked.answerStatus, `the platform stores the tool's ${choice}`).toBe(200);
-            return picked;
+            picked = await ltiTool.chooseDeepLink(window, choice);
           } finally {
             await window.close();
           }
+          expect(picked.answerStatus, `the platform stores the tool's ${choice}`).toBe(200);
+          await publishXBlock(page.request, config, unit.usageKey);
+          return picked;
         };
         /** What the platform stored for the block, as its Studio view shows it. */
         const stored = () => readLtiDeepLinkedItems(page.request, config, blockKey);
