@@ -17,9 +17,12 @@ import {
   PlanRefusal,
   RUNS_TAB,
   columnLetter,
+  isRunTab,
   planPublish,
   rangeFor,
+  reorderRequests,
   uniqueTabTitle,
+  wantedTabOrder,
   type PlanInput,
   type SpreadsheetState,
 } from '../../scripts/btr-sheet/plan.mts';
@@ -158,6 +161,36 @@ function planFor(state: SpreadsheetState, over: Partial<PlanInput> = {}) {
     publisher: 'test',
     ...over,
   });
+}
+
+/**
+ * Replays a structure batch the way Sheets applies it, returning the tab titles
+ * in their final order: an add or a leftward move puts the tab at exactly the
+ * index named. Rightward moves are counted, since their index means something else.
+ */
+function replayTabOrder(
+  state: SpreadsheetState,
+  structure: readonly Readonly<Record<string, unknown>>[],
+): { order: string[]; rightwardMoves: number } {
+  const order = [...state.sheets].sort((a, b) => a.index - b.index).map((s) => s.title);
+  const titleOf = new Map<unknown, string>(state.sheets.map((s) => [s.sheetId, s.title]));
+  let rightwardMoves = 0;
+  for (const request of structure) {
+    const add = request.addSheet as { properties: Record<string, unknown> } | undefined;
+    const move = request.updateSheetProperties as
+      { properties: Record<string, unknown>; fields: string } | undefined;
+    if (add) {
+      titleOf.set(add.properties.sheetId, add.properties.title as string);
+      order.splice(add.properties.index as number, 0, add.properties.title as string);
+    } else if (move?.fields === 'index') {
+      const title = titleOf.get(move.properties.sheetId) ?? '';
+      const to = move.properties.index as number;
+      rightwardMoves += to > order.indexOf(title) ? 1 : 0;
+      order.splice(order.indexOf(title), 1);
+      order.splice(to, 0, title);
+    }
+  }
+  return { order, rightwardMoves };
 }
 
 /* -------------------------------------------------------------------- render */
@@ -325,9 +358,10 @@ test.describe('planPublish', { tag: '@unit' }, () => {
       'updateSheetProperties',
     ]);
     const add = plan.structure[0] as { addSheet: { properties: Record<string, unknown> } };
+    // Newest first: ahead of the older run tab, straight after the fixed tabs.
     expect(add.addSheet.properties).toMatchObject({
       sheetId: 5,
-      index: 4,
+      index: 3,
       title: plan.runTab.title,
     });
     expect(plan.writes.map((w) => w.range.split('!')[0])).toEqual([
@@ -377,6 +411,82 @@ test.describe('planPublish', { tag: '@unit' }, () => {
     expect(planFor(state).runTab.title).toBe('2026-09-15 09h14 UTC · 123456');
     expect(uniqueTabTitle('t', ['t', 't · 123456'], CI_RUN)).toBe('t · 123456 (2)');
     expect(uniqueTabTitle('t', ['t'], LOCAL_RUN)).toBe('t · 5');
+  });
+
+  test('tells run tabs from tabs a person added', () => {
+    expect(isRunTab('2026-09-15 09h14 UTC')).toBe(true);
+    expect(isRunTab('2026-09-15 09h14 UTC · staging')).toBe(true);
+    expect(isRunTab('2026-09-15 09h14 UTC · 123456 (2)')).toBe(true);
+    expect(isRunTab(LATEST_TAB)).toBe(false);
+    expect(isRunTab('Notes 2026-09-15')).toBe(false);
+  });
+
+  test('reverses run tabs left oldest-first, leaving other tabs after them', () => {
+    const titles = [
+      LATEST_TAB,
+      RUNS_TAB,
+      META_TAB,
+      '2026-09-10 09h00 UTC',
+      'Scratch',
+      '2026-09-12 09h00 UTC',
+      '2026-09-12 09h00 UTC · 777',
+      '2026-09-14 09h00 UTC',
+    ];
+    const state: SpreadsheetState = {
+      ...BOOTSTRAPPED,
+      sheets: titles.map((title, index) => ({ sheetId: index + 1, title, index })),
+    };
+    const plan = planFor(state);
+
+    const { order, rightwardMoves } = replayTabOrder(state, plan.structure);
+    expect(rightwardMoves).toBe(0);
+    expect(order).toEqual([
+      LATEST_TAB,
+      RUNS_TAB,
+      META_TAB,
+      plan.runTab.title, // 2026-09-15 09h14 UTC
+      '2026-09-14 09h00 UTC',
+      '2026-09-12 09h00 UTC · 777',
+      '2026-09-12 09h00 UTC',
+      '2026-09-10 09h00 UTC',
+      'Scratch',
+    ]);
+  });
+
+  test('a run older than the newest tab lands in date order, not first', () => {
+    const state: SpreadsheetState = {
+      ...BOOTSTRAPPED,
+      sheets: [...BOOTSTRAPPED.sheets, { sheetId: 9, title: 'Scratch', index: 4 }].map((s) =>
+        s.sheetId === 4 ? { ...s, title: '2026-09-20 09h00 UTC' } : s,
+      ),
+    };
+    const plan = planFor(state);
+    const add = plan.structure[0] as { addSheet: { properties: Record<string, unknown> } };
+    expect(add.addSheet.properties.index).toBe(4); // after the 09-20 tab, before Scratch
+    expect(plan.structure.map((r) => Object.keys(r)[0])).toEqual([
+      'addSheet',
+      'updateSheetProperties', // freeze only: nothing to move
+    ]);
+  });
+
+  test('reorder helpers move nothing when the tabs are already in place', () => {
+    const tabs = [
+      LATEST_TAB,
+      RUNS_TAB,
+      META_TAB,
+      '2026-09-14 09h00 UTC',
+      '2026-09-12 09h00 UTC',
+    ].map((title, sheetId) => ({ sheetId, title }));
+    expect(wantedTabOrder(tabs)).toEqual(tabs);
+    expect(reorderRequests(tabs, wantedTabOrder(tabs))).toEqual([]);
+    // A fixed tab dragged out of place is brought back to the front.
+    const dragged = [tabs[3], tabs[0], tabs[1], tabs[2], tabs[4]].filter((t) => t !== undefined);
+    expect(wantedTabOrder(dragged)).toEqual(tabs);
+    expect(reorderRequests(dragged, tabs)).toEqual([
+      { updateSheetProperties: { properties: { sheetId: 0, index: 0 }, fields: 'index' } },
+      { updateSheetProperties: { properties: { sheetId: 1, index: 1 }, fields: 'index' } },
+      { updateSheetProperties: { properties: { sheetId: 2, index: 2 }, fields: 'index' } },
+    ]);
   });
 
   test('A1 helpers', () => {

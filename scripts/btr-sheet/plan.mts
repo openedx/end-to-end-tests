@@ -6,7 +6,8 @@
  *
  * Execution order (the client in `publish-btr-sheet.mts` follows it):
  *   1. `structure`  — `spreadsheets.batchUpdate`: add tabs, hide `_meta`, freeze,
- *                     title the spreadsheet, delete the empty default tab.
+ *                     title the spreadsheet, delete the empty default tab, and
+ *                     put the run tabs newest first.
  *   2. `clear`      — `values.clear` on each range (the old `Latest` content).
  *   3. `writes`     — `values.batchUpdate` with every grid (RAW so nothing we
  *                     wrote as text is re-parsed; formulas are USER_ENTERED).
@@ -134,6 +135,64 @@ function freezeRows(sheetId: number, rows: number): SheetsRequest {
   };
 }
 
+function moveSheet(sheetId: number, index: number): SheetsRequest {
+  return { updateSheetProperties: { properties: { sheetId, index }, fields: 'index' } };
+}
+
+/** The tabs the publisher owns besides the run tabs, in the order they lead the spreadsheet. */
+const FIXED_TABS: readonly string[] = [LATEST_TAB, RUNS_TAB, META_TAB];
+
+/**
+ * A run tab's title starts with the UTC stamp `formatStamp` writes
+ * (`2026-09-15 09h14 UTC`, optionally followed by ` · <environment or run id>`).
+ * Anything else was added by a person and is never reordered among the run tabs.
+ */
+const RUN_TAB_TITLE = /^\d{4}-\d{2}-\d{2} \d{2}h\d{2} UTC/;
+
+/** Whether a tab is a run's snapshot, going by its title. */
+export function isRunTab(title: string): boolean {
+  return RUN_TAB_TITLE.test(title);
+}
+
+/** A tab's identity while its position is being worked out. */
+type TabRef = Pick<SheetInfo, 'sheetId' | 'title'>;
+
+/**
+ * The order the tabs should end up in: the fixed tabs, then the run tabs newest
+ * first (the stamp sorts as text), then anything else in the order it was found.
+ */
+export function wantedTabOrder<T extends TabRef>(tabs: readonly T[]): T[] {
+  const fixed = FIXED_TABS.flatMap((title) => tabs.filter((t) => t.title === title));
+  const runs = tabs
+    .filter((t) => isRunTab(t.title))
+    .sort((a, b) => (a.title < b.title ? 1 : a.title > b.title ? -1 : 0));
+  const others = tabs.filter((t) => !FIXED_TABS.includes(t.title) && !isRunTab(t.title));
+  return [...fixed, ...runs, ...others];
+}
+
+/**
+ * The moves that turn `current` into `wanted` (the same tabs in another order).
+ * Each one brings a tab leftwards into its final slot, so every index means
+ * the same thing before and after the move; Sheets counts a rightward move's
+ * index with the tab still in its old place. Tabs already in place are not touched.
+ */
+export function reorderRequests(
+  current: readonly TabRef[],
+  wanted: readonly TabRef[],
+): SheetsRequest[] {
+  const order = current.map((t) => t.sheetId);
+  const requests: SheetsRequest[] = [];
+  wanted.forEach(({ sheetId }, index) => {
+    if (order[index] === sheetId) {
+      return;
+    }
+    order.splice(order.indexOf(sheetId), 1);
+    order.splice(index, 0, sheetId);
+    requests.push(moveSheet(sheetId, index));
+  });
+  return requests;
+}
+
 /**
  * A run-tab title that does not collide with an existing tab: the same minute
  * on the same target appends the run id (or the start time's seconds locally).
@@ -177,28 +236,32 @@ export function planPublish(input: PlanInput): PublishPlan {
     }
   }
 
-  let tabCount = state.sheets.length;
+  // The tab order as it will be once the requests so far have run, so the new
+  // run tab can be placed and any out-of-place tabs moved.
+  const order: TabRef[] = [...state.sheets]
+    .sort((a, b) => a.index - b.index)
+    .map(({ sheetId, title }) => ({ sheetId, title }));
 
   // --- Bootstrap: Latest, Runs, _meta; title; drop the empty default tab. ---
   let latestId = byTitle.get(LATEST_TAB)?.sheetId;
   if (latestId === undefined) {
     latestId = nextId();
     structure.push(addSheet(latestId, LATEST_TAB, 0), freezeRows(latestId, TABLE_HEADER_ROW));
-    tabCount += 1;
+    order.splice(0, 0, { sheetId: latestId, title: LATEST_TAB });
   }
   let runsId = byTitle.get(RUNS_TAB)?.sheetId;
   if (runsId === undefined) {
     runsId = nextId();
     structure.push(addSheet(runsId, RUNS_TAB, 1), freezeRows(runsId, 1));
     writes.push({ range: rangeFor(RUNS_TAB, [RUNS_HEADER]), values: [RUNS_HEADER] });
-    tabCount += 1;
+    order.splice(1, 0, { sheetId: runsId, title: RUNS_TAB });
   }
   if (!byTitle.has(META_TAB)) {
     const metaId = nextId();
     structure.push(addSheet(metaId, META_TAB, 2, { hidden: true }));
     const meta = renderMeta(ctx.release, now, publisher);
     writes.push({ range: rangeFor(META_TAB, meta), values: meta });
-    tabCount += 1;
+    order.splice(2, 0, { sheetId: metaId, title: META_TAB });
   }
   if (bootstrapping) {
     if (state.title === UNTITLED || state.title === '') {
@@ -214,15 +277,25 @@ export function planPublish(input: PlanInput): PublishPlan {
       const [only] = state.sheets;
       if (only && ![LATEST_TAB, RUNS_TAB, META_TAB].includes(only.title)) {
         structure.push({ deleteSheet: { sheetId: only.sheetId } });
-        tabCount -= 1;
+        order.splice(order.indexOf(only), 1);
       }
     }
   }
 
-  // --- This run's tab, appended after every existing tab. ---
+  // --- This run's tab, in its place among the run tabs: newest first, straight
+  // after the fixed tabs. Then any tab that is out of place is moved, which on
+  // a sheet in the older oldest-first layout reverses the run tabs once.
   const runTabTitle = uniqueTabTitle(tabTitleFor(run, ctx), [...byTitle.keys()], run);
   const runTabId = nextId();
-  structure.push(addSheet(runTabId, runTabTitle, tabCount), freezeRows(runTabId, TABLE_HEADER_ROW));
+  const runTab: TabRef = { sheetId: runTabId, title: runTabTitle };
+  const wanted = wantedTabOrder([...order, runTab]);
+  const runTabIndex = Math.min(wanted.indexOf(runTab), order.length);
+  structure.push(
+    addSheet(runTabId, runTabTitle, runTabIndex),
+    freezeRows(runTabId, TABLE_HEADER_ROW),
+  );
+  order.splice(runTabIndex, 0, runTab);
+  structure.push(...reorderRequests(order, wanted));
 
   const grid = renderRunSheet(run, ctx);
   writes.push({ range: rangeFor(runTabTitle, grid), values: grid });
