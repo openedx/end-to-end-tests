@@ -176,6 +176,14 @@ merge job, finding fewer blobs than the matrix has shards, publishes the
 shards that did run to their own tab, leaves `Latest` alone and fails. The
 workflow's job summary links the new tab.
 
+**Tab order.** `Latest`, `Runs` and the hidden `_meta` come first, then the run
+tabs newest first, then any tab a person added. Every publish puts the tabs
+back in that order, so a sheet from before this rule (run tabs oldest first) is
+reordered by its next publish, and re-publishing an old run files its tab by
+date rather than at the front. A run tab is recognised by its title starting
+with the UTC stamp (`2026-09-15 09h14 UTC`); no tab is ever deleted. The `Runs`
+index stays oldest first.
+
 **Re-publishing from an artifact** (a failed publish, or a sheet rebuilt later):
 download `btr-run.json` from the run's `suite-reports-*` artifact, then
 
