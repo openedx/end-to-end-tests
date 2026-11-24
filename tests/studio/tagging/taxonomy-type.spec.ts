@@ -40,10 +40,10 @@ test.describe(
       await list.goto();
       await list.openImportToPopulate(taxonomyImportFile());
 
-      await expect(list.typeSelect).toBeVisible();
-      await expect(list.typeSelect).toHaveValue('tags');
+      await expect(list.wizard.typeSelect).toBeVisible();
+      await expect(list.wizard.typeSelect).toHaveValue('tags');
       // Option `value` attributes are the untranslated API values; their text is copy.
-      const values = await list.typeOptions.evaluateAll((options) =>
+      const values = await list.wizard.typeOptions.evaluateAll((options) =>
         options.map((o) => (o as HTMLOptionElement).value),
       );
       expect(values).toEqual(['tags', 'competency']);
@@ -129,12 +129,13 @@ test.describe(
       try {
         await list.goto();
         await list.openImportToPopulate(taxonomyImportFile());
-        await list.fillPopulate(`E2E ${getRunId()} type switched ${test.info().testId.slice(-6)}`, {
-          type: 'competency',
-        });
-        await list.chooseType('tags');
-        await expect(list.typeSelect).toHaveValue('tags');
-        const id = await list.submitImport();
+        const name = `E2E ${getRunId()} type switched ${test.info().testId.slice(-6)}`;
+        await list.wizard.fillPopulate(name, { type: 'competency' });
+        await list.wizard.chooseType('tags');
+        await expect(list.wizard.typeSelect).toHaveValue('tags');
+        const response = await list.wizard.submitImport();
+        expect(response.ok()).toBe(true);
+        const id = ((await response.json()) as { id: number }).id;
         created.push(id);
 
         await list.goto();
