@@ -13,10 +13,13 @@ import {
   newCourseIdentity,
   rerunCourse,
   revokeLegacyRole,
+  setGlobalStaff,
   setOrgFlagOverride,
   waitForRerun,
 } from '../../../src/api';
 import { TIMEOUTS, getRunId } from '../../../src/config';
+import { StudioCourseOutlinePage } from '../../../src/pages/studio/course-outline.page';
+import { createCourseThroughStudioHome } from '../../../src/steps';
 import { disputed, issue, knownGap, testId } from '../../../src/reporting';
 import { STUDIO_AUTHZ_TAGS } from './helpers';
 import { migrationCourse, newOrgName } from '../transition/helpers';
@@ -39,7 +42,7 @@ test.describe(
 
     test(
       'assigns the creator the admin role in AuthZ when a course is created under the flag',
-      { tag: '@authz-auto-migration', annotation: [testId('TC-00616'), testId('TC-00627')] },
+      { tag: '@authz-auto-migration', annotation: testId('TC-00627') },
       async (
         {
           config,
@@ -111,6 +114,94 @@ test.describe(
           await adminLms((session) =>
             clearOrgFlagOverride(session, config, org, AUTHZ_COURSE_AUTHORING_FLAG, 'e2e teardown'),
           );
+        }
+      },
+    );
+
+    test(
+      'lets Global Staff create a course from Studio home under the flag',
+      { tag: '@authz-auto-migration', annotation: testId('TC-00616') },
+      async (
+        {
+          config,
+          adminLms,
+          authzTarget,
+          automaticMigrationTarget,
+          studioAuthorSession,
+          studioColleague,
+        },
+        testInfo,
+      ) => {
+        void studioAuthorSession;
+        void automaticMigrationTarget;
+        void authzTarget;
+        const slot = `G${testInfo.parallelIndex}R${testInfo.retry}`;
+        const org = newOrgName(getRunId(), slot);
+        // Global Staff, not a superuser: the flag is read from the database on
+        // every request, so the colleague's existing sign-in carries it.
+        const staff = await studioColleague();
+        await adminLms(async (session) => {
+          await setGlobalStaff(session, config, staff.identity.username, true);
+          await setOrgFlagOverride(session, config, org, {
+            flag: AUTHZ_COURSE_AUTHORING_FLAG,
+            choice: 'on',
+            enabled: true,
+            note: `e2e ${testInfo.testId}`,
+          });
+        });
+
+        try {
+          const base = newCourseIdentity(config, getRunId(), slot, 'staffmade');
+          const identity = {
+            ...base,
+            org,
+            courseKey: courseKeyFor(org, base.number, base.run),
+          };
+
+          // The Studio home form, filled in and submitted as the case describes;
+          // Studio's answer names the course and the MFE opens its outline.
+          const creation = await createCourseThroughStudioHome(
+            staff.studioHomePage,
+            new StudioCourseOutlinePage(staff.page, config),
+            identity,
+          );
+          expect(creation.response.status).toBe(200);
+          expect(creation.courseKey).toBe(identity.courseKey);
+
+          // The creator holds the course in authz and nowhere else.
+          await expect
+            .poll(
+              async () =>
+                (
+                  await listRoleUsers(staff.request, config, identity.courseKey, { pageSize: 100 })
+                ).members.find((member) => member.username === staff.identity.username)?.roles ??
+                [],
+              { timeout: TIMEOUTS.rbacMigration },
+            )
+            .toContain('course_admin');
+          await adminLms(async (session) => {
+            expect(
+              (await listCourseAccessRoles(session, config, identity.courseKey)).filter(
+                (row) => row.courseKey === identity.courseKey,
+              ),
+            ).toEqual([]);
+          });
+
+          // And Studio home lists it to them.
+          await staff.studioHomePage.goto();
+          await staff.studioHomePage.search(identity.number);
+          await expect(staff.studioHomePage.courseCard(identity.courseKey)).toBeVisible();
+        } finally {
+          await adminLms(async (session) => {
+            await clearOrgFlagOverride(
+              session,
+              config,
+              org,
+              AUTHZ_COURSE_AUTHORING_FLAG,
+              'e2e teardown',
+            );
+            await setGlobalStaff(session, config, staff.identity.username, false);
+          });
         }
       },
     );

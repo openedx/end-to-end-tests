@@ -210,5 +210,98 @@ test.describe(
           .toBe(`${title} v2`);
       },
     );
+
+    test(
+      'library unit updates are accepted or ignored from the unit’s card in the course outline',
+      { tag: '@outline-library-sync', annotation: testId('TC-00348') },
+      async (
+        {
+          page,
+          config,
+          studioAuthorSession,
+          resyncStudioAuthor,
+          authoringLibrary,
+          authoringCourse,
+          studioCourseOutlinePage,
+          previewChangesDialog,
+        },
+        testInfo,
+      ) => {
+        void studioAuthorSession;
+        await resyncStudioAuthor();
+        const title = label('unit', testInfo.testId);
+        const block = await authorTextBlock(
+          page.request,
+          config,
+          authoringLibrary.id,
+          `${title} text`,
+        );
+        const unit = await createLibraryContainer(
+          page.request,
+          config,
+          authoringLibrary.id,
+          'unit',
+          title,
+        );
+        await addContainerChildren(page.request, config, unit.id, [block.id]);
+        await commitLibrary(page.request, config, authoringLibrary.id);
+        const chapter = await createXBlock(page.request, config, {
+          parentLocator: courseUsageKey(authoringCourse.courseKey),
+          category: 'chapter',
+          displayName: label('outline-sync', testInfo.testId),
+        });
+        const sequential = await createXBlock(page.request, config, {
+          parentLocator: chapter,
+          category: 'sequential',
+          displayName: 'Subsection',
+        });
+        const imported = await importLibraryContent(page.request, config, {
+          parentLocator: sequential,
+          category: 'vertical',
+          libraryContentKey: unit.id,
+        });
+        const openOutline = async () => {
+          await studioCourseOutlinePage.goto(authoringCourse.courseKey);
+          await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
+          await studioCourseOutlinePage.setAllExpanded(true);
+          return studioCourseOutlinePage.unit(imported.locator);
+        };
+        const publishRename = async (name: string) => {
+          await renameLibraryContainer(page.request, config, unit.id, name);
+          await publishLibraryContainer(page.request, config, unit.id);
+          const sync = await waitForSyncAvailable(page.request, config, imported.locator);
+          expect(sync.satisfied, JSON.stringify(sync.last)).toBe(true);
+        };
+        const courseUnitName = async () =>
+          (await fetchXBlockOutline(page.request, config, imported.locator)).display_name;
+
+        // In step with the library, the unit's card offers no update.
+        await expect(previewChangesDialog.outlineSyncButton(await openOutline())).toHaveCount(0);
+
+        // A published rename puts the update button on the card; it opens the
+        // comparison (a unit's is one side-by-side view, with no old / new
+        // toggle), and accepting applies the change to the course.
+        await publishRename(`${title} v2`);
+        let card = await openOutline();
+        await expect(previewChangesDialog.outlineSyncButton(card)).toBeVisible();
+        await previewChangesDialog.openFromOutlineCard(card);
+        expect((await previewChangesDialog.accept()).status()).toBe(200);
+        const accepted = await fetchDownstream(page.request, config, imported.locator);
+        expect(accepted.version_synced).toBe(accepted.version_available);
+        expect(await courseUnitName()).toBe(`${title} v2`);
+
+        // The next rename is ignored from the card: the course keeps v2, and
+        // the card stops offering the declined update.
+        await publishRename(`${title} v3`);
+        card = await openOutline();
+        await previewChangesDialog.openFromOutlineCard(card);
+        expect((await previewChangesDialog.ignore()).status()).toBe(204);
+        const declined = await fetchDownstream(page.request, config, imported.locator);
+        expect(declined.version_declined).toBe(declined.version_available);
+        expect(declined.ready_to_sync).toBe(false);
+        expect(await courseUnitName()).toBe(`${title} v2`);
+        await expect(previewChangesDialog.outlineSyncButton(await openOutline())).toHaveCount(0);
+      },
+    );
   },
 );

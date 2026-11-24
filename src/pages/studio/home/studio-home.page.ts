@@ -225,6 +225,18 @@ export class StudioHomePage {
     );
   }
 
+  /** The "no courses with the current filters" notice. */
+  get noResultsAlert(): Locator {
+    return this.page.locator(STUDIO_HOME_SELECTORS.coursesNotFoundAlert);
+  }
+
+  /** The notice's "Clear filters": waits for the list request it triggers. */
+  async clearFilters(): Promise<void> {
+    await waitForWrite(this.page, { urlIncludes: '/home/courses' }, () =>
+      this.page.locator(STUDIO_HOME_SELECTORS.coursesNotFoundClearButton).click(),
+    );
+  }
+
   /** Opens a course card's three-dot "Course actions" menu. */
   async openCardMenu(courseKey: string): Promise<void> {
     await this.courseCard(courseKey).locator(STUDIO_HOME_SELECTORS.courseCardActions).click();

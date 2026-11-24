@@ -7,7 +7,8 @@ import { testId } from '../../../src/reporting';
  * Selecting and acting on a unit's component cards from the Verawood unit-page
  * sidebar (BTR TC-00498, 00499). Clicking a component card shows its Info in the
  * sidebar with a Back control and its own overflow menu; the menu's actions
- * (duplicate) change the unit's children, read from the container API.
+ * (duplicate, delete, move to another unit) change the units' children, read
+ * from the container API.
  *
  * Gated on `studio-sidebar`; `studioAuthorSession` resolves last.
  */
@@ -101,6 +102,57 @@ test.describe(
           .poll(childKeys, { timeout: TIMEOUTS.contentWrite })
           .not.toContain(first.usageKey);
         expect(await childKeys()).toHaveLength(before.length);
+      },
+    );
+
+    test(
+      'moves a component to another unit from its sidebar overflow menu',
+      { annotation: testId('TC-00499') },
+      async ({
+        page,
+        config,
+        authoringCourse,
+        authoringSidebar,
+        studioUnitPage,
+        studioAuthorSession,
+      }) => {
+        void studioAuthorSession;
+        const section = await buildSection(
+          page.request,
+          config,
+          authoringCourse.courseKey,
+          `E2E comp move ${test.info().testId.slice(-6)}`,
+          { subsections: [{ units: [{ blocks: ['html', 'html'] }, { blocks: ['html'] }] }] },
+        );
+        const subsection = section.subsections[0];
+        const [from, to] = section.units;
+        const moved = from?.blocks[0];
+        if (subsection === undefined || from === undefined || to === undefined || !moved) {
+          throw new Error('buildSection produced no two units with a component to move.');
+        }
+        const childKeys = async (unitKey: string) =>
+          (await fetchContainerChildren(page.request, config, unitKey)).map((c) => c.block_id);
+        await studioUnitPage.goto(from.usageKey);
+
+        // Move opens a dialog that walks the course down to a unit; confirmed
+        // there, the component leaves this unit for that one.
+        await studioUnitPage.selectComponent(moved.usageKey);
+        const response = await authoringSidebar.moveSelectedComponentTo([
+          section.displayName,
+          subsection.displayName,
+          to.displayName,
+        ]);
+        expect(response.status()).toBe(200);
+        await expect
+          .poll(
+            async () => ({
+              from: (await childKeys(from.usageKey)).includes(moved.usageKey),
+              to: (await childKeys(to.usageKey)).includes(moved.usageKey),
+            }),
+            { timeout: TIMEOUTS.contentWrite },
+          )
+          .toEqual({ from: false, to: true });
+        expect(await childKeys(from.usageKey)).toHaveLength(from.blocks.length - 1);
       },
     );
   },

@@ -1,4 +1,9 @@
-import { libraryOlx, setLibraryBlockOlx, setObjectTags } from '../../../src/api';
+import {
+  libraryOlx,
+  publishLibraryBlock,
+  setLibraryBlockOlx,
+  setObjectTags,
+} from '../../../src/api';
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
 import { testId } from '../../../src/reporting';
@@ -33,7 +38,8 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
       });
 
       // The last word alone: the shared label prefix would match every card.
-      await libraryPage.search(text.display_name.split(' ').pop() ?? '');
+      const term = text.display_name.split(' ').pop() ?? '';
+      await libraryPage.search(term);
       await expect(libraryPage.cardFor(text.display_name)).toHaveCount(1, {
         timeout: TIMEOUTS.librarySearch,
       });
@@ -41,8 +47,14 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
         timeout: TIMEOUTS.librarySearch,
       });
       await expect(libraryPage.cards).toHaveCount(1);
+      // The match is highlighted in the card: the typed word, marked.
+      await expect(libraryPage.highlightsIn(text.display_name).first()).toHaveText(term, {
+        ignoreCase: true,
+      });
 
-      await libraryPage.clearSearch();
+      // The field's own "×" clears the search.
+      await libraryPage.resetSearch();
+      await expect(libraryPage.searchInput).toHaveValue('');
       await expect(libraryPage.cards).toHaveCount(Object.keys(seededLibrary.blocks).length, {
         timeout: TIMEOUTS.librarySearch,
       });
@@ -168,6 +180,71 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
       await expect.poll(titles, { timeout: TIMEOUTS.librarySearch }).toEqual(created);
       await libraryPage.sortBy('recentlyModified');
       await expect.poll(titles, { timeout: TIMEOUTS.librarySearch }).toEqual(modified);
+
+      // Recently published: published one at a time, in an order no other sort
+      // gives, the last one published leads.
+      const publishOrder = [third!, first!, second!];
+      for (const block of publishOrder) {
+        await publishLibraryBlock(page.request, config, block.id);
+      }
+      await libraryPage.sortBy('recentlyPublished');
+      await expect
+        .poll(titles, { timeout: TIMEOUTS.librarySearch })
+        .toEqual([...publishOrder].reverse().map((b) => b.display_name));
+    },
+  );
+
+  test(
+    'sorts search results by relevance',
+    { annotation: testId('TC-00332') },
+    async ({ page, config, studioAuthorSession, authoringLibrary, libraryPage }, testInfo) => {
+      void studioAuthorSession;
+      // One word of this test's own, in the title of the middle block and only
+      // in the body of the other two. A title match outranks a body match, so
+      // relevance leads with the middle block — which is first in neither
+      // creation order nor modification order.
+      const base = label('rank', testInfo.testId);
+      const word = `relevant${testInfo.testId.slice(-6)}`;
+      const bodyFirst = await authorTextBlock(
+        page.request,
+        config,
+        authoringLibrary.id,
+        `${base} one`,
+        `body ${word}`,
+      );
+      const titled = await authorTextBlock(
+        page.request,
+        config,
+        authoringLibrary.id,
+        `${base} ${word}`,
+        'body',
+      );
+      const bodyLast = await authorTextBlock(
+        page.request,
+        config,
+        authoringLibrary.id,
+        `${base} three`,
+        `body ${word}`,
+      );
+      const titles = () => libraryPage.cardTitles.allInnerTexts();
+
+      await libraryPage.goto(authoringLibrary.id, 'components');
+      await expect(libraryPage.cards).toHaveCount(3, { timeout: TIMEOUTS.librarySearch });
+      await libraryPage.search(word);
+      await expect(libraryPage.cards).toHaveCount(3, { timeout: TIMEOUTS.librarySearch });
+
+      // With a term typed the sort menu gains "Most Relevant" and uses it.
+      await expect
+        .poll(async () => (await titles())[0], { timeout: TIMEOUTS.librarySearch })
+        .toBe(titled.display_name);
+      await libraryPage.sortBy('oldest');
+      await expect
+        .poll(titles, { timeout: TIMEOUTS.librarySearch })
+        .toEqual([bodyFirst, titled, bodyLast].map((b) => b.display_name));
+      await libraryPage.sortBy('mostRelevant');
+      await expect
+        .poll(async () => (await titles())[0], { timeout: TIMEOUTS.librarySearch })
+        .toBe(titled.display_name);
     },
   );
 
@@ -176,31 +253,48 @@ test.describe('Content library search', { tag: ['@regression', ...LIBRARY_TAGS] 
     { tag: '@taxonomies', annotation: testId('TC-00329') },
     async ({ page, config, studioAuthorSession, seededLibrary, workerTaxonomy, libraryPage }) => {
       void studioAuthorSession;
-      const { text } = seededLibrary.blocks;
-      // Tag one seeded block through the API; the UI drives the refinement, the
+      const { text, problem } = seededLibrary.blocks;
+      const taxonomy = workerTaxonomy.taxonomy;
+      const all = Object.keys(seededLibrary.blocks).length;
+      // Tag two seeded blocks through the API — one with a nested tag, one with
+      // a top-level tag of another branch; the UI drives the refinement, the
       // search index decides the card set. The taxonomy is assigned to the
-      // library's org, so it surfaces as the root facet on the library search;
-      // selecting that taxonomy node filters to the content tagged in it.
-      await setObjectTags(page.request, config, text.id, workerTaxonomy.taxonomy.id, [
-        TAG.parentOne,
-      ]);
+      // library's org, so it surfaces as the root facet on the library search.
+      await setObjectTags(page.request, config, text.id, taxonomy.id, [TAG.childOneA]);
+      await setObjectTags(page.request, config, problem.id, taxonomy.id, [TAG.parentTwo]);
+      const onlyCard = async (title: string) => {
+        await expect(libraryPage.cardFor(title)).toHaveCount(1, {
+          timeout: TIMEOUTS.librarySearch,
+        });
+        await expect(libraryPage.cards).toHaveCount(1, { timeout: TIMEOUTS.librarySearch });
+      };
+      const cleared = async () => {
+        await libraryPage.clearFilter('tags');
+        await expect(libraryPage.cards).toHaveCount(all, { timeout: TIMEOUTS.librarySearch });
+      };
 
       await libraryPage.goto(seededLibrary.libraryKey, 'components');
-      await expect(libraryPage.cards).toHaveCount(Object.keys(seededLibrary.blocks).length, {
-        timeout: TIMEOUTS.librarySearch,
-      });
+      await expect(libraryPage.cards).toHaveCount(all, { timeout: TIMEOUTS.librarySearch });
 
-      await libraryPage.toggleTagFilterByValue(workerTaxonomy.taxonomy.name);
+      // The taxonomy itself: everything tagged in it.
+      await libraryPage.toggleTagFilterByPath([taxonomy.name]);
       await expect(libraryPage.cardFor(text.display_name)).toHaveCount(1, {
         timeout: TIMEOUTS.librarySearch,
       });
-      await expect(libraryPage.cards).toHaveCount(1, { timeout: TIMEOUTS.librarySearch });
+      await expect(libraryPage.cardFor(problem.display_name)).toHaveCount(1);
+      await expect(libraryPage.cards).toHaveCount(2, { timeout: TIMEOUTS.librarySearch });
+      await cleared();
 
-      await libraryPage.clearFilter('tags');
+      // A top-level tag, from the taxonomy's drop-down.
+      await libraryPage.toggleTagFilterByPath([taxonomy.name, TAG.parentTwo]);
+      await onlyCard(problem.display_name);
+      await cleared();
+
+      // A nested tag, two drop-downs deep.
+      await libraryPage.toggleTagFilterByPath([taxonomy.name, TAG.parentOne, TAG.childOneA]);
+      await onlyCard(text.display_name);
+      await cleared();
       await libraryPage.dismissMenu();
-      await expect(libraryPage.cards).toHaveCount(Object.keys(seededLibrary.blocks).length, {
-        timeout: TIMEOUTS.librarySearch,
-      });
     },
   );
 });

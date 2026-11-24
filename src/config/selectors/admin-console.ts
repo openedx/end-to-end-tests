@@ -52,6 +52,18 @@ export const ADMIN_CONSOLE_SELECTORS = {
   filterOption: '.dropdown-menu.show input[type="checkbox"]',
   /** The chip a filter adds below the row; its button clears that filter. */
   filterChipClear: 'button.pgn__chip__icon-after, .pgn__chip button',
+  /** One applied-filter chip ("Filtered by: …"), one per ticked option. */
+  filterChip: '.pgn__chip',
+  /** "Clear filters" — the link-styled button that closes the chip row. */
+  clearFilters: '.pgn__chip ~ button.btn-link',
+  /** A filter option by the key its checkbox carries (a role, org or scope key). */
+  filterOptionByValue: (value: string): string =>
+    `.dropdown-menu.show input[type="checkbox"][value="${value}"]`,
+  /**
+   * The headings a filter menu groups its options under — the Role and Scope
+   * menus group by kind ("Courses", "Libraries", …); Organization has none.
+   */
+  filterGroupName: '.dropdown-menu.show .pgn__dropdown-filter-group-name',
 
   /** Paragon's data table, its rows and its footer. */
   table: 'table.pgn__data-table',

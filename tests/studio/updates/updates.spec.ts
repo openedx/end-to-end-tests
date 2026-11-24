@@ -6,7 +6,8 @@ import { testId } from '../../../src/reporting';
 
 /**
  * Course updates and handouts (BTR TC-00245–00247): posting a dated update,
- * editing the handouts and the editor's formatting. The UI drives the inline
+ * editing the handouts and the editor's formatting (bold from its shortcut; a
+ * heading, a toolbar button and the emoticons dialog). The UI drives the inline
  * TinyMCE; the Studio updates and handouts APIs decide the saved HTML.
  *
  * Gated on `@studio @author @mfe-authoring`.
@@ -67,6 +68,27 @@ test.describe(
         const ours = contents.find((c) => c.includes(text));
         expect(ours).toBeDefined();
         expect(ours ?? '').toMatch(/<(strong|b)>/i);
+      },
+    );
+
+    test(
+      'applies a heading, a toolbar format and an emoticon from the editor',
+      { annotation: testId('TC-00247') },
+      async ({ page, config, authoringCourse, updatesPage, studioAuthorSession }) => {
+        void studioAuthorSession;
+        const key = authoringCourse.courseKey;
+        const text = `E2E decorated ${test.info().testId.slice(-6)}`;
+        const emoji = '😀';
+        await updatesPage.goto(key);
+        await updatesPage.newDecoratedUpdate(text, emoji);
+
+        const ours = (await fetchCourseUpdates(page.request, config, key))
+          .map((u) => u.content)
+          .find((c) => c.includes(text));
+        expect(ours).toBeDefined();
+        // A heading holding the text in italics, and the emoji picked from the dialog.
+        expect(ours ?? '').toMatch(/<h2[^>]*>.*<(em|i)>/is);
+        expect(ours ?? '').toContain(emoji);
       },
     );
   },

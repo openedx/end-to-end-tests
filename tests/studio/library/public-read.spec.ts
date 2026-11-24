@@ -57,8 +57,14 @@ test.describe('Library public read access', { tag: ['@regression', ...LIBRARY_TA
         fetchLibrary(outsider.request, config, authoringLibrary.id),
       ).rejects.toMatchObject({ status: 403 });
 
-      // On: the unaffiliated Studio user may read.
+      // On: the unaffiliated Studio user may read. While the save is in flight
+      // the switch is disabled (recorded as it happens, since the save itself
+      // takes a moment only), and it comes back enabled and on.
+      const wasDisabled = await libraryPage.sidebar.recordPublicReadDisabled();
       expect((await libraryPage.sidebar.setPublicRead(true))?.status()).toBe(200);
+      await expect(libraryPage.sidebar.publicReadSwitch).toBeEnabled();
+      await expect(libraryPage.sidebar.publicReadSwitch).toBeChecked();
+      expect(await wasDisabled()).toBe(true);
       await expect
         .poll(() =>
           fetchLibrary(page.request, config, authoringLibrary.id).then((l) => l.allow_public_read),
@@ -143,6 +149,9 @@ test.describe('Library public read access', { tag: ['@regression', ...LIBRARY_TA
       const title = label('shared', testInfo.testId);
       await authorTextBlock(page.request, config, authoringLibrary.id, title);
       await commitLibrary(page.request, config, authoringLibrary.id);
+      // A second item, authored after the publish: a draft the picker must not offer.
+      const draftTitle = label('draft', testInfo.testId);
+      await authorTextBlock(page.request, config, authoringLibrary.id, draftTitle);
       // User U authors a course of the worker author's (course staff), but has no
       // role in the library.
       const outsider = await studioColleague();
@@ -191,6 +200,9 @@ test.describe('Library public read access', { tag: ['@regression', ...LIBRARY_TA
         .cardFor(title)
         .first()
         .waitFor({ timeout: TIMEOUTS.librarySearch });
+      // The published item is listed; the draft is not.
+      await expect(outsider.libraryPicker.cardFor(draftTitle)).toHaveCount(0);
+      await expect(outsider.libraryPicker.cards).toHaveCount(1);
       expect((await outsider.libraryPicker.addToCourse(title)).status()).toBe(200);
     },
   );

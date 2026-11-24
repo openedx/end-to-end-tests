@@ -54,3 +54,24 @@ export async function locateCourseInCatalog(
     );
   }
 }
+
+/**
+ * Whether the catalog lists one course, looked for by whichever route the
+ * installation offers: the search field where course discovery is on
+ * (`catalog-search`), paging the whole list where it is not. The counterpart of
+ * {@link locateCourseInCatalog} for a case whose subject is that a course is
+ * **absent** from the catalog, so it answers instead of throwing.
+ */
+export async function isCourseListedInCatalog(
+  catalogPage: CatalogPage,
+  config: AppConfig,
+  courseKey: string,
+  searchTerm: string,
+): Promise<boolean> {
+  await catalogPage.goto();
+  if (config.capabilities.has('catalog-search')) {
+    await catalogPage.search(searchTerm);
+    return (await catalogPage.shownCourseKeys()).includes(courseKey);
+  }
+  return catalogPage.pageToCourseCard(courseKey);
+}

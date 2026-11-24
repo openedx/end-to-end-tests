@@ -33,6 +33,28 @@ export const ADVANCED_BLOCK_SELECTORS = {
    * both are `li.pdf-download-button`, told apart by their `href`.
    */
   pdfLink: 'li.pdf-download-button a',
+  /**
+   * xblock-drag-and-drop-v2: a draggable item, by the id the block's data gives
+   * it (`data-value`). It sits in the item bank until a drop is accepted, and
+   * inside the zone afterwards.
+   */
+  dragAndDropItem: (itemId: number) => `.option[data-value="${itemId}"]`,
+  /**
+   * edx-ora2's legacy learner view (`oa_response.html`, `oa_grade_*.html`): the
+   * response field ("Your Response"), "Submit your response and move to the
+   * next step", and the "Your Grade" step, which carries `is--complete` once
+   * the submission has its final grade.
+   */
+  oraResponseText: 'textarea.submission__answer__part__text__value',
+  oraSubmit: 'button.step--response__submit',
+  /**
+   * The "Confirm Submit Response" prompt: a jQuery UI dialog appended to the
+   * unit frame's body, outside the block's wrapper; "Confirm" is its first button.
+   */
+  oraSubmitConfirm: '.ui-dialog .ui-dialog-buttonset button:first-child',
+  oraGradeComplete: 'li.step--grade.is--complete',
+  /** xblock-drag-and-drop-v2: a drop zone, by the `uid` the block's data gives it. */
+  dragAndDropZone: (zoneUid: string) => `.zone[data-uid="${zoneUid}"]`,
 } as const;
 
 /** The element each advanced block renders first inside its wrapper. */

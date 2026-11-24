@@ -17,6 +17,10 @@ import {
 } from '../../../src/api';
 import { knownGap, testId } from '../../../src/reporting';
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Learner-sidebar cases that need authored content: unit-type icons (TC-00054),
  * cohort-restricted content (TC-00058) and staff-only sections hidden from
@@ -24,7 +28,8 @@ import { knownGap, testId } from '../../../src/reporting';
  *
  * These author content as an author and assert the learner's view in the same
  * run. The sidebar itself is behind `@courseware-navigation-sidebar`; the
- * authoritative reading is the learner's Blocks / navigation API.
+ * authoritative reading is the learner's Blocks / navigation API, with the
+ * rendered sidebar read after it where the case is about what the sidebar lists.
  */
 test.describe(
   'Learner sidebar from authored content',
@@ -101,16 +106,21 @@ test.describe(
     );
 
     test(
-      'hides a staff-only section from a learner',
+      'hides a staff-only section and a staff-only subsection from a learner',
       { tag: '@courseware-navigation-sidebar', annotation: testId('TC-00059') },
       async ({ page, config, authoringCourse, studioAuthorSession, authoringCourseLearner }) => {
         void studioAuthorSession;
+        // One section the learner keeps, holding a subsection they keep and one
+        // that will be hidden; and a second section hidden whole.
         const visible = await buildSection(
           page.request,
           config,
           authoringCourse.courseKey,
           `E2E vis-sec ${test.info().testId.slice(-6)}`,
-          { subsections: [{ units: [{ blocks: ['html'] }] }], publish: true },
+          {
+            subsections: [{ units: [{ blocks: ['html'] }] }, { units: [{ blocks: ['html'] }] }],
+            publish: true,
+          },
         );
         const hidden = await buildSection(
           page.request,
@@ -119,25 +129,65 @@ test.describe(
           `E2E staff-sec ${test.info().testId.slice(-6)}`,
           { subsections: [{ units: [{ blocks: ['html'] }] }], publish: true },
         );
-        const visibleUnit = visible.units[0]?.usageKey ?? '';
-        const hiddenUnit = hidden.units[0]?.usageKey ?? '';
+        const [keptSubsection, hiddenSubsection] = visible.subsections;
+        const keptUnit = keptSubsection?.units[0];
+        const hiddenSubsectionUnit = hiddenSubsection?.units[0];
+        const hiddenSectionUnit = hidden.units[0];
+        if (
+          keptSubsection === undefined ||
+          hiddenSubsection === undefined ||
+          keptUnit === undefined ||
+          hiddenSubsectionUnit === undefined ||
+          hiddenSectionUnit === undefined
+        ) {
+          throw new Error('buildSection did not produce the sections this case needs.');
+        }
 
-        await updateXBlock(page.request, config, hidden.usageKey, {
-          metadata: { visible_to_staff_only: true },
-        });
+        for (const key of [hidden.usageKey, hiddenSubsection.usageKey]) {
+          await updateXBlock(page.request, config, key, {
+            metadata: { visible_to_staff_only: true },
+          });
+        }
 
-        // The learner sees the visible section's unit but not the staff-only one.
-        // Both from one reading: the hide reaches the learner a publish fan-out
-        // after the visible unit does, so the hidden one can still show for a while.
+        // The learner is served the kept unit but neither hidden one. All from one
+        // reading: a hide reaches the learner a publish fan-out after the visible
+        // unit does, so a hidden one can still show for a while.
+        const learner = authoringCourseLearner;
         await expect
           .poll(
             async () => {
-              const ids = (await authoringCourseLearner.outline()).units.map((u) => u.id);
-              return { visible: ids.includes(visibleUnit), hidden: ids.includes(hiddenUnit) };
+              const ids = (await learner.outline()).units.map((u) => u.id);
+              return {
+                kept: ids.includes(keptUnit.usageKey),
+                hiddenSubsection: ids.includes(hiddenSubsectionUnit.usageKey),
+                hiddenSection: ids.includes(hiddenSectionUnit.usageKey),
+              };
             },
             { timeout: TIMEOUTS.contentPublish },
           )
-          .toEqual({ visible: true, hidden: false });
+          .toEqual({ kept: true, hiddenSubsection: false, hiddenSection: false });
+
+        // And the sidebar itself, from a unit page: the section view lists the
+        // kept subsection alone, and the course outline view the kept section
+        // alone. (The names are the test's own.)
+        await learner.prime(keptUnit.sequentialUsageKey);
+        await learner.unitPage.goto(
+          learner.courseKey,
+          keptUnit.sequentialUsageKey,
+          keptUnit.usageKey,
+        );
+        await expect(learner.unitPage.sidebar).toBeVisible();
+        await expect(learner.unitPage.sidebarUnitLink(keptUnit.usageKey)).toBeVisible();
+        await expect(learner.unitPage.sidebarSubsections).toHaveText([
+          new RegExp(escapeRegExp(keptSubsection.displayName)),
+        ]);
+        await expect(learner.unitPage.sidebar).not.toContainText(hiddenSubsection.displayName);
+
+        await learner.unitPage.backToOutline();
+        await expect(learner.unitPage.sidebarSections).toHaveText([
+          new RegExp(escapeRegExp(visible.displayName)),
+        ]);
+        await expect(learner.unitPage.sidebar).not.toContainText(hidden.displayName);
       },
     );
 

@@ -8,7 +8,11 @@
  * order is asserted against the tabs API / LMS, not the DOM.
  */
 export const STUDIO_CUSTOM_PAGES_SELECTORS = {
-  /** Always-present header control — marks the page as rendered (and authorized). */
+  /**
+   * Always-present header control — marks the page as rendered (and authorized).
+   * It is also "New page": a click creates a page (named "Empty" until edited)
+   * and appends its card.
+   */
   ready: '[data-testid="header-add-button"]',
   /** One custom-page card's title (one per card; scope by index). */
   cardTitle: '[data-testid="card-title"]',

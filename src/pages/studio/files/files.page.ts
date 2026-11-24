@@ -1,6 +1,12 @@
 import type { Download, Locator, Page, Response } from '@playwright/test';
 
-import { FILES_ROW_MENU, STUDIO_FILES_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
+import {
+  FILES_ROW_CELL,
+  FILES_ROW_MENU,
+  STUDIO_FILES_SELECTORS,
+  TIMEOUTS,
+  type AppConfig,
+} from '../../../config';
 import { authoringCourseBaseUrl } from '../authoring-base';
 import { waitForWrite } from '../wait-for-write';
 
@@ -168,6 +174,109 @@ export class FilesPage {
     await unselectedRow.waitFor({ state: 'detached', timeout: TIMEOUTS.optionalOverlay });
   }
 
+  /** Unchecks the header "select all" box and waits until no row reads selected. */
+  async clearSelection(): Promise<void> {
+    await this.selectAllCheckbox.setChecked(false, { force: true });
+    await this.page
+      .locator(`${this.s.rowCheckbox}:checked`)
+      .first()
+      .waitFor({ state: 'detached', timeout: TIMEOUTS.action });
+  }
+
+  /**
+   * The list-view row of one file, found by the file name the test uploaded it
+   * under (rows carry no per-asset attribute; the name is the test's own data).
+   */
+  row(fileName: string): Locator {
+    return this.rows.filter({
+      has: this.page.locator(this.s.rowCell).nth(FILES_ROW_CELL.name).getByText(fileName, {
+        exact: true,
+      }),
+    });
+  }
+
+  /** One metadata cell of a file's list row. */
+  rowCell(fileName: string, column: keyof typeof FILES_ROW_CELL): Locator {
+    return this.row(fileName).locator(this.s.rowCell).nth(FILES_ROW_CELL[column]);
+  }
+
+  /** A file's selection checkbox in list view. */
+  rowCheckbox(fileName: string): Locator {
+    return this.row(fileName).locator(this.s.rowCheckbox);
+  }
+
+  /** Ticks one file's selection checkbox in list view (the box sits behind a styled label). */
+  async selectRow(fileName: string): Promise<void> {
+    await this.rowCheckbox(fileName).setChecked(true, { force: true });
+  }
+
+  /**
+   * Records what the page hands to the clipboard, for the rest of this page's
+   * life. Call before `goto`. The targets the suite runs against are served
+   * over `http`, where the browser exposes no `navigator.clipboard` at all
+   * (`FILES-002`), so the "Copy … URL" actions would have nothing to write to;
+   * this stands in a clipboard that keeps the text instead.
+   */
+  async recordClipboardWrites(): Promise<void> {
+    await this.page.addInitScript(() => {
+      const copied: string[] = [];
+      (window as unknown as { e2eCopied: string[] }).e2eCopied = copied;
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: (text: string) => {
+            copied.push(text);
+            return Promise.resolve();
+          },
+        },
+      });
+    });
+  }
+
+  /**
+   * Chooses "Copy Studio URL" or "Copy Web URL" from an asset's menu and
+   * returns the text the page copied (needs {@link recordClipboardWrites}).
+   */
+  async copyUrl(assetId: string, which: 'copyStudioUrl' | 'copyWebUrl'): Promise<string> {
+    const count = () =>
+      this.page.evaluate(() => (window as unknown as { e2eCopied: string[] }).e2eCopied.length);
+    const before = await count();
+    await this.openItemMenu(assetId);
+    await this.openMenuLink(FILES_ROW_MENU[which]).click();
+    await this.page.waitForFunction(
+      (n) => (window as unknown as { e2eCopied: string[] }).e2eCopied.length > n,
+      before,
+      { timeout: TIMEOUTS.action },
+    );
+    return this.page.evaluate(
+      () => (window as unknown as { e2eCopied: string[] }).e2eCopied.at(-1) ?? '',
+    );
+  }
+
+  /** The open Info modal's body, its two URL displays and its "Lock file" checkbox. */
+  get infoBody(): Locator {
+    return this.page.locator(this.s.infoBody);
+  }
+
+  get infoUrls(): Locator {
+    return this.page.locator(this.s.infoUrlDisplay);
+  }
+
+  get infoLockCheckbox(): Locator {
+    return this.page.locator(this.s.infoLockCheckbox);
+  }
+
+  /** The open Info modal's "Usage" links, one per component using the file. */
+  get infoUsageLinks(): Locator {
+    return this.page.locator(this.s.infoUsageLink);
+  }
+
+  /** Closes the Info modal. */
+  async closeInfo(): Promise<void> {
+    await this.page.locator(this.s.infoCloseButton).click();
+    await this.infoBody.waitFor({ state: 'hidden' });
+  }
+
   /** Opens an asset's 3-dot menu (card or list row). */
   async openItemMenu(assetId: string): Promise<void> {
     await this.itemMenuButton(assetId).click();
@@ -194,6 +303,20 @@ export class FilesPage {
       this.page,
       { method: 'PUT', urlIncludes: '/assets/', timeout: TIMEOUTS.contentWrite },
       () => this.openMenuLink(FILES_ROW_MENU.lock).click(),
+    );
+  }
+
+  /**
+   * Toggles a file's lock from its list-view row menu (the row's last cell;
+   * unlike a card's, that toggle carries no asset id), waiting for the write.
+   */
+  async toggleLockFromRow(fileName: string): Promise<void> {
+    const menuCell = this.row(fileName).locator(this.s.rowCell).last();
+    await menuCell.locator(this.s.rowMenuToggle).click();
+    await waitForWrite(
+      this.page,
+      { method: 'PUT', urlIncludes: '/assets/', timeout: TIMEOUTS.contentWrite },
+      () => menuCell.locator(this.s.rowMenuItem).nth(FILES_ROW_MENU.lock).click(),
     );
   }
 
@@ -254,6 +377,11 @@ export class FilesPage {
     await this.openBulkActions();
     await this.page.locator(this.s.deleteMenuItem).click();
     await this.page.locator(this.s.deleteModal).waitFor();
+  }
+
+  /** The delete confirmation dialog (single or bulk). */
+  get deleteDialog(): Locator {
+    return this.page.locator(this.s.deleteModal);
   }
 
   /** Confirms a delete dialog (bulk), waiting for a `DELETE /assets/` write. */

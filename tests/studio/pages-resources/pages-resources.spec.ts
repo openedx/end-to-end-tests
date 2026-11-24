@@ -1,5 +1,10 @@
 import { checkA11y } from '../../../src/a11y';
-import { fetchCourseApps, fetchCourseHomeOutline, fetchCourseMetadata } from '../../../src/api';
+import {
+  fetchAdvancedSettings,
+  fetchCourseApps,
+  fetchCourseHomeOutline,
+  fetchCourseMetadata,
+} from '../../../src/api';
 import { TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
@@ -84,6 +89,37 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
   );
 
   test(
+    'hiding the discussion tab removes it from the course and showing it brings it back',
+    { tag: ['@regression', '@discussions'], annotation: testId('TC-00240') },
+    async ({ page, config, authoredCourse, pagesResourcesPage, studioAuthorSession }) => {
+      void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
+      const { courseKey } = authoredCourse;
+      await pagesResourcesPage.goto(courseKey);
+
+      // The Discussion page's on/off control is the "Hide discussion tab"
+      // switch of its provider dialog. The learner's course tabs decide: the
+      // Discussion tab goes when it is hidden and returns when it is shown.
+      // (`course_apps` keeps reporting the app enabled either way, so it is
+      // not the oracle here.) The tabs follow through the LMS's copy of the
+      // course, refreshed by a background task, hence the longer budget.
+      test.setTimeout(TIMEOUTS.contentTest);
+      const refreshed = { timeout: TIMEOUTS.contentPublish };
+      const hasTab = async () =>
+        tabIds(await fetchCourseMetadata(api, config, courseKey)).includes('discussion');
+      // A new course has the tab.
+      expect(await hasTab()).toBe(true);
+
+      expect(await pagesResourcesPage.setDiscussionTabHidden(courseKey, true)).toBeLessThan(300);
+      await expect.poll(hasTab, refreshed).toBe(false);
+
+      expect(await pagesResourcesPage.setDiscussionTabHidden(courseKey, false)).toBeLessThan(300);
+      await expect.poll(hasTab, refreshed).toBe(true);
+    },
+  );
+
+  test(
     'view live links to the learner-facing course',
     { tag: '@regression', annotation: testId('TC-00238') },
     async ({
@@ -153,6 +189,38 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
       await expect
         .poll(async () => isEnabled(await fetchCourseApps(api, config, courseKey), 'calculator'))
         .toBe(before);
+    },
+  );
+
+  test(
+    'switching flexible peer grading in the ORA settings sets it on the course',
+    { tag: ['@regression', '@ora'], annotation: testId('TC-00239') },
+    async ({ page, config, oraUnit, pagesResourcesPage, studioAuthorSession }) => {
+      void studioAuthorSession;
+      test.setTimeout(TIMEOUTS.contentTest);
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
+      // The ORA settings are offered only by a course that holds an open
+      // response assessment, which `oraUnit` authors in the content course.
+      const { courseKey } = oraUnit;
+      const oraState = async () => ({
+        app: isEnabled(await fetchCourseApps(api, config, courseKey), 'ora_settings'),
+        setting: (await fetchAdvancedSettings(api, config, courseKey))
+          .force_on_flexible_peer_openassessments?.value,
+      });
+      expect(
+        (await fetchCourseApps(api, config, courseKey)).map((app) => app.id),
+        'a course with an ORA offers the ORA settings',
+      ).toContain('ora_settings');
+      const before = (await oraState()).app;
+
+      // Flip it from its current state and back: the app and the course's
+      // Advanced Setting follow the switch each way.
+      expect(await pagesResourcesPage.setFlexiblePeerGrading(courseKey, !before)).toBeLessThan(300);
+      await expect.poll(oraState).toEqual({ app: !before, setting: !before });
+
+      expect(await pagesResourcesPage.setFlexiblePeerGrading(courseKey, before)).toBeLessThan(300);
+      await expect.poll(oraState).toEqual({ app: before, setting: before });
     },
   );
 });

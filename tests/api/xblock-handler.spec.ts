@@ -35,7 +35,9 @@ test.describe('XBlock handler readers', { tag: '@unit' }, () => {
       answers: [{ key: 'Y', label: 'Yes' }],
       tally: [{ label: '<p>Q</p>', key: 'enjoy', answers: [{ count: 1, key: 'Y', choice: true }] }],
     });
-    expect(results).toEqual([{ key: 'enjoy', answers: [{ key: 'Y', count: 1 }] }]);
+    expect(results).toEqual([
+      { key: 'enjoy', label: '<p>Q</p>', answers: [{ key: 'Y', count: 1 }] },
+    ]);
   });
 
   test('narrows a word cloud to the learner’s words', () => {

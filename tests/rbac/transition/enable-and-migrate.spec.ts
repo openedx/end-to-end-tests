@@ -117,6 +117,13 @@ test.describe(
         );
         const learner = await rbacCast('learner');
         await enrollInCourseViaApi(learner.request, config, courseKey);
+        // And an account with no relationship to the course at all, not even an
+        // enrollment: the case's "I have no role… access is denied".
+        const outsider = await rbacCast('outsider');
+        const unprivileged = [
+          { role: 'learner', actor: learner },
+          { role: 'outsider', actor: outsider },
+        ];
         await resyncStudioAuthor();
         const writableBlock = await writableSection(
           page.request,
@@ -127,7 +134,7 @@ test.describe(
 
         // Phase one: what each actor may do while the course is still legacy.
         const before = new Map<string, PermissionReadings>();
-        for (const { role, actor } of [...actors, { role: 'learner', actor: learner }]) {
+        for (const { role, actor } of [...actors, ...unprivileged]) {
           before.set(
             role,
             await readCoursePermissions(actor.request, config, courseKey, actor.identity.username, {
@@ -137,6 +144,7 @@ test.describe(
         }
         expect(before.get('instructor')).toEqual(FULL_COURSE_ACCESS);
         expect(before.get('learner')).toEqual({ ...NO_COURSE_ACCESS, courseware: 200 });
+        expect(before.get('outsider')).toEqual(NO_COURSE_ACCESS);
 
         try {
           const ledger = await adminLms(async (session) => {
@@ -193,10 +201,11 @@ test.describe(
             ).toEqual([LEGACY_ROLE_EQUIVALENTS[legacy]]);
           }
           expect(rolesOf(learner.identity.username)).toEqual([]);
+          expect(rolesOf(outsider.identity.username)).toEqual([]);
 
           // TC-00593–00598: the whole point of the transition. Every actor's
           // reading is what it was before the flag — same table, second phase.
-          for (const { role, actor } of [...actors, { role: 'learner', actor: learner }]) {
+          for (const { role, actor } of [...actors, ...unprivileged]) {
             expect(
               await readCoursePermissions(
                 actor.request,

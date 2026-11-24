@@ -187,6 +187,50 @@ export class TeamMembersTable {
   }
 
   /**
+   * Ticks the option carrying `value` (a role, organization or scope key) in a
+   * filter's menu and closes the menu. No response is awaited: a filter the
+   * console has already queried is answered from its cache (see
+   * {@link clearSearch}), so the caller asserts the table.
+   */
+  async applyFilterOption(filter: TeamMemberFilter, value: string): Promise<void> {
+    await this.openFilter(filter);
+    await this.page.locator(this.s.filterOptionByValue(value)).check();
+    await this.closeFilterMenu();
+  }
+
+  /** Closes whichever filter menu is open (Escape), waiting for it to go. */
+  async closeFilterMenu(): Promise<void> {
+    await this.page.keyboard.press('Escape');
+    await this.page
+      .locator(this.s.filterMenu)
+      .first()
+      .waitFor({ state: 'hidden', timeout: TIMEOUTS.optionalOverlay });
+  }
+
+  /** The headings the open filter menu groups its options under. */
+  get filterGroupNames(): Locator {
+    return this.page.locator(this.s.filterGroupName);
+  }
+
+  /** The applied-filter chips below the filter row, one per ticked option. */
+  get filterChips(): Locator {
+    return this.panel.locator(this.s.filterChip);
+  }
+
+  /**
+   * Removes one applied filter through its chip's X. Nothing is awaited: the
+   * console may answer from its cache, so the caller asserts the table.
+   */
+  async removeFilterChip(index: number): Promise<void> {
+    await this.filterChips.nth(index).locator(this.s.filterChipClear).first().click();
+  }
+
+  /** "Clear filters": removes every applied filter at once. */
+  async clearAllFilters(): Promise<void> {
+    await this.panel.locator(this.s.clearFilters).click();
+  }
+
+  /**
    * Turns to a page and waits for the query that page change causes.
    *
    * The request is the discriminator, not the pager's own state: a click that

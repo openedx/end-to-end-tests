@@ -1,6 +1,7 @@
 import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
+import { catalogSearchTermFor, locateCourseInCatalog } from '../../../src/steps';
 
 /**
  * Course home: the outline a learner lands on, and its expand/collapse control.
@@ -44,6 +45,50 @@ test.describe('Course home outline', () => {
         label: 'course-home',
         additionalBaseline: ['nested-interactive'],
       });
+    },
+  );
+
+  test(
+    'is reached from the dashboard and from the catalog',
+    {
+      tag: ['@regression', '@authenticated', '@mfe-learning'],
+      annotation: testId('TC-00025'),
+    },
+    async ({
+      page,
+      config,
+      dashboardPage,
+      catalogPage,
+      courseAboutPage,
+      courseOutlinePage,
+      courseOutline,
+      courseDetail,
+      enrolledCourse,
+    }) => {
+      const { courseKey } = enrolledCourse;
+      const onOutline = async () => {
+        await expect(courseOutlinePage.sectionTriggers).toHaveCount(
+          courseOutline.chapterIds.length,
+        );
+        expect(new URL(page.url()).pathname).toContain(`/course/${courseKey}`);
+      };
+
+      // From the dashboard: the course name on the card leads to the outline.
+      await dashboardPage.goto();
+      await dashboardPage.courseCardTitle(courseKey).click();
+      await onOutline();
+
+      // From the catalog: the card of a course the learner is enrolled in opens
+      // its About page, whose way into the course leads to the same outline.
+      await locateCourseInCatalog(
+        catalogPage,
+        config,
+        courseKey,
+        catalogSearchTermFor(courseDetail),
+      );
+      await catalogPage.openCourseAbout(courseKey);
+      await courseAboutPage.coursewareLink(courseKey).click();
+      await onOutline();
     },
   );
 

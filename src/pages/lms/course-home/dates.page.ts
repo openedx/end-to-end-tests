@@ -53,6 +53,33 @@ export class DatesPage {
     });
   }
 
+  /** The day whose heading shows this date, formatted as by {@link formatDay}. */
+  dayOn(formattedDay: string): Locator {
+    return this.days.filter({
+      has: this.page.locator(DATES_SELECTORS.dayHeader, { hasText: formattedDay }),
+    });
+  }
+
+  /**
+   * An ISO instant as the timeline heads a day: weekday, short month, day and
+   * year in the page's own language and the browser's time zone (a learner
+   * with no time-zone preference, which is every learner the suite makes). The
+   * expectation is computed in the page, so it tracks the page's locale rather
+   * than the runner's.
+   */
+  async formatDay(iso: string): Promise<string> {
+    return this.page.evaluate(
+      (value) =>
+        new Intl.DateTimeFormat(document.documentElement.lang || undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        }).format(new Date(value)),
+      iso,
+    );
+  }
+
   /**
    * The status badges (completed, past due, due next) of the subsection's day:
    * none, one for the day, or more where its entries differ in state.

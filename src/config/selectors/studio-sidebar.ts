@@ -146,6 +146,84 @@ export const STUDIO_SIDEBAR_SELECTORS = {
   /** A Help-panel documentation link, where the installation configures one. */
   helpLink: '.sidebar-content a[href]',
 
+  /**
+   * The wrapper the resize handle sizes: its inline `width` is the panel's
+   * width, between a minimum the handle cannot be dragged under and whatever
+   * the outline leaves. Absent below the breakpoint at which the panel stacks
+   * above the outline (no handle there either).
+   */
+  resizable: '.resizable:has(> .sidebar-content)',
+
+  /**
+   * A count chip in the Details tab's "… Content Summary": one per block
+   * category the selected item contains (`chapter` = sections, `sequential` =
+   * subsections, `vertical` = units, then a chip per component type), each with
+   * its number. The chip's class names the category; its label is an icon.
+   */
+  contentSummaryCount: (category: string) =>
+    `.sidebar-content .tab-pane.active .component-style-${category} .x-small`,
+  /**
+   * A tag listed under the Details tab's "Taxonomy Alignments": one chip per
+   * applied tag, grouped under its taxonomy's name. The chip's label is the tag's
+   * value (the test's own data).
+   */
+  appliedTagChip: '.sidebar-content .tab-pane.active .tag-snippet-chip .pgn__chip__label',
+  /**
+   * A link on the course Info panel's Settings tab ("Schedule & details",
+   * "Grading", "Course team", "Group configurations", "Advanced settings" and,
+   * where proctoring is configured, "Proctored exam settings").
+   */
+  settingsLink: '.sidebar-content .tab-pane.active .sidebar-link a',
+  /**
+   * The Settings tab's date fields on a subsection: the release date, then (in
+   * the grading section) the due date. Both render with the same `name`, so
+   * position tells them apart. The value is `MM/DD/YYYY`, the picker's fixed
+   * format (also its placeholder), not a localized date.
+   */
+  settingsDateInput: '.sidebar-content .tab-pane.active input[name="state-date"]',
+  /**
+   * The Settings tab's two-way toggles ("Student Visible" / "Staff Only" and the
+   * like), each a button group whose chosen option is the `.btn-primary` one. A
+   * subsection lists grading, visibility, results visibility and special exam,
+   * in that order; a unit lists visibility alone.
+   */
+  settingsToggleGroup: '.sidebar-content .tab-pane.active .btn-group-toggle',
+  settingsToggleChosenClass: 'btn-primary',
+  /** The unit's rendering in the outline panel's Preview tab (Studio's `container_embed` view). */
+  outlineUnitPreviewFrame: '#unit-content-tabs-tabpane-preview iframe.xblock-container-iframe',
+  /** A block rendered inside that preview (its student view), by its usage key. */
+  previewBlock: (usageKey: string) => `.xblock-student_view[data-usage-id="${usageKey}"]`,
+  /**
+   * An "Add New" button on the outline's Add sidebar ("Section", "Subsection",
+   * "Unit"), by the class of the icon it carries.
+   */
+  outlineAddNewButton: (kind: 'section' | 'subsection' | 'unit') =>
+    `#add-content-tabs-tabpane-addNew button:has(.icon-with-border-${kind})`,
+
+  /**
+   * A component type on the unit page's Add sidebar, "Add New" tab, by the class
+   * of its icon: `html` ("Text"), `video`, `problem`, `itembank` ("Problem
+   * Bank"), `drag-and-drop-v2`, `openassessment` ("Open Response") and
+   * `advanced`. Text, Problem and Open Response are collapsibles that expand to
+   * a row of template chips; the others are buttons that add the block (or, for
+   * Advanced, list the course's advanced modules).
+   */
+  unitAddNewType: (type: string) =>
+    `#unit-add-sidebar-tabpane-add-new :is(button, .collapsible-trigger):has(.icon-with-border-${type})`,
+  /** The template chips an expanded Text / Problem / Open Response type offers (the first is the plain one). */
+  unitAddNewTemplate: (type: 'html' | 'problem' | 'openassessment') =>
+    `[data-testid="${type}-collapsible"] .collapsible-body .pgn__chip[role="button"]`,
+
+  /**
+   * The component menu's "Move" dialog: a drill-down through the course's
+   * sections, subsections and units (each a button carrying the item's own
+   * name), and a "Move" that enables once a unit other than the current one is
+   * open.
+   */
+  moveDialog: '.move-xblock-modal',
+  moveDialogItem: '.move-xblock-modal .xblock-item button',
+  moveDialogConfirm: '.move-xblock-modal .pgn__modal-footer button.btn-primary',
+
   /** A dropdown menu item that is not tagged (used to reach an untagged menu action). */
   openDropdownDangerItem: '.dropdown-menu.show .dropdown-item.text-danger-700',
 } as const;

@@ -153,6 +153,13 @@ export class LibraryContainerPage {
     return this.confirm('DELETE', '/api/libraries/v2/');
   }
 
+  /** Child menu → "Delete" — opens the confirmation without answering it (for its Cancel path). */
+  async openChildDelete(title: string): Promise<void> {
+    await this.openChildMenu(title);
+    await this.page.locator(this.s.menuLastItem).click();
+    await this.page.locator(this.s.deleteModal).last().waitFor();
+  }
+
   /** Child menu → "Edit" (first item) — opens the component editor. */
   async editChild(title: string): Promise<void> {
     await this.openChildMenu(title);

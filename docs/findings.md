@@ -109,8 +109,9 @@ measured, and issues are opened by hand from them.
 | `TAG-001`   | `openedx/edx-platform` (author tagging its own course)        | **resolved** — no defect; the earlier 403 was a pre-migration course
 | `TAG-002`   | `openedx/frontend-app-authoring` (outline tag counts, wg-build-test-release#592) | **filed** (card badge) - [frontend-app-authoring#3308](https://github.com/openedx/frontend-app-authoring/issues/3308) (tracked here as [#130](https://github.com/openedx/end-to-end-tests/issues/130)); course-level field **by design**; no `fixme` — the drawer cases assert the API, never the badge
 | `FILES-001` | `openedx/frontend-app-authoring` (TC-00137, frontend-app-authoring#3096) | **not reproduced** — case committed green on both targets
-| `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; copy asserted by URL resolution
+| `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; the copied text is read through a recording stand-in for `navigator.clipboard`
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
+| `FILES-004` | `openedx/frontend-app-authoring` (Files search, TC-00136)      | open, not filed — `test.fail` on TC-00136's separate-words search; a term with a space that is one substring of the name is verified |
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy pages' breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` and `studio-competency-management` scans only |
 | `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` and `import-competency-framework.spec.ts` (a page load before each wizard run, a different file on re-import or when the wizard is reopened without a reload) |
@@ -1561,10 +1562,28 @@ the badge is ever asserted, it must be polled after a reload.
 denies to a page served over `http` (the local and CI targets), so a test
 cannot read back what was copied.
 
-**Coverage impact:** open, no `fixme`. TC-00140 asserts the two copy items are
-*offered* and that the asset's own URL *resolves* (a `GET` of
-`assetStudioUrl(...)` returns `200`), rather than reading the clipboard — the
-copy source is correct even though the copy itself is unobservable here.
+**Coverage impact:** open, no `fixme`. TC-00140 replaces `navigator.clipboard`
+with a recording stand-in before the page loads, so the text each copy action
+writes is compared with the asset's own URLs (`portable_url`, and the absolute
+URL, which must serve the uploaded bytes). What the system clipboard would
+hold is still unobservable here.
+
+### `FILES-004` — the Files search does not match words typed apart
+
+**Where:** the Studio Files page's search field, `main` (Tutor, 2026-11-24).
+Not checked on `verawood`.
+
+**What happens:** the search matches the typed text as one substring of the
+file name. For `FirstCourseImage.jpg`, "First Image" and "First .jpg" (the
+terms TC-00136 gives) find nothing; a term whose words appear together in the
+name, space included, finds the file.
+
+**Expected:** each word narrows the list, as the case describes.
+
+**Coverage impact:** open, not filed. `test.fail` on TC-00136's
+"searches by separate words of a file name"; the substring search with a space
+is asserted in the case's other test. It may turn out to be a sheet wording
+question rather than a defect.
 
 ### `FILES-001` — sort/filter under a search: not reproduced on this target
 

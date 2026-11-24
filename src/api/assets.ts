@@ -27,6 +27,15 @@ export interface CourseAsset {
   readonly portable_url: string;
   readonly thumbnail: string | null;
   readonly date_added: string;
+  /**
+   * The components whose content refers to the file (by its `/static/` path or
+   * asset key): the "active" mark on the Files page and the Info modal's
+   * "Usage" list. `url` is the Studio path of the unit, `/container/<unit>#<block>`.
+   */
+  readonly usage_locations?: readonly {
+    readonly display_location: string;
+    readonly url: string;
+  }[];
 }
 
 interface RawAssetList {

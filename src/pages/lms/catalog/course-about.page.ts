@@ -64,6 +64,20 @@ export class CourseAboutPage {
   }
 
   /**
+   * Opens the page and returns the status of the course-data request it makes
+   * (`GET /api/courseware/course/<key>`), whatever the answer: for a case about
+   * a course the visitor may not see, where the page has nothing to render
+   * (the LMS redirects the request, or answers 404 on older releases).
+   */
+  async gotoReadingCourse(courseKey: string): Promise<number> {
+    const answered = this.page.waitForResponse((response) =>
+      response.url().startsWith(`${this.config.baseUrls.lms}/api/courseware/course/`),
+    );
+    await this.goto(courseKey);
+    return (await answered).status();
+  }
+
+  /**
    * An ISO date as the page formats dates — the short month-day-year form in
    * the page's own language and the browser's time zone, which is how the
    * catalog renders "Classes start". The expectation is computed here, in the

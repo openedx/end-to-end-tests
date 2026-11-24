@@ -31,7 +31,10 @@ test.describe('Instructor dashboard: cohorts', { tag: ['@regression', ...INSTRUC
 
   test(
     'a cohort linked to a content group shows its members the restricted unit',
-    { tag: '@cohorts', annotation: testId('TC-00539') },
+    // Also TC-00292's cohort half: the cohort is created and assigned to the
+    // content group in the Cohorts tab here (its Studio half is in
+    // tests/studio/settings/group-configurations.spec.ts).
+    { tag: '@cohorts', annotation: [testId('TC-00539'), testId('TC-00292')] },
     async (
       {
         page,

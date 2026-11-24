@@ -159,6 +159,8 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   statusModalCheckButton: '.pgn__modal-body button.btn-primary',
   /** The beta-tester filter above the table. */
   betaTesterFilter: 'select[name="isBetaTester"]',
+  /** The "Search enrollments" field above the table: the filter row's one text input (its placeholder is localized). */
+  enrollmentSearchInput: '.pgn__data-table-filters input.form-control',
   rowBetaTesterMenuButton: 'button.btn-icon',
   /** The popover the row menu opens; its single item grants or removes the role. */
   rowMenuPopover: '.popover .dropdown-item',
@@ -194,6 +196,12 @@ export const INSTRUCTOR_DASHBOARD_SELECTORS = {
   overrideScoreInput: 'input[name="Score"]',
   /** Header: "View Gradebook" link, the overflow dropdown, and the Studio grading link. */
   gradebookLink: 'a.btn[href*="/gradebook/"]',
+  /**
+   * The gradebook that link opens (`frontend-app-gradebook`): its "Search for
+   * a learner" field and a learner's row in its grades table.
+   */
+  gradebookSearchInput: '.page-gradebook input[name="searchfield-input"]',
+  gradebookRow: '.page-gradebook table tbody tr',
   studioGradingLink: 'a[target="_blank"][href*="/settings/grading"]',
 
   // ---- Date Extensions ---------------------------------------------------

@@ -11,6 +11,8 @@ import {
 import { AdvancedBlock } from './advanced.block';
 import { AnnotatableBlock } from './annotatable.block';
 import { DoneBlock } from './done.block';
+import { DragAndDropBlock } from './drag-and-drop.block';
+import { OraBlock } from './ora.block';
 import { PollBlock } from './poll.block';
 import { WordCloudBlock } from './word-cloud.block';
 
@@ -161,6 +163,16 @@ export class UnitPage {
     return new PollBlock(this.page, this.contentFrame, blockId, category);
   }
 
+  /** A `drag-and-drop-v2` problem in the unit. */
+  dragAndDropBlock(blockId: string): DragAndDropBlock {
+    return new DragAndDropBlock(this.page, this.contentFrame, blockId);
+  }
+
+  /** An `openassessment` (ORA) block in the unit. */
+  oraBlock(blockId: string): OraBlock {
+    return new OraBlock(this.page, this.contentFrame, blockId);
+  }
+
   /** A `done` ("Completion") block in the unit. */
   doneBlock(blockId: string): DoneBlock {
     return new DoneBlock(this.page, this.contentFrame, blockId);
@@ -179,6 +191,19 @@ export class UnitPage {
   /** The "every unit complete" marker on the subsection row holding a given unit. */
   subsectionCompletedIcon(unitId: string): Locator {
     return this.subsectionIcon(unitId, COURSEWARE_SELECTORS.completedIcon);
+  }
+
+  /**
+   * A section's row in the tray's course outline view, by the section's name
+   * (course content, which the caller supplies).
+   */
+  sidebarSection(name: string): Locator {
+    return this.sidebarSections.filter({ hasText: name });
+  }
+
+  /** The "every subsection complete" marker on a section's row in the course outline view. */
+  sectionCompletedIcon(name: string): Locator {
+    return this.sidebarSection(name).locator(COURSEWARE_SELECTORS.completedIcon);
   }
 
   /** The "some units complete" marker on the subsection row holding a given unit. */
