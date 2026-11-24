@@ -2391,7 +2391,7 @@ function sectionLabel(testInfo: { testId: string; retry: number }, ordinal: numb
  * failure.
  */
 export const test = base.extend<TestFixtures, WorkerFixtures>({
-  // eslint-disable-next-line no-empty-pattern
+  // oxlint-disable-next-line no-empty-pattern
   config: async ({}, use) => {
     await use(getConfig());
   },
@@ -2404,7 +2404,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   accountSettingsPage: pageObjectFixture(AccountSettingsPage),
 
-  // eslint-disable-next-line no-empty-pattern
+  // oxlint-disable-next-line no-empty-pattern
   learnerIdentity: async ({}, use) => {
     await use(newLearnerIdentity());
   },

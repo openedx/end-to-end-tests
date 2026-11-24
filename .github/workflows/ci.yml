@@ -71,7 +71,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run typecheck
 
-      - name: Lint (ESLint)
+      - name: Lint (Oxlint)
         if: ${{ !cancelled() }}
         run: npm run lint
 

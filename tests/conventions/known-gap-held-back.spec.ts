@@ -2,7 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { test, expect } from '@playwright/test';
-import ts from 'typescript';
+import { parseSync, Visitor } from 'oxc-parser';
+import type { Node } from 'oxc-parser';
 
 import { externalTestDirsUnder } from '../../src/config';
 
@@ -46,33 +47,36 @@ function specFiles(): string[] {
   return files;
 }
 
+/** The text of a string literal or a template with no substitutions; `undefined` for anything else. */
+function literalText(node: Node): string | undefined {
+  if (node.type === 'Literal' && typeof node.value === 'string') return node.value;
+  if (node.type === 'TemplateLiteral' && node.expressions.length === 0) {
+    return node.quasis[0]?.value.cooked ?? undefined;
+  }
+  return undefined;
+}
+
 /** Every `test(title, options, body)` (or `test.fixme/skip/fail(...)`) whose options carry `knownGap`. */
 function testsWithKnownGap(
   file: string,
   source: string,
 ): { line: number; title: string; heldBack: boolean }[] {
-  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const text = (node: Node): string => source.slice(node.start, node.end);
   const found: { line: number; title: string; heldBack: boolean }[] = [];
-  const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && node.arguments.length >= 3) {
-      const callee = node.expression.getText(sourceFile);
-      if (callee === 'test' || HELD_BACK_DECLARATIONS.has(callee)) {
-        const options = node.arguments[1]!.getText(sourceFile);
-        if (KNOWN_GAP_CALL.test(options)) {
-          const body = node.arguments[2]!.getText(sourceFile);
-          const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-          const [title] = node.arguments;
-          found.push({
-            line: line + 1,
-            title: title && ts.isStringLiteralLike(title) ? title.text : title!.getText(sourceFile),
-            heldBack: HELD_BACK_DECLARATIONS.has(callee) || HELD_BACK_CALL.test(body),
-          });
-        }
-      }
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
+  new Visitor({
+    CallExpression(node) {
+      const [title, options, body] = node.arguments;
+      if (title === undefined || options === undefined || body === undefined) return;
+      const callee = text(node.callee);
+      if (callee !== 'test' && !HELD_BACK_DECLARATIONS.has(callee)) return;
+      if (!KNOWN_GAP_CALL.test(text(options))) return;
+      found.push({
+        line: source.slice(0, node.start).split('\n').length,
+        title: literalText(title) ?? text(title),
+        heldBack: HELD_BACK_DECLARATIONS.has(callee) || HELD_BACK_CALL.test(text(body)),
+      });
+    },
+  }).visit(parseSync(file, source).program);
   return found;
 }
 

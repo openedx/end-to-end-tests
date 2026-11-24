@@ -20,8 +20,8 @@
     "test:debug": "playwright test --debug",
     "report": "playwright show-report",
     "btr:publish": "node scripts/publish-btr-sheet.mts",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "install:browsers": "playwright install --with-deps",
@@ -36,15 +36,14 @@
   ],
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.6",
-    "eslint": "^10.13.0",
-    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-playwright": "^2.12.2",
+    "oxc-parser": "^0.160.0",
+    "oxlint": "^1.95.0",
+    "oxlint-tsgolint": "^7.0.2008",
     "prettier": "^3.9.10",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.2"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "dotenv": "^18.0.10",
