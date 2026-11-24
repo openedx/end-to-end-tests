@@ -36,7 +36,7 @@ measured, and issues are opened by hand from them.
 | `RBAC-006`  | `openedx/frontend-app-admin-console`                     | open, three axe rules baselined for console scans                              |
 | `RBAC-007`  | `openedx/openedx-authz` + console                        | **filed** - [openedx-authz#526](https://github.com/openedx/openedx-authz/issues/526) (tracked here as [#126](https://github.com/openedx/end-to-end-tests/issues/126)) — **resolved on `main`** (openedx-authz#543, ≥ 2.0.0); `verawood` (1.23.0) still allows it. TC-00567's API test is gated `rbac-self-revoke-guard` |
 | `RBAC-008`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#260](https://github.com/openedx/frontend-app-admin-console/issues/260) (tracked here as [#139](https://github.com/openedx/end-to-end-tests/issues/139)), regression on `main`; TC-00442 gated on `rbac-error-view-action` |
-| `RBAC-009`  | `openedx/frontend-app-admin-console`                     | **resolved — does not reproduce on `main`** (2026-10-13); a11y residue split out as `RBAC-018`; `fixme` sibling on TC-00569 |
+| `RBAC-009`  | `openedx/frontend-app-admin-console`                     | **resolved — does not reproduce on `main`** (2026-10-13); a11y residue split out as `RBAC-018`; TC-00569's scroll case rewritten for the new layout (2026-11-23) |
 | `RBAC-018`  | `openedx/frontend-app-admin-console` (matrix row labels are not row headers) | open, not asserted — found while re-checking `RBAC-009` |
 | `RBAC-010`  | BTR test plan (TC-00573 draft clause)                    | **resolved** — by design: `view_library` serves drafts to every role; [wg#618](https://github.com/openedx/wg-build-test-release/issues/618) (tracked here as [#120](https://github.com/openedx/end-to-end-tests/issues/120)), `fixme` sibling on TC-00573 |
 | `RBAC-011`  | `openedx/frontend-app-authoring`                         | **filed** - [frontend-app-authoring#3310](https://github.com/openedx/frontend-app-authoring/issues/3310) (tracked here as [#132](https://github.com/openedx/end-to-end-tests/issues/132)), asserted as a 403 on the offered action (TC-00572) |
@@ -47,7 +47,7 @@ measured, and issues are opened by hand from them.
 | `RBAC-016`  | BTR test plan (TC-00632 expectation)                     | **resolved** — by design: re-runs never copied the team; [wg#617](https://github.com/openedx/wg-build-test-release/issues/617) (tracked here as [#119](https://github.com/openedx/end-to-end-tests/issues/119)), TC-00632 marked `disputed` |
 | `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-console-next` |
 | `AUTH-004`  | `openedx/frontend-app-authoring`                         | open, not asserted — Help topics are, their doc links are not                  |
-| `AUTH-005`  | `openedx/frontend-app-authoring` (outline card selection is mouse-only) | open, not asserted — found while re-measuring `AUTH-002` |
+| `AUTH-005`  | `openedx/frontend-app-authoring` (outline card selection is mouse-only) | open, not asserted — **narrowed** (2026-11-23): a card's row is focusable and selects on Enter, but has no role or name |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
 | `PLAT-004`  | `openedx/edx-platform` (`login_session`)                 | open, no `fixme` — the suite no longer makes the call                          |
 | `TUTOR-001` | `overhangio/tutor` (+ any plugin setting the old key)    | open, no `fixme` — handled by the `catalog-search` capability                  |
@@ -104,7 +104,7 @@ measured, and issues are opened by hand from them.
 | `INSTR-008` | `openedx/edx-platform` (TC-00522, wg-build-test-release#608)  | **not reproduced** — case committed green on both targets
 | `LIB-006`   | `openedx/frontend-app-authoring` (TC-00422, wg-build-test-release#604) | **not reproduced** — case committed green on both targets
 | `AUTH-001`  | `openedx/frontend-app-authoring` (Verawood sidebar a11y)      | open, no `fixme` — baselined as `SIDEBAR_A11Y_BASELINE` on the sidebar scans only
-| `AUTH-002`  | `openedx/frontend-app-authoring` (unit card not selectable from the outline) | open — **width-dependent** (2026-11-09): the header's blank space selects a unit at 1600 px, but at the suite's 1280 px there is none; `fixme` on TC-00489 in `tests/studio/sidebar/outline-info.spec.ts`
+| `AUTH-002`  | `openedx/frontend-app-authoring` (unit card not selectable from the outline) | open, **worked around** (2026-11-23): no mouse target on `main` at any width, but the unit's row selects on Enter; TC-00489 drives that, at a wide viewport for `verawood`'s header strip |
 | `AUTH-003`  | `openedx/frontend-app-authoring` (TC-00491/00496, wg-build-test-release#587/#578) | **not reproduced** — all three cases committed green on both targets
 | `TAG-001`   | `openedx/edx-platform` (author tagging its own course)        | **resolved** — no defect; the earlier 403 was a pre-migration course
 | `TAG-002`   | `openedx/frontend-app-authoring` (outline tag counts, wg-build-test-release#592) | **filed** (card badge) - [frontend-app-authoring#3308](https://github.com/openedx/frontend-app-authoring/issues/3308) (tracked here as [#130](https://github.com/openedx/end-to-end-tests/issues/130)); course-level field **by design**; no `fixme` — the drawer cases assert the API, never the badge
@@ -1477,6 +1477,18 @@ wider viewports (or with shorter titles and fewer badges). Upstream ask, as
 before: a select affordance distinct from the navigating title link — which
 would also answer `AUTH-005`.
 
+**Re-measured (2026-11-23): no mouse target on `main`; the keyboard selects.**
+On the local `main` sandbox the unit header's two children now cover it at
+1600 px as well as 1280 px (every point over the header is the title group or
+the badge group), so the blank strip is gone at any width. The unit's sortable
+row, though, is focusable (`tabindex="0"`) and selects its card on Enter or
+Space without navigating — in the source since frontend-app-authoring#2732, on
+`release/verawood` too (read there, not run). TC-00489 is no longer a `fixme`:
+the page object clicks the header's blank space where there is any and
+otherwise focuses the row and presses Enter. The case runs at 1600 px so the
+mouse path still has its strip on `verawood`. The upstream ask stands for mouse
+users.
+
 ### `AUTH-003` — the sheet-failed Add-sidebar cases do not reproduce
 
 **Where:** the Add sidebar on the course outline and on the unit page
@@ -1923,12 +1935,15 @@ has scrolled more than 300 px, which the 2026-09-22 reading never did. And since
 and loses its row labels — only on `xs` (phone-width) screens. The accessibility
 residue is split out as `RBAC-018`.
 
-The `fixme` sibling on TC-00569 ("keeps the matrix headers in view while it is
-scrolled") still asserts the pre-#250 layout. A rewrite needs an `xs` viewport,
-where the card itself becomes the scroller (`max-height: 80vh`), to check the
-sticky column headers and, if wanted, the row labels (not sticky today); and a
-page scroll of more than 300 px, after which `AnchorButton` (a `fixed-bottom`
-up-arrow icon button) appears and returns to the top.
+The sibling on TC-00569 ("keeps the matrix headers in view while it is
+scrolled") was rewritten for this layout on 2026-11-23 and is no longer a
+`fixme`: with the window narrowed to phone width the card around the matrix is
+its scroller (`max-height: 80vh`), and the case scrolls it down and sideways,
+reading that the role columns' header row stays at the top of the card (and
+goes sideways with its columns); then scrolls the page
+past 300 px, where `AnchorButton` (a `fixed-bottom` up-arrow icon button)
+appears, returns the page to the top and goes. The row labels are still not
+sticky, which the case does not assert.
 
 ### `RBAC-018` — the permission matrix's row labels are not row headers
 
@@ -2178,6 +2193,12 @@ selection an interactive element — a button (or `role="button"` with
 `tabindex="0"` and Enter/Space handling) per card, or the cards as a
 `listbox`/`tree` with `aria-selected` — rather than a click on a non-interactive
 container.
+
+**Re-measured (2026-11-23): narrower than first written.** Each card's sortable
+row (the `Row` around it) does carry `tabindex="0"` and selects the card on
+Enter or Space — TC-00489 selects a unit that way on `main`. What remains is
+that the row has no role, no accessible name and no selected state, so a
+screen-reader user is not told it is a control or what it selects.
 
 ### `NOTIF-001` — a cadence change without a channel answers 500
 
@@ -3210,7 +3231,7 @@ cases it does not cover at all.
 | TC-00217, 00218, 00322 | A representative set of editor functions: bold, italic, underline and a heading (TinyMCE's alignment shortcuts do nothing in this editor; toolbar-only functions are not driven). |
 | TC-00247 | Bold only, in the Updates editor. |
 | TC-00256, 00257, 00562, 00140, 00141, 00239, 00240, 00258 | A representative subset of each row's options or filters. |
-| TC-00489 | Not driven from the outline: a unit cannot be selected there at 1280 px (`AUTH-002`); its Info is covered from the unit page (TC-00495). |
+| TC-00489 | The unit is selected from the keyboard where its header leaves no blank space to click (`AUTH-002`); the Details and Settings tabs are checked, the Preview tab is not. |
 | TC-00499 | Duplicate and delete are driven from the component's menu; Move (to another unit) is not. |
 | TC-00518 | The status modal's answer is a localized sentence only, so the instructor API's enrollment flag decides. |
 | TC-00519, 00525 | Secondary steps of the row are not driven. |
@@ -3272,7 +3293,7 @@ cases it does not cover at all.
 | TC-00220 | The learner sees the block render; no item is dragged or dropped. |
 | TC-00221 | The learner sees the block render; no response is submitted or assessed. |
 | TC-00482 | The resize handle is shown but not dragged; narrow-viewport behaviour is not checked. |
-| TC-00483 | Section and subsection selection only: a unit cannot be selected from the outline at 1280 px (`AUTH-002`). |
+| TC-00483 | Section and subsection selection only; selecting a unit from the outline is TC-00489. |
 | TC-00484 | The menu is opened and dismissed; no action is chosen here. The actions are driven under TC-00485. |
 | TC-00485 | Delete (with confirmation), Duplicate and Move Down are driven; Move Up is not. |
 | TC-00486 | The tabs, the tags control and the presence of settings links only: not the content summary counts, tag names or where the links lead. |
@@ -3286,7 +3307,7 @@ cases it does not cover at all.
 | TC-00442 | Only the not-found view's action is driven, and only that it leaves that page, not where it lands; skipped on `main`, where the action does nothing (`RBAC-008`). |
 | TC-00561 | The row counter and column sorting are not checked; paging is checked only as a disabled Next on a single page. |
 | TC-00567 | On `verawood` your own admin row has no remove control at all, so the greyed state and its tooltip are checked on `main` only. |
-| TC-00569 | Column and area names are not read (localized copy); pinned headers and scroll-to-top are held for a rewrite (`RBAC-009`); the match with the API's permission list runs on `main` only. |
+| TC-00569 | Column and area names are not read (localized copy); pinned headers and scroll-to-top are checked at phone width, the only width the matrix scrolls at, and the row labels (not pinned) are not; the match with the API's permission list runs on `main` only. |
 | TC-00570 | Deleting a content item and the remove control on another member's row are not checked; content is created and edited through the API. |
 | TC-00573 | Drafts being hidden from a Library User is held: the role is served drafts by design (`RBAC-010`). |
 | TC-00575 | The success message after flipping the switch is held: the MFE shows none (`RBAC-013`). |

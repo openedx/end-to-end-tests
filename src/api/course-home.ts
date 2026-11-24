@@ -59,6 +59,61 @@ export async function fetchCourseHomeOutline(
   }
 }
 
+/**
+ * One entry of the learner's Dates tab: a fixed course date (start, end,
+ * certificate availability) or an assignment's due date.
+ */
+export interface CourseDateBlock {
+  /** `course-start-date`, `course-end-date`, `assignment-due-date`, … — not localized. */
+  readonly date_type: string;
+  /** ISO date-time, already carrying the learner's own extension where one was granted. */
+  readonly date: string;
+  /** The grading policy's assignment type (`Homework`), `null` for a course date. */
+  readonly assignment_type: string | null;
+  /** Whether the learner has completed the assignment; `null` for a course date. */
+  readonly complete: boolean | null;
+  readonly learner_has_access: boolean;
+  /** For an assignment, a `jump_to` URL ending in the subsection's usage key. */
+  readonly link: string;
+  readonly title: string;
+  readonly first_component_block_id: string;
+}
+
+export interface CourseDates {
+  readonly course_date_blocks: readonly CourseDateBlock[];
+  readonly dates_banner_info: { readonly missed_deadlines: boolean };
+  readonly has_ended: boolean;
+}
+
+/**
+ * The course's dates as the caller sees them (`/api/course_home/dates/<key>`) —
+ * what the learning MFE's Dates tab renders. Assignment due dates are listed
+ * only while `course_experience.relative_dates` is on for the course
+ * ({@link RELATIVE_DATES_FLAG}); without it the answer is the fixed course
+ * dates alone.
+ */
+export async function fetchCourseDates(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<CourseDates> {
+  return lmsGet<CourseDates>(
+    request,
+    `${config.baseUrls.lms}/api/course_home/dates/${courseKey}`,
+    'Reading the course dates',
+  );
+}
+
+/** The assignment entry for the subsection with this usage key, if the dates list one. */
+export function assignmentDateFor(
+  dates: CourseDates,
+  subsectionUsageKey: string,
+): CourseDateBlock | undefined {
+  return dates.course_date_blocks.find(
+    (block) => block.date_type === 'assignment-due-date' && block.link.endsWith(subsectionUsageKey),
+  );
+}
+
 /** The tool with this analytics id (`edx.bookmarks`, `edx.updates`), if offered. */
 export function courseTool(
   outline: CourseHomeOutline | undefined,

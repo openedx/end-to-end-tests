@@ -1,8 +1,13 @@
 import { checkA11y } from '../../../src/a11y';
 import { buildSection, courseUsageKey, fetchXBlockOutline } from '../../../src/api';
-import { TIMEOUTS, STUDIO_SIDEBAR_SELECTORS as S } from '../../../src/config';
+import {
+  TIMEOUTS,
+  VIEWPORTS,
+  viewportUse,
+  STUDIO_SIDEBAR_SELECTORS as S,
+} from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
-import { knownGap, testId } from '../../../src/reporting';
+import { testId } from '../../../src/reporting';
 import { SIDEBAR_A11Y_BASELINE } from './helpers';
 
 /**
@@ -128,24 +133,53 @@ test.describe(
       },
     );
 
-    // AUTH-002: a unit selects only on a click of its header's own blank strip
-    // (between the title group and the badges), and at the suite's 1280 px
-    // viewport there is none — the two fill the header. The unit's Info is
-    // covered from the unit page by TC-00495.
-    test.fixme(
-      'shows a selected unit its Details from the outline',
-      {
-        annotation: [
-          testId('TC-00489'),
-          knownGap(
-            'AUTH-002: at 1280 px the unit header has no blank strip left to click, so a unit cannot be selected from the outline',
-          ),
-        ],
-      },
-      async () => {
-        // Intended: select the unit card in the outline and read its Details tab.
-      },
-    );
+    // Run wide: on Verawood a mouse click selects a unit only on its header's
+    // own blank space, and at the suite's default 1280 px the title group and
+    // the badges fill the header (`AUTH-002`).
+    test.describe('at a wide viewport', () => {
+      test.use(viewportUse(VIEWPORTS.wideDesktop));
+
+      test(
+        'shows a selected unit its Details from the outline',
+        { annotation: testId('TC-00489') },
+        async ({
+          page,
+          config,
+          authoringCourse,
+          authoringSidebar,
+          studioCourseOutlinePage,
+          studioAuthorSession,
+        }) => {
+          void studioAuthorSession;
+          const section = await buildSection(
+            page.request,
+            config,
+            authoringCourse.courseKey,
+            `E2E unit outline info ${test.info().testId.slice(-6)}`,
+          );
+          const unit = section.units.at(0);
+          if (unit === undefined) throw new Error('buildSection produced no unit.');
+          await studioCourseOutlinePage.goto(authoringCourse.courseKey);
+          await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
+          await studioCourseOutlinePage.setAllExpanded(true);
+
+          // Selecting is not opening: the unit's title navigates to the unit page,
+          // so staying on the outline is part of the check.
+          const outlineUrl = page.url();
+          await studioCourseOutlinePage.select(studioCourseOutlinePage.unit(unit.usageKey), 'unit');
+          expect(page.url()).toBe(outlineUrl);
+
+          // The panel is the unit's own (titled with the name the test gave it) and
+          // offers Details (default) and Settings tabs.
+          await expect(authoringSidebar.title).toHaveText(unit.displayName);
+          await expect(authoringSidebar.tab(S.outlineUnitInfoTab('info'))).toHaveAttribute(
+            'aria-selected',
+            'true',
+          );
+          await expect(authoringSidebar.tab(S.outlineUnitInfoTab('settings'))).toBeVisible();
+        },
+      );
+    });
 
     test(
       'shows and clears the Publish button as the item is published',

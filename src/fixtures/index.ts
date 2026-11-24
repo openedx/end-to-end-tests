@@ -215,6 +215,9 @@ import {
   ORA_TEAM_SUBMISSIONS_SWITCH,
   enableCourseEmail,
   setWaffleSwitch,
+  RELATIVE_DATES_FLAG,
+  clearCourseFlagOverride,
+  setCourseFlagOverride,
   updateAccount,
 } from '../api';
 import {
@@ -238,6 +241,7 @@ import { CourseToolsPage } from '../pages/lms/course-home/course-tools.page';
 import { ProfilePage } from '../pages/lms/profile/profile.page';
 import { TeamsPage } from '../pages/lms/teams/teams.page';
 import { ProgressPage } from '../pages/lms/course-home/progress.page';
+import { DatesPage } from '../pages/lms/course-home/dates.page';
 import { DashboardPage } from '../pages/lms/dashboard/dashboard.page';
 import { UnitPage } from '../pages/lms/courseware/unit.page';
 import { DiscussionsPage } from '../pages/lms/discussions/discussions.page';
@@ -664,6 +668,13 @@ export interface TestFixtures {
    * **wrong** answer. The instructor's adjustment is then the test's own act.
    */
   gradedProblemWithWrongAnswer: GradedProblemSetup;
+  /**
+   * Has the content course list its assignments' due dates for learners (the
+   * Dates tab, the course-home dates API) for the length of the test:
+   * `course_experience.relative_dates` is forced on for that course alone and
+   * neutralized afterwards. Skips without an admin account.
+   */
+  assignmentDatesListed: void;
   /** Course Export page object (authoring MFE). */
   exportPage: StudioExportPage;
   /** Course Import page object (authoring MFE). */
@@ -1332,6 +1343,8 @@ export interface RoundTripLearner {
   readonly dashboardPage: DashboardPage;
   /** The course Progress tab on this learner's page. */
   readonly progressPage: ProgressPage;
+  /** The course Dates tab on this learner's page. */
+  readonly datesPage: DatesPage;
   /** The course Teams page on this learner's page. */
   readonly teamsPage: TeamsPage;
   /** The communications MFE's bulk e-mail form, for a learner granted course staff. */
@@ -1916,6 +1929,7 @@ async function provisionRoundTripLearner(
     courseToolsPage: new CourseToolsPage(page, config),
     dashboardPage: new DashboardPage(page, config),
     progressPage: new ProgressPage(page, config),
+    datesPage: new DatesPage(page, config),
     teamsPage: new TeamsPage(page, config),
     bulkEmailPage: new BulkEmailPage(page, config),
     notificationTray: new NotificationTray(page, config),
@@ -4301,6 +4315,28 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       problem.incorrect,
     );
     await use({ section, subsectionKey, problem, due, learner: roundTripLearner });
+  },
+
+  assignmentDatesListed: async ({ config, adminLms, contentCourse }, use, testInfo) => {
+    const { courseKey } = contentCourse;
+    const note = `e2e ${getRunId()} ${testInfo.testId.slice(-6)}`;
+    await adminLms((session) =>
+      setCourseFlagOverride(session, config, courseKey, {
+        flag: RELATIVE_DATES_FLAG,
+        choice: 'on',
+        enabled: true,
+        note,
+      }),
+    );
+    try {
+      await use();
+    } finally {
+      // Override rows cannot be deleted; a disabled one hands the course back
+      // to the flag's global state.
+      await adminLms((session) =>
+        clearCourseFlagOverride(session, config, courseKey, RELATIVE_DATES_FLAG, note),
+      );
+    }
   },
 
   authoringCourse: async ({ playwright, workerAuthor }, use, testInfo) => {

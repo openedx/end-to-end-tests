@@ -97,9 +97,7 @@ test.describe(
 
         // Selecting a level re-titles the panel with that item's name and keeps the
         // Info tabs rendered — the structure does not break as the selection moves.
-        // (Selecting a unit *from the outline* is exercised by TC-00489; the unit
-        // card is fully covered by its header, whose title link navigates to the
-        // unit page rather than selecting.)
+        // (Selecting a unit *from the outline* is exercised by TC-00489.)
         await studioCourseOutlinePage.select(
           studioCourseOutlinePage.sectionCards.first(),
           'section',

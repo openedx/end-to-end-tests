@@ -30,6 +30,13 @@ import { openAdminForm, postAdminForm } from './django-admin';
 /** The flag that puts a course's authoring permissions under openedx-authz. */
 export const AUTHZ_COURSE_AUTHORING_FLAG = 'authz.enable_course_authoring';
 
+/**
+ * The flag that puts assignment due dates on the learner's Dates tab (and in the
+ * course-home dates API). Off by default, in which case only the fixed course
+ * dates are listed.
+ */
+export const RELATIVE_DATES_FLAG = 'course_experience.relative_dates';
+
 /** Admin base paths for the two override models. */
 export const WAFFLE_COURSE_OVERRIDE_ADMIN = '/admin/waffle_utils/waffleflagcourseoverridemodel';
 export const WAFFLE_ORG_OVERRIDE_ADMIN = '/admin/waffle_utils/waffleflagorgoverridemodel';

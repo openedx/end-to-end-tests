@@ -78,13 +78,15 @@ export const STUDIO_SIDEBAR_SELECTORS = {
 
   /**
    * A panel tab by its non-localized id. The course Info panel uses
-   * `course-info-tabs-tab-*`; a section / subsection / unit-in-outline Info panel
-   * reuses `add-content-tabs-tab-*`; the unit-page Info panel uses
-   * `unit-info-sidebar-tabs-tab-*`. Each `Tabs` renders a stray `…-tab-null`
+   * `course-info-tabs-tab-*`; a section / subsection Info panel reuses
+   * `add-content-tabs-tab-*`; a unit selected in the outline has its own
+   * `unit-content-tabs-tab-*` (with a Preview tab before Details); the
+   * unit-page Info panel uses `unit-info-sidebar-tabs-tab-*`. Each `Tabs` renders a stray `…-tab-null`
    * control that is ignored.
    */
   courseInfoTab: (key: 'info' | 'settings') => `#course-info-tabs-tab-${key}`,
   outlineItemInfoTab: (key: 'info' | 'settings') => `#add-content-tabs-tab-${key}`,
+  outlineUnitInfoTab: (key: 'preview' | 'info' | 'settings') => `#unit-content-tabs-tab-${key}`,
   unitInfoTab: (key: 'details' | 'settings') => `#unit-info-sidebar-tabs-tab-${key}`,
   /** The unit-page Add sidebar's tabs. */
   unitAddTab: (key: 'add-new' | 'add-existing') => `#unit-add-sidebar-tab-${key}`,
