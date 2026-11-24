@@ -124,7 +124,14 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
         courseKey,
         `E2E rollback ${testInfo.testId.slice(-6)}`,
       );
-      const everyone = [...actors, { role: 'learner' as const, actor: learner }];
+      // And an account with no relationship to the course at all, not even an
+      // enrollment: TC-00611's "I have no role… access is denied".
+      const outsider = await rbacCast('outsider');
+      const everyone = [
+        ...actors,
+        { role: 'learner' as const, actor: learner },
+        { role: 'outsider' as const, actor: outsider },
+      ];
 
       // The baseline, recorded rather than assumed: who holds which legacy role,
       // and what each of them may do.
@@ -138,6 +145,8 @@ test.describe('AuthZ transition — rollback', { tag: ['@regression', ...TRANSIT
         );
       }
       expect(baselineMatrix.get('instructor')).toEqual(FULL_COURSE_ACCESS);
+      expect(baselineMatrix.get('learner')).toEqual({ ...NO_COURSE_ACCESS, courseware: 200 });
+      expect(baselineMatrix.get('outsider')).toEqual(NO_COURSE_ACCESS);
 
       const baselineRoles = await adminLms(async (session) => {
         const rows = baselineOf(await listCourseAccessRoles(session, config, courseKey));

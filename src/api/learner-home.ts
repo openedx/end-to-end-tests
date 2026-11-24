@@ -21,10 +21,20 @@ export interface LearnerHomeEnrollment {
   readonly mode: string;
   readonly isEmailEnabled: boolean;
   readonly hasOptedOutOfEmail: boolean;
+  /** The learner has opened the course: "In-Progress" when true, "Not Started" when not. */
+  readonly hasStarted: boolean;
+  /** ISO time of the enrollment, which the dashboard's default sort orders by. */
+  readonly lastEnrolled: string;
 }
 
 export interface LearnerHomeCourse {
-  readonly courseRun: { readonly courseId: string };
+  /** The course itself; its name is what the dashboard's title sort orders by. */
+  readonly course: { readonly courseName: string };
+  readonly courseRun: {
+    readonly courseId: string;
+    /** The run has ended: what the dashboard's "Done" filter keeps. */
+    readonly isArchived: boolean;
+  };
   readonly enrollment: LearnerHomeEnrollment;
 }
 

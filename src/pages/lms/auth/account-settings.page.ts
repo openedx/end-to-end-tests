@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 
 import type { AppConfig } from '../../../config';
 
@@ -13,11 +13,26 @@ import type { AppConfig } from '../../../config';
  * section (`#basic-information`), since the username above it is read-only. This
  * avoids depending on the localized "Full name" label.
  */
+/**
+ * The drop-down fields a spec edits: the section each sits in, its position
+ * among that section's Edit buttons, and the `name` its control carries once
+ * open ("Year of birth" under Account Information, "Education" under Profile
+ * Information).
+ */
+const ACCOUNT_SELECT_FIELDS = {
+  yearOfBirth: { section: 'basic-information', position: 2, name: 'year_of_birth' },
+  levelOfEducation: { section: 'profile-information', position: 0, name: 'level_of_education' },
+} as const;
+
+export type AccountSelectField = keyof typeof ACCOUNT_SELECT_FIELDS;
+
 export class AccountSettingsPage {
   private readonly basicInformation: Locator;
   private readonly sitePreferences: Locator;
   /** The Site language select, present once its field is being edited. */
   readonly siteLanguageSelect: Locator;
+  /** "Reset Password" in the Account Information section: its one stateful button. */
+  readonly resetPasswordButton: Locator;
 
   constructor(
     private readonly page: Page,
@@ -26,6 +41,7 @@ export class AccountSettingsPage {
     this.basicInformation = page.locator('#basic-information');
     this.sitePreferences = page.locator('#site-preferences');
     this.siteLanguageSelect = page.locator('#field-siteLanguage');
+    this.resetPasswordButton = this.basicInformation.locator('button.pgn__stateful-btn');
   }
 
   /** Navigates to the account settings page and waits for it to render. */
@@ -85,5 +101,49 @@ export class AccountSettingsPage {
     await this.siteLanguageSelect.selectOption(code);
     await this.sitePreferences.locator('button[type="submit"]').click();
     await Promise.all([stored, switched]);
+  }
+
+  /**
+   * Presses "Reset Password" (the label is localized) and returns the
+   * platform's answer to the reset request the page sends for the signed-in
+   * account's e-mail address.
+   */
+  async requestPasswordReset(): Promise<Response> {
+    const sent = this.page.waitForResponse(
+      (r) => r.url().includes('/password_reset/') && r.request().method() === 'POST',
+    );
+    await this.resetPasswordButton.click();
+    return sent;
+  }
+
+  /**
+   * Opens one of the page's drop-down fields for editing and returns its
+   * `select`. A field's Edit button carries no id or test id, so it is reached
+   * by its position among its section's Edit buttons; the opened control's id
+   * (`field-<name>`) then confirms it is the field asked for.
+   */
+  async editSelectField(field: AccountSelectField): Promise<Locator> {
+    const { section, position, name } = ACCOUNT_SELECT_FIELDS[field];
+    await this.page.locator(`#${section} .form-group button.ml-3.btn-link`).nth(position).click();
+    const control = this.page.locator(`select#field-${name}`);
+    await control.waitFor();
+    return control;
+  }
+
+  /** Chooses `value` in a drop-down field and saves it, returning the account `PATCH`. */
+  async saveSelectField(field: AccountSelectField, value: string): Promise<Response> {
+    const control = await this.editSelectField(field);
+    await control.selectOption(value);
+    const saved = this.page.waitForResponse(
+      (r) =>
+        r.url().startsWith(`${this.config.baseUrls.lms}/api/user/v1/accounts/`) &&
+        r.request().method() === 'PATCH',
+    );
+    await this.page
+      .locator(`#${ACCOUNT_SELECT_FIELDS[field].section} button[type="submit"]`)
+      .click();
+    const response = await saved;
+    await control.waitFor({ state: 'detached' });
+    return response;
   }
 }

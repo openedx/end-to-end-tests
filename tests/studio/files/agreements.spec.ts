@@ -13,6 +13,7 @@ import {
 import { provisionLearnerSession, withAdminSession } from '../../../src/accounts';
 import { newCleanRequestContext } from '../../../src/auth';
 import { STUDIO_FILES_SELECTORS, TIMEOUTS, type AppConfig } from '../../../src/config';
+import { StudioCourseOutlinePage } from '../../../src/pages/studio/course-outline.page';
 import { FilesPage } from '../../../src/pages/studio/files/files.page';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
@@ -134,6 +135,19 @@ test.describe.serial(
           'staff',
         );
 
+        // The course outline asks first: a banner for every upload agreement
+        // the account has not accepted — the Files page's among them.
+        const everyType = typesFor(
+          uploadAgreements.gating,
+          Object.keys(uploadAgreements.gating).filter(
+            (key) => key === 'upload' || key.startsWith('upload.'),
+          ),
+        );
+        const outline = new StudioCourseOutlinePage(member.page, config);
+        const outlineBanners = member.page.locator(STUDIO_FILES_SELECTORS.agreementBanner);
+        await outline.goto(authoringCourse.courseKey);
+        await expect(outlineBanners).toHaveCount(everyType.length);
+
         // Gated: one banner per outstanding agreement, and the dropzone's file
         // input cannot be used.
         const files = new FilesPage(member.page, config);
@@ -157,6 +171,11 @@ test.describe.serial(
         await files.goto(authoringCourse.courseKey);
         await expect(member.page.locator(STUDIO_FILES_SELECTORS.agreementAlert)).toHaveCount(0);
         await expect(member.page.locator(STUDIO_FILES_SELECTORS.dropzoneInput)).toBeEnabled();
+
+        // The outline no longer asks for the agreements accepted on the Files
+        // page: only the ones that page is not gated by are left.
+        await outline.goto(authoringCourse.courseKey);
+        await expect(outlineBanners).toHaveCount(everyType.length - types.length);
       },
     );
 

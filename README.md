@@ -432,8 +432,8 @@ only in how the target installation is provisioned.
 `ci.yml` additionally runs `run_tests_tutor.yml` twice every PR and push to
 `main`: once against an ephemeral **`Tutor main`**, and once against the **last
 named release** environment (currently `verawood`). Each runs the full suite
-under the `default` and `extended` CI profiles (see _CI profiles and shards_
-below), so a PR's result covers everything the scheduled runs do.
+under the `default`, `extended` and `aspects` CI profiles (see _CI profiles and
+shards_ below), so a PR's result covers everything the scheduled runs do.
 
 ### `run_tests_tutor.yml` — ephemeral Tutor installation
 
@@ -462,8 +462,9 @@ Triggers:
   time), Mondays and Fridays**,
   always against this repo's `main` branch with the `main` Open edX release
   (`domains`/`features`/`capabilities` are dispatch-only and don't apply to
-  scheduled runs, so scheduled runs cover the full suite with `main`'s default
-  capabilities).
+  scheduled runs). Scheduled runs use the `default`, `extended` and `aspects`
+  CI profiles, so the BTR results they publish include the cases only the
+  `extended` and `aspects` installations can exercise.
 
 - **`workflow_call`** — called by `ci.yml`'s `docker-main` and
   `docker-last-release` jobs (see above); same inputs as `workflow_dispatch`.

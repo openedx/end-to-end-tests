@@ -6,8 +6,8 @@ import { TAG } from '../../../src/steps';
 
 /**
  * The Align sidebar as the entry point to tagging (BTR TC-00490, 00497, 00500):
- * adding an alignment tag from the Align rail on the outline (a section), the unit
- * page (the unit) and with a component selected, that the tag persists across a
+ * adding an alignment tag from the Align rail on the outline (a section, a
+ * subsection and a unit), the unit page (the unit) and with a component selected, that the tag persists across a
  * reload, and that removing it there takes it off. The tag drawer itself is covered exhaustively in
  * `tag-drawer-{outline,unit}.spec.ts`; here the emphasis is the Align-rail access
  * and reload persistence, decided by the `object_tags` API and the reopened tree.
@@ -80,6 +80,75 @@ test.describe(
         expect(await fetchObjectTags(page.request, config, section.usageKey)).toEqual([]);
       },
     );
+
+    // The same from the outline for the other two levels the case names. A unit
+    // has an Align rail on its own page too (TC-00497); this is the outline's.
+    for (const level of ['subsection', 'unit'] as const) {
+      test(
+        `adds, keeps and removes a ${level} tag from the outline's Align rail`,
+        { annotation: testId('TC-00490') },
+        async ({
+          page,
+          config,
+          workerTaxonomy,
+          authoringCourse,
+          studioCourseOutlinePage,
+          authoringSidebar,
+          tagDrawer,
+          studioAuthorSession,
+        }) => {
+          void studioAuthorSession;
+          const name = workerTaxonomy.taxonomy.name;
+          const section = await buildSection(
+            page.request,
+            config,
+            authoringCourse.courseKey,
+            `E2E align ${level} ${test.info().testId.slice(-6)}`,
+          );
+          const subsection = section.subsections[0];
+          const unit = section.units[0];
+          if (subsection === undefined || unit === undefined) {
+            throw new Error('buildSection produced no subsection with a unit.');
+          }
+          const target = level === 'subsection' ? subsection : unit;
+          const openAlignFor = async () => {
+            await studioCourseOutlinePage.goto(authoringCourse.courseKey);
+            await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
+            await studioCourseOutlinePage.setAllExpanded(true);
+            await studioCourseOutlinePage.select(
+              level === 'subsection'
+                ? studioCourseOutlinePage.subsection(unit.usageKey)
+                : studioCourseOutlinePage.unit(unit.usageKey),
+              level,
+            );
+            await expect(authoringSidebar.title).toHaveText(target.displayName);
+            await authoringSidebar.openPage('align');
+            await tagDrawer.waitOpen();
+            await tagDrawer.beginEditing();
+          };
+          const stored = async () =>
+            (await fetchObjectTags(page.request, config, target.usageKey))
+              .find((t) => t.taxonomyId === workerTaxonomy.taxonomy.id)
+              ?.tags.map((t) => t.value) ?? [];
+
+          await openAlignFor();
+          await tagDrawer.openTagSelector(name);
+          await tagDrawer.checkTag(name, TAG.parentOne);
+          await tagDrawer.commitStaged(name);
+          await tagDrawer.save();
+          expect(await stored()).toEqual([TAG.parentOne]);
+
+          // The tag persists across a reload: reopen the Align drawer and it is there.
+          await openAlignFor();
+          expect(await tagDrawer.appliedTagCount(name)).toBeGreaterThan(0);
+
+          // Removing it takes it off the object.
+          await tagDrawer.deleteAppliedTag(name, TAG.parentOne);
+          await tagDrawer.save();
+          expect(await stored()).toEqual([]);
+        },
+      );
+    }
 
     test(
       'adds, keeps and removes a unit tag from the unit-page Align rail',

@@ -32,12 +32,21 @@ test.describe('LMS landing page', () => {
 
   test(
     'the catalog link leads to the course catalog',
-    { tag: ['@smoke', '@catalog-search', '@mfe-catalog'], annotation: testId('TC-00062') },
+    {
+      tag: ['@smoke', '@catalog-search', '@mfe-catalog'],
+      annotation: [testId('TC-00062'), testId('TC-00014')],
+    },
     async ({ siteHeader, publicChrome, catalogPage }) => {
       void publicChrome;
+      // TC-00014's journey: a signed-out visitor on the home page sees one
+      // link (the sheet's "Explore courses") beside the register and sign-in
+      // calls to action, and the link leads to the catalog and its courses.
       await expect(siteHeader.mainLinks).toHaveCount(1);
+      await expect(siteHeader.registerLink).toBeVisible();
+      await expect(siteHeader.signInLink).toBeVisible();
       await siteHeader.follow(siteHeader.mainLinks.first());
       await expect(catalogPage.resultsStatusBar).toBeVisible();
+      await expect(catalogPage.courseCards.first()).toBeVisible();
     },
   );
 

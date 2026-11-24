@@ -3,6 +3,7 @@ import type { Locator, Page, Response } from '@playwright/test';
 import { CLIPBOARD_PATH, LIBRARIES_V2_PATH } from '../../../api';
 import {
   LIBRARY_SELECTORS,
+  STUDIO_EDITOR_SELECTORS,
   TIMEOUTS,
   libraryCollectionPath,
   libraryPath,
@@ -193,6 +194,55 @@ export class LibraryPage {
     );
   }
 
+  /** The open component editor dialog. */
+  get editorDialog(): Locator {
+    return this.page.locator(this.s.editorDialog).last();
+  }
+
+  /** The values of the open editor's text fields, in order — to check what was typed is still there. */
+  async editorFieldValues(): Promise<string[]> {
+    return this.editorDialog
+      .locator(this.s.editorTextInput)
+      .evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+  }
+
+  /** The open text editor's editable body (TinyMCE's frame). */
+  get editorTextBody(): Locator {
+    return this.editorDialog.frameLocator(STUDIO_EDITOR_SELECTORS.tinyMceFrame).locator('body');
+  }
+
+  /** The editor's "Cancel" — opens the "Exit the editor?" prompt without answering it. */
+  async cancelEditor(): Promise<void> {
+    await this.page.locator(this.s.editorCancelButton).click();
+    await this.page.locator(this.s.editorExitDiscardButton).waitFor();
+  }
+
+  /** The exit prompt's "Keep Editing": the prompt goes, the editor stays. */
+  async keepEditing(): Promise<void> {
+    await this.page.locator(this.s.editorExitKeepEditingButton).click();
+    await this.page.locator(this.s.editorExitDiscardButton).waitFor({ state: 'detached' });
+  }
+
+  /** The exit prompt's "Discard Changes and Exit": the editor closes. */
+  async discardEditor(): Promise<void> {
+    await this.page.locator(this.s.editorExitDiscardButton).click();
+    await this.page.locator(this.s.editorDialog).waitFor({ state: 'detached' });
+  }
+
+  /**
+   * In the open PDF editor: chooses the file the block shows, waiting for the
+   * `PUT blocks/<key>/assets/…` that stores it as an asset of the block.
+   */
+  async uploadPdfInEditor(file: { name: string; buffer: Buffer }): Promise<Response> {
+    const input = this.page.locator(this.s.editorPdfFileInput);
+    await input.waitFor({ state: 'attached', timeout: TIMEOUTS.navigation });
+    return waitForWrite(
+      this.page,
+      { method: 'PUT', urlIncludes: '/assets/', timeout: TIMEOUTS.contentWrite },
+      () => input.setInputFiles({ ...file, mimeType: 'application/pdf' }),
+    );
+  }
+
   /**
    * "Advanced / Other" then the advanced type whose button shows `displayName`
    * — the `display_name` the library's `block_types` API reports for the type
@@ -288,9 +338,34 @@ export class LibraryPage {
     await this.searchInput.blur();
   }
 
+  /**
+   * The search box's "×": clears the term. Clickable only once the field has
+   * lost focus ({@link search} blurs it) — while focused, the field expands
+   * over its own reset button.
+   */
+  async resetSearch(): Promise<void> {
+    await this.page.locator(this.s.searchResetButton).click();
+  }
+
+  /** The highlighted keyword matches inside the card titled `title`. */
+  highlightsIn(title: string): Locator {
+    return this.cardFor(title).locator(this.s.cardHighlight);
+  }
+
+  /**
+   * Picks a sort option. Options are located from the end of the menu, since
+   * "Most Relevant" is prepended (only) while a search term is typed — asking
+   * for it without one throws rather than clicking the wrong option.
+   */
   async sortBy(option: keyof typeof LIBRARY_SELECTORS.sortOption): Promise<void> {
     await this.page.locator(this.s.sortToggle).click();
-    await this.page.locator(this.s.sortMenuItem).nth(this.s.sortOption[option]).click();
+    const items = this.page.locator(this.s.sortMenuItem);
+    await items.first().waitFor();
+    const index = (await items.count()) - this.s.sortOption[option];
+    if (index < 0) {
+      throw new Error(`The sort menu does not offer '${option}' (no search term is typed).`);
+    }
+    await items.nth(index).click();
   }
 
   private async openFilter(which: keyof typeof LIBRARY_SELECTORS.filter): Promise<void> {
@@ -330,6 +405,27 @@ export class LibraryPage {
     if (!(await box.isVisible())) await this.openFilter('tags');
     await box.waitFor({ state: 'visible', timeout: TIMEOUTS.librarySearch });
     await box.click();
+  }
+
+  /**
+   * Opens the "Tags" filter and toggles the node at `path` (taxonomy name, then
+   * each tag down to the wanted one — our own data), expanding each ancestor
+   * that is still collapsed on the way. Waits like {@link toggleTagFilterByValue}.
+   */
+  async toggleTagFilterByPath(path: readonly string[]): Promise<void> {
+    const row = (depth: number) =>
+      this.page.locator(this.s.tagFilterRowByPath(path.slice(0, depth)));
+    if (!(await row(1).isVisible())) await this.openFilter('tags');
+    await row(1).waitFor({ state: 'visible', timeout: TIMEOUTS.librarySearch });
+    for (let depth = 2; depth <= path.length; depth += 1) {
+      if (!(await row(depth).isVisible())) {
+        await row(depth - 1)
+          .locator(this.s.tagFilterRowExpandButton)
+          .click();
+      }
+      await row(depth).waitFor({ state: 'visible', timeout: TIMEOUTS.librarySearch });
+    }
+    await row(path.length).locator(this.s.tagFilterRowCheckbox).click();
   }
 
   /** "Clear Filter" inside the given refinement menu (opened if needed). */
@@ -385,26 +481,37 @@ export class LibraryPage {
     );
   }
 
-  /** Card menu → "Delete" — opens the confirmation without answering it (for its Cancel path). */
-  async openCardDelete(title: string): Promise<void> {
-    await this.openCardMenu(title);
-    await this.page.locator(this.s.menuLastItem).last().click();
-    await this.page.locator(this.s.deleteModal).last().waitFor();
-  }
-
   /**
-   * Card menu → "Delete" → confirm, waiting for the `DELETE`. On a component
-   * card "Delete" is the last item (after a divider); on a top-level container
-   * card the menu has no divider and "Delete" is the third item.
+   * Card menu → "Delete" — opens the confirmation without answering it (for
+   * its Cancel path and its warning). On a component card "Delete" is the last
+   * item (after a divider); on a top-level container card the menu has no
+   * divider and "Delete" is the third item.
    */
-  async deleteCard(title: string): Promise<Response> {
+  async openCardDelete(title: string): Promise<void> {
     const menu = await this.openCardMenu(title);
     const hasDivider = (await menu.locator('.dropdown-divider').count()) > 0;
     const item = hasDivider
       ? this.page.locator(this.s.menuLastItem)
       : this.page.locator(this.s.openMenuItem).nth(this.s.containerMenu.delete);
     await item.click();
+    await this.page.locator(this.s.deleteModal).last().waitFor();
+  }
+
+  /** Card menu → "Delete" → confirm, waiting for the `DELETE`. */
+  async deleteCard(title: string): Promise<Response> {
+    await this.openCardDelete(title);
     return this.confirmDialog('DELETE', LIBRARIES_V2_PATH);
+  }
+
+  /**
+   * The delete confirmation's warning that courses use the item (see
+   * `deleteDialogDownstreamWarning`): empty for an item no course reuses.
+   */
+  get deleteDownstreamWarning(): Locator {
+    return this.page
+      .locator(this.s.deleteModal)
+      .last()
+      .locator(this.s.deleteDialogDownstreamWarning);
   }
 
   /** On a collection page: card menu → "Remove from collection" (no confirmation), waiting for the items `DELETE`. */

@@ -107,6 +107,32 @@ export class StudioCourseOutlinePage {
   }
 
   /**
+   * The status bar's course start date, which links to the schedule on
+   * Schedule & Details. It reads "Set Date" while the course has no start of
+   * its own; anchored by where it leads, not by what it says.
+   */
+  get startDateLink(): Locator {
+    return this.page.locator('a[href$="/settings/details/#schedule"]');
+  }
+
+  /**
+   * An ISO instant as the status bar shows a date: short month, day and year
+   * in the page's own language and the browser's time zone. Computed in the
+   * page, so it tracks the page's locale rather than the runner's.
+   */
+  async formatStatusDate(iso: string): Promise<string> {
+    return this.page.evaluate(
+      (value) =>
+        new Intl.DateTimeFormat(document.documentElement.lang || undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        }).format(new Date(value)),
+      iso,
+    );
+  }
+
+  /**
    * Clicks the header's "Reindex" (global staff only) and waits for the
    * reindex request it fires — a `GET` of the course's `reindex_link`
    * (`/course/<key>/search_reindex`). Returns that response.

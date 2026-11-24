@@ -48,9 +48,46 @@ test.describe(
     test(
       'a course-level override reaches that course and no other',
       { annotation: testId('TC-00639') },
-      async ({ page, config, adminLms, authzTarget, authoredCourse }) => {
-        // The worker's AuthZ course carries the override; the worker's ordinary
-        // course is the control, and nothing in this test touches it.
+      async ({ page, config, adminLms, authzTarget, authoredCourse, authoringCourse }) => {
+        // Creates the override the case describes, on a course of this test's
+        // own, through the Django admin's "Waffle flag course overrides" form
+        // (Force On, enabled) — and takes it off again whatever follows.
+        const created = authoringCourse.courseKey;
+        expect(await isAuthzEnabledForCourse(page.request, config, created)).toBe(false);
+        try {
+          const outcome = await adminLms((session) =>
+            enableAuthzForCourse(session, config, created, {
+              mode: authzTarget.mode,
+              note: `e2e ${getRunId()} TC-00639`,
+            }),
+          );
+          expect(outcome.enabled).toBe(true);
+          expect(outcome.migrated).toBe(authzTarget.mode === 'automatic');
+
+          // On for that course only: the flag document lists it, the course's
+          // own reading agrees, and the worker's ordinary course is untouched.
+          const listed = await fetchWaffleFlagStates(page.request, config);
+          expect(listed.courseOverrides.on).toContain(created);
+          expect(listed.courseOverrides.on).not.toContain(authoredCourse.courseKey);
+          expect(await isAuthzEnabledForCourse(page.request, config, created)).toBe(true);
+          expect(
+            await isAuthzEnabledForCourse(page.request, config, authoredCourse.courseKey),
+          ).toBe(false);
+
+          // The course now answers through AuthZ: where the save also migrates,
+          // its creator has become a team manager there by an authz role.
+          expect(await canI(page.request, config, 'courses.manage_course_team', created)).toBe(
+            authzTarget.mode === 'automatic',
+          );
+        } finally {
+          await adminLms((session) =>
+            disableAuthzForCourse(session, config, created, { mode: authzTarget.mode }),
+          );
+        }
+
+        // The same reading on the override the suite's setup placed: the
+        // worker's AuthZ course carries it; the worker's ordinary course is the
+        // control, and nothing in this test touches it.
         const states = await fetchWaffleFlagStates(page.request, config);
         expect(states.courseOverrides.on).toContain(authzTarget.courseKey);
         expect(states.courseOverrides.on).not.toContain(authoredCourse.courseKey);

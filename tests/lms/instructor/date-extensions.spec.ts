@@ -1,6 +1,11 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { fetchCourseProgress, listUnitExtensions } from '../../../src/api';
+import {
+  assignmentDateFor,
+  fetchCourseDates,
+  fetchCourseProgress,
+  listUnitExtensions,
+} from '../../../src/api';
 import { waitForLearnerProgress } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
 import { testId } from '../../../src/reporting';
@@ -11,9 +16,11 @@ import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS } from './helpers';
  * graded subsection, see it listed and reflected in the learner's own dates,
  * then reset it.
  *
- * The learner's oracle is the progress API's per-subsection `due` — the one
- * learner-facing reading that carries extensions (the course-home dates API
- * does not list the assignment, `INSTR-004`).
+ * The learner's oracles are the progress API's per-subsection `due` and the
+ * course-home dates API, which lists the assignment while
+ * `assignmentDatesListed` holds relative dates on for the course; the Dates
+ * tab is then read for the assignment under the extended day, and under the
+ * course's own due day again after the reset.
  */
 test.describe(
   'Instructor dashboard date extensions',
@@ -30,12 +37,27 @@ test.describe(
         contentCourse,
         instructorDateExtensions,
         gradedProblemWithWrongAnswer,
+        assignmentDatesListed,
         studioAuthorSession,
       }) => {
         void studioAuthorSession;
+        void assignmentDatesListed;
         const courseKey = contentCourse.courseKey;
         const { subsectionKey, due, learner } = gradedProblemWithWrongAnswer;
         const username = learner.identity.username;
+        // The learner's Dates tab: the day the dates API puts the assignment
+        // on, to the minute, and whether the tab lists it under that day.
+        const datesTabDue = async () =>
+          assignmentDateFor(
+            await fetchCourseDates(learner.request, config, courseKey),
+            subsectionKey,
+          )?.date.slice(0, 16);
+        const listedOn = async (instant: string) => {
+          await learner.datesPage.goto(courseKey);
+          return learner.datesPage
+            .dayOn(await learner.datesPage.formatDay(instant))
+            .and(learner.datesPage.dayOf(subsectionKey));
+        };
         const learnerDue = async () =>
           (await fetchCourseProgress(learner.request, config, courseKey)).subsections.find(
             (s) => s.block_key === subsectionKey,
@@ -81,6 +103,12 @@ test.describe(
           JSON.stringify(seen.last.subsections.find((s) => s.block_key === subsectionKey)),
         ).toBe(true);
 
+        // And on their Dates tab the assignment has moved to the extended day.
+        await expect
+          .poll(datesTabDue, { timeout: TIMEOUTS.contentPublish })
+          .toBe(extended.toISOString().slice(0, 16));
+        await expect(await listedOn(extended.toISOString())).toHaveCount(1);
+
         await checkA11y(page, {
           label: 'instructor-date-extensions',
           additionalBaseline: INSTRUCTOR_A11Y_BASELINE,
@@ -109,6 +137,8 @@ test.describe(
             due.slice(0, 10),
         );
         expect(back.satisfied).toBe(true);
+        await expect.poll(datesTabDue, { timeout: TIMEOUTS.contentPublish }).toBe(due.slice(0, 16));
+        await expect(await listedOn(due)).toHaveCount(1);
       },
     );
   },

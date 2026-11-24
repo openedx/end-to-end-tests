@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
 import { ApiError } from './errors';
-import { lmsWrite } from './lms-json';
+import { lmsGet, lmsWrite } from './lms-json';
 import { studioOrigin } from './studio-origin';
 
 /**
@@ -91,6 +91,8 @@ export async function fetchPollResults(
 /** One survey question's counts per answer key. */
 export interface SurveyQuestionTally {
   readonly key: string;
+  /** The question as the author wrote it (course content). */
+  readonly label: string;
   readonly answers: readonly PollTally[];
 }
 
@@ -98,6 +100,7 @@ export function narrowSurveyResults(body: unknown): readonly SurveyQuestionTally
   if (!isRecord(body) || !Array.isArray(body.tally)) throw shapeError('The survey results', body);
   return body.tally.filter(isRecord).map((question) => ({
     key: String(question.key),
+    label: typeof question.label === 'string' ? question.label : '',
     answers: (Array.isArray(question.answers) ? question.answers : [])
       .filter(isRecord)
       .map((answer) => ({ key: String(answer.key), count: Number(answer.count) })),
@@ -175,6 +178,50 @@ export async function fetchConditionalContent(
 ): Promise<ConditionalContent> {
   return narrowConditionalContent(
     await callHandler(learner, config, courseKey, usageKey, 'xmodule_handler/conditional_get'),
+  );
+}
+
+/** One item a learner has placed in a drag-and-drop problem. */
+export interface DragAndDropPlacement {
+  readonly zone: string;
+  readonly correct: boolean;
+}
+
+/** A learner's state in a drag-and-drop problem (`student_view_user_state`). */
+export interface DragAndDropState {
+  /** The placed items, keyed by item id. A refused drop leaves no entry. */
+  readonly items: Readonly<Record<string, DragAndDropPlacement>>;
+  /** The learner's score so far, as a fraction of the problem's weight. */
+  readonly grade: number;
+  readonly finished: boolean;
+}
+
+export function narrowDragAndDropState(body: unknown): DragAndDropState {
+  if (!isRecord(body) || !isRecord(body.items)) throw shapeError('The drag-and-drop state', body);
+  return {
+    items: Object.fromEntries(
+      Object.entries(body.items)
+        .filter((entry): entry is [string, Record<string, unknown>] => isRecord(entry[1]))
+        .map(([id, item]) => [id, { zone: String(item.zone), correct: item.correct === true }]),
+    ),
+    grade: Number(body.grade ?? 0),
+    finished: body.finished === true,
+  };
+}
+
+/** A drag-and-drop problem's state as `learner` reads it. */
+export async function fetchDragAndDropState(
+  learner: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+  usageKey: string,
+): Promise<DragAndDropState> {
+  return narrowDragAndDropState(
+    await lmsGet<unknown>(
+      learner,
+      xblockHandlerUrl(config, courseKey, usageKey, 'student_view_user_state'),
+      `Reading the drag-and-drop state of ${usageKey}`,
+    ),
   );
 }
 

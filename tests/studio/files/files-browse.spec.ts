@@ -1,6 +1,12 @@
 import type { APIRequestContext, Locator } from '@playwright/test';
 
-import { fetchAllAssets, uploadAsset, type CourseAsset } from '../../../src/api';
+import {
+  buildSection,
+  fetchAllAssets,
+  setAssetLock,
+  uploadAsset,
+  type CourseAsset,
+} from '../../../src/api';
 import { TIMEOUTS, type AppConfig } from '../../../src/config';
 import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
@@ -147,6 +153,52 @@ test.describe(
 
         await filesPage.clearSearch();
         await expect(filesPage.cards).toHaveCount(2);
+
+        // A term containing a space finds the file whose name contains it.
+        const spaced = await uploadAsset(page.request, config, authoringCourse.courseKey, {
+          name: `e2e first image ${suffix}.png`,
+          mimeType: 'image/png',
+          buffer: PNG,
+        });
+        await filesPage.goto(authoringCourse.courseKey);
+        await filesPage.setView('card');
+        await expect(filesPage.cards).toHaveCount(3);
+        await filesPage.search('first image');
+        await expect(filesPage.card(spaced.id)).toBeVisible();
+        await expect(filesPage.cards).toHaveCount(1);
+      },
+    );
+
+    test(
+      'searches by separate words of a file name',
+      { annotation: testId('TC-00136') },
+      async ({ page, config, authoringCourse, filesPage, studioAuthorSession }) => {
+        test.fail(
+          true,
+          'FILES-004: the Files search matches the typed text as one substring, so the words ' +
+            'of a name are not found when typed apart ("First Image" for ' +
+            '"FirstCourseImage.jpg", "First .jpg"), as the case and the documentation describe',
+        );
+        void studioAuthorSession;
+        const suffix = test.info().testId.slice(-6);
+        const { image, doc } = await seedTwo(
+          page.request,
+          config,
+          authoringCourse.courseKey,
+          suffix,
+        );
+        await filesPage.goto(authoringCourse.courseKey);
+        await filesPage.setView('card');
+        await expect(filesPage.cards).toHaveCount(2);
+
+        // Two parts of one name, typed with a space between them: the sheet's
+        // "First Image" for `FirstCourseImage.jpg`, and its "First .jpg".
+        await filesPage.search(`aaa ${suffix}`);
+        await expect(filesPage.card(image.id)).toBeVisible();
+        await expect(filesPage.cards).toHaveCount(1);
+        await filesPage.search('bbb .pdf');
+        await expect(filesPage.card(doc.id)).toBeVisible();
+        await expect(filesPage.cards).toHaveCount(1);
       },
     );
 
@@ -195,6 +247,67 @@ test.describe(
 
         await filesPage.setView('list');
         await expect(filesPage.rows).toHaveCount(2);
+
+        // Every row starts with a blank checkbox.
+        await expect(filesPage.rowCheckboxes).toHaveCount(2);
+        await expect(filesPage.rowCheckboxes.and(page.locator(':checked'))).toHaveCount(0);
+
+        // Each row carries its file's metadata: its name, its size, a type
+        // that tells an image from a document, and its access status — the
+        // locked file's icon is not the unlocked file's.
+        for (const asset of [image, doc]) {
+          await expect(filesPage.row(asset.display_name)).toHaveCount(1);
+          await expect(filesPage.rowCell(asset.display_name, 'size')).toContainText(
+            String(asset.file_size),
+          );
+        }
+        const cell = (asset: CourseAsset, column: 'type' | 'access' | 'active') =>
+          filesPage.rowCell(asset.display_name, column);
+        await expect(cell(image, 'type')).not.toBeEmpty();
+        await expect(cell(doc, 'type')).not.toBeEmpty();
+        const imageType = (await cell(image, 'type').textContent()) ?? '';
+        await expect(cell(doc, 'type')).not.toHaveText(imageType);
+
+        const unlockedIcon = await cell(doc, 'access').innerHTML();
+        expect(await cell(image, 'access').innerHTML()).toBe(unlockedIcon);
+        await setAssetLock(page.request, config, authoringCourse.courseKey, image, true);
+        await filesPage.goto(authoringCourse.courseKey);
+        await filesPage.setView('list');
+        await expect(filesPage.rows).toHaveCount(2);
+        await expect.poll(() => cell(image, 'access').innerHTML()).not.toBe(unlockedIcon);
+        expect(await cell(doc, 'access').innerHTML()).toBe(unlockedIcon);
+
+        // Active status: no mark while no course content uses a file; once a
+        // component embeds the image, the image's row carries the mark and the
+        // document's still does not.
+        const activeMark = (asset: CourseAsset) => cell(asset, 'active').locator('svg');
+        await expect(activeMark(image)).toHaveCount(0);
+        await expect(activeMark(doc)).toHaveCount(0);
+        await buildSection(page.request, config, authoringCourse.courseKey, `E2E use ${suffix}`, {
+          subsections: [
+            {
+              units: [{ blocks: [{ html: `<p><img src="${image.portable_url}" alt="" /></p>` }] }],
+            },
+          ],
+        });
+        await expect
+          .poll(async () =>
+            (await fetchAllAssets(page.request, config, authoringCourse.courseKey)).map((asset) => [
+              asset.id,
+              asset.usage_locations?.length ?? 0,
+            ]),
+          )
+          .toEqual(
+            expect.arrayContaining([
+              [image.id, 1],
+              [doc.id, 0],
+            ]),
+          );
+        await filesPage.goto(authoringCourse.courseKey);
+        await filesPage.setView('list');
+        await expect(filesPage.rows).toHaveCount(2);
+        await expect(activeMark(image)).toHaveCount(1);
+        await expect(activeMark(doc)).toHaveCount(0);
 
         // Select all: every row checkbox becomes checked.
         await filesPage.selectAll();

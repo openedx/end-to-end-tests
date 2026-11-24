@@ -180,4 +180,37 @@ export class AssignRoleWizard {
     await this.cancelButton.click();
     await this.usersInput.waitFor({ state: 'hidden', timeout: TIMEOUTS.navigation });
   }
+
+  /**
+   * Leaves the wizard from its scope step without assigning anything. The
+   * modal wizard (`rbac-console-next`) offers Back there in Cancel's place, so
+   * leaving is Back and then step one's Cancel. The routed wizard (`verawood`)
+   * is handled either way: if the same control is a Cancel the route is left
+   * at once, and if it is a Back, step one's Cancel follows.
+   */
+  async cancelFromScopeStep(): Promise<void> {
+    await this.cancelButton.click();
+    // Settled to a boolean either way, so the race's loser cannot reject later.
+    const backOnStepOne = this.usersInput
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.navigation })
+      .then(
+        () => true,
+        () => false,
+      );
+    if (this.isModal) {
+      await backOnStepOne;
+      await this.cancel();
+      return;
+    }
+    const routeLeft = this.page
+      .waitForURL((url) => !url.pathname.endsWith(this.s.assignRolePath), {
+        timeout: TIMEOUTS.navigation,
+      })
+      .then(
+        () => false,
+        () => false,
+      );
+    if (await Promise.race([backOnStepOne, routeLeft])) await this.cancel();
+    else await this.usersInput.waitFor({ state: 'hidden', timeout: TIMEOUTS.navigation });
+  }
 }

@@ -39,7 +39,10 @@ test.describe('Course lifecycle', { tag: ['@studio', '@author', '@mfe-authoring'
 
   test(
     're-runs a course from its Studio Home card into a new run',
-    { tag: '@regression', annotation: testId('TC-00251') },
+    // TC-00258's "Re-run course" half: the card menu's item opens the re-run
+    // form (a page in this MFE, where the sheet says modal). Its "View live"
+    // half is the last test here.
+    { tag: '@regression', annotation: [testId('TC-00251'), testId('TC-00258')] },
     async ({ config, authoredCourse, studioAuthorSession, adminPage }, testInfo) => {
       void studioAuthorSession;
       // The administrator's own browser session; its API calls ride the same

@@ -20,12 +20,15 @@ import { confirmIgnore } from './preview-changes.dialog';
 export class CourseLibrariesPage {
   private readonly s = COURSE_LIBRARY_SYNC_SELECTORS;
   readonly reviewCards: Locator;
+  /** The number beside the Review tab's title: how many linked items have updates. */
+  readonly reviewCount: Locator;
 
   constructor(
     private readonly page: Page,
     private readonly config: AppConfig,
   ) {
     this.reviewCards = page.locator(this.s.reviewItemCard);
+    this.reviewCount = page.locator(this.s.reviewTabCount);
   }
 
   async goto(courseKey: string, tab?: 'all' | 'review'): Promise<void> {

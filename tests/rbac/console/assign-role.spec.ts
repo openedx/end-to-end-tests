@@ -50,6 +50,9 @@ test.describe(
         await wizard.chooseScope(library);
         const saved = await wizard.save();
         expect(saved.status()).toBe(207);
+        // The save is acknowledged with a message (its wording is localized;
+        // TC-00454 follows it until it clears) and lands on the team table.
+        await expect(wizard.toast).toBeVisible();
         await expect(adminConsole.teamMembers.table).toBeVisible();
         expect(
           (
@@ -85,6 +88,38 @@ test.describe(
           expect.arrayContaining(['library_author', 'library_user']),
         );
         expect(member(second.identity.username)).toEqual(['library_user']);
+
+        // An account the platform does not know blocks the flow on step one,
+        // with the entry marked in place…
+        const unknown = 'e2e_no_such_account_zz';
+        await wizard.open();
+        await wizard.fillWhoAndRole(unknown, 'library_contributor');
+        const refused = (await (await wizard.validateAndAdvance()).json()) as {
+          valid_users: string[];
+          invalid_users: string[];
+        };
+        expect(refused).toMatchObject({ valid_users: [], invalid_users: [unknown] });
+        expect(await wizard.onFirstStep()).toBe(true);
+        await expect(wizard.stepError).toBeVisible();
+        await expect(wizard.usersHighlight).toContainText(unknown);
+        await expect(wizard.scopeToggles).toHaveCount(0);
+
+        // …until it is corrected, when the wizard moves on to the scope step.
+        await wizard.usersInput.fill(second.identity.username);
+        await wizard.validateAndAdvance();
+        await wizard.chooseScope(library);
+
+        // Cancel, even this far in, leaves the wizard and assigns nothing: the
+        // team is exactly what the two saves above made it.
+        await wizard.cancelFromScopeStep();
+        await expect(adminConsole.teamMembers.table).toBeVisible();
+        const after = await listRoleUsers(page.request, config, library);
+        expect(
+          after.members.find((row) => row.username === second.identity.username)?.roles,
+        ).toEqual(['library_user']);
+        expect(after.members.map((row) => row.username).sort()).toEqual(
+          team.members.map((row) => row.username).sort(),
+        );
       },
     );
 

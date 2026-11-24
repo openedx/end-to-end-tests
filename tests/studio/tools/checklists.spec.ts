@@ -1,11 +1,12 @@
 import { checkA11y } from '../../../src/a11y';
 import {
+  buildSection,
   fetchCourseQuality,
   fetchCourseValidation,
   updateCourseDetails,
   type CourseValidation,
 } from '../../../src/api';
-import { LAUNCH_CHECKLIST_ITEMS } from '../../../src/config';
+import { LAUNCH_CHECKLIST_ITEMS, TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -23,8 +24,12 @@ import { testId } from '../../../src/reporting';
  * Launch rules. The empty worker course carries no gradable content, so the
  * quality-derived Best-practices states depend on the deployed MFE's own
  * (release-varying) thresholds — that case asserts the section's shape and its
- * data source, and leaves per-item quality states to Epic 8, which authors
- * content.
+ * data source. The last case authors the content TC-00307 names (a unit with a
+ * video, a problem and a text component) in a course of its own and reads the
+ * items that content checks off. The video-duration item, and the case's final
+ * step (replacing the video with ones over ten minutes long), are not driven: a
+ * video's length comes from the video pipeline's records, and the suite uploads
+ * no video.
  */
 
 const END_DATE = '2041-01-01T00:00:00Z';
@@ -135,6 +140,63 @@ test.describe('Checklists', { tag: ['@studio', '@author', '@mfe-authoring'] }, (
           unit: await checklistsPage.isComplete('unitDepth'),
         }))
         .toEqual({ diverse: false, unit: false });
+    },
+  );
+
+  test(
+    'the best-practices checklist checks off what the course content meets',
+    { tag: '@regression', annotation: testId('TC-00307') },
+    async ({ page, config, authoringCourse, checklistsPage, studioAuthorSession }) => {
+      test.setTimeout(TIMEOUTS.contentTest);
+      void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
+      const { courseKey } = authoringCourse;
+      const drawn = async () => ({
+        diverse: await checklistsPage.isComplete('diverseSequences'),
+        unit: await checklistsPage.isComplete('unitDepth'),
+      });
+
+      // A course with no content: no box is checked.
+      await checklistsPage.goto(courseKey);
+      await expect
+        .poll(async () => ({
+          ...(await drawn()),
+          video: await checklistsPage.isComplete('videoDuration'),
+        }))
+        .toEqual({ diverse: false, unit: false, video: false });
+
+      // The case's course: one section, one subsection, and one unit holding a
+      // video, a problem and a text component.
+      await buildSection(api, config, courseKey, `E2E checklist ${test.info().testId.slice(-6)}`, {
+        subsections: [{ units: [{ blocks: ['video', 'multiplechoiceresponse', 'html'] }] }],
+        publish: true,
+      });
+
+      // The quality API counts that content — a unit, a video, and a subsection
+      // that mixes block types — and the checklist checks off "diverse
+      // sequences" and "unit depth". The page is reloaded inside the poll: it
+      // reads the quality data once, when it opens.
+      //
+      // "Video duration" is not read here. The platform knows a video's length
+      // only from the video pipeline's record of an uploaded file, and this
+      // video is a YouTube reference with no such record, so the item stays
+      // unchecked whatever the video's real length.
+      await expect
+        .poll(
+          async () => {
+            const quality = await fetchCourseQuality(api, config, courseKey);
+            await checklistsPage.goto(courseKey);
+            return {
+              videos: quality.videos.total_number,
+              units: quality.units.total_visible,
+              singleTypeSubsections: quality.subsections.num_with_one_block_type,
+              ...(await drawn()),
+            };
+          },
+          { timeout: TIMEOUTS.contentPublish },
+        )
+        .toEqual({ videos: 1, units: 1, singleTypeSubsections: 0, diverse: true, unit: true });
     },
   );
 });

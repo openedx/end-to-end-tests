@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 
 import { STUDIO_CUSTOM_PAGES_SELECTORS, type AppConfig } from '../../../config';
 import { TABS_PATH } from '../../../api';
@@ -40,6 +40,22 @@ export class StudioCustomPagesPage {
     const base = await this.courseBase(courseKey);
     await this.page.goto(`${base}/custom-pages`);
     await this.page.locator(STUDIO_CUSTOM_PAGES_SELECTORS.ready).waitFor();
+  }
+
+  /**
+   * Clicks the header's "New page" and waits for the write that creates the
+   * static tab (a write to Studio's `/xblock/`), returning its response. The
+   * new page's card is appended to the list.
+   */
+  async addPage(): Promise<Response> {
+    return waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PUT'],
+        predicate: (r) => new URL(r.url()).pathname.replace(/\/$/, '') === '/xblock',
+      },
+      () => this.page.locator(STUDIO_CUSTOM_PAGES_SELECTORS.ready).click(),
+    );
   }
 
   /** The rendered card titles, in display order. */

@@ -6,8 +6,9 @@ name: Tutor E2E Test
 #
 # Also runs on a schedule (09:00 UTC, Mondays and Fridays) against this
 # repo's main branch with the "main" Open edX release, to catch regressions
-# between manual runs. Scheduled runs always use those two defaults; the
-# domains/features inputs only apply to manual `workflow_dispatch` runs.
+# between manual runs. Scheduled runs always use those two defaults and the
+# `default`, `extended` and `aspects` CI profiles; the domains/features inputs
+# only apply to manual `workflow_dispatch` runs.
 # A failed scheduled run is picked up by triage_scheduled_run.yml.
 #
 # Also callable (`workflow_call`) so `ci.yml` can run it as a non-blocking,
@@ -179,7 +180,10 @@ jobs:
       - name: Build the profile × shard matrix
         id: matrix
         env:
-          PROFILES: ${{ inputs.profiles || 'default' }}
+          # Scheduled runs have no inputs: they run every profile, so the BTR
+          # results they publish include the cases only `extended` and
+          # `aspects` can exercise. A dispatch run picks its own.
+          PROFILES: ${{ inputs.profiles || (github.event_name == 'schedule' && 'default extended aspects') || 'default' }}
           OVERRIDE_CAPABILITIES: ${{ inputs.capabilities }}
           RELEASE_CAPABILITIES: ${{ steps.release.outputs.capabilities }}
         run: |

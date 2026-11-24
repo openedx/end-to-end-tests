@@ -299,6 +299,13 @@ export const CAPABILITIES = [
   // whatever draft remains and stays ungated; this gates the case that asserts
   // the draft itself. Declared where the authoring MFE has the change.
   'outline-unhide-draft',
+  // **The course outline offers a library update on the unit's card.** On
+  // `master` a unit reused from a library shows a sync button in its outline
+  // card once the library publishes a newer version (`OutlineNode.readyToSync`),
+  // opening the same old / new comparison as the course Libraries page.
+  // `verawood` offers the update on the Libraries page and the unit page only.
+  // Those two routes stay ungated; this gates the case that drives the card.
+  'outline-library-sync',
   // --- Installation settings a test depends on -------------------------------
   // Each of these used to be a runtime probe that skipped the case it did not
   // describe. Declaring the setting instead makes the selection explicit (a CI

@@ -1,9 +1,12 @@
 import { expect, test } from '../../../src/fixtures';
 import {
+  type LibraryBlock,
   assignRole,
   canI,
   commitLibrary,
   fetchLibrary,
+  fetchLibraryBlock,
+  fetchLibraryBlockOlx,
   libraryOlx,
   listLibraries,
   listLibraryBlocks,
@@ -41,7 +44,16 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
     'gives a library admin the whole library, its team and its public-reuse switch',
     { annotation: testId('TC-00570') },
     async (
-      { page, config, adminConsole, authoringLibrary, libraryPage, studioAuthorSession },
+      {
+        page,
+        config,
+        adminConsole,
+        authoringLibrary,
+        libraryPage,
+        studioTextEditor,
+        studioAuthorSession,
+        studioColleague,
+      },
       testInfo,
     ) => {
       void studioAuthorSession;
@@ -56,13 +68,56 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
 
       // Drafts included: the admin sees content that has never been published.
       await libraryPage.goto(library);
-      await expect(libraryPage.cardTitles.filter({ hasText: title })).toHaveCount(1, {
+      await expect(libraryPage.cardFor(title)).toHaveCount(1, {
         timeout: TIMEOUTS.librarySearch,
       });
 
-      // Both publish actions the case asks for: the item, then the library.
-      expect(await statusOf(publishLibraryBlock(page.request, config, block.id))).toBe(200);
-      await setLibraryBlockOlx(page.request, config, block.id, libraryOlx.html(title, 'again'));
+      // Creates an item in the editor, and the platform holds what was typed.
+      // Its title must not contain the seeded item's: cards are found by title.
+      const createdTitle = libraryLabel('made', testInfo.testId);
+      await libraryPage.openAddContent();
+      await libraryPage.addComponent('html');
+      await studioTextEditor.setTitle(createdTitle);
+      await studioTextEditor.focus();
+      await studioTextEditor.type(`${createdTitle} body`);
+      const created = (await (await libraryPage.saveNewComponent()).json()) as LibraryBlock;
+      await expect
+        .poll(() => fetchLibraryBlockOlx(page.request, config, created.id), {
+          timeout: TIMEOUTS.contentWrite,
+        })
+        .toContain(`${createdTitle} body`);
+
+      // Publishes one item from its sidebar…
+      await libraryPage.goto(library, 'components');
+      await libraryPage.openCard(title);
+      expect((await libraryPage.sidebar.publish()).status()).toBe(200);
+      await expect
+        .poll(() =>
+          fetchLibraryBlock(page.request, config, block.id).then((b) => b.has_unpublished_changes),
+        )
+        .toBe(false);
+
+      // …then edits that existing item in the editor, and the change is saved.
+      await libraryPage.sidebar.editComponent();
+      await studioTextEditor.focus();
+      await studioTextEditor.type(' revised ');
+      expect((await libraryPage.saveEditor()).ok()).toBe(true);
+      await expect
+        .poll(() => fetchLibraryBlockOlx(page.request, config, block.id), {
+          timeout: TIMEOUTS.contentWrite,
+        })
+        .toContain('revised');
+
+      // Deletes the item it created: gone from the library and from the page.
+      await libraryPage.goto(library, 'components');
+      expect((await libraryPage.deleteCard(createdTitle)).ok()).toBe(true);
+      expect(
+        (await listLibraryBlocks(page.request, config, library)).results.map((b) => b.id),
+      ).not.toContain(created.id);
+      await expect(libraryPage.cardFor(createdTitle)).toHaveCount(0);
+
+      // And publishes the library, which the edit above left with a draft.
+      await libraryPage.goto(library);
       await libraryPage.openInfo();
       await expect(libraryPage.sidebar.publishAllButton).toBeVisible();
       expect((await libraryPage.sidebar.publishAll()).status()).toBe(200);
@@ -76,10 +131,25 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
       await expect(libraryPage.sidebar.manageTeamLink).toBeVisible();
       await expect(libraryPage.sidebar.publicReadSwitch).toBeEnabled();
 
-      // And the console it links to offers the team actions: assigning a role,
-      // and removing someone else's.
+      // And the console it links to offers the team actions: assigning a role…
+      const member = await studioColleague();
+      await seedScopeAssignments(
+        page.request,
+        config,
+        library,
+        [member.identity.username],
+        ['library_user'],
+      );
       await adminConsole.console.goto(library);
       await expect(adminConsole.console.assignRoleButton).toBeVisible();
+
+      // …and removing someone else's: on another member's audit view the one
+      // assignment has a live delete control and none is greyed out.
+      const audit = adminConsole.userAudit;
+      await audit.goto(member.identity.username);
+      await expect(audit.rows).toHaveCount(1);
+      await expect(audit.deleteControls).toHaveCount(1);
+      await expect(audit.disabledDeleteControls).toHaveCount(0);
     },
   );
 

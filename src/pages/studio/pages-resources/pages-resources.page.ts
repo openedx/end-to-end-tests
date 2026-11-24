@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { STUDIO_PAGES_RESOURCES_SELECTORS, type AppConfig } from '../../../config';
+import { STUDIO_PAGES_RESOURCES_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 import { COURSE_APPS_PATH } from '../../../api';
 import { authoringCourseBaseUrl } from '../authoring-base';
 import { waitForWrite } from '../wait-for-write';
@@ -79,6 +79,82 @@ export class StudioPagesResourcesPage {
     const response = await waitForWrite(
       this.page,
       { method: 'PATCH', urlIncludes: COURSE_APPS_PATH },
+      () => this.page.locator(s.modalSaveButton).click(),
+    );
+    return response.status();
+  }
+
+  /**
+   * Hides or shows the Discussion tab with the "Hide discussion tab" switch of
+   * the Discussion app's dialog (confirming the "Hide the discussion tab?"
+   * modal when hiding), waiting for the settings write that follows. Returns
+   * that write's status.
+   *
+   * The tab must currently stand the other way. The dialog draws the switch
+   * from the course's discussion settings, and a read made right after a write
+   * can still carry the previous value (measured on Tutor `main`, 2026-11-24:
+   * `enabled: true` straight after a save of `false`), so the dialog is
+   * reopened until the switch shows the state being left — a click on a stale
+   * switch would ask for the change the wrong way round.
+   */
+  async setDiscussionTabHidden(courseKey: string, hidden: boolean): Promise<number> {
+    const base = await this.courseBase(courseKey);
+    const toggle = this.page.locator(STUDIO_PAGES_RESOURCES_SELECTORS.hideDiscussionSwitch);
+    const standsOtherWay = toggle.and(this.page.locator(hidden ? ':not(:checked)' : ':checked'));
+    const deadline = Date.now() + TIMEOUTS.studioSettingsSave;
+    for (;;) {
+      const settings = this.page.waitForResponse(
+        (r) =>
+          r.request().method() === 'GET' &&
+          /\/api\/discussions\/v\d+\/course\/[^/]+\/settings/.test(new URL(r.url()).pathname),
+      );
+      await this.page.goto(`${base}/pages-and-resources/discussion`);
+      const { enabled } = (await (await settings).json()) as { enabled: boolean };
+      if (enabled === hidden || Date.now() > deadline) break;
+    }
+    // Fails here, naming the switch, if the settings never showed that state.
+    await standsOtherWay.waitFor();
+    const response = await waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PATCH', 'PUT'],
+        predicate: (r) => new URL(r.url()).pathname.includes('/api/discussions/'),
+      },
+      async () => {
+        // The switch is drawn from the saved state, so it moves only once the
+        // write lands: a plain click, not `setChecked`, which expects it to
+        // move at once. Hiding asks for confirmation first.
+        await toggle.click();
+        if (hidden) {
+          await this.page
+            .locator(STUDIO_PAGES_RESOURCES_SELECTORS.hideDiscussionConfirmButton)
+            .click();
+        }
+      },
+    );
+    return response.status();
+  }
+
+  /**
+   * Switches Flexible Peer Grading on or off in the ORA settings modal and
+   * saves, waiting for the Advanced Settings write the Save fires. Returns that
+   * write's status, or 200 without writing when the switch already stands as
+   * asked. The course must hold an open response assessment for the modal to
+   * exist.
+   */
+  async setFlexiblePeerGrading(courseKey: string, enabled: boolean): Promise<number> {
+    const s = STUDIO_PAGES_RESOURCES_SELECTORS;
+    const base = await this.courseBase(courseKey);
+    await this.page.goto(`${base}/pages-and-resources/ora_settings/settings`);
+    const toggle = this.page.locator(s.flexiblePeerGradingSwitch);
+    await toggle.waitFor();
+    if ((await toggle.isChecked()) === enabled) {
+      return 200;
+    }
+    await toggle.setChecked(enabled);
+    const response = await waitForWrite(
+      this.page,
+      { method: 'PATCH', urlIncludes: '/advanced_settings/' },
       () => this.page.locator(s.modalSaveButton).click(),
     );
     return response.status();
