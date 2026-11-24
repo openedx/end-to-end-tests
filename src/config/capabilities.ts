@@ -313,6 +313,12 @@ export const CAPABILITIES = [
   // localized label and title. Keyboard-shortcut formatting stays ungated;
   // this gates the cases that press toolbar buttons.
   'editor-toolbar-names',
+  // **The authoring sidebar fits a narrower window.** `main` caps the panel's
+  // width to the window and stacks its rail above it when there is no room;
+  // on `verawood` the panel keeps its minimum width and pushes the rail off
+  // the right edge, so the page scrolls sideways. Gates only the case that
+  // asserts the page does not.
+  'studio-sidebar-narrow-layout',
   // --- Installation settings a test depends on -------------------------------
   // Each of these used to be a runtime probe that skipped the case it did not
   // describe. Declaring the setting instead makes the selection explicit (a CI

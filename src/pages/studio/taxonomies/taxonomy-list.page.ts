@@ -139,7 +139,8 @@ export class TaxonomyListPage {
   /** Clicks the card's body, outside its menu and footer, and waits for the taxonomy page. */
   async openCard(id: number): Promise<void> {
     await this.card(id).locator(this.s.cardBody).click();
-    await this.page.waitForURL((url) => url.pathname.endsWith(`/taxonomy/${id}`), {
+    // `verawood` routes to `/taxonomy/<id>/`, `main` without the trailing slash.
+    await this.page.waitForURL((url) => new RegExp(`/taxonomy/${id}/?$`).test(url.pathname), {
       timeout: TIMEOUTS.navigation,
     });
   }

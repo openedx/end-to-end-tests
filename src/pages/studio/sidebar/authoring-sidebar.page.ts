@@ -209,14 +209,33 @@ export class AuthoringSidebar {
    * document, which a synthetic `dragTo` does not produce.
    */
   async dragEdge(dx: number): Promise<number> {
-    const box = await this.resizeHandle.boundingBox();
-    if (box === null) throw new Error('The sidebar has no resize handle to drag.');
-    const x = box.x + box.width / 2;
-    const y = box.y + Math.min(box.height / 2, 200);
-    await this.page.mouse.move(x, y);
+    // The handle is two pixels wide and moves when the outline beside it
+    // settles: aim again until the pointer is really over it before pressing.
+    let x = 0;
+    let y = 0;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const box = await this.resizeHandle.boundingBox();
+      if (box === null) throw new Error('The sidebar has no resize handle to drag.');
+      x = box.x + box.width / 2;
+      y = box.y + Math.min(box.height / 2, 200);
+      await this.page.mouse.move(x, y);
+      const onHandle = await this.resizeHandle.evaluate(
+        (handle, point) => document.elementFromPoint(point.x, point.y) === handle,
+        { x, y },
+      );
+      if (onHandle) break;
+    }
     await this.page.mouse.down();
     await this.page.mouse.move(x + dx, y, { steps: 10 });
     await this.page.mouse.up();
+    // The handle sets the width in React state: read it once the browser has
+    // painted the frame after the release, not the one the release landed in.
+    await this.page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }),
+    );
     return this.width();
   }
 
