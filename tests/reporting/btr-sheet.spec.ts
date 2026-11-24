@@ -345,13 +345,57 @@ const EXPORT_RUN: BtrRun = {
     exportCase('TC-00020', 'verified'),
     exportCase('TC-00021', 'partial', [
       runTest(),
-      runTest({ title: 'x › y › bulk path', status: 'skipped', note: 'fixme: PLAT-008' }),
+      runTest({
+        title: 'x › y › bulk path',
+        status: 'skipped',
+        note: 'fixme: needs seeded content',
+      }),
       runTest({ title: 'x › y › retried', note: 'flaky: passed on attempt 2' }),
     ]),
     exportCase('TC-00423', 'verified', [
       runTest({ note: 'in default: disputed: the switch is disabled, not hidden' }),
     ]),
     exportCase('TC-00272', 'verified', [runTest({ note: 'flaky: passed on attempt 2' })]),
+    // A known defect: the run holds these back (partial / unverified), the sheet says failed.
+    exportCase('TC-00038', 'partial', [
+      runTest(),
+      runTest({
+        title: 'n › takes a note',
+        status: 'skipped',
+        note: 'expected failure (known defect): NOTES-001: the block is not annotatable',
+      }),
+    ]),
+    exportCase('TC-00060', 'unverified', [
+      runTest({
+        status: 'skipped',
+        note: 'in default: expected failure (known defect): BASE-004: logos differ',
+      }),
+    ]),
+    // Fixmes held for a product defect: a finding id, or an issue link.
+    exportCase('TC-00160', 'unverified', [
+      runTest({ status: 'skipped', note: 'fixme: PLAT-008: gating is not enforced' }),
+    ]),
+    exportCase('TC-00568', 'partial', [
+      runTest(),
+      runTest({
+        status: 'skipped',
+        note: 'in default: fixme: no rows for superusers — https://github.com/openedx/openedx-authz/issues/347',
+      }),
+    ]),
+    // Fixmes that are the suite's own gap, even when they cite a finding.
+    exportCase('TC-00214', 'unverified', [
+      runTest({
+        status: 'skipped',
+        note: 'fixme: Suite gap: read-back not established (`VAL-001`)',
+      }),
+    ]),
+    exportCase('TC-00287', 'partial', [
+      runTest(),
+      runTest({ status: 'skipped', note: 'fixme: Needs a graded problem with a due date' }),
+    ]),
+    exportCase('TC-00311', 'unverified', [
+      runTest({ status: 'skipped', note: 'fixme (no reason recorded)' }),
+    ]),
   ],
 };
 
@@ -371,8 +415,15 @@ test.describe('renderExport', { tag: '@unit' }, () => {
       'TC-00017',
       'TC-00020',
       'TC-00021',
+      'TC-00038',
+      'TC-00060',
+      'TC-00160',
+      'TC-00214',
       'TC-00272',
+      'TC-00287',
+      'TC-00311',
       'TC-00423',
+      'TC-00568',
     ]);
   });
 
@@ -393,6 +444,29 @@ test.describe('renderExport', { tag: '@unit' }, () => {
       "'=failed: expect(locator).toBeVisible()", // cannot run as a formula
       RUN_URL,
     ]);
+  });
+
+  test('an expected failure for a known defect reads failed, naming the defect', () => {
+    expect(byId.get('TC-00038')).toEqual([
+      'failed',
+      'yes',
+      'expected failure (known defect): NOTES-001: the block is not annotatable',
+      RUN_URL,
+    ]);
+    expect(byId.get('TC-00060')).toEqual([
+      'failed',
+      'yes',
+      'in default: expected failure (known defect): BASE-004: logos differ',
+      RUN_URL,
+    ]);
+  });
+
+  test('a fixme held for a product defect reads failed; a suite-gap fixme does not', () => {
+    expect(byId.get('TC-00160')?.slice(0, 2)).toEqual(['failed', 'yes']); // finding id
+    expect(byId.get('TC-00568')?.slice(0, 2)).toEqual(['failed', 'yes']); // issue link
+    expect(byId.get('TC-00214')?.slice(0, 2)).toEqual(['unverified', 'yes']); // "Suite gap"
+    expect(byId.get('TC-00287')?.slice(0, 2)).toEqual(['partial', 'yes']); // no defect cited
+    expect(byId.get('TC-00311')?.slice(0, 2)).toEqual(['unverified', 'yes']); // no reason at all
   });
 
   test('a capability skip is reworded for testers and said once', () => {
@@ -419,7 +493,7 @@ test.describe('renderExport', { tag: '@unit' }, () => {
       'yes',
       [
         'manual check (partial): Only the single-item path is driven.',
-        'bulk path: fixme: PLAT-008',
+        'bulk path: fixme: needs seeded content',
         'retried: flaky: passed on attempt 2',
       ].join('\n'),
       RUN_URL,
@@ -477,11 +551,10 @@ test.describe('renderExport', { tag: '@unit' }, () => {
       ],
       ['', 'Summary', 'e2e on verawood · run 123456 · 2026-09-15 · abcdef1'],
     ]);
-    // Rows past the block (header + 8 cases = 9 rows, 7 labels) are blank there.
-    expect(grid.slice(EXPORT_INFO_LABELS.length).map((row) => row.slice(5))).toEqual([
-      ['', '', ''],
-      ['', '', ''],
-    ]);
+    // Rows past the block (header + 15 cases = 16 rows, 7 labels) are blank there.
+    expect(grid.slice(EXPORT_INFO_LABELS.length).map((row) => row.slice(5))).toEqual(
+      Array.from({ length: 9 }, () => ['', '', '']),
+    );
   });
 
   test('without a gaps table and outside CI it still renders, by the run alone', () => {

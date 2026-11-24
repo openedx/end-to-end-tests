@@ -748,7 +748,11 @@ counts as `skipped` for its BTR case, so a case with passing siblings shows as
 visible. A declarative `test.fixme` carries no reason Playwright can report, so
 add `knownGap('why')` beside the `testId` and `issue` annotations; the results
 sheet then says why the case is held back instead of "fixme (no reason
-recorded)". Do **not** instead soften the assertion to match the buggy behaviour, and
+recorded)". How the reason opens decides how a BTR test-plan sheet reads the
+case: lead with the finding id (`knownGap('PLAT-008: …')`) or add an `issue`
+link, and the case is exported as `failed`, as an expected failure is; open
+with "Suite gap" when the hold is something the suite lacks, and it stays
+`partial` / `unverified` even if the text cites a finding. Do **not** instead soften the assertion to match the buggy behaviour, and
 do not work around a defect with `force`. Where a workaround is genuinely needed
 to reach _other_ coverage, put it in the page object with a comment naming the
 issue, and keep a separate `test.fail` test on the broken path itself.

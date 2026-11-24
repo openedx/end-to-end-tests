@@ -301,7 +301,49 @@ function testerNote(note: string): string {
 
 /** Whether a test's note records a dispute with the sheet (possibly behind an `in <profile>: ` prefix). */
 function isDisputed(test: RunTest): boolean {
-  return /^(in [^:]+: )?disputed: /.test(test.note);
+  return /^(in [^:]+: )?(flaky: [^;]+; )?disputed: /.test(test.note);
+}
+
+/** A run note without the `in <profile>: ` prefix it gets when profiles disagree. */
+function bareNote(test: RunTest): string {
+  return test.note.replace(/^in [^:]+: /, '');
+}
+
+/**
+ * Whether a test is a `test.fail()` that duly failed: the product has a known
+ * defect on this case, and the run observed it.
+ */
+function isExpectedFailure(test: RunTest): boolean {
+  return bareNote(test).startsWith('expected failure (known defect)');
+}
+
+/**
+ * Whether a test is a `test.fixme()` held back for a product defect rather than
+ * for something the suite lacks. The run report gives the reason as text
+ * (`knownGap(...)`, then the `issue(...)` link), so the defect is recognised by
+ * what marks one: a finding id leading the reason (`PLAT-008: …`, see
+ * `docs/findings.md`) or an issue link. A reason that opens "Suite gap" is the
+ * suite's own, whatever it goes on to cite.
+ */
+function isDefectFixme(test: RunTest): boolean {
+  const note = bareNote(test);
+  if (!note.startsWith('fixme: ')) {
+    return false;
+  }
+  const reason = note.slice('fixme: '.length);
+  if (/^suite gap\b/i.test(reason)) {
+    return false;
+  }
+  return /^[A-Z]{2,}-\d{3}\b/.test(reason) || / — https?:\/\/\S+$/.test(reason);
+}
+
+/**
+ * A case's result as a tester should read it: the run's verdict, except that a
+ * known product defect is a failure of the case, not a gap in the suite's
+ * coverage. The run counts both kinds as held back so the build stays green.
+ */
+function exportResult(c: RunCase): string {
+  return c.tests.some((t) => isExpectedFailure(t) || isDefectFixme(t)) ? 'failed' : c.verdict;
 }
 
 /**
@@ -371,7 +413,11 @@ function exportRunInfo(run: BtrRun, ctx: PublishContext, gaps: CoverageGaps | un
 /**
  * The `Export` tab: one row per case in A:E, and the run it came from in G:H.
  *
- * - **E2E Result** is the run's verdict, unchanged.
+ * - **E2E Result** is the run's verdict, except that a case held for a known
+ *   product defect (a `test.fail()`, or a `test.fixme()` citing a finding or
+ *   an issue) reads `failed`: on `Latest` it is `partial` or `unverified`,
+ *   which a tester would take for "nothing wrong found". The note names the
+ *   defect. A fixme for something the suite lacks stays as the run has it.
  * - **E2E Manual Check** is `yes` unless the case is `verified`, disputes
  *   nothing, and is not in the coverage-gaps table.
  * - **E2E Notes** leads with the coverage-gaps reason, then the run's notes.
@@ -388,7 +434,7 @@ export function renderExport(run: BtrRun, ctx: PublishContext, gaps?: CoverageGa
     const gap = found && found.reason !== 'no test' ? found : undefined;
     const manual = c.verdict !== 'verified' || gap !== undefined || c.tests.some(isDisputed);
     const notes = [gap ? gapNote(gap) : '', exportRunNotes(c.tests)].filter(Boolean).join('\n');
-    return [c.testId, c.verdict, manual ? 'yes' : 'no', plainCell(notes), url];
+    return [c.testId, exportResult(c), manual ? 'yes' : 'no', plainCell(notes), url];
   });
   for (const gap of gaps?.byTestId.values() ?? []) {
     if (gap.reason === 'no test' && !ran.has(gap.testId)) {

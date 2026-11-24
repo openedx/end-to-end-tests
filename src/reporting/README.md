@@ -185,7 +185,14 @@ each row up by test id, so the publisher never writes to the plan sheet. The
 column order is a contract with those formulas: append, never reorder.
 
 - **E2E Result** is the run's verdict (`verified` / `partial` / `unverified` /
-  `failed`).
+  `failed`), with one difference from `Latest`: a case held for a known
+  product defect reads `failed`, and its note names the defect. The run counts
+  those as held back so the build stays green, which a tester would read as
+  "nothing wrong found". Held for a defect means a `test.fail()` that duly
+  failed, or a `test.fixme()` whose reason leads with a finding id
+  (`knownGap('PLAT-008: …')`) or carries an `issue(...)` link. A fixme for
+  something the suite lacks stays `partial` / `unverified`: start its reason
+  with "Suite gap" if it has to cite a finding or an issue.
 - **E2E Manual Check** is `yes` unless the case is `verified`, disputes nothing
   and is not listed in the "Cases needing a manual check" table of
   [`docs/coverage_gaps.md`](../../docs/coverage_gaps.md), which the publisher
