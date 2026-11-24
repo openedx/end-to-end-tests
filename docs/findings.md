@@ -49,6 +49,7 @@ measured, and issues are opened by hand from them.
 | `AUTH-004`  | `openedx/frontend-app-authoring`                         | open, not asserted — Help topics are, their doc links are not                  |
 | `AUTH-005`  | `openedx/frontend-app-authoring` (outline card selection is mouse-only) | open, not asserted — **narrowed** (2026-11-23): a card's row is focusable and selects on Enter, but has no role or name |
 | `AUTH-006`  | `openedx/frontend-app-authoring` (outline sidebar menu, `verawood` only) | open, not filed — worked around: TC-00485 reloads the outline before Move Up; not present on `main` |
+| `AUTH-007`  | `openedx/frontend-app-authoring` (sidebar at narrow widths, `verawood` only) | open, not filed — TC-00482's no-sideways-scroll case runs on `main` only (`studio-sidebar-narrow-layout`); not present on `main` |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
 | `PLAT-004`  | `openedx/edx-platform` (`login_session`)                 | open, no `fixme` — the suite no longer makes the call                          |
 | `TUTOR-001` | `overhangio/tutor` (+ any plugin setting the old key)    | open, no `fixme` — handled by the `catalog-search` capability                  |
@@ -2244,6 +2245,23 @@ item had before the move.
 backport request). TC-00485 loads the outline afresh before Move Up, which
 both releases accept. The reload as a cure is inferred from the stale state
 and was not run against `verawood` before this entry was written.
+
+### `AUTH-007` — on `verawood` the authoring sidebar pushes its rail off a narrower window
+
+**Where:** the course outline with its sidebar open, at 1024 px wide,
+`verawood` (CI run of 2026-11-24). Not present on `main`.
+
+**What happens:** the panel keeps its 440 px minimum width beside the outline,
+and the rail of page buttons to its right ends up past the window's right edge:
+the page scrolls sideways.
+
+**Expected:** the page fits the window, as on `main`, which caps the panel's
+width to the window and stacks the rail above the panel when there is no room.
+
+**Coverage impact:** open, not filed (fixed on `main`, so it would be a
+backport request). TC-00482's "fits a narrower window without scrolling
+sideways" carries `@studio-sidebar-narrow-layout` and skips on `verawood`; the
+panel and outline not overlapping at that width is asserted on both.
 
 ### `NOTIF-001` — a cadence change without a channel answers 500
 

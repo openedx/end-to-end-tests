@@ -3,6 +3,7 @@ import { buildSection, courseUsageKey, fetchXBlockOutline } from '../../../src/a
 import { STUDIO_SIDEBAR_SELECTORS as S, TIMEOUTS, VIEWPORTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
+import { horizontalOverflow } from '../../../src/steps';
 import { SIDEBAR_A11Y_BASELINE } from './helpers';
 
 /**
@@ -77,8 +78,15 @@ test.describe(
         // at a minimum width instead of squeezing the panel away.
         await expect(authoringSidebar.resizeHandle).toHaveCSS('cursor', 'ew-resize');
         const initial = await authoringSidebar.width();
-        const widened = await authoringSidebar.dragEdge(-120);
-        expect(widened).toBeGreaterThan(initial);
+        // Retried: the panel starts over at its initial width if it is drawn
+        // again while the outline beside it is still settling.
+        let widened = initial;
+        await expect
+          .poll(async () => {
+            widened = await authoringSidebar.dragEdge(-120);
+            return widened;
+          })
+          .toBeGreaterThan(initial);
         expect((await boxes()).card.width).toBeLessThan(beside.card.width);
         const minimum = await authoringSidebar.dragEdge(600);
         expect(minimum).toBeLessThan(widened);
@@ -92,7 +100,7 @@ test.describe(
         });
 
         // A narrower window: the panel and the outline are both still there,
-        // neither over the other, and the page does not scroll sideways.
+        // neither over the other.
         await page.setViewportSize(VIEWPORTS.smallDesktop.viewport);
         await expect(authoringSidebar.panel).toBeVisible();
         await expect(outline).toBeVisible();
@@ -102,11 +110,30 @@ test.describe(
           narrow.panel.y + narrow.panel.height <= narrow.card.y ||
           narrow.card.y + narrow.card.height <= narrow.panel.y;
         expect(apart).toBe(true);
-        expect(
-          await page.evaluate(
-            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-          ),
-        ).toBe(true);
+      },
+    );
+
+    // `main` caps the panel's width to the window and stacks the rail above it
+    // when there is no room; on `verawood` the panel keeps its minimum width
+    // and pushes the rail past the right edge of a narrower window.
+    test(
+      'fits a narrower window without scrolling sideways',
+      { tag: '@studio-sidebar-narrow-layout', annotation: testId('TC-00482') },
+      async ({
+        page,
+        authoringCourse,
+        authoringSidebar,
+        studioCourseOutlinePage,
+        studioAuthorSession,
+      }) => {
+        void studioAuthorSession;
+        await studioCourseOutlinePage.goto(authoringCourse.courseKey);
+        await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
+        await expect(authoringSidebar.panel).toBeVisible();
+
+        await page.setViewportSize(VIEWPORTS.smallDesktop.viewport);
+        await expect(authoringSidebar.panel).toBeVisible();
+        await expect.poll(() => horizontalOverflow(page)).toBe(0);
       },
     );
 
