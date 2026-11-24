@@ -67,7 +67,7 @@ test.describe(
 
     // PROF-002: the profile renders no certificate-visibility control — its
     // certificates section only says it is "visible to you" (wg#582).
-    test.fixme(
+    test(
       'sets certificate visibility from the profile page',
       {
         annotation: [
@@ -79,6 +79,7 @@ test.describe(
         ],
       },
       async ({ profilePage, profileLearner }) => {
+        test.fail(true, 'PROF-002: the profile offers no control for certificate visibility');
         await profilePage.goto(profileLearner.identity.username);
         await expect(profilePage.certificatesVisibility).toBeVisible();
       },

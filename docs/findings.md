@@ -38,10 +38,10 @@ measured, and issues are opened by hand from them.
 | `RBAC-008`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#260](https://github.com/openedx/frontend-app-admin-console/issues/260) (tracked here as [#139](https://github.com/openedx/end-to-end-tests/issues/139)), regression on `main`; TC-00442 gated on `rbac-error-view-action` |
 | `RBAC-009`  | `openedx/frontend-app-admin-console`                     | **resolved — does not reproduce on `main`** (2026-10-13); a11y residue split out as `RBAC-018`; TC-00569's scroll case rewritten for the new layout (2026-11-23) |
 | `RBAC-018`  | `openedx/frontend-app-admin-console` (matrix row labels are not row headers) | open, not asserted — found while re-checking `RBAC-009` |
-| `RBAC-010`  | BTR test plan (TC-00573 draft clause)                    | **resolved** — by design: `view_library` serves drafts to every role; [wg#618](https://github.com/openedx/wg-build-test-release/issues/618) (tracked here as [#120](https://github.com/openedx/end-to-end-tests/issues/120)), `fixme` sibling on TC-00573 |
+| `RBAC-010`  | BTR test plan (TC-00573 draft clause)                    | **resolved** — by design: `view_library` serves drafts to every role; [wg#618](https://github.com/openedx/wg-build-test-release/issues/618) (tracked here as [#120](https://github.com/openedx/end-to-end-tests/issues/120)), `disputed` sibling on TC-00573 |
 | `RBAC-011`  | `openedx/frontend-app-authoring`                         | **filed** - [frontend-app-authoring#3310](https://github.com/openedx/frontend-app-authoring/issues/3310) (tracked here as [#132](https://github.com/openedx/end-to-end-tests/issues/132)), asserted as a 403 on the offered action (TC-00572) |
 | `RBAC-012`  | sheet vs platform (`openedx-authz` roles)                | open, platform's model asserted on TC-00571                                    |
-| `RBAC-013`  | `openedx/frontend-app-authoring`                         | **filed** - [frontend-app-authoring#3311](https://github.com/openedx/frontend-app-authoring/issues/3311) (tracked here as [#133](https://github.com/openedx/end-to-end-tests/issues/133)), `fixme` sibling on TC-00575 |
+| `RBAC-013`  | `openedx/frontend-app-authoring`                         | **filed** - [frontend-app-authoring#3311](https://github.com/openedx/frontend-app-authoring/issues/3311) (tracked here as [#133](https://github.com/openedx/end-to-end-tests/issues/133)), `test.fail` sibling on TC-00575 |
 | `RBAC-014`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#258](https://github.com/openedx/frontend-app-admin-console/issues/258) (tracked here as [#136](https://github.com/openedx/end-to-end-tests/issues/136)), `fixme` sibling on TC-00620 |
 | `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | **filed** - [authz#521](https://github.com/openedx/openedx-authz/issues/521) (tracked here as [#118](https://github.com/openedx/end-to-end-tests/issues/118)), `test.fail` on TC-00640 |
 | `RBAC-016`  | BTR test plan (TC-00632 expectation)                     | **resolved** — by design: re-runs never copied the team; [wg#617](https://github.com/openedx/wg-build-test-release/issues/617) (tracked here as [#119](https://github.com/openedx/end-to-end-tests/issues/119)), TC-00632 marked `disputed` |
@@ -62,7 +62,7 @@ measured, and issues are opened by hand from them.
 | `STUDIO-007` | `openedx/frontend-app-course-authoring` (Import dropzone's file input has no label) | open, no `fixme` — a11y `label` baselined on the `studio-import` scan only; TC-00309 passes; `label` is also baselined on the `studio-competency-import-upload` scan |
 | `STUDIO-008` | `openedx/frontend-app-course-authoring` (Custom Pages draggable list is a `<ul>` of `<div>`s) | open, no `fixme` — a11y `list` baselined on the `studio-custom-pages` scan only; TC-00237 passes |
 | `PLAT-007`  | `openedx/edx-platform` (Blocks API on a not-yet-started course) | **filed** - [#39115](https://github.com/openedx/openedx-platform/issues/39115), `fixme` planned in Epic 8 `future-dated.spec.ts` — learner readings use `course_metadata` instead |
-| `PLAT-008`  | `openedx/edx-platform` (subsection gating by completion) | **filed** - [#39114](https://github.com/openedx/openedx-platform/issues/39114), `fixme` in `tests/studio/outline/gating.spec.ts` (TC-00160)              |
+| `PLAT-008`  | `openedx/edx-platform` (subsection gating by completion) | **filed** - [#39114](https://github.com/openedx/openedx-platform/issues/39114), `test.fail` in `tests/studio/outline/gating.spec.ts` (TC-00160)              |
 | `LIB-001`   | `openedx/edx-platform` (`delete_library`, content libraries v2) | **filed** - [#39117](https://github.com/openedx/openedx-platform/issues/39117), found in the Epic 10 probe — the per-test seeded libraries cannot be torn down; teardown is best effort |
 | `LIB-002`   | `openedx/frontend-app-course-authoring` (course "Review Content Updates" tab) | **resolved — by design** (2026-10-13): async link creation, not a defect; TC-00348 uses a fresh course + reload-poll, TC-00346 uses the unlagged unit-page path |
 | `LIB-003`   | `openedx/frontend-app-authoring` (library components page, `target-size` after publish) | open, no `fixme` — baselined on the `library-components` scan only; CI `main` only; TC-00321 passes |
@@ -96,7 +96,7 @@ measured, and issues are opened by hand from them.
 | `FOOTER-001` | `openedx/frontend-component-footer` (no legal / copyright line) | open, no `fixme` — TC-00063 and TC-00064 run only where the shell renders the footer (`@frontend-base`)
 | `DEMO-003`  | `openedx/edx-platform` (no effort estimates for courses with external videos) | **filed** - [openedx-platform#39224](https://github.com/openedx/openedx-platform/issues/39224) (tracked here as [#124](https://github.com/openedx/end-to-end-tests/issues/124)), no `fixme` — TC-00027 runs on a video-free course of the suite's own
 | `CERT-002`  | `openedx/edx-platform` (certificate web view 500 without a marketing site; regression on `master`) | **filed** - [openedx-platform#39222](https://github.com/openedx/openedx-platform/issues/39222) (tracked here as [#122](https://github.com/openedx/end-to-end-tests/issues/122)), TC-00033's render test gated on `certificate-web-view` (undeclared on `main`)
-| `PROF-002`  | `openedx/frontend-app-profile` (no certificate-visibility control, wg#582) | **filed** — [wg#582](https://github.com/openedx/wg-build-test-release/issues/582), declarative `fixme` + `knownGap` on TC-00067's UI test
+| `PROF-002`  | `openedx/frontend-app-profile` (no certificate-visibility control, wg#582) | **filed** — [wg#582](https://github.com/openedx/wg-build-test-release/issues/582), `test.fail` + `knownGap` on TC-00067's UI test
 | `PROF-003`  | `openedx/frontend-app-profile` (empty country list, wg#575)   | **filed** — [wg#575](https://github.com/openedx/wg-build-test-release/issues/575), `test.fail` on TC-00068's add-a-location test
 | `PROF-004`  | `openedx/frontend-app-profile` (unnamed icon buttons at phone width) | open, no `fixme` — `button-name` baselined on the profile scans only (`PROFILE_A11Y_BASELINE`)
 | `INSTR-006` | `openedx/frontend-app-instructor` (filter selects unnamed)    | open, no `fixme` — baselined on the instructor scans only
@@ -1993,8 +1993,13 @@ and in the API listing, and a published block with unpublished changes shows its
 role.
 
 **Coverage impact:** open. TC-00573 asserts the read-only half that does hold
-(no create, edit, publish or commit, and no authoring control in the MFE) and a
-`fixme` + `knownGap` sibling carries the draft clause.
+(no create, edit, publish or commit, and no authoring control in the MFE). Since
+2026-11-24 a sibling asserts what the platform does (the never-published block
+is listed, the published block goes by its draft title) and is marked
+`disputed`.
+
+**Sheet should say:** drop "draft items are not visible" from TC-00573, or
+request published-only viewing as a feature (wg#618).
 
 ### `RBAC-011` — a `library_contributor` is offered an item publish the platform refuses
 
@@ -3207,6 +3212,7 @@ the release team carries it to the sheet.
 | ---- | ---- | ---------------- |
 | TC-00632 | `tests/rbac/studio-authz/course-lifecycle.spec.ts` | See `RBAC-016`: drop "all team members are copied", or request the feature. |
 | TC-00440 / 00441 / 00443 | `tests/rbac/console/error-views.spec.ts` | See `RBAC-004`: an error toast with Retry over an empty table, not a Server Error view. |
+| TC-00573 | `tests/rbac/library/library-roles.spec.ts` | See `RBAC-010` (by design): a Library User is shown drafts — drop "draft items are not visible", or request the feature. |
 | TC-00571 | `tests/rbac/library/library-roles.spec.ts` | See `RBAC-012` (product call open): a Library Author can publish the library — if the role model stands. |
 | TC-00453 | `tests/rbac/console/assign-role.spec.ts` | The wizard checks every identifier on leaving step one, before anything is written: a mixed batch is refused there with the typed text kept — no partial apply, no summary toast. |
 | TC-00423 | `tests/studio/library/public-read.spec.ts` | Without the manage-team right the reuse switch is shown read-only (disabled), not hidden — the sheet's own tester note ("not hide but is blocked"); this makes TC-00423 and TC-00424 one scenario. |

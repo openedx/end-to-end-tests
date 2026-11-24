@@ -204,8 +204,7 @@ One row per case, sorted by Test ID. `Reason` is one of:
 | TC-00567 | partial | On `verawood` your own admin row has no remove control at all, so the greyed state and its tooltip are checked on `main` only. |
 | TC-00569 | wording | Column and area names are not read (localized copy); pinned headers and scroll-to-top are checked at phone width, the only width the matrix scrolls at, and the row labels (not pinned) are not; the match with the API's permission list runs on `main` only. |
 | TC-00570 | partial | Deleting a content item and the remove control on another member's row are not checked; content is created and edited through the API. |
-| TC-00573 | partial | Drafts being hidden from a Library User is held: the role is served drafts by design (`RBAC-010`). |
-| TC-00575 | partial | The success message after flipping the switch is held: the MFE shows none (`RBAC-013`). |
+| TC-00575 | partial | The success message after flipping the switch runs as an expected failure: the MFE shows none (`RBAC-013`). |
 | TC-00576 | partial | Only an outline rename is made as Course Staff, through the API: publishing, the settings pages and files are not exercised, nor the team list's missing remove control. |
 | TC-00577 | partial | The Assign Role button is checked as shown, but the role is added and removed through the API: no wizard, success message or confirmed removal (`RBAC-014`). |
 | TC-00578 | partial | On the direct URL only the outline's absence is checked, not an error message; absence from Studio home is held, since the course is listed (wg#613). |

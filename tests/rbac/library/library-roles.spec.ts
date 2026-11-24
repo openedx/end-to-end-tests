@@ -13,7 +13,7 @@ import {
 } from '../../../src/api';
 import { LIBRARY_SELECTORS, TIMEOUTS, libraryPath } from '../../../src/config';
 import { seedScopeAssignments } from '../../../src/steps';
-import { disputed, issue, knownGap, testId } from '../../../src/reporting';
+import { disputed, issue, testId } from '../../../src/reporting';
 import { RBAC_LIBRARY_TAGS, authorBlock, libraryLabel, statusOf } from './helpers';
 
 /**
@@ -336,17 +336,17 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
     },
   );
 
-  test.fixme(
-    'hides unpublished content from a library user',
+  test(
+    'shows a library user the library as it is being edited, drafts included',
     {
       annotation: [
         testId('TC-00573'),
         issue('https://github.com/openedx/wg-build-test-release/issues/618'),
-        knownGap(
-          'The sheet expects drafts to be invisible to a `library_user`, but the role has no ' +
-            'published-only view: `view_library` serves drafts to every role that has it, so a ' +
-            "never-published block is listed and a published block's draft title is shown " +
-            '(`RBAC-010`, by design). Held until the feature is requested or the case is reworded.',
+        disputed(
+          'RBAC-010 (by design): `library_user` has no published-only view. `view_library` ' +
+            'serves drafts to every role that has it, so a never-published block is listed and ' +
+            'a published block\'s draft title is shown. The sheet should drop "draft items are ' +
+            'not visible", or the feature should be requested.',
         ),
       ],
     },
@@ -369,12 +369,14 @@ test.describe('AuthZ library roles', { tag: ['@regression', ...RBAC_LIBRARY_TAGS
         ['library_user'],
       );
 
-      // What the case asks for: the published state only.
+      // What the platform does, where the case asks for the published state only:
+      // the reader is served the working copy. The never-published block is
+      // listed, and the published block goes by its draft title.
       const listed = await listLibraryBlocks(reader.request, config, library);
-      expect(listed.results.map((item) => item.id)).not.toContain(neverPublished.id);
+      expect(listed.results.map((item) => item.id)).toContain(neverPublished.id);
       await reader.libraryPage.goto(library);
-      await expect(reader.libraryPage.cardTitles.filter({ hasText: draft })).toHaveCount(0);
-      await expect(reader.libraryPage.cardTitles.filter({ hasText: published })).toHaveCount(1);
+      await expect(reader.libraryPage.cardTitles.filter({ hasText: draft })).toHaveCount(2);
+      await expect(reader.libraryPage.cardTitles.filter({ hasText: published })).toHaveCount(0);
     },
   );
 

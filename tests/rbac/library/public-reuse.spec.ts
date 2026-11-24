@@ -171,7 +171,7 @@ test.describe('AuthZ library public reuse', { tag: ['@regression', ...RBAC_LIBRA
     },
   );
 
-  test.fixme(
+  test(
     'reports a saved public-reuse change',
     {
       annotation: [
@@ -185,6 +185,7 @@ test.describe('AuthZ library public reuse', { tag: ['@regression', ...RBAC_LIBRA
       ],
     },
     async ({ page, config, authoringLibrary, libraryPage, studioAuthorSession }) => {
+      test.fail(true, 'RBAC-013: a saved public-reuse change shows no success message');
       void studioAuthorSession;
       const library = authoringLibrary.id;
       await libraryPage.goto(library);
