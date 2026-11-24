@@ -1,5 +1,6 @@
 import {
   fetchTaxonomy,
+  importedTaxonomyId,
   importTaxonomy,
   listTaxonomyTags,
   type ImportableTaxonomyType,
@@ -73,6 +74,12 @@ test.describe(
       const created: number[] = [];
       try {
         const id = await importAs(competencyTaxonomyAdmin, 'default', undefined, created);
+        // The list's Import button shares `ImportTagsWizardButton` with the Competency
+        // Management page (frontend-app-authoring #3263), which navigates after an
+        // import only there; the list stays put. Once the dialog is gone the app's
+        // success handling, the only navigation, has already run.
+        await expect(competencyTaxonomyAdmin.list.wizard.dialog).toHaveCount(0);
+        await expect(competencyTaxonomyAdmin.page).toHaveURL(/\/taxonomies\/?$/);
         await competencyTaxonomyAdmin.list.goto();
         await expectTypeAndIcon(competencyTaxonomyAdmin, config, id, 'tags');
         await checkA11y(competencyTaxonomyAdmin.page, { label: 'studio-taxonomy-list-types' });
@@ -134,8 +141,7 @@ test.describe(
         await list.wizard.chooseType('tags');
         await expect(list.wizard.typeSelect).toHaveValue('tags');
         const response = await list.wizard.submitImport();
-        expect(response.ok()).toBe(true);
-        const id = ((await response.json()) as { id: number }).id;
+        const id = await importedTaxonomyId(response);
         created.push(id);
 
         await list.goto();

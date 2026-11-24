@@ -59,7 +59,7 @@ measured, and issues are opened by hand from them.
 | `PLAT-006`  | `openedx/edx-platform` (`course_details` PUT, `self_paced`)  | **filed** - [#39094](https://github.com/openedx/openedx-platform/issues/39094), no `fixme` — worked around in `updateCourseDetails`                      |
 | `STUDIO-005` | `openedx/edx-platform` (`/api/enrollment/v1/course` read staleness) | **resolved** — by design: a 60 s cache (`ENROLLMENT_COURSE_DETAILS_CACHE_TIMEOUT`); suite reads Studio `course_details` instead; TC-00298/TC-00299 pass |
 | `STUDIO-006` | `openedx/frontend-app-course-authoring` (certificates page empty without a cert-bearing mode) | **resolved — does not reproduce** (2026-10-13): the page explains the missing mode; suite still adds an `honor` mode for the form; TC-00275/276/279 pass |
-| `STUDIO-007` | `openedx/frontend-app-course-authoring` (Import dropzone's file input has no label) | open, no `fixme` — a11y `label` baselined on the `studio-import` scan only; TC-00309 passes |
+| `STUDIO-007` | `openedx/frontend-app-course-authoring` (Import dropzone's file input has no label) | open, no `fixme` — a11y `label` baselined on the `studio-import` scan only; TC-00309 passes; `label` is also baselined on the `studio-competency-import-upload` scan |
 | `STUDIO-008` | `openedx/frontend-app-course-authoring` (Custom Pages draggable list is a `<ul>` of `<div>`s) | open, no `fixme` — a11y `list` baselined on the `studio-custom-pages` scan only; TC-00237 passes |
 | `PLAT-007`  | `openedx/edx-platform` (Blocks API on a not-yet-started course) | **filed** - [#39115](https://github.com/openedx/openedx-platform/issues/39115), `fixme` planned in Epic 8 `future-dated.spec.ts` — learner readings use `course_metadata` instead |
 | `PLAT-008`  | `openedx/edx-platform` (subsection gating by completion) | **filed** - [#39114](https://github.com/openedx/openedx-platform/issues/39114), `fixme` in `tests/studio/outline/gating.spec.ts` (TC-00160)              |
@@ -113,7 +113,7 @@ measured, and issues are opened by hand from them.
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy pages' breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` and `studio-competency-management` scans only |
-| `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` (a page load before each wizard run, a different file on re-import) |
+| `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` and `import-competency-framework.spec.ts` (a page load before each wizard run, a different file on re-import or when the wizard is reopened without a reload) |
 | `TAG-006`   | `openedx/frontend-app-authoring` (taxonomy card fixed width) | open, not filed, not asserted — `competency-entry-points.spec.ts` asserts the #663 AC (menu items inside the width, footer button visible and clickable) |
 | `TAG-007`   | `openedx/openedx-core` (`tag_pre_delete` lineage filter not scoped to the taxonomy) | **filed** - [openedx-core#934](https://github.com/openedx/openedx-core/issues/934), not asserted — slows taxonomy deletes in fixture cleanup on a stack with leftover suite ObjectTags |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
@@ -753,6 +753,12 @@ upload and asserts success against the import-status API; the a11y scan on that
 screen baselines `label` for that scan only (`additionalBaseline: ['label']` in
 `tests/studio/tools/import.spec.ts`), the same pattern as `STUDIO-004`. Remove the
 tolerance when the label lands upstream.
+
+**Also in the taxonomy import wizard:** the same Paragon `Dropzone` defect shows in the
+taxonomy import wizard's Upload step in `frontend-app-authoring`, opened from the
+Competency Management page header and from the taxonomy list. Measured on Tutor `main`,
+2026-11-24. `label` is baselined for the `studio-competency-import-upload` scan only, in
+`tests/studio/tagging/import-competency-framework.spec.ts`.
 
 ### `STUDIO-008` — the Custom Pages draggable list nests `<div>`s directly in a `<ul>`
 
@@ -1656,8 +1662,13 @@ The button looks enabled, no request is sent, and only a page reload restores it
 **Coverage impact:** open, no `fixme`. Every wizard run in
 `tests/studio/tagging/taxonomy-type.spec.ts` starts from a fresh page load
 (`list.goto()` or `detail.goto()`), and TT-07's re-import uses
-`taxonomyImportFileExtended()` so the file differs. The workaround comes out once
-#827 is fixed.
+`taxonomyImportFileExtended()` so the file differs. The Competency Management page's
+import wizard has the same bug: every wizard run in
+`tests/studio/tagging/import-competency-framework.spec.ts` starts from
+`competency.goto()`, and the test "reopens the wizard from a clean state after a
+failed import" in the same file reopens the wizard without a reload with a different
+file (JSON after the CSV). The workaround comes out
+once #827 is fixed.
 
 ### `TAG-006` — the taxonomy card is wider than a phone window
 
