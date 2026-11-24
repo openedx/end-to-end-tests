@@ -12,7 +12,11 @@ export const DATES_SELECTORS = {
    * "Today" always has a day of its own, with or without entries.
    */
   day: 'li.dates-day',
-  /** A day's status badge. Which one it is can only be read from its localized label. */
+  /**
+   * A status badge within a day. A day can carry several — one beside its date
+   * and one per entry whose state differs from the day's — and which is which
+   * can only be read from the localized label.
+   */
   dayBadge: '.badge',
 } as const;
 

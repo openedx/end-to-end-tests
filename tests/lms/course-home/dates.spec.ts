@@ -70,7 +70,8 @@ test.describe(
       await learner.datesPage.gotoViaCourseTab(courseKey);
       await expect(learner.datesPage.assignmentLink(subsectionKey)).toHaveText(subsectionName);
       await expect(learner.datesPage.dayOf(subsectionKey)).toHaveCount(1);
-      await expect(learner.datesPage.badgeOf(subsectionKey)).toBeVisible();
+      // (Another assignment due the same day can add badges of its own.)
+      await expect(learner.datesPage.badgesOf(subsectionKey).first()).toBeVisible();
       // The start, today and the due date are three different days.
       expect(await learner.datesPage.days.count()).toBeGreaterThanOrEqual(3);
 

@@ -390,34 +390,32 @@ export class StudioCourseOutlinePage {
 
   /**
    * A viewport point on `header` where the topmost element is the header itself
-   * rather than one of its children — the middle of the widest such run on any
-   * horizontal line through it — or `null` when the children leave none.
+   * rather than one of its children — the middle of the widest such run along
+   * the header's vertical centre line, which is where its children sit and so
+   * where any gap between them is — or `null` when they leave none.
    */
   private async blankHeaderPoint(header: Locator): Promise<{ x: number; y: number } | null> {
     return header.evaluate((element) => {
       const box = element.getBoundingClientRect();
+      const y = box.top + box.height / 2;
       const last = Math.floor(box.right) - 1;
       let bestX = 0;
-      let bestY = 0;
       let bestWidth = 0;
-      for (let y = Math.ceil(box.top) + 1; y < Math.floor(box.bottom) - 1; y += 1) {
-        let runStart: number | null = null;
-        for (let x = Math.ceil(box.left); x <= last + 1; x += 1) {
-          const own = x <= last && document.elementFromPoint(x, y) === element;
-          if (own) {
-            runStart ??= x;
-          } else if (runStart !== null) {
-            const width = x - runStart;
-            if (width > bestWidth) {
-              bestX = runStart + (width - 1) / 2;
-              bestY = y;
-              bestWidth = width;
-            }
-            runStart = null;
+      let runStart: number | null = null;
+      for (let x = Math.ceil(box.left); x <= last + 1; x += 1) {
+        const own = x <= last && document.elementFromPoint(x, y) === element;
+        if (own) {
+          runStart ??= x;
+        } else if (runStart !== null) {
+          const width = x - runStart;
+          if (width > bestWidth) {
+            bestX = runStart + (width - 1) / 2;
+            bestWidth = width;
           }
+          runStart = null;
         }
       }
-      return bestWidth === 0 ? null : { x: bestX, y: bestY };
+      return bestWidth === 0 ? null : { x: bestX, y };
     });
   }
 

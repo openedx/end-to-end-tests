@@ -53,8 +53,11 @@ export class DatesPage {
     });
   }
 
-  /** That day's status badge (completed, past due, due next), where it has one. */
-  badgeOf(subsectionUsageKey: string): Locator {
+  /**
+   * The status badges (completed, past due, due next) of the subsection's day:
+   * none, one for the day, or more where its entries differ in state.
+   */
+  badgesOf(subsectionUsageKey: string): Locator {
     return this.dayOf(subsectionUsageKey).locator(DATES_SELECTORS.dayBadge);
   }
 }

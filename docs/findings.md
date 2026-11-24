@@ -1939,7 +1939,8 @@ The sibling on TC-00569 ("keeps the matrix headers in view while it is
 scrolled") was rewritten for this layout on 2026-11-23 and is no longer a
 `fixme`: with the window narrowed to phone width the card around the matrix is
 its scroller (`max-height: 80vh`), and the case scrolls it down and sideways,
-reading that the role columns' header row does not move; then scrolls the page
+reading that the role columns' header row stays at the top of the card (and
+goes sideways with its columns); then scrolls the page
 past 300 px, where `AnchorButton` (a `fixed-bottom` up-arrow icon button)
 appears, returns the page to the top and goes. The row labels are still not
 sticky, which the case does not assert.

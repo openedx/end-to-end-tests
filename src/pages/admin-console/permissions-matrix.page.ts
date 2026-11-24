@@ -172,17 +172,17 @@ export class PermissionsMatrix {
   }
 
   /**
-   * The gap, in whole pixels, between the top of the card and the top of the
-   * first role column's header — constant while the header row stays pinned,
-   * negative once it scrolls away.
+   * Where the first role column's header sits within the card, in whole pixels
+   * from the card's top-left corner. While the header row is pinned, `y` does
+   * not change as the matrix scrolls down; `x` follows the column sideways.
    */
-  async headerOffset(): Promise<number> {
+  async headerOffset(): Promise<{ x: number; y: number }> {
     const header = await this.headers.nth(1).boundingBox();
     const card = await this.scroller.boundingBox();
     if (header === null || card === null) {
       throw new Error('The permission matrix or its header row is not rendered.');
     }
-    return Math.round(header.y - card.y);
+    return { x: Math.round(header.x - card.x), y: Math.round(header.y - card.y) };
   }
 
   /** Scrolls the page (not the matrix) to `y`. */

@@ -5,6 +5,11 @@ import { TIMEOUTS, VIEWPORTS } from '../../../src/config';
 import { issue, testId } from '../../../src/reporting';
 import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
 
+/** How far the matrix is scrolled inside its card: enough to move every header out if it were not pinned. */
+const SCROLL_BY = { x: 60, y: 400 } as const;
+/** The page scroll past which the console renders its scroll-to-top control (`AnchorButton`). */
+const SCROLL_TO_TOP_APPEARS_AFTER = 300;
+
 /**
  * The console's **Roles and Permissions** tab — the static matrix of what each
  * role may do, in a Courses half and a Libraries half.
@@ -29,11 +34,6 @@ import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
  * no Courses half — so every case takes `matrixBothHalves`, which has the
  * author hold a course role too.
  */
-/** How far the matrix is scrolled inside its card: enough to move every header out if it were not pinned. */
-const SCROLL_BY = { x: 60, y: 400 } as const;
-/** The page scroll past which the console renders its scroll-to-top control (`AnchorButton`). */
-const SCROLL_TO_TOP_APPEARS_AFTER = 300;
-
 test.describe(
   'Roles and Permissions console — permission matrix',
   { tag: ['@regression', ...RBAC_TAGS, '@content-libraries'] },
@@ -162,15 +162,17 @@ test.describe(
         await expect.poll(async () => (await matrix.overflow()).x).toBeGreaterThan(0);
         expect((await matrix.overflow()).y).toBeGreaterThan(SCROLL_BY.y);
 
-        // The role columns' headers stay where they are while the rows scroll
-        // under them, down and sideways.
+        // A role column's header stays where it is while the rows scroll up
+        // under it.
         const pinned = await matrix.headerOffset();
         await matrix.scrollMatrixBy(0, SCROLL_BY.y);
         await expect.poll(async () => (await matrix.matrixScroll()).y).toBe(SCROLL_BY.y);
-        expect(await matrix.headerOffset()).toBe(pinned);
+        expect(await matrix.headerOffset()).toEqual(pinned);
+        // Sideways it goes with its column — still at the top of the card, moved
+        // left by exactly what the rows were.
         await matrix.scrollMatrixBy(SCROLL_BY.x, 0);
-        await expect.poll(async () => (await matrix.matrixScroll()).x).toBeGreaterThan(0);
-        expect(await matrix.headerOffset()).toBe(pinned);
+        await expect.poll(async () => (await matrix.matrixScroll()).x).toBe(SCROLL_BY.x);
+        expect(await matrix.headerOffset()).toEqual({ x: pinned.x - SCROLL_BY.x, y: pinned.y });
 
         // The scroll-to-top control is not there until the page itself has
         // scrolled well down; then it takes the page back to the top and goes.
