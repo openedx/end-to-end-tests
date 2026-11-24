@@ -495,7 +495,12 @@ test.describe(
           .toEqual([copy, original]);
 
         // Move Up, on the original where it now sits (second of the course's
-        // two sections), puts it back in front.
+        // two sections), puts it back in front. The outline is loaded afresh
+        // first: on `verawood` the panel keeps the position an item had before
+        // its last move, so Move Up stays disabled for a section just moved
+        // down until the page is reloaded (`AUTH-006`; `main` does not).
+        await studioCourseOutlinePage.goto(courseKey);
+        await studioCourseOutlinePage.waitForCourse(courseKey);
         await studioCourseOutlinePage.select(
           studioCourseOutlinePage.sectionCards.nth(1),
           'section',

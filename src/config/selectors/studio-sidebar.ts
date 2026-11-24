@@ -150,9 +150,10 @@ export const STUDIO_SIDEBAR_SELECTORS = {
    * The wrapper the resize handle sizes: its inline `width` is the panel's
    * width, between a minimum the handle cannot be dragged under and whatever
    * the outline leaves. Absent below the breakpoint at which the panel stacks
-   * above the outline (no handle there either).
+   * above the outline (no handle there either). The panel is its child on
+   * `main`; `verawood` puts one more wrapper between them.
    */
-  resizable: '.resizable:has(> .sidebar-content)',
+  resizable: '.resizable:has(.sidebar-content)',
 
   /**
    * A count chip in the Details tab's "… Content Summary": one per block

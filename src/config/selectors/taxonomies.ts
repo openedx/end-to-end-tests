@@ -30,9 +30,11 @@ export const TAXONOMY_SELECTORS = {
   /**
    * A taxonomy's card on the list page, reached by its link rather than its
    * localized title. The `$=` match with a leading slash keeps id 5 from matching
-   * `/taxonomy/15`.
+   * `/taxonomy/15`. `verawood` links to `/taxonomy/<id>/`, `main` without the
+   * trailing slash.
    */
-  card: (id: number): string => `a.taxonomy-card[href$="/taxonomy/${id}"]`,
+  card: (id: number): string =>
+    `a.taxonomy-card[href$="/taxonomy/${id}"], a.taxonomy-card[href$="/taxonomy/${id}/"]`,
   /**
    * A card's type icon, whose screen-reader text is "Competency taxonomy" for
    * `competency` and "Tags taxonomy" for `tags`. A card without a known type

@@ -171,11 +171,11 @@ test.describe(
         expect(await fetchCourseIndex(member.request, config, courseKey)).toBeDefined();
 
         // Removed through Studio's own Course Team endpoint — the surface the
-        // case names, and the one that still works. The console, where Studio's
-        // Course Team link now leads, renders the removal control **disabled**
-        // for a course-scope assignment even though the viewer holds
-        // `courses.manage_course_team` (`RBAC-014`; the held case below asserts
-        // the behaviour that is wanted).
+        // case names, and the one that works on every release. On `verawood`
+        // the console, where Studio's Course Team link now leads, renders the
+        // removal control **disabled** for a course-scope assignment even
+        // though the viewer holds `courses.manage_course_team` (`RBAC-014`);
+        // the console's own removal is the case below.
         await removeCourseTeamMember(page.request, config, courseKey, member.identity.email);
 
         // Gone from authz…

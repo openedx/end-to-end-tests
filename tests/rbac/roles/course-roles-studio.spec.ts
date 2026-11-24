@@ -213,9 +213,37 @@ test.describe(
           adminConsole.teamMembersFor(admin.page).rowsFor(newcomer.identity.email),
         ).toHaveCount(1);
         expect(await fetchCourseIndex(newcomer.request, config, courseKey)).toBeDefined();
+      },
+    );
 
-        // …and taking it away again, from that member's audit view: the delete
-        // control asks for confirmation, and confirming removes the assignment.
+    // The removal is the newer console's: `verawood`'s audit view offers no
+    // working delete control for a course-scope assignment (`RBAC-014`).
+    test(
+      'lets a course admin remove a member from the audit view',
+      { tag: '@rbac-console-next', annotation: testId('TC-00577') },
+      async ({ page, config, adminConsole, authzTarget, studioAuthorSession, rbacCast }) => {
+        void studioAuthorSession;
+        const courseKey = authzTarget.courseKey;
+        const admin = await rbacCast('courseAdmin');
+        const newcomer = await rbacCast('newcomer');
+        await seedScopeAssignments(
+          page.request,
+          config,
+          courseKey,
+          [admin.identity.username],
+          ['course_admin'],
+        );
+        await seedScopeAssignments(
+          page.request,
+          config,
+          courseKey,
+          [newcomer.identity.username],
+          ['course_staff'],
+        );
+        expect(await fetchCourseIndex(newcomer.request, config, courseKey)).toBeDefined();
+
+        // From that member's audit view: the delete control asks for
+        // confirmation, and confirming removes the assignment.
         const audit = adminConsole.auditFor(admin.page);
         await audit.goto(newcomer.identity.username);
         await expect(audit.rows).toHaveCount(1);

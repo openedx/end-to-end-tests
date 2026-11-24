@@ -306,6 +306,13 @@ export const CAPABILITIES = [
   // `verawood` offers the update on the Libraries page and the unit page only.
   // Those two routes stay ungated; this gates the case that drives the card.
   'outline-library-sync',
+  // **The Studio rich-text toolbar's buttons can be told apart without their
+  // labels.** From TinyMCE 7.1 each toolbar button carries `data-mce-name`,
+  // the editor's own command name (`aligncenter`, `bullist`, `link`). `main`
+  // ships TinyMCE 8; `verawood` ships TinyMCE 5, whose buttons have only a
+  // localized label and title. Keyboard-shortcut formatting stays ungated;
+  // this gates the cases that press toolbar buttons.
+  'editor-toolbar-names',
   // --- Installation settings a test depends on -------------------------------
   // Each of these used to be a runtime probe that skipped the case it did not
   // describe. Declaring the setting instead makes the selection explicit (a CI
