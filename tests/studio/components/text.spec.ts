@@ -35,7 +35,7 @@ test.describe(
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
     test(
-      'authors formatted text in the editor from shortcuts and the toolbar',
+      'authors formatted text in the editor: inline styles and a heading',
       { tag: '@smoke', annotation: [testId('TC-00217'), testId('TC-00218')] },
       async ({
         page,
@@ -70,8 +70,45 @@ test.describe(
         await studioTextEditor.newParagraph();
         await studioTextEditor.heading(2);
         await studioTextEditor.type('E2E heading');
+        await studioTextEditor.save();
+
+        const components = await fetchContainerChildren(page.request, config, unitKey);
+        const html = components.find((c) => c.block_type === 'html');
+        expect(html).toBeDefined();
+        const data = (await fetchXBlock(page.request, config, html?.block_id ?? '')).data ?? '';
+        expect(data).toContain('<strong>bold</strong>');
+        expect(data).toContain('<em>italic</em>');
+        expect(data).toContain('E2E plain');
+        expect(data).toMatch(/<span style="text-decoration: underline;?">underlined<\/span>/);
+        expect(data).toMatch(/<h2[^>]*>E2E heading<\/h2>/);
+      },
+    );
+
+    test(
+      'applies alignment, lists, quotes, colours, links and an emoticon from the toolbar',
+      {
+        tag: '@editor-toolbar-names',
+        annotation: [testId('TC-00217'), testId('TC-00218')],
+      },
+      async ({
+        page,
+        config,
+        studioUnitPage,
+        studioTextEditor,
+        authoringCourse,
+        studioAuthorSession,
+      }) => {
+        void studioAuthorSession;
+        const unitKey = await buildUnit(page.request, config, authoringCourse.courseKey, {
+          label: 'toolbar',
+        });
+
+        await studioUnitPage.goto(unitKey);
+        const types = availableComponentTypes(await fetchContainer(page.request, config, unitKey));
+        await studioUnitPage.openAddComponent(types.indexOf('html'));
+        await studioTextEditor.chooseTemplate('html');
+
         // The toolbar's own functions, by TinyMCE's command names.
-        await studioTextEditor.newParagraph();
         await studioTextEditor.toolbar('aligncenter');
         await studioTextEditor.type('E2E centered');
         await studioTextEditor.newParagraph();
@@ -107,11 +144,6 @@ test.describe(
         const html = components.find((c) => c.block_type === 'html');
         expect(html).toBeDefined();
         const data = (await fetchXBlock(page.request, config, html?.block_id ?? '')).data ?? '';
-        expect(data).toContain('<strong>bold</strong>');
-        expect(data).toContain('<em>italic</em>');
-        expect(data).toContain('E2E plain');
-        expect(data).toMatch(/<span style="text-decoration: underline;?">underlined<\/span>/);
-        expect(data).toMatch(/<h2[^>]*>E2E heading<\/h2>/);
         expect(data).toMatch(/<p style="text-align: center;?">E2E centered<\/p>/);
         expect(data).toMatch(/<p style="text-align: right;?">E2E right<\/p>/);
         expect(data).toMatch(/<ul>\s*<li[^>]*>E2E bullet<\/li>\s*<\/ul>/);

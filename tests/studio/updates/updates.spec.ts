@@ -73,7 +73,7 @@ test.describe(
 
     test(
       'applies a heading, a toolbar format and an emoticon from the editor',
-      { annotation: testId('TC-00247') },
+      { tag: '@editor-toolbar-names', annotation: testId('TC-00247') },
       async ({ page, config, authoringCourse, updatesPage, studioAuthorSession }) => {
         void studioAuthorSession;
         const key = authoringCourse.courseKey;

@@ -16,7 +16,7 @@ import {
   STUDIO_SHELL_SELECTORS,
   TIMEOUTS,
 } from '../../../src/config';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { issue, testId } from '../../../src/reporting';
 import { STUDIO_AUTHZ_TAGS } from './helpers';
 
 /**
@@ -171,11 +171,11 @@ test.describe(
         expect(await fetchCourseIndex(member.request, config, courseKey)).toBeDefined();
 
         // Removed through Studio's own Course Team endpoint — the surface the
-        // case names, and the one that still works. The console, where Studio's
-        // Course Team link now leads, renders the removal control **disabled**
-        // for a course-scope assignment even though the viewer holds
-        // `courses.manage_course_team` (`RBAC-014`; the held case below asserts
-        // the behaviour that is wanted).
+        // case names, and the one that works on every release. On `verawood`
+        // the console, where Studio's Course Team link now leads, renders the
+        // removal control **disabled** for a course-scope assignment even
+        // though the viewer holds `courses.manage_course_team` (`RBAC-014`);
+        // the console's own removal is the case below.
         await removeCourseTeamMember(page.request, config, courseKey, member.identity.email);
 
         // Gone from authz…
@@ -282,20 +282,11 @@ test.describe(
       },
     );
 
-    test.fixme(
+    // The newer console's: `verawood`'s audit view offers no working delete
+    // control for a course-scope assignment (`RBAC-014`, fixed after it).
+    test(
       'removes a course-scope assignment from the console',
-      {
-        annotation: [
-          testId('TC-00620'),
-          knownGap(
-            'The console offers no working removal for a **course**-scope assignment: the audit ' +
-              "view's delete control is disabled (absent in some renderings) even for a viewer that " +
-              'holds `courses.manage_course_team` and can remove the same assignment through ' +
-              "Studio's own endpoint (`RBAC-014`).",
-          ),
-          issue('https://github.com/openedx/frontend-app-admin-console/issues/258'),
-        ],
-      },
+      { tag: '@rbac-console-next', annotation: testId('TC-00620') },
       async ({
         page,
         config,

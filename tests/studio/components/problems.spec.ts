@@ -183,10 +183,12 @@ test.describe(
           const usageKey = await studioUnitPage.addComponentFromTile(tiles.indexOf('problem'));
           await studioProblemEditor.chooseType(authored.type);
           // Known debt in the editor: its TinyMCE fields' frames have no title,
-          // and its answer rows carry an ARIA attribute their role does not permit.
+          // and its answer rows carry an ARIA attribute their role does not
+          // permit (`aria-prohibited-attr` on `main`; `verawood`'s markup trips
+          // `aria-allowed-attr` for the same rows).
           await checkA11y(page, {
             label: 'studio-problem-editor',
-            additionalBaseline: ['aria-prohibited-attr', 'frame-title'],
+            additionalBaseline: ['aria-prohibited-attr', 'aria-allowed-attr', 'frame-title'],
           });
           await studioProblemEditor.setQuestion(`E2E ${authored.type} question`);
           for (const [key, text] of Object.entries(authored.answers)) {
