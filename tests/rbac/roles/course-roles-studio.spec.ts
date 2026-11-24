@@ -9,7 +9,7 @@ import {
 } from '../../../src/api';
 import { STUDIO_OUTLINE_PAGE_SELECTORS, TIMEOUTS } from '../../../src/config';
 import { seedScopeAssignments } from '../../../src/steps';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { issue, testId } from '../../../src/reporting';
 import { STUDIO_AUTHZ_TAGS } from '../studio-authz/helpers';
 import { writableSection } from './helpers';
 
@@ -190,19 +190,23 @@ test.describe(
       },
     );
 
-    test.fixme(
+    test(
       'keeps a course out of the Studio home list of an account with no role',
       {
         annotation: [
           testId('TC-00578'),
           issue('https://github.com/openedx/wg-build-test-release/issues/613'),
-          knownGap(
-            'Studio Home lists a course to an account that holds no role in it; opening it is then ' +
-              'refused. The case asks for it to be absent from the list (wg#613).',
-          ),
         ],
       },
-      async ({ authzTarget, studioAuthorSession, rbacCast }) => {
+      async ({ config, authzTarget, studioAuthorSession, rbacCast }) => {
+        // Runs everywhere, and is an expected failure where the list is not
+        // scoped (`rbac-scoped-course-list` undeclared), so the gap is reported
+        // as a failing case rather than skipped.
+        test.fail(
+          !config.capabilities.has('rbac-scoped-course-list'),
+          'Studio Home lists a course to an account that holds no role in it; opening it is ' +
+            'then refused (wg#613)',
+        );
         void studioAuthorSession;
         const outsider = await rbacCast('outsider');
         await outsider.studioHomePage.goto();

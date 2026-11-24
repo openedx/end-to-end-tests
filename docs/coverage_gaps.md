@@ -207,7 +207,7 @@ One row per case, sorted by Test ID. `Reason` is one of:
 | TC-00575 | partial | The success message after flipping the switch runs as an expected failure: the MFE shows none (`RBAC-013`). |
 | TC-00576 | partial | Only an outline rename is made as Course Staff, through the API: publishing, the settings pages and files are not exercised, nor the team list's missing remove control. |
 | TC-00577 | partial | The Assign Role button is checked as shown, but the role is added and removed through the API: no wizard, success message or confirmed removal (`RBAC-014`). |
-| TC-00578 | partial | On the direct URL only the outline's absence is checked, not an error message; absence from Studio home is held, since the course is listed (wg#613). |
+| TC-00578 | partial | On the direct URL only the outline's absence is checked, not an error message. |
 | TC-00598 | partial | The no-role account is an enrolled learner, refused Studio and the instructor tools; an account with no enrollment either is not read. |
 | TC-00611 | partial | The no-role account is an enrolled learner whose access is compared with its own earlier reading; an account with no enrollment either is not read. |
 | TC-00616 | partial | The course is created by a course-creator account through the API, not by Global Staff from Studio home. |
