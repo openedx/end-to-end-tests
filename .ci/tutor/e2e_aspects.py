@@ -35,6 +35,8 @@ hooks.Filters.CONFIG_OVERRIDES.add_items(
         ("ASPECTS_COURSE_STRUCTURE_REFRESH_RANDOMIZE", "1 SECOND"),
         ("ASPECTS_VIDEO_WATCH_INTERVALS_REFRESH", "EVERY 30 SECOND"),
         ("ASPECTS_VIDEO_WATCH_INTERVALS_REFRESH_RANDOMIZE", "1 SECOND"),
+        # TEMPORARY smoke test of openedx/tutor-contrib-aspects#1398 (never merge).
+        ("DOCKER_IMAGE_CLICKHOUSE", "clickhouse/clickhouse-server:26.8"),
     ]
 )
 
