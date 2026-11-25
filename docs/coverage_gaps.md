@@ -225,7 +225,7 @@ One row per case, sorted by Test ID. `Reason` is one of:
 | TC-00628 | partial | Studio under AuthZ: the action is made through Studio's API as the role and read back from the platform. Studio's pages, dialogs and messages are not driven. |
 | TC-00629 | partial | Studio under AuthZ: the action is made through Studio's API as the role and read back from the platform. Studio's pages, dialogs and messages are not driven. |
 | TC-00631 | wording | Expects the console title "Roles and Permissions Management". Run as a course author, not Global Staff: the Settings link to the console is read, and no team change is made to compare the two systems. |
-| TC-00633 | wording | Expects the error message "You do not have permission to perform this action". Only the absence of the outline and Settings menu is checked, not a permission message; absence from Studio home is not checked, since the course is listed (wg#613). |
+| TC-00633 | wording | Expects the error message "You do not have permission to perform this action". Only the absence of the outline and Settings menu is checked, not a permission message; absence from Studio home is checked under TC-00578, not here. |
 | TC-00634 | partial | Studio under AuthZ: the action is made through Studio's API as the role and read back from the platform. Studio's pages, dialogs and messages are not driven. |
 | TC-00636 | partial | Studio under AuthZ: the action is made through Studio's API as the role and read back from the platform. Studio's pages, dialogs and messages are not driven. |
 | TC-00639 | partial | The override is not created in the test: it reads the one the suite's setup placed on its AuthZ course and compares a course without one. |

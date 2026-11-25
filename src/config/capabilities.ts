@@ -276,12 +276,6 @@ export const CAPABILITIES = [
   // makes the regression visible as an undeclared capability rather than as a
   // permanently red case.
   'rbac-error-view-action',
-  // Under AuthZ, **Studio home lists a course only to an account that holds a
-  // role in it**. Where this is not declared the course is listed to everyone
-  // and refused on opening (wg-build-test-release#613), and TC-00578's list
-  // case runs as an expected failure. Declared where the list is scoped.
-  // Requires `rbac` (`CAPABILITY_REQUIRES`).
-  'rbac-scoped-course-list',
   // The **certificate web view renders** on an install with no marketing site.
   // On `master` `marketing_link()` no longer falls back to the LMS's own pages
   // (`MKTG_URL_LINK_MAP`), so the About link is unset, the view's footer
@@ -450,7 +444,6 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   'content-libraries-v1-create': 'content-libraries-v1',
   'rbac-self-revoke-guard': 'rbac',
   'rbac-console-next': 'rbac',
-  'rbac-scoped-course-list': 'rbac',
 };
 
 export function isCapability(value: string): value is Capability {

@@ -4,6 +4,7 @@ import {
   canI,
   fetchCourseIndex,
   listRoleUsers,
+  listStudioCourses,
   revokeRole,
   updateXBlock,
 } from '../../../src/api';
@@ -198,19 +199,25 @@ test.describe(
           issue('https://github.com/openedx/wg-build-test-release/issues/613'),
         ],
       },
-      async ({ config, authzTarget, studioAuthorSession, rbacCast }) => {
-        // Runs everywhere, and is an expected failure where the list is not
-        // scoped (`rbac-scoped-course-list` undeclared), so the gap is reported
-        // as a failing case rather than skipped.
-        test.fail(
-          !config.capabilities.has('rbac-scoped-course-list'),
-          'Studio Home lists a course to an account that holds no role in it; opening it is ' +
-            'then refused (wg#613)',
-        );
+      async ({ page, config, authzTarget, studioAuthorSession, rbacCast }) => {
         void studioAuthorSession;
+        const courseKey = authzTarget.courseKey;
         const outsider = await rbacCast('outsider');
+
+        // The list the platform serves decides, searched by the course's own
+        // number so paging cannot hide it: its author is listed the course, the
+        // outsider is not. The page is read after, where an empty list and a
+        // list still loading look alike.
+        const search = courseKey.split('+')[1] ?? '';
+        const keysListedTo = async (request: typeof page.request) =>
+          (await listStudioCourses(request, config, { search })).courses.map(
+            (course) => course.courseKey,
+          );
+        expect(await keysListedTo(page.request)).toContain(courseKey);
+        expect(await keysListedTo(outsider.request)).not.toContain(courseKey);
+
         await outsider.studioHomePage.goto();
-        await expect(outsider.studioHomePage.courseCardLink(authzTarget.courseKey)).toHaveCount(0);
+        await expect(outsider.studioHomePage.courseCardLink(courseKey)).toHaveCount(0);
       },
     );
   },
