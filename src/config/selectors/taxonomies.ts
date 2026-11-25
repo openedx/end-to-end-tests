@@ -103,7 +103,9 @@ export const TAXONOMY_SELECTORS = {
    * The "unable to connect" alert (Paragon `Alert variant="danger"`, the app's
    * `ConnectionErrorAlert`). When the taxonomy request fails it is the whole
    * render of both the taxonomy page and the Competency Management page, so the
-   * `alert` role plus the danger variant identifies it without a test id or text.
+   * `alert` role plus the danger variant identifies it without a test id or text. The
+   * Competency Management layout's alert for a failed import matches it too, so on that
+   * page the tree's root row tells the two apart: the connection error replaces the tree.
    */
   connectionError: '[role="alert"].alert-danger',
 
@@ -198,8 +200,57 @@ export const TAXONOMY_SELECTORS = {
   wizardNext: '[data-testid="next-button"]',
   wizardContinue: '[data-testid="continue-button"]',
   wizardImport: '[data-testid="import-button"]',
-  /** The wizard footer's currently visible primary button (advance / confirm). */
+  /**
+   * The wizard footer's currently visible primary button (advance / confirm). It starts
+   * with `.pgn__modal` because Paragon puts that class and `role="dialog"` on the same
+   * element, so it is built from the page and not as a descendant of {@link dialog}.
+   */
   wizardPrimaryButton: '.pgn__modal .pgn__modal-footer .btn-primary',
+  /**
+   * The wizard window (Paragon `ModalDialog`), found by its `dialog` role without a
+   * name: the wizard gives the dialog an empty label. Only the open wizard renders it,
+   * so its absence means the wizard is closed.
+   */
+  dialog: '[role="dialog"]',
+  /**
+   * The footer's "Cancel" button on the Upload and Populate steps. It is the footer's
+   * only `tertiary` button there (the stepper renders only the active step's action
+   * row). The button has no test id on these steps (`cancel-button` exists on the
+   * Export step only), so the Paragon variant class is its only anchor. It is only
+   * clicked, so a style change makes the click fail loudly.
+   */
+  wizardCancel: '.pgn__modal-footer .btn-tertiary',
+  /** The modal's corner "Close" button (an `IconButton` Paragon renders by default). */
+  wizardClose: '.pgn__modal-close-button',
+  /**
+   * The dropzone after it rejected the dropped file: Paragon puts its root class and
+   * a rejection class on the same element once its asynchronous type check has failed,
+   * so the rejection class is the positive signal that the rejection happened. The
+   * rejected dropzone also shows a "file type not accepted" message, which no test reads.
+   */
+  dropzoneRejected: '.pgn__dropzone.pgn__dropzone-validation-error',
+
+  /**
+   * The container of the page header's action buttons (the app's `SubHeader`). It is not
+   * rendered at all when the page has no action to offer, such as the import button for a
+   * user who may not create taxonomies.
+   */
+  headerActions: 'header.sub-header .sub-header-actions',
+  /**
+   * The Competency Management header's "Import Competency Framework" button. It has
+   * no test id and is the only button the header renders; the container exists only
+   * for a user who may create taxonomies, so an absent `headerActions` is the
+   * "no button" check.
+   */
+  importFrameworkButton: 'header.sub-header .sub-header-actions button',
+  /** The page title (an `<h2>`): the taxonomy's name, which the test itself chose. */
+  pageTitle: 'header.sub-header .sub-header-title',
+  /**
+   * The "Dismiss" button of the red import-error alert, located from the alert. Paragon's
+   * `Alert` renders it as the one button of its `pgn__alert-actions` row, so the
+   * structure inside the alert is the anchor.
+   */
+  alertDismiss: '.pgn__alert-actions button',
 
   /** Export modal: format radios and the confirm button (id carries the id). */
   exportButton: (id: number): string => `[data-testid="export-button-${id}"]`,

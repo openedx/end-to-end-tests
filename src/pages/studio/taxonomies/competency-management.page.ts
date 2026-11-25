@@ -1,7 +1,8 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 
 import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
-import { CBE_BASE, TAGGING_BASE } from '../../../api';
+import { CBE_BASE, TAGGING_BASE, type ImportableTaxonomyType } from '../../../api';
+import { ImportWizardBlock, type ImportFile } from './import-wizard.block';
 
 /** Where on a node's header area a pointer lands. */
 type NodePosition = 'center' | 'bottom' | 'right' | 'left' | 'top';
@@ -63,8 +64,22 @@ export class CompetencyManagementPage {
   private readonly s = TAXONOMY_SELECTORS;
   /** The page's competency tree root. */
   readonly tree: Locator;
-  /** The connection-error alert both this page and the taxonomy page show. */
+  /**
+   * The red alert both this page and the taxonomy page show: the connection error, and the
+   * layout's alert for a failed import.
+   */
   readonly errorAlert: Locator;
+  /** The page title: the taxonomy's name. */
+  readonly title: Locator;
+  /**
+   * The header's "Import Competency Framework" button, rendered only for a user who may
+   * create taxonomies.
+   */
+  readonly importFrameworkButton: Locator;
+  /** The container of the header's buttons, absent when the user has none. */
+  readonly headerActions: Locator;
+  /** The import wizard the header button opens. */
+  readonly wizard: ImportWizardBlock;
   /** The Expand All / Collapse All button; `aria-pressed` is its state. */
   readonly toggleButton: Locator;
   /** The tree's scrolling box. */
@@ -100,6 +115,10 @@ export class CompetencyManagementPage {
   ) {
     this.tree = page.locator(this.s.competencyPage);
     this.errorAlert = page.locator(this.s.connectionError);
+    this.title = page.locator(this.s.pageTitle);
+    this.importFrameworkButton = page.locator(this.s.importFrameworkButton);
+    this.headerActions = page.locator(this.s.headerActions);
+    this.wizard = new ImportWizardBlock(page);
     this.toggleButton = this.tree.locator(this.s.competencyToggle);
     this.scrollContainer = this.tree.locator(this.s.competencyScroll);
     this.rootRow = this.tree.locator(this.s.competencyRootRow);
@@ -140,6 +159,54 @@ export class CompetencyManagementPage {
       throw new Error(`Listing the tags of taxonomy ${id} failed: ${response.status()}`);
     }
     await this.rootRow.waitFor();
+  }
+
+  /**
+   * Opens a taxonomy's page by URL and waits for the page's own `GET` of the taxonomy list,
+   * which decides whether the header's buttons render. Waits for the complete response and
+   * fails on one that is not a success. Waits for no tree, so it suits a page whose outcome
+   * the spec asserts itself.
+   */
+  async openAwaitingTaxonomyList(id: number): Promise<void> {
+    const listPath = `${TAGGING_BASE}/taxonomies/`;
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (r) => r.request().method() === 'GET' && new URL(r.url()).pathname.endsWith(listPath),
+        { timeout: TIMEOUTS.navigation },
+      ),
+      this.open(id),
+    ]);
+    if (!response.ok()) {
+      throw new Error(`Listing the taxonomies for taxonomy ${id} failed: ${response.status()}`);
+    }
+    await response.finished();
+  }
+
+  /** Clicks the header's import button and waits for the wizard's Upload step. */
+  async openImportWizard(): Promise<void> {
+    await this.importFrameworkButton.click();
+    await this.wizard.waitForUpload();
+  }
+
+  /**
+   * Opens the import wizard, uploads `file`, fills the populate step and submits. Returns
+   * the `POST import/` response whatever its status, so a case can assert a rejection.
+   */
+  async importFramework(
+    file: ImportFile,
+    name: string,
+    options: { readonly type?: ImportableTaxonomyType } = {},
+  ): Promise<Response> {
+    await this.openImportWizard();
+    await this.wizard.uploadToPopulate(file);
+    await this.wizard.fillPopulate(name, options);
+    return this.wizard.submitImport();
+  }
+
+  /** Dismisses the import-error alert and waits for it to go. */
+  async dismissImportError(): Promise<void> {
+    await this.errorAlert.locator(this.s.alertDismiss).click();
+    await this.errorAlert.waitFor({ state: 'hidden' });
   }
 
   /** The tag whose own name is exactly `value`, at any depth. */

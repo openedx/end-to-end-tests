@@ -5,6 +5,7 @@ import {
   type ImportableTaxonomyType,
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
+import { importedTaxonomyId } from '../../../src/pages/studio/taxonomies/import-wizard.block';
 import { TIMEOUTS, getRunId, type AppConfig } from '../../../src/config';
 import { expect, test, type TaxonomyAdmin } from '../../../src/fixtures';
 import {
@@ -40,10 +41,10 @@ test.describe(
       await list.goto();
       await list.openImportToPopulate(taxonomyImportFile());
 
-      await expect(list.typeSelect).toBeVisible();
-      await expect(list.typeSelect).toHaveValue('tags');
+      await expect(list.wizard.typeSelect).toBeVisible();
+      await expect(list.wizard.typeSelect).toHaveValue('tags');
       // Option `value` attributes are the untranslated API values; their text is copy.
-      const values = await list.typeOptions.evaluateAll((options) =>
+      const values = await list.wizard.typeOptions.evaluateAll((options) =>
         options.map((o) => (o as HTMLOptionElement).value),
       );
       expect(values).toEqual(['tags', 'competency']);
@@ -73,6 +74,12 @@ test.describe(
       const created: number[] = [];
       try {
         const id = await importAs(competencyTaxonomyAdmin, 'default', undefined, created);
+        // The list's Import button shares `ImportTagsWizardButton` with the Competency
+        // Management page (frontend-app-authoring #3263), which navigates after an
+        // import only there; the list stays put. Once the dialog is gone the app's
+        // success handling, the only navigation, has already run.
+        await expect(competencyTaxonomyAdmin.list.wizard.dialog).toHaveCount(0);
+        await expect(competencyTaxonomyAdmin.page).toHaveURL(/\/taxonomies\/?$/);
         await competencyTaxonomyAdmin.list.goto();
         await expectTypeAndIcon(competencyTaxonomyAdmin, config, id, 'tags');
         await checkA11y(competencyTaxonomyAdmin.page, { label: 'studio-taxonomy-list-types' });
@@ -129,12 +136,12 @@ test.describe(
       try {
         await list.goto();
         await list.openImportToPopulate(taxonomyImportFile());
-        await list.fillPopulate(`E2E ${getRunId()} type switched ${test.info().testId.slice(-6)}`, {
-          type: 'competency',
-        });
-        await list.chooseType('tags');
-        await expect(list.typeSelect).toHaveValue('tags');
-        const id = await list.submitImport();
+        const name = `E2E ${getRunId()} type switched ${test.info().testId.slice(-6)}`;
+        await list.wizard.fillPopulate(name, { type: 'competency' });
+        await list.wizard.chooseType('tags');
+        await expect(list.wizard.typeSelect).toHaveValue('tags');
+        const response = await list.wizard.submitImport();
+        const id = await importedTaxonomyId(response);
         created.push(id);
 
         await list.goto();

@@ -1,6 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
+import { ApiError } from './errors';
 import { studioJson, studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from './studio-origin';
 
 /**
@@ -135,6 +136,32 @@ export async function listTaxonomies(
     canAddTaxonomy: raw.can_add_taxonomy,
     taxonomies: raw.results.map(toTaxonomy),
   };
+}
+
+/**
+ * The taxonomies, disabled ones included, the admin's list holds under exactly `name`. The
+ * list is one page, so a name that is absent from a truncated page would pass an absence
+ * check vacuously: this throws an {@link ApiError} when the server holds more taxonomies
+ * than the page returned.
+ */
+export async function taxonomiesNamed(
+  request: APIRequestContext,
+  config: AppConfig,
+  name: string,
+): Promise<readonly Taxonomy[]> {
+  const { count, taxonomies } = await listTaxonomies(request, config, { enabled: false });
+  if (count > taxonomies.length) {
+    throw new ApiError(
+      `The taxonomy list holds ${count} taxonomies but returned ${taxonomies.length}, so ` +
+        `"${name}" cannot be looked up reliably. Narrow the lookup or page through the list.`,
+      {
+        status: 200,
+        url: `${studioOrigin(config)}${TAGGING_BASE}/taxonomies/`,
+        body: '',
+      },
+    );
+  }
+  return taxonomies.filter((t) => t.name === name);
 }
 
 /** Reads one taxonomy by id. */

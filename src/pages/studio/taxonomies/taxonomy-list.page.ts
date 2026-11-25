@@ -1,15 +1,9 @@
 import type { Download, Locator, Page } from '@playwright/test';
 
 import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
-import { TAGGING_BASE, type ImportableTaxonomyType } from '../../../api';
+import type { ImportableTaxonomyType } from '../../../api';
+import { ImportWizardBlock, importedTaxonomyId, type ImportFile } from './import-wizard.block';
 import { menuItemTestIds, waitForCompetencyRoute } from './menu';
-
-/** A file the import wizard uploads (Playwright's `setInputFiles` payload shape). */
-export interface ImportFile {
-  readonly name: string;
-  readonly mimeType: string;
-  readonly buffer: Buffer;
-}
 
 /**
  * The taxonomy list page (`/taxonomies`) — staff only. Drives the new-taxonomy
@@ -24,6 +18,8 @@ export class TaxonomyListPage {
   private readonly s = TAXONOMY_SELECTORS;
   readonly importButton: Locator;
   readonly templateToggle: Locator;
+  /** The new-taxonomy import wizard the Import button opens. */
+  readonly wizard: ImportWizardBlock;
 
   constructor(
     private readonly page: Page,
@@ -31,6 +27,7 @@ export class TaxonomyListPage {
   ) {
     this.importButton = page.locator(this.s.importButton);
     this.templateToggle = page.locator(this.s.templateToggle);
+    this.wizard = new ImportWizardBlock(page);
   }
 
   /**
@@ -147,81 +144,14 @@ export class TaxonomyListPage {
     });
   }
 
-  /** The populate step's Taxonomy Type `<select>`; the spec reads its value and options. */
-  get typeSelect(): Locator {
-    return this.page.locator(this.s.typeSelect);
-  }
-
-  /** The populate step's Taxonomy Type `<option>` elements. */
-  get typeOptions(): Locator {
-    return this.typeSelect.locator('option');
-  }
-
-  /** The populate step's name input. */
-  private get populateNameInput(): Locator {
-    return this.page.locator(this.s.populateNameInput);
-  }
-
-  /** The populate step's description textarea. */
-  private get populateDescInput(): Locator {
-    return this.page.locator(this.s.populateDescInput);
-  }
-
   /**
    * Opens the import wizard, drops `file` and advances upload → populate. Leaves
    * the wizard on the populate step.
    */
   async openImportToPopulate(file: ImportFile): Promise<void> {
     await this.importButton.click();
-    await this.page.locator(this.s.uploadStep).waitFor();
-    await this.page.locator(this.s.dropzoneInput).setInputFiles({
-      name: file.name,
-      mimeType: file.mimeType,
-      buffer: file.buffer,
-    });
-    await this.page.locator(this.s.fileInfo).waitFor();
-    // Upload step's advance button (populateData) has no test id: the footer primary.
-    await this.page.locator(this.s.wizardPrimaryButton).click();
-    await this.page.locator(this.s.populateStep).waitFor();
-  }
-
-  /**
-   * Fills the populate step: name, description and, when given, the Taxonomy Type
-   * (chosen after the description, the order the fields appear in).
-   */
-  async fillPopulate(
-    name: string,
-    options: { readonly description?: string; readonly type?: ImportableTaxonomyType } = {},
-  ): Promise<void> {
-    await this.populateNameInput.fill(name);
-    // The Import button stays disabled until both name and description are set.
-    await this.populateDescInput.fill(options.description ?? 'E2E suite taxonomy');
-    if (options.type !== undefined) await this.chooseType(options.type);
-  }
-
-  /** Picks the Taxonomy Type on the populate step; the last choice is what the import sends. */
-  async chooseType(type: ImportableTaxonomyType): Promise<void> {
-    await this.typeSelect.selectOption(type);
-  }
-
-  /**
-   * Clicks Import on the populate step and returns the created taxonomy's id from
-   * the `POST import/` response.
-   */
-  async submitImport(): Promise<number> {
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) =>
-          r.url().includes(`${TAGGING_BASE}/taxonomies/import/`) && r.request().method() === 'POST',
-        { timeout: TIMEOUTS.taxonomyImport },
-      ),
-      this.page.locator(this.s.wizardImport).click(),
-    ]);
-    if (!response.ok()) {
-      throw new Error(`Taxonomy import failed: ${response.status()} ${await response.text()}`);
-    }
-    const body = (await response.json()) as { id: number };
-    return body.id;
+    await this.wizard.waitForUpload();
+    await this.wizard.uploadToPopulate(file);
   }
 
   /**
@@ -235,8 +165,8 @@ export class TaxonomyListPage {
     type?: ImportableTaxonomyType,
   ): Promise<number> {
     await this.openImportToPopulate(file);
-    await this.fillPopulate(name, { type });
-    return this.submitImport();
+    await this.wizard.fillPopulate(name, { type });
+    return importedTaxonomyId(await this.wizard.submitImport());
   }
 
   /** Downloads an import template, returning the browser download event. */

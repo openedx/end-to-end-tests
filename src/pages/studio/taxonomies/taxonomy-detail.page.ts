@@ -3,7 +3,7 @@ import type { Download, Locator, Page } from '@playwright/test';
 import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 import { TAGGING_BASE } from '../../../api';
 import { menuItemTestIds, waitForCompetencyRoute } from './menu';
-import type { ImportFile } from './taxonomy-list.page';
+import { ImportWizardBlock, type ImportFile } from './import-wizard.block';
 
 /**
  * A single taxonomy's detail page (`/taxonomy/<id>`). The admin drives its management
@@ -21,6 +21,8 @@ export class TaxonomyDetailPage {
   readonly menuButton: Locator;
   /** The connection-error alert the page shows when the taxonomy request fails. */
   readonly errorAlert: Locator;
+  /** The import wizard the menu's re-import item opens. */
+  readonly wizard: ImportWizardBlock;
 
   constructor(
     private readonly page: Page,
@@ -28,6 +30,7 @@ export class TaxonomyDetailPage {
   ) {
     this.menuButton = page.locator(this.s.menuButton).first();
     this.errorAlert = page.locator(this.s.connectionError);
+    this.wizard = new ImportWizardBlock(page);
   }
 
   /** Navigates straight to a taxonomy's detail page. */
@@ -96,18 +99,14 @@ export class TaxonomyDetailPage {
     await this.page.locator(this.s.menuImport).click();
     // Re-import opens on the export step; skip it.
     await this.page.locator(this.s.wizardNext).click();
-    await this.page.locator(this.s.uploadStep).waitFor();
-    await this.page.locator(this.s.dropzoneInput).setInputFiles({
-      name: file.name,
-      mimeType: file.mimeType,
-      buffer: file.buffer,
-    });
-    await this.page.locator(this.s.fileInfo).waitFor();
+    await this.wizard.waitForUpload();
+    await this.wizard.chooseFile(file);
+    await this.wizard.fileInfo.waitFor();
     // Upload-step primary (generatePlan) → plan step.
-    await this.page.locator(this.s.wizardPrimaryButton).click();
-    await this.page.locator(this.s.planStep).waitFor({ timeout: TIMEOUTS.taxonomyImport });
-    await this.page.locator(this.s.wizardContinue).click();
-    await this.page.locator(this.s.confirmStep).waitFor();
+    await this.wizard.primaryButton.click();
+    await this.wizard.planStep.waitFor({ timeout: TIMEOUTS.taxonomyImport });
+    await this.wizard.continueButton.click();
+    await this.wizard.confirmStep.waitFor();
     const [response] = await Promise.all([
       this.page.waitForResponse(
         (r) =>
@@ -117,7 +116,7 @@ export class TaxonomyDetailPage {
         { timeout: TIMEOUTS.taxonomyImport },
       ),
       // Confirm-step primary (confirmImportTags) has no test id.
-      this.page.locator(this.s.wizardPrimaryButton).click(),
+      this.wizard.primaryButton.click(),
     ]);
     if (!response.ok()) {
       throw new Error(`Re-import failed: ${response.status()} ${await response.text()}`);

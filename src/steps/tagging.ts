@@ -6,6 +6,7 @@ import {
   importTaxonomy,
   listTaxonomies,
   setTaxonomyOrgs,
+  taxonomiesNamed,
   type ImportableTaxonomyType,
   type Taxonomy,
 } from '../api';
@@ -181,6 +182,102 @@ export function taxonomyImportFileExtended(): {
 }
 
 /**
+ * A CSV with three lines of plain text and no columns. The wizard accepts it by its
+ * extension and the import endpoint rejects it with 400 (no `id` and `value` headers).
+ */
+export function invalidRandomTextFile(): {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly buffer: Buffer;
+} {
+  const text = ['This is not a taxonomy.', 'It has no columns.', 'Just three lines of text.'];
+  return {
+    name: 'e2e-invalid-random.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(text.join('\n')),
+  };
+}
+
+/** An empty CSV: the wizard accepts it and the import endpoint rejects it with 400. */
+export function invalidEmptyFile(): {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly buffer: Buffer;
+} {
+  return { name: 'e2e-invalid-empty.csv', mimeType: 'text/csv', buffer: Buffer.alloc(0) };
+}
+
+/**
+ * The JSON of {@link taxonomyImportFile} cut off halfway, so it does not parse; the
+ * import endpoint rejects it with 400. Throws if the cut text still parses, because a
+ * "truncated" file that is valid would make the case pass or fail for the wrong reason.
+ */
+export function invalidTruncatedJsonFile(): {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly buffer: Buffer;
+} {
+  const text = taxonomyImportFile().buffer.toString('utf8');
+  const truncated = text.slice(0, Math.floor(text.length / 2));
+  try {
+    JSON.parse(truncated);
+  } catch {
+    return {
+      name: 'e2e-invalid-truncated.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(truncated),
+    };
+  }
+  throw new Error('The truncated import file still parses as JSON.');
+}
+
+/**
+ * A CSV headed `code,title,parent` instead of `id,value,parent_id`: the wizard accepts
+ * it and the import endpoint rejects it with 400 (no `id` and `value` columns).
+ */
+export function invalidWrongHeadersFile(): {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly buffer: Buffer;
+} {
+  const csv = ['code,title,parent', 'W1,E2E Wrong Headers One,', 'W2,E2E Wrong Headers Two,W1'];
+  return {
+    name: 'e2e-invalid-headers.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(csv.join('\n')),
+  };
+}
+
+/** A plain-text file, which the wizard's dropzone rejects (it accepts only CSV and JSON). */
+export function unsupportedTxtFile(): {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly buffer: Buffer;
+} {
+  return {
+    name: 'e2e-unsupported.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('This file type is not a taxonomy import format.'),
+  };
+}
+
+/** A 1x1 PNG, which the wizard's dropzone rejects (it accepts only CSV and JSON). */
+export function unsupportedPngFile(): {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly buffer: Buffer;
+} {
+  return {
+    name: 'e2e-unsupported.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
+      'base64',
+    ),
+  };
+}
+
+/**
  * Seeds a taxonomy for an org, idempotently: if one named `name` already exists
  * (a resumed worker, a retry) it is reused and its org assignment ensured;
  * otherwise the tag file is imported and assigned to the org. Admin-only — call
@@ -224,6 +321,34 @@ export async function deleteTaxonomiesBestEffort(
     } catch {
       // A run-unique name means a leftover never collides with a later run.
     }
+  }
+}
+
+/**
+ * Best-effort teardown by name: deletes every taxonomy, disabled ones included, the
+ * admin's list holds under `name`. A failed lookup is swallowed like a failed delete. Use
+ * it when a test may not have kept the id of a taxonomy the UI created (a double
+ * submission, or an import that failed after the server created it).
+ */
+export async function deleteTaxonomiesNamed(
+  request: APIRequestContext,
+  config: AppConfig,
+  name: string,
+): Promise<void> {
+  try {
+    const named = await taxonomiesNamed(request, config, name);
+    await deleteTaxonomiesBestEffort(
+      request,
+      config,
+      named.map((t) => t.id),
+    );
+  } catch (error) {
+    // Teardown must not mask the test's own failure. A failed or truncated lookup leaves
+    // leftovers, which a run-unique name keeps from colliding with a later run.
+    console.warn(
+      `[deleteTaxonomiesNamed] could not clean up "${name}": ` +
+        `${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
