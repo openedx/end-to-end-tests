@@ -235,10 +235,16 @@ export class StudioHomePage {
    * Re-runs a course from its card: the card menu's "Re-run course" (global
    * staff only), then the re-run page's form with `run` as the new run — the
    * name, organization and number come prefilled from the source — and "Create
-   * re-run". Returns Studio's answer to the `POST /course/` it causes; the copy
-   * itself then runs on the CMS worker.
+   * re-run". Returns the course the form sent — the prefilled fields included —
+   * and Studio's answer to the `POST /course/` it causes; the copy itself then
+   * runs on the CMS worker. The organization is best judged from what the form
+   * sends: its field can show the placeholder while the form holds the org
+   * (`STUDIO-015`).
    */
-  async rerunFromCard(courseKey: string, run: string): Promise<{ status: number; body: string }> {
+  async rerunFromCard(
+    courseKey: string,
+    run: string,
+  ): Promise<{ sent: Record<string, unknown>; status: number; body: string }> {
     await this.openCardMenu(courseKey);
     await this.page.locator(STUDIO_HOME_SELECTORS.cardRerunLink).click();
     await this.page.waitForURL((u) => u.pathname.includes(`/course_rerun/${courseKey}`));
@@ -248,7 +254,11 @@ export class StudioHomePage {
       { method: 'POST', predicate: (r) => new URL(r.url()).pathname === '/course/' },
       () => this.page.locator(STUDIO_HOME_SELECTORS.rerunSubmitButton).click(),
     );
-    return { status: response.status(), body: await response.text() };
+    return {
+      sent: (response.request().postDataJSON() ?? {}) as Record<string, unknown>,
+      status: response.status(),
+      body: await response.text(),
+    };
   }
 
   /** The "View live" link inside the open card menu. */

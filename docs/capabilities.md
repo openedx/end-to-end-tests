@@ -115,6 +115,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `scorm` | declared | declared | declared | declared | declared | declared | |  |
 | `edx-sga` | declared | declared | declared | declared | declared | declared | |  |
 | `instructor-dashboard` | default | default | opted out | opted out | opted out | opted out | |  |
+| `course-optimizer` | default | default | default | default | opted out | opted out | |  |
 | `certificates` | declared | declared | declared | declared | declared | declared | |  |
 | `special-exams` | declared | declared | — | — | — | — | |  |
 | `analytics` | — | — | — | — | — | — | | + main, verawood |
@@ -156,6 +157,7 @@ support something, the entry says so.
 | `mfe-authn` | The authn MFE owns accounts: native LMS registration, password reset and the MFE's own screens. An install whose identity lives in an external service (a custom `ACCOUNT_BACKEND`, see `src/accounts/README.md`) opts out. | The registration, password-reset and authn-screen specs (`tests/lms/auth/`). Not specs that merely sign in through the account backend. | every release CI runs |
 | `frontend-base` | The frontend-base shell: the MFEs bundled into one application with a shared header and footer. | Only coverage that is *about* the shell's own chrome (its a11y debt, markup only it renders). Journeys through it stay ungated and match both headers with a selector union. | `main`. `verawood` and earlier use one MFE per app and opt out. |
 | `instructor-dashboard` | The LMS instructor dashboard as its MFE, driven by `/api/instructor/v2/`. From verawood the legacy dashboard redirects to it. | `tests/lms/instructor/` and the legacy-role cases in `tests/rbac/roles/`. | `main`, `verawood`. `ulmo` and earlier render the legacy dashboard and opt out. |
+| `course-optimizer` | The authoring MFE's Course Optimizer (`<course base>/optimizer`): "Scan course" queues a link check of the course's published content on the CMS worker, and the page lists what it found. Reached by URL; the `contentstore.enable_course_optimizer` waffle flag only adds the course header's link to it. | `tests/studio/tools/optimizer.spec.ts`. | `main`. Teak, ulmo and verawood ship the page and its `v0` link-check API. `sumac` and earlier have neither and opt out. |
 | `discussions` | Course discussions through the `openedx` provider (the in-process forum) and the discussions MFE. Tutor needs the `forum` plugin and its `do init` task. | The forum, Discussion tab and discussion-notification specs. | every release CI runs |
 | `notifications` | Course notifications as verawood ships them: on platform-wide, the v3 preferences API and the tray in every MFE header. | `tests/lms/notifications/`. | `main`, `verawood`. `ulmo` and earlier (opt-in course flags, older APIs, no tray) opt out. |
 

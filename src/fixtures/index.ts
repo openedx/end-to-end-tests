@@ -48,6 +48,7 @@ import { UpdatesPage } from '../pages/studio/updates/updates.page';
 import { StudioExportPage } from '../pages/studio/tools/export.page';
 import { StudioImportPage } from '../pages/studio/tools/import.page';
 import { StudioChecklistsPage } from '../pages/studio/tools/checklists.page';
+import { StudioOptimizerPage } from '../pages/studio/tools/optimizer.page';
 import { CourseCreatorAdminPage } from '../pages/studio/admin/course-creator-admin.page';
 import {
   AdminConsolePage,
@@ -681,6 +682,8 @@ export interface TestFixtures {
   importPage: StudioImportPage;
   /** Launch / Best-practices checklists page object (authoring MFE). */
   checklistsPage: StudioChecklistsPage;
+  /** Course Optimizer (broken-link scan) page object (authoring MFE). */
+  optimizerPage: StudioOptimizerPage;
   /** Pages & Resources page object (authoring MFE). */
   pagesResourcesPage: StudioPagesResourcesPage;
   /** Custom Pages page object (authoring MFE). */
@@ -1322,6 +1325,8 @@ export interface StudioColleague {
   readonly libraryPicker: LibraryPickerDialog;
   /** Studio Home as this colleague sees it — which courses and libraries are listed to them. */
   readonly studioHomePage: StudioHomePage;
+  /** Course Team as this colleague sees it — what its role lets it change. */
+  readonly courseTeamPage: StudioCourseTeamPage;
 }
 
 /** What {@link TestFixtures.roundTripLearner} hands a spec. */
@@ -3218,6 +3223,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           unitPage: new StudioUnitPage(castPage, config),
           libraryPicker: new LibraryPickerDialog(castPage, config),
           studioHomePage: new StudioHomePage(castPage, config),
+          courseTeamPage: new StudioCourseTeamPage(castPage, config),
         };
         cast.set(part, member);
         made.push(member);
@@ -3540,6 +3546,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   importPage: pageObjectFixture(StudioImportPage),
 
   checklistsPage: pageObjectFixture(StudioChecklistsPage),
+
+  optimizerPage: pageObjectFixture(StudioOptimizerPage),
 
   pagesResourcesPage: pageObjectFixture(StudioPagesResourcesPage),
 
@@ -4794,6 +4802,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         unitPage: new StudioUnitPage(colleaguePage, config),
         libraryPicker: new LibraryPickerDialog(colleaguePage, config),
         studioHomePage: new StudioHomePage(colleaguePage, config),
+        courseTeamPage: new StudioCourseTeamPage(colleaguePage, config),
       };
       made.push(colleague);
       return colleague;

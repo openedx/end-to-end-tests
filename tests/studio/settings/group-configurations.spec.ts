@@ -3,10 +3,12 @@ import {
   createCohort,
   DEFAULT_PASSWORD,
   enableCohorts,
+  fetchAdvancedSettings,
   fetchGroupConfigurations,
   fetchStudioUsername,
   linkCohortToGroup,
   loginSession,
+  updateAdvancedSettings,
 } from '../../../src/api';
 import { newCleanRequestContext } from '../../../src/auth';
 import { getRunId } from '../../../src/config';
@@ -20,6 +22,12 @@ import { testId } from '../../../src/reporting';
  * the content group was created. Content-group configurations cannot be deleted
  * once a course uses them, so this adds a uniquely-named group and asserts on that
  * name rather than resetting the course.
+ *
+ * Experiment-group configurations (the `random` scheme) are offered only for a
+ * course with content experiments enabled, which is `split_test` in its Advanced
+ * Settings `advanced_modules` — course-level state, so that case sets the list
+ * itself through the API, as the Advanced Settings specs do on this course, and
+ * restores it when it ends.
  */
 test.describe('Group Configurations', { tag: ['@studio', '@author', '@mfe-authoring'] }, () => {
   test(
@@ -120,6 +128,56 @@ test.describe('Group Configurations', { tag: ['@studio', '@author', '@mfe-author
         expect(linked.group_id).toBe(groupId);
       } finally {
         await cohortApi.dispose();
+      }
+    },
+  );
+
+  test(
+    'offers experiment groups once content experiments are enabled, and adds a configuration',
+    { tag: '@regression' },
+    async ({ page, config, authoredCourse, groupConfigurationsPage, studioAuthorSession }) => {
+      void studioAuthorSession;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
+      const { courseKey } = authoredCourse;
+      const name = `E2E experiment ${getRunId()}-${Date.now().toString(36)}`;
+      const modules = (await fetchAdvancedSettings(api, config, courseKey)).advanced_modules
+        ?.value as string[] | undefined;
+      const without = (modules ?? []).filter((module) => module !== 'split_test');
+
+      try {
+        // Without content experiments the page has no experiment-groups section.
+        await updateAdvancedSettings(api, config, courseKey, { advanced_modules: without });
+        await groupConfigurationsPage.goto(courseKey);
+        const sectionsWithout = await groupConfigurationsPage.sectionCount();
+
+        // Enabled, it gains exactly one section, rendered last: the experiment groups.
+        await updateAdvancedSettings(api, config, courseKey, {
+          advanced_modules: [...without, 'split_test'],
+        });
+        await groupConfigurationsPage.goto(courseKey);
+        await expect(groupConfigurationsPage.sections).toHaveCount(sectionsWithout + 1);
+
+        const created = await groupConfigurationsPage.addExperimentConfiguration(courseKey, name);
+        expect(created.status).toBeLessThan(300);
+
+        // Studio holds a `random`-scheme configuration under that name, with the
+        // form's two default groups…
+        await expect
+          .poll(async () =>
+            (await fetchGroupConfigurations(api, config, courseKey))
+              .filter((cfg) => cfg.name === name)
+              .map((cfg) => ({ scheme: cfg.scheme, groups: cfg.groups.length })),
+          )
+          .toEqual([{ scheme: 'random', groups: 2 }]);
+        // …and the experiment section lists it as a card.
+        await expect(
+          groupConfigurationsPage.experimentCards().filter({ hasText: name }),
+        ).toHaveCount(1);
+
+        await checkA11y(page, { label: 'studio-group-configurations-experiments' });
+      } finally {
+        await updateAdvancedSettings(api, config, courseKey, { advanced_modules: modules ?? [] });
       }
     },
   );

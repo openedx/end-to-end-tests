@@ -120,6 +120,8 @@ measured, and issues are opened by hand from them.
 | `STUDIO-011` | `openedx/frontend-app-authoring` (`verawood`: an outline rename is saved twice) | open, no `fixme` — fixed on `master`; `rename()` in `course-outline.page.ts` retries opening the next field |
 | `STUDIO-012` | `openedx/frontend-app-authoring` (TinyMCE 8 editor iframe has no title in Chromium) | open, no `fixme` — `frame-title` baselined on the `studio-schedule-details` scan only |
 | `STUDIO-013` | `openedx/openedx-platform` (`cms` unit iframe: a component's three-dot menu is intermittently clipped, its items unclickable) | open, declarative `fixme` + `knownGap` on TC-00222's menu-copy test; the paste test stages the copy through the API |
+| `STUDIO-014` | `openedx/frontend-app-authoring` (Advanced Settings error modal lists no setting when Studio refuses a value; regression on `master`) | open, not filed — `test.fail` on the wrong-type case in `tests/studio/settings/advanced.spec.ts`; [frontend-app-authoring#3366](https://github.com/openedx/frontend-app-authoring/pull/3366) fixes it against the new advanced settings API |
+| `STUDIO-015` | `openedx/frontend-app-authoring` (re-run page's Organization field can show its placeholder while the form holds the org) | open, not filed, not asserted — the re-run case checks the org the form sends |
 | `PLAT-010`  | `openedx/edx-platform` (`content_staging` clipboard save)     | **filed** - [#39118](https://github.com/openedx/openedx-platform/issues/39118), no `fixme` — worked around in `copyToClipboard` (a 500 is re-issued)
 | `PLAT-011`  | `openedx/openedx-platform` (problem previews: MathJax renders an empty math element as an unlabelled `svg[role=img]`) | open, no `fixme` — the in-context Analytics scans cover only their panel; no other scan reaches a problem preview yet
 | `INSTR-009` | `openedx/edx-platform` + `openedx/frontend-app-instructor-dashboard` (allowance Delete: numeric id ignored, failure shown as success) | **filed** - [openedx-platform#39228](https://github.com/openedx/openedx-platform/issues/39228) and [frontend-app-instructor-dashboard#258](https://github.com/openedx/frontend-app-instructor-dashboard/issues/258) (tracked here as [#135](https://github.com/openedx/end-to-end-tests/issues/135)), `test.fail` on TC-00541's delete test
@@ -874,6 +876,57 @@ inside the iframe. The Edit button, outside the menu, always works.
 Upstream ask: keep `base.js`'s generic dropdown handler off the xblock action
 menus (or have `showXBlockActionsMenu` run regardless), so opening the menu
 always resizes the iframe.
+
+### `STUDIO-014` — Advanced Settings lists no setting when Studio refuses a value
+
+**Where:** the authoring MFE's Advanced Settings page on `master`, since
+[frontend-app-authoring#2893](https://github.com/openedx/frontend-app-authoring/pull/2893)
+(2026-02-26) moved the page from the redux store to React Query. Measured on the
+Tutor `main` stack with `master`'s bundle (`225ae289`), 2026-11-17.
+
+**What happens:** a value that is valid JSON but of the wrong type (`"not a
+number"` for "Course maximum student enrollment") passes the page's own JSON
+check and is sent. Studio refuses it with a 400 whose body is
+`{"developer_message": [{"key": "max_student_enrollments_allowed", "message":
+"invalid literal for int() …", …}]}` (`DeveloperErrorViewMixin` wraps the
+validation errors). The page opens its "Validation error while saving" modal
+with the error body as its list (`setErrorFields(queryError?.response?.data ??
+[])` in `AdvancedSettings.tsx`); an object has no `length`, so the modal says
+"0 validation error" and lists nothing, and the author cannot tell which setting
+was refused. Nothing is saved, as it should be. `release/ulmo` read
+`developer_message` and listed the setting. A value that is not JSON at all is
+refused by the page itself and listed correctly.
+
+**Coverage impact:** open, not filed. The wrong-type case in
+`tests/studio/settings/advanced.spec.ts` asserts the intended listing and is an
+expected failure (`test.fail`); the not-JSON case passes.
+[frontend-app-authoring#3366](https://github.com/openedx/frontend-app-authoring/pull/3366)
+reads the error body of the new advanced settings API (its `errors` member) and
+lists the setting; once it lands with that API, the case passes unexpectedly and
+the marker comes off. Upstream ask, independent of that move: read
+`developer_message` from the current endpoint's error body.
+
+### `STUDIO-015` — the re-run page's Organization field can stay empty though the form holds the org
+
+**Where:** the authoring MFE's course re-run page (`/course_rerun/<key>`) on
+`master` (`225ae289`), for a session that may create organizations (global
+staff), whose Organization field is the editor's `TypeaheadDropdown`. Measured on
+the Tutor `main` stack, 2026-11-17.
+
+**What happens:** intermittently (one run in two of the re-run case), the
+Organization field shows its placeholder although the course name and number are
+prefilled, and submitting still sends the source course's organization: the form
+(Formik) holds it, only the field does not show it. `TypeaheadDropdown` copies its
+`value` prop into the text it displays in `shouldComponentUpdate`, only when the
+value changes and only if the value is already among its `options`. When the
+prefilled values arrive before the organizations list, the value is not yet an
+option, so nothing is shown, and when the list arrives the value has not changed,
+so it is never copied. An author sees an empty, apparently required field.
+
+**Coverage impact:** open, not filed, not asserted. The re-run case in
+`tests/studio/home/course-lifecycle.spec.ts` checks the organization the form
+sends rather than the field. Upstream ask: derive the displayed text from `value`
+and `options` together (or re-sync it when `options` change).
 
 ### `PLAT-007` — the Blocks API returns 500 to a learner enrolled in a course that has not started
 

@@ -186,10 +186,14 @@ export class StudioGradingPage {
       {
         // The grading-save endpoint drifts across releases: `main`'s authoring
         // MFE PATCHes `.../v3/authoring_grading/<key>/`, while older releases POST
-        // `.../v1/course_grading/<key>`. Match the grading-save family by resource
-        // and any write method (the wait is scoped to this page's own course, so
-        // it cannot catch another course's save). See `STUDIO-009` in findings.
-        predicate: (r) => isSettingsWrite(r) && /\/(course|authoring)_grading\//.test(r.url()),
+        // `.../v1/course_grading/<key>`, and a course-scoped
+        // `.../courses/<key>/grading/` route is on its way. Match the grading-save
+        // family by resource and any write method (the wait is scoped to this
+        // page's own course, so it cannot catch another course's save). See
+        // `STUDIO-009` in findings.
+        predicate: (r) =>
+          isSettingsWrite(r) &&
+          /\/(course|authoring)_grading\/|\/courses\/[^/]+\/grading\//.test(r.url()),
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => this.saveButton.click(),

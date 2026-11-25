@@ -198,11 +198,21 @@ export {
   COURSE_TEAM_PATH,
   COURSE_TEAM_MEMBER_PATH,
   fetchCourseTeam,
+  fetchCourseTeamCaller,
   removeCourseTeamMember,
   setCourseTeamRole,
+  type CourseTeamCaller,
   type CourseTeamMember,
   type CourseTeamRole,
 } from './course-team';
+export {
+  LINK_CHECK_STATUS_PATH,
+  fetchLinkCheck,
+  type LinkCheckBlock,
+  type LinkCheckSection,
+  type LinkCheckState,
+  type LinkCheckStatus,
+} from './course-optimizer';
 export {
   GROUP_CONFIGURATIONS_PATH,
   GROUP_CONFIGURATIONS_WRITE_PATH,

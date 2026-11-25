@@ -19,6 +19,10 @@ import { waitForWrite } from '../wait-for-write';
 export class StudioAdvancedSettingsPage {
   readonly page: Page;
   readonly saveButton: Locator;
+  /** The modal listing the settings a save was refused for. */
+  readonly errorModal: Locator;
+  /** One list item per refused setting in {@link errorModal}. */
+  readonly errorItems: Locator;
 
   constructor(
     page: Page,
@@ -26,6 +30,13 @@ export class StudioAdvancedSettingsPage {
   ) {
     this.page = page;
     this.saveButton = page.locator(STUDIO_SETTINGS_SAVE_BAR_SELECTORS.saveButton);
+    this.errorModal = page.locator(STUDIO_ADVANCED_SETTINGS_SELECTORS.errorModal);
+    this.errorItems = page.locator(STUDIO_ADVANCED_SETTINGS_SELECTORS.errorItem);
+  }
+
+  /** The heading naming the setting in a refused-setting list item. */
+  errorItemTitle(item: Locator): Locator {
+    return item.locator(STUDIO_ADVANCED_SETTINGS_SELECTORS.errorItemTitle);
   }
 
   url(courseKey: string): string {
@@ -57,10 +68,35 @@ export class StudioAdvancedSettingsPage {
   }
 
   /**
-   * Presses "Save changes" and returns the status of the resulting write. The MFE
-   * saves advanced settings with `PATCH /api/contentstore/v0/advanced_settings/<key>`
-   * (the `v0` route the authoring MFE posts to), so the spec judges the save
-   * before reading it back.
+   * Sets one setting's field to `text` exactly as typed — for a value that is not
+   * JSON at all, which {@link setField} cannot express.
+   */
+  async setFieldText(name: string, text: string): Promise<void> {
+    const field = this.field(name);
+    await field.click();
+    await field.press('ControlOrMeta+a');
+    await field.press('Delete');
+    await field.pressSequentially(text);
+    await field.blur();
+  }
+
+  /**
+   * Presses "Save changes" on edits the page's own JSON check refuses, and waits
+   * for the error modal it opens instead of sending a write.
+   */
+  async saveRefusedLocally(): Promise<void> {
+    await this.saveButton.waitFor({ state: 'visible' });
+    await this.saveButton.click();
+    await this.errorModal.waitFor();
+  }
+
+  /**
+   * Presses "Save changes" and returns the status of the resulting write, so the
+   * spec judges the save before reading it back. The MFE has saved advanced
+   * settings under more than one API generation (`PATCH
+   * /api/contentstore/v0/advanced_settings/<key>`, and a course-scoped
+   * `.../courses/<key>/advanced_settings/` route), so the write is recognised by
+   * its resource and course, not by one fixed URL shape.
    */
   async save(courseKey: string): Promise<{ status: number }> {
     await this.saveButton.waitFor({ state: 'visible' });
@@ -68,7 +104,7 @@ export class StudioAdvancedSettingsPage {
       this.page,
       {
         method: ['PATCH', 'POST', 'PUT'],
-        urlIncludes: `advanced_settings/${courseKey}`,
+        predicate: (r) => r.url().includes('advanced_settings') && r.url().includes(courseKey),
         timeout: TIMEOUTS.studioSettingsSave,
       },
       () => this.saveButton.click(),

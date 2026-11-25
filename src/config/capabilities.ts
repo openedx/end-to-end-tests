@@ -171,6 +171,16 @@ export const CAPABILITIES = [
   // would be the other half of a mutually-exclusive pair named
   // `instructor-dashboard-legacy`; it is not added until it has coverage.
   'instructor-dashboard',
+  // The authoring MFE's Course Optimizer (`<course base>/optimizer`): a "Scan
+  // course" action queues a link check of the course's published content on the
+  // CMS worker (`check_broken_links`), and the page lists the broken, locked and
+  // forbidden links it found. The page is reached by URL on every release that has
+  // it; the `contentstore.enable_course_optimizer` waffle flag only adds the
+  // course header's link to it, and the link-check API does not read the flag.
+  // Default on, because teak and every later release ship it; sumac and earlier,
+  // which have neither the page nor the API, opt out with `-course-optimizer` in
+  // `.ci/openedx-releases.json`.
+  'course-optimizer',
   // Course certificates can be generated on the installation. Certificates ship
   // with the platform but the platform-wide switch
   // (`CertificateGenerationConfiguration`, Django admin) is off on a default
@@ -381,6 +391,9 @@ export type Capability = (typeof CAPABILITIES)[number];
  * still render the legacy dashboard, opt out with `-instructor-dashboard` in
  * `.ci/openedx-releases.json`.
  *
+ * `course-optimizer` is on by default because teak and every later release ship
+ * the Course Optimizer; sumac and earlier opt out with `-course-optimizer`.
+ *
  * `discussions` is on by default because the forum ships with the platform; an
  * install without it opts out with `-discussions`.
  *
@@ -398,6 +411,7 @@ export const DEFAULT_ON_CAPABILITIES: ReadonlyArray<Capability> = [
   'mfe-authn',
   'frontend-base',
   'instructor-dashboard',
+  'course-optimizer',
   'discussions',
   'notifications',
   'authz-manual-migration',

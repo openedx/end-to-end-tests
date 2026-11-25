@@ -26,6 +26,15 @@ interface RawCourseTeam {
     readonly role?: string;
   }[];
   readonly allow_actions?: boolean;
+  readonly show_transfer_ownership_hint?: boolean;
+}
+
+/** What the course team means for the caller, as Studio answers it per caller. */
+export interface CourseTeamCaller {
+  /** Whether the caller may add, remove and change the role of members (course admins). */
+  readonly canManageTeam: boolean;
+  /** Whether the caller is the course's only admin (Studio's transfer-ownership hint). */
+  readonly isOnlyAdmin: boolean;
 }
 
 export async function fetchCourseTeam(
@@ -40,6 +49,27 @@ export async function fetchCourseTeam(
     username: user.username ?? '',
     role: (user.role ?? 'staff') as CourseTeamRole,
   }));
+}
+
+/**
+ * Reads what the course team means for the caller: whether it may manage the team
+ * and whether it is the only admin. Studio computes both per caller on the same
+ * read that lists the members.
+ */
+export async function fetchCourseTeamCaller(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<CourseTeamCaller> {
+  const response = await request.get(`${studioOrigin(config)}${COURSE_TEAM_PATH}/${courseKey}`);
+  const raw = await studioJson<RawCourseTeam>(
+    response,
+    `Reading the caller's place in the team of ${courseKey}`,
+  );
+  return {
+    canManageTeam: raw.allow_actions === true,
+    isOnlyAdmin: raw.show_transfer_ownership_hint === true,
+  };
 }
 
 /**

@@ -59,8 +59,12 @@ export class StudioCustomPagesPage {
       waitForWrite(
         this.page,
         {
-          method: 'POST',
-          predicate: (r) => r.url().includes(`${TABS_PATH}/`) && r.url().endsWith('/reorder'),
+          // Releases up to `main` POST `<tabs>/<key>/reorder`; a course-scoped
+          // `.../courses/<key>/custom_page_order/` route PUTs the new order.
+          method: ['POST', 'PUT'],
+          predicate: (r) =>
+            (r.url().includes(`${TABS_PATH}/`) && r.url().endsWith('/reorder')) ||
+            r.url().endsWith('/custom_page_order/'),
           timeout: DND_REORDER_TIMEOUT_MS,
         },
         drop,
