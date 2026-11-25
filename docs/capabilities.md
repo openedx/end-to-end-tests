@@ -67,7 +67,8 @@ it, and `tests/config/capabilities-doc.spec.ts` keeps the two in step.
 ## Where CI turns each capability on
 
 CI runs `main` and `verawood` on every pull request, under the `default`,
-`extended` and `aspects` profiles (`.ci/profiles.json`). The older releases run
+`extended` and `aspects` profiles (`.ci/profiles.json`), and `main` under the
+`lti` profile too. The older releases run
 on demand through `run_tests_tutor.yml`'s `openedx_release` input, usually with
 `default` only. `aspects` runs only on `main` and `verawood`.
 
@@ -86,58 +87,64 @@ profile. Each profile's column shows what that profile changes on top.
 
 <!-- ci-table:start -->
 
-| Capability | main | verawood | ulmo | teak | sumac | redwood | extended | aspects |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `mfe-authn` | default | default | default | default | default | default | |  |
-| `frontend-base` | default | opted out | opted out | opted out | opted out | opted out | |  |
-| `discussions` | default | default | default | default | default | default | |  |
-| `notifications` | default | default | opted out | opted out | opted out | opted out | |  |
-| `email-inbox` | declared | declared | — | — | — | — | |  |
-| `teams` | declared | declared | declared | declared | declared | declared | |  |
-| `notes` | declared | declared | declared | declared | declared | declared | |  |
-| `wiki` | declared | declared | — | — | — | — | |  |
-| `cohorts` | declared | declared | declared | declared | declared | declared | |  |
-| `content-libraries` | declared | declared | — | — | — | — | |  |
-| `content-libraries-v1` | declared | declared | — | — | — | — | |  |
-| `content-libraries-v1-create` | — | declared | — | — | — | — | |  |
-| `courseware-navigation-sidebar` | declared | declared | — | — | — | — | |  |
-| `courseware-legacy-navigation` | — | — | declared | declared | declared | declared | |  |
-| `catalog-search` | declared | declared | declared | declared | declared | declared | |  |
-| `studio` | declared | declared | declared | declared | declared | declared | |  |
-| `taxonomies` | declared | declared | — | — | — | — | |  |
-| `competencies` | declared | — | — | — | — | — | |  |
-| `studio-sidebar` | declared | declared | — | — | — | — | |  |
-| `upload-agreements` | declared | declared | — | — | — | — | |  |
-| `ora` | declared | declared | declared | declared | declared | declared | |  |
-| `drag-and-drop-v2` | declared | declared | declared | declared | declared | declared | |  |
-| `pdf-xblock` | declared | declared | — | — | — | — | |  |
-| `lti` | declared | declared | declared | declared | declared | declared | |  |
-| `scorm` | declared | declared | declared | declared | declared | declared | |  |
-| `edx-sga` | declared | declared | declared | declared | declared | declared | |  |
-| `instructor-dashboard` | default | default | opted out | opted out | opted out | opted out | |  |
-| `certificates` | declared | declared | declared | declared | declared | declared | |  |
-| `special-exams` | declared | declared | — | — | — | — | |  |
-| `analytics` | — | — | — | — | — | — | | + main, verawood |
-| `analytics-in-context` | — | — | — | — | — | — | | + |
-| `analytics-pii` | — | — | — | — | — | — | | + |
-| `analytics-in-context-cards` | — | — | — | — | — | — | | + verawood |
-| `analytics-staff-video-counts` | — | — | — | — | — | — | | + |
-| `rbac` | declared | declared | — | — | — | — | |  |
-| `rbac-global` | — | — | — | — | — | — | |  |
-| `rbac-console-next` | declared | — | — | — | — | — | |  |
-| `rbac-self-revoke-guard` | declared | — | — | — | — | — | |  |
-| `rbac-error-view-action` | — | declared | — | — | — | — | |  |
-| `certificate-web-view` | — | declared | declared | declared | declared | declared | |  |
-| `recommender-studio-settings` | declared | — | — | — | — | — | |  |
-| `outline-unhide-draft` | declared | — | — | — | — | — | |  |
-| `authz-auto-migration` | declared | declared | — | — | — | — | − |  |
-| `authz-manual-migration` | replaced | replaced | default | default | default | default | + |  |
-| `support-url` | — | — | — | — | — | — | + |  |
-| `no-support-url` | default | default | default | default | default | default | − |  |
-| `course-creator-group` | default | default | default | default | default | default | |  |
-| `multi-org-catalog` | — | — | — | — | — | — | + |  |
-| `course-intro-video` | — | — | — | — | — | — | + |  |
-| `codejail` | — | — | — | — | — | — | + verawood |  |
+| Capability | main | verawood | ulmo | teak | sumac | redwood | extended | aspects | lti |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `mfe-authn` | default | default | default | default | default | default | |  |  |
+| `frontend-base` | default | opted out | opted out | opted out | opted out | opted out | |  |  |
+| `discussions` | default | default | default | default | default | default | |  |  |
+| `notifications` | default | default | opted out | opted out | opted out | opted out | |  |  |
+| `email-inbox` | declared | declared | — | — | — | — | |  |  |
+| `teams` | declared | declared | declared | declared | declared | declared | |  |  |
+| `notes` | declared | declared | declared | declared | declared | declared | |  |  |
+| `wiki` | declared | declared | — | — | — | — | |  |  |
+| `cohorts` | declared | declared | declared | declared | declared | declared | |  |  |
+| `content-libraries` | declared | declared | — | — | — | — | |  |  |
+| `content-libraries-v1` | declared | declared | — | — | — | — | |  |  |
+| `content-libraries-v1-create` | — | declared | — | — | — | — | |  |  |
+| `courseware-navigation-sidebar` | declared | declared | — | — | — | — | |  |  |
+| `courseware-legacy-navigation` | — | — | declared | declared | declared | declared | |  |  |
+| `catalog-search` | declared | declared | declared | declared | declared | declared | |  |  |
+| `studio` | declared | declared | declared | declared | declared | declared | |  |  |
+| `taxonomies` | declared | declared | — | — | — | — | |  |  |
+| `competencies` | declared | — | — | — | — | — | |  |  |
+| `studio-sidebar` | declared | declared | — | — | — | — | |  |  |
+| `upload-agreements` | declared | declared | — | — | — | — | |  |  |
+| `ora` | declared | declared | declared | declared | declared | declared | |  |  |
+| `drag-and-drop-v2` | declared | declared | declared | declared | declared | declared | |  |  |
+| `pdf-xblock` | declared | declared | — | — | — | — | |  |  |
+| `lti` | declared | declared | declared | declared | declared | declared | |  |  |
+| `lti-tool` | declared | — | — | — | — | — | |  |  |
+| `lti-tool-claims` | declared | — | — | — | — | — | |  |  |
+| `lti-tool-services` | declared | — | — | — | — | — | |  |  |
+| `lti-tool-deep-linking` | declared | — | — | — | — | — | |  |  |
+| `lti-tool-inline` | declared | — | — | — | — | — | |  |  |
+| `lti-store` | — | — | — | — | — | — | |  | + |
+| `scorm` | declared | declared | declared | declared | declared | declared | |  |  |
+| `edx-sga` | declared | declared | declared | declared | declared | declared | |  |  |
+| `instructor-dashboard` | default | default | opted out | opted out | opted out | opted out | |  |  |
+| `certificates` | declared | declared | declared | declared | declared | declared | |  |  |
+| `special-exams` | declared | declared | — | — | — | — | |  |  |
+| `analytics` | — | — | — | — | — | — | | + main, verawood |  |
+| `analytics-in-context` | — | — | — | — | — | — | | + |  |
+| `analytics-pii` | — | — | — | — | — | — | | + |  |
+| `analytics-in-context-cards` | — | — | — | — | — | — | | + verawood |  |
+| `analytics-staff-video-counts` | — | — | — | — | — | — | | + |  |
+| `rbac` | declared | declared | — | — | — | — | |  |  |
+| `rbac-global` | — | — | — | — | — | — | |  |  |
+| `rbac-console-next` | declared | — | — | — | — | — | |  |  |
+| `rbac-self-revoke-guard` | declared | — | — | — | — | — | |  |  |
+| `rbac-error-view-action` | — | declared | — | — | — | — | |  |  |
+| `certificate-web-view` | — | declared | declared | declared | declared | declared | |  |  |
+| `recommender-studio-settings` | declared | — | — | — | — | — | |  |  |
+| `outline-unhide-draft` | declared | — | — | — | — | — | |  |  |
+| `authz-auto-migration` | declared | declared | — | — | — | — | − |  |  |
+| `authz-manual-migration` | replaced | replaced | default | default | default | default | + |  |  |
+| `support-url` | — | — | — | — | — | — | + |  |  |
+| `no-support-url` | default | default | default | default | default | default | − |  |  |
+| `course-creator-group` | default | default | default | default | default | default | |  |  |
+| `multi-org-catalog` | — | — | — | — | — | — | + |  |  |
+| `course-intro-video` | — | — | — | — | — | — | + |  |  |
+| `codejail` | — | — | — | — | — | — | + verawood |  |  |
 
 <!-- ci-table:end -->
 
@@ -218,6 +225,12 @@ missing one fails.
 | `drag-and-drop-v2` | `drag-and-drop-v2` (xblock-drag-and-drop-v2). | TC-00220. | every release CI runs |
 | `pdf-xblock` | `pdf` (xblocks-contrib) under the Advanced tile. | The PDF component and library-PDF cases (TC-00508–00512). | `main`, `verawood` |
 | `lti` | `lti_consumer` under the Advanced tile. The block is added and configured; no tool launch is asserted. | TC-00212 (LTI) and the advanced-module matrix. | every release CI runs |
+| `lti-tool` | An LTI 1.3 tool, chosen by `LTI_TOOL_PROVIDER` ([LTI](lti.md)), can be launched from the target. With `local` (the default), the suite's own tool (`scripts/lti-tool.mts`): the run starts it on this machine; the browser reaches it at `LTI_TOOL_BASE_URL` (default `http://lti.<LMS host>:8765`, which must be same-site with the LMS and is mapped to this machine), and the tool reaches the LMS. Blocks hold the tool's public key, so the LMS never calls the tool. With `saltire`, the public saLTIre emulator, for a public instance. Requires `lti`. | The LTI 1.3 cases in `tests/lms/lti/`: launches and roles (TC-00653), grades through AGS (TC-00655, TC-00656), deep linking (TC-00657), course membership through NRPS (TC-00658), a duplicated component (TC-00659), personal-data sharing and consent (TC-00660). | `main` (lti-consumer-xblock 11.5) |
+| `lti-tool-claims` | The LTI tool reports every claim a launch carried: roles, the shared name and email, custom parameters. Requires `lti-tool`; a declared feature the selected provider (`LTI_TOOL_PROVIDER`) lacks fails the run. | The launch-role cases (TC-00653), personal-data sharing (TC-00660), deep linking's `custom` (TC-00657). | `main` (`local`; `saltire` on a public instance) |
+| `lti-tool-services` | The LTI tool calls the platform's AGS and NRPS as the tool, so the platform must be reachable from it. Requires `lti-tool-claims`: the service endpoints and the learner's id arrive as launch claims. | Grades (TC-00655, TC-00656), the roster (TC-00658), and their negatives. | `main` (`local`; `saltire` on a public instance) |
+| `lti-tool-deep-linking` | The LTI tool answers a deep-linking request with a resource the test picks. Requires `lti-tool`. | TC-00657. | `main` (`local`; `saltire` on a public instance) |
+| `lti-tool-inline` | The LTI tool can be launched in the block's iframe, not only in a new window. Requires `lti-tool`. | The inline launch cases: TC-00653's learner launch and TC-00660's inline consent. | `main` (`local`; `saltire` on a public instance) |
+| `lti-store` | LTI Store (`openedx-ltistore`) is installed with its `OPEN_EDX_FILTERS_CONFIG` pipeline in the LMS and Studio, so an LTI block can use a reusable configuration (`lti_store:<slug>`) kept in Django admin. Not in stock Tutor. The suite creates the configuration and turns the course's `lti_consumer.enable_external_config_filter` flag on through the admin account, and skips without one. Requires `lti-tool`. See [LTI](lti.md#lti-store). | TC-00661 (`tests/lms/lti/lti-store.spec.ts`). | `main` with openedx-ltistore 1.1.4 (CI's `lti` profile) |
 | `scorm` | `scorm` under the Advanced tile. The block is added; no package is played. | TC-00212 (SCORM). | every release CI runs |
 | `edx-sga` | Staff Graded Assignment (`edx_sga`) under the Advanced tile. | TC-00212 (SGA) and the matrix. | every release CI runs |
 

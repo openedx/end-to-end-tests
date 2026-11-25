@@ -220,6 +220,7 @@ import {
   setCourseFlagOverride,
   updateAccount,
 } from '../api';
+import { resolveLtiToolProvider, type LtiToolSession } from '../lti-tools';
 import {
   getConfig,
   getRunId,
@@ -693,6 +694,15 @@ export interface TestFixtures {
    * three times over calls it three times.
    */
   newLearner: () => Promise<StudioLearner>;
+  /**
+   * A session on the LTI 1.3 tool `LTI_TOOL_PROVIDER` selects (`src/lti-tools/`;
+   * by default the suite's bundled tool, which the run starts): the URLs and key
+   * to write into a block, the platform's registration, what each launch
+   * carried, and the platform's LTI Advantage services called as the tool. One
+   * per test, disposed after. A declared `lti-tool` whose tool cannot be reached
+   * fails the test. Needs the `@lti-tool` tag.
+   */
+  ltiTool: LtiToolSession;
   /**
    * The "Certificates available date" fields, which Schedule & Details shows
    * only while the `certificates.auto_certificate_generation` switch is on
@@ -3544,6 +3554,35 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   pagesResourcesPage: pageObjectFixture(StudioPagesResourcesPage),
 
   customPagesPage: pageObjectFixture(StudioCustomPagesPage),
+
+  ltiTool: async ({ playwright, browser, config }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'lti-tool');
+    const provider = await resolveLtiToolProvider(config);
+    const request = await newCleanRequestContext(playwright.request);
+    try {
+      let session: LtiToolSession;
+      try {
+        session = await provider.openSession({
+          config,
+          request,
+          newBrowserContext: () => newCleanBrowserContext(browser),
+        });
+      } catch (error) {
+        throw capabilityContradicted(
+          'lti-tool',
+          `the "${provider.name}" LTI tool cannot be reached ` +
+            `(${error instanceof Error ? error.message : String(error)})`,
+        );
+      }
+      try {
+        await use(session);
+      } finally {
+        await session.dispose();
+      }
+    } finally {
+      await request.dispose();
+    }
+  },
 
   newLearner: async ({ playwright, config }, use) => {
     const contexts: APIRequestContext[] = [];

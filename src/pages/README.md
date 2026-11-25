@@ -40,6 +40,11 @@ Page objects live in the same platform-domain folder as the specs that use them,
   of the authoring sidebar (outline and unit page) and the outline cards'
   Analytics buttons; every open or drill-in returns the
   `superset_in_context_dashboard` request it caused
+- `pages/lms/courseware/lti.block.ts` is an LTI consumer block as the learner
+  sees it (inline launch frame, new-window button, consent prompt);
+  `pages/studio/editors/lti-editor.ts` drives its Studio editor; and
+  `pages/lti-tool/deep-link-picker.page.ts` is the bundled LTI tool's own
+  deep-linking page
 - `pages/lms/notifications/tray.page.ts` is the notifications tray in any MFE's
   header (no `goto`: navigate first, then `open()`); it opens tabs, reads rows by
   notification id, and returns the new tab a row opens (`openRow`, since the

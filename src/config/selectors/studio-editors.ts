@@ -119,3 +119,23 @@ export const LEGACY_EDITOR_SELECTORS = {
   oraSave: 'a.openassessment_save_button',
   close: 'a.action-cancel',
 } as const;
+
+/**
+ * xblock-lti-consumer's own editor (`studio_view`), inside the legacy editor
+ * dialog's iframe: a three-step form — Setup, Advantage Settings, Review
+ * Options — walked with "Next" and saved from the last step (the
+ * `submit_studio_edits` handler). Every input is the XBlock's
+ * `#xb-field-edit-<field>`; radios carry the option in their id. Measured on
+ * Tutor `main` with lti-consumer-xblock 11.5 (2026-11-19).
+ */
+export const LTI_EDITOR_SELECTORS = {
+  /** "LTI Version" radios, by the field's value (`lti_1p1`, `lti_1p3`). */
+  versionOption: (version: 'lti_1p1' | 'lti_1p3') => `#lti_version_option-${version}`,
+  /** "Tool Public Key Mode" radios (`public_key`, `keyset_url`). */
+  keyModeOption: (mode: 'public_key' | 'keyset_url') => `#lti_1p3_tool_key_mode_option-${mode}`,
+  /** A field's input, select or textarea, by its XBlock field name. */
+  field: (name: string) => `#xb-field-edit-${name}`,
+  /** The stepper's "Next" and "Save" (Save shows only on the last step). */
+  next: 'a.next-button',
+  save: 'a.save-button',
+} as const;

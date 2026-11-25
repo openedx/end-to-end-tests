@@ -155,6 +155,36 @@ export const CAPABILITIES = [
   'drag-and-drop-v2', // `drag-and-drop-v2` (xblock-drag-and-drop-v2)
   'pdf-xblock', // `pdf` (xblocks-contrib) under the "Advanced" tile
   'lti', // `lti_consumer` under the "Advanced" tile (no tool launch is asserted)
+  // An LTI 1.3 tool, chosen by `LTI_TOOL_PROVIDER` (`src/lti-tools/`,
+  // docs/lti.md), can be launched from the target: the bundled `local` tool,
+  // which the run starts on this machine, or a plugin's (saLTIre, for a public
+  // instance). Gates the LTI 1.3 launch, grade, roster, deep-linking and
+  // personal-data cases (`tests/lms/lti/`). Requires `lti`
+  // (`CAPABILITY_REQUIRES`).
+  'lti-tool',
+  // What the LTI tool can do beyond a plain launch (`src/lti-tools/`, a
+  // provider's `features`). Each requires `lti-tool` (`lti-tool-services`
+  // requires `lti-tool-claims`), and declaring one the selected provider lacks
+  // fails the run in global setup. The bundled tool has all four.
+  // - `lti-tool-claims`: it reports every claim a launch carried (roles, the
+  //   shared name and email, custom parameters).
+  // - `lti-tool-services`: it calls the platform's AGS and NRPS as the tool,
+  //   so the platform must be reachable from it. The service endpoints and the
+  //   learner's id arrive as launch claims, so it needs `lti-tool-claims`.
+  // - `lti-tool-deep-linking`: it answers a deep-linking request with a
+  //   resource the test picks.
+  // - `lti-tool-inline`: it can be launched in the block's iframe, not only in
+  //   a new window.
+  'lti-tool-claims',
+  'lti-tool-services',
+  'lti-tool-deep-linking',
+  'lti-tool-inline',
+  // LTI Store (`openedx-ltistore`, not in stock Tutor) is installed and wired
+  // into xblock-lti-consumer's configuration filter, so an author can point an
+  // LTI block at a reusable configuration (`lti_store:<slug>`) the operator keeps
+  // in Django admin. Declared only by the `lti` CI profile, whose image variant
+  // installs it. Requires `lti-tool` (`CAPABILITY_REQUIRES`).
+  'lti-store',
   'scorm', // `scorm` under the "Advanced" tile
   'edx-sga', // Staff Graded Assignment (`edx_sga`) under the "Advanced" tile, once listed
   // The LMS instructor dashboard as the instructor-dashboard MFE
@@ -442,6 +472,12 @@ export const CAPABILITY_REQUIRES: Readonly<Partial<Record<Capability, Capability
   'analytics-staff-video-counts': 'analytics',
   competencies: 'taxonomies',
   'content-libraries-v1-create': 'content-libraries-v1',
+  'lti-tool': 'lti',
+  'lti-tool-claims': 'lti-tool',
+  'lti-tool-services': 'lti-tool-claims',
+  'lti-tool-deep-linking': 'lti-tool',
+  'lti-tool-inline': 'lti-tool',
+  'lti-store': 'lti-tool',
   'rbac-self-revoke-guard': 'rbac',
   'rbac-console-next': 'rbac',
 };

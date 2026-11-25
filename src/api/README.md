@@ -78,6 +78,16 @@ Contains:
   reads a chart-data request the dashboard sent, and `replayChartData` sends it
   again with only `force` set (`replayBody`: nothing else changes the dashboard's
   query), on the guest token or the context's Superset session.
+- `lti.ts` — LTI 1.3 consumer blocks: `configureLti13Block` (a block's LTI 1.3
+  settings in one write), `readLtiLaunchInfo` (the registration values Studio
+  shows, parsed by shape from the block's `author_view`), `readLtiDeepLinkedItems`,
+  and the Django-admin writes `allowLtiPiiSharing` and `createLtiStoreConfiguration`
+  (LTI Store, `lti_store:<slug>`).
+- `lti-tool.ts` — the bundled LTI test tool's control API (`LtiToolClient`:
+  registrations, the launches it recorded, AGS and NRPS calls it makes as the
+  tool), the LTI claim and role names, and the readings of a launch's service
+  claims (`agsEndpoint`, `agsLineItemUrl`, `nrpsMembershipsUrl`, …) every
+  provider shares.
   `fetchSupersetUser` says whether the SSO signed the context in and with which
   roles.
 - `notifications.ts` — the recipient's notifications (verawood onward): the

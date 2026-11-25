@@ -390,6 +390,96 @@ test.describe('loadConfig — mailbox provider', { tag: '@unit' }, () => {
   });
 });
 
+test.describe('loadConfig — the LTI test tool', { tag: '@unit' }, () => {
+  test('has no tool unless lti-tool is declared', () => {
+    expect(loadConfig(validEnv({ CAPABILITIES: 'lti' })).ltiTool).toBeUndefined();
+  });
+
+  test('serves the tool at lti.<LMS host>:8765 by default, reached on this machine', () => {
+    const config = loadConfig(validEnv({ CAPABILITIES: 'lti,lti-tool' }));
+
+    expect(config.ltiTool).toEqual({
+      baseUrl: 'http://lti.local.openedx.io:8765',
+      host: 'lti.local.openedx.io',
+      controlUrl: 'http://127.0.0.1:8765',
+    });
+  });
+
+  test('takes LTI_TOOL_BASE_URL on the same site', () => {
+    const config = loadConfig(
+      validEnv({ CAPABILITIES: 'lti,lti-tool', LTI_TOOL_BASE_URL: 'http://tool.openedx.io:9000' }),
+    );
+
+    expect(config.ltiTool).toMatchObject({
+      host: 'tool.openedx.io',
+      controlUrl: 'http://127.0.0.1:9000',
+    });
+  });
+
+  test('reaches a tool on port 80 at port 80', () => {
+    const config = loadConfig(
+      validEnv({ CAPABILITIES: 'lti,lti-tool', LTI_TOOL_BASE_URL: 'http://tool.openedx.io:80' }),
+    );
+
+    expect(config.ltiTool).toMatchObject({
+      baseUrl: 'http://tool.openedx.io',
+      controlUrl: 'http://127.0.0.1:80',
+    });
+  });
+
+  test('rejects a tool host off the LMS site, or the LMS host itself', () => {
+    for (const url of ['http://lti.example.com:8765', 'http://local.openedx.io:8765']) {
+      const issues = issuesFrom(() =>
+        loadConfig(validEnv({ CAPABILITIES: 'lti,lti-tool', LTI_TOOL_BASE_URL: url })),
+      );
+      expect(issues.join('\n'), url).toContain("must be a host of its own on the LMS's site");
+    }
+  });
+
+  test('rejects an https tool, which the test tool cannot serve', () => {
+    const issues = issuesFrom(() =>
+      loadConfig(
+        validEnv({
+          CAPABILITIES: 'lti,lti-tool',
+          LTI_TOOL_BASE_URL: 'https://lti.local.openedx.io',
+        }),
+      ),
+    );
+    expect(issues.join('\n')).toContain('LTI_TOOL_BASE_URL must be http://');
+  });
+
+  test('uses the bundled tool unless LTI_TOOL_PROVIDER names another', () => {
+    const config = loadConfig(validEnv({ CAPABILITIES: 'lti,lti-tool' }));
+    expect(config.ltiToolProvider).toBe('local');
+    expect(config.customLtiToolProviderPlugins.size).toBe(0);
+  });
+
+  test('requires a provider plugin for any provider but local', () => {
+    const issues = issuesFrom(() =>
+      loadConfig(validEnv({ CAPABILITIES: 'lti,lti-tool', LTI_TOOL_PROVIDER: 'saltire' })),
+    );
+    expect(issues.join('\n')).toContain('CUSTOM_LTI_TOOL_PROVIDER_PLUGINS is empty');
+  });
+
+  test("applies the bundled tool's host rules only when it is the provider", () => {
+    const config = loadConfig(
+      validEnv({
+        CAPABILITIES: 'lti,lti-tool',
+        LTI_TOOL_PROVIDER: 'class-fixture',
+        CUSTOM_LTI_TOOL_PROVIDER_PLUGINS: 'tests/lti-tools/fixtures/class-provider.plugin.ts',
+        LTI_TOOL_BASE_URL: 'https://elsewhere.example.com',
+      }),
+    );
+    expect(config.ltiToolProvider).toBe('class-fixture');
+    expect(config.ltiTool).toBeUndefined();
+  });
+
+  test('requires lti alongside lti-tool', () => {
+    const issues = issuesFrom(() => loadConfig(validEnv({ CAPABILITIES: 'lti-tool' })));
+    expect(issues.join('\n')).toContain('declares "lti-tool" without "lti"');
+  });
+});
+
 test.describe('parseCustomTestDirs', { tag: '@unit' }, () => {
   test('has no external directories by default', () => {
     expect(parseCustomTestDirs(undefined)).toEqual({ dirs: [], issues: [] });

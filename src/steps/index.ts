@@ -130,3 +130,4 @@ export {
   type CourseComparison,
   type ReportsDashboard,
 } from './analytics';
+export { seedReadyLtiBlock, type LtiBlockTool, type ReadyLtiBlock } from './lti';

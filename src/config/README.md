@@ -21,6 +21,11 @@ Contains:
   each capability, the releases known to support it and where CI declares it. `missingCapabilities()` is the decision the gate in
   `src/fixtures/` applies to every spec's tags.
 - The built-in account-backend names (`account-backends.ts`).
+- The LTI tool settings: `LTI_TOOL_PROVIDER` and `CUSTOM_LTI_TOOL_PROVIDER_PLUGINS`
+  (resolved by `src/lti-tools/`), and for the bundled `local` tool
+  `LTI_TOOL_BASE_URL`, validated into `ltiTool` (plain HTTP, a host of its own on
+  the LMS's site, its control API reached on `127.0.0.1`). See
+  [`docs/lti.md`](../../docs/lti.md).
 - External test directories: `CUSTOM_TEST_DIRS` (comma-separated), parsed and
   validated as existing directories by `parseCustomTestDirs`; `resolveExternalTestDirs`
   reads them independently of the installation config and resolves each to an

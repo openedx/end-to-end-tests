@@ -111,6 +111,24 @@ export const TIMEOUTS = {
   contentPublish: 120_000,
 
   /**
+   * Budget for a score an LTI tool posts through AGS to reach the learner's
+   * Progress: the score is saved and published as a grade synchronously, and
+   * the subsection grade is then recomputed by the LMS's grading task (Celery).
+   * About 3 s on an idle local install; in CI, on an LMS worker shared with the
+   * rest of a shard, more than 30 s (both AGS cases timed out there once at 30 s,
+   * 2026-11-19), so the budget matches the other worker-task waits.
+   */
+  ltiGradePublish: 120_000,
+
+  /**
+   * An LTI launch reaching the tool once the browser has started it: the OIDC
+   * login, the platform's authorization redirect and the form post of the
+   * `id_token`, three round trips through the LMS. They take a few seconds; the
+   * budget is a navigation's, since each hop is one.
+   */
+  ltiLaunchReceived: 30_000,
+
+  /**
    * Budget for a component editor's Save to be answered (`POST /xblock/<id>` with
    * the block's content) — the CMS renders the block's author view in the same
    * request, which is slow on a busy worker.

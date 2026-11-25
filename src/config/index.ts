@@ -4,9 +4,18 @@ import path from 'node:path';
 import { ConfigError } from './errors';
 import { loadConfig, parseCustomTestDirs, type AppConfig } from './load';
 
-export type { AppConfig, AdminCredentials, BaseUrls, Env, MfeUrls, Scheme } from './load';
+export type {
+  AppConfig,
+  AdminCredentials,
+  BaseUrls,
+  Env,
+  LtiToolConfig,
+  MfeUrls,
+  Scheme,
+} from './load';
 export {
   DEFAULT_JWT_COOKIE_HEADER_PAYLOAD,
+  LOCAL_LTI_TOOL_PROVIDER,
   loadConfig,
   mfeMountPath,
   parseCapabilities,
@@ -139,9 +148,12 @@ export {
   COMMUNICATIONS_SELECTORS,
   componentTemplateOption,
   ADVANCED_BLOCK_SELECTORS,
+  LTI_BLOCK_SELECTORS,
   advancedBlockRoot,
   STUDIO_EDITOR_SELECTORS,
   LEGACY_EDITOR_SELECTORS,
+  LTI_EDITOR_SELECTORS,
+  LTI_TOOL_SELECTORS,
   PDF_EDITOR_SELECTORS,
   COURSE_CREATOR_ADMIN_SELECTORS,
   CERTIFICATE_GENERATION_ADMIN_SELECTORS,

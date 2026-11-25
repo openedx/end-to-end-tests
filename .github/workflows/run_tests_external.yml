@@ -73,6 +73,17 @@ on:
         options:
           - none
           - openinbox
+      lti_tool_provider:
+        description: 'The LTI 1.3 tool the LTI specs launch (declare lti-tool and its lti-tool-* features in capabilities). "local" runs the bundled tool on the runner: it serves plain HTTP and its host must be on the LMS''s site, so it suits HTTP targets. "saltire" uses the public saLTIre (https://saltire.lti.app), which suits a public HTTPS instance it can reach. See docs/lti.md.'
+        type: choice
+        default: local
+        options:
+          - local
+          - saltire
+      saltire_base_url:
+        description: 'With lti_tool_provider "saltire": the saLTIre origin (https only). Empty = https://saltire.lti.app.'
+        type: string
+        default: ''
       domains:
         description: 'Domains to run, space-separated (e.g. "lms studio"). Empty = all.'
         type: string
@@ -252,6 +263,9 @@ jobs:
           mail_provider: ${{ inputs.mail_provider != 'none' && inputs.mail_provider || '' }}
           mail_provider_plugins: ${{ inputs.mail_provider == 'openinbox' && './plugins/openinbox.plugin.ts' || '' }}
           openinbox_api_key: ${{ secrets.OPENINBOX_API_KEY }}
+          lti_tool_provider: ${{ inputs.lti_tool_provider }}
+          lti_tool_provider_plugins: ${{ inputs.lti_tool_provider == 'saltire' && './plugins/saltire.plugin.ts' || '' }}
+          saltire_base_url: ${{ inputs.saltire_base_url }}
           allow_cross_site_origins: ${{ inputs.allow_cross_site_origins }}
           domains: ${{ inputs.domains }}
           features: ${{ inputs.features }}
