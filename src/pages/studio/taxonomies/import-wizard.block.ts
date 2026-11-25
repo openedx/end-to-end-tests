@@ -1,7 +1,7 @@
-import type { Locator, Page, Response } from '@playwright/test';
+import type { Locator, Page, Request, Response } from '@playwright/test';
 
 import { TAXONOMY_SELECTORS, TIMEOUTS } from '../../../config';
-import { TAGGING_BASE, type ImportableTaxonomyType } from '../../../api';
+import { ApiError, TAGGING_BASE, nonJsonPreview, type ImportableTaxonomyType } from '../../../api';
 
 /** A file the import wizard uploads (Playwright's `setInputFiles` payload shape). */
 export interface ImportFile {
@@ -163,18 +163,20 @@ export class ImportWizardBlock {
 
   /**
    * Starts recording the `POST import/` requests the page sends, as `METHOD /path`
-   * lines. The returned array fills as requests are sent. The recorder only observes:
-   * nothing is routed or delayed (ADR-0003). Call it before the interaction under test.
+   * lines. `requests` fills as requests are sent. The recorder only observes:
+   * nothing is routed or delayed (ADR-0003). Call it before the interaction under test,
+   * and call `stop()` when done (the spec does it in `finally`).
    */
-  recordImportRequests(): string[] {
-    const sent: string[] = [];
-    this.page.on('request', (request) => {
+  recordImportRequests(): { requests: readonly string[]; stop(): void } {
+    const requests: string[] = [];
+    const record = (request: Request): void => {
       const { pathname } = new URL(request.url());
       if (request.method() === 'POST' && pathname.endsWith(`${TAGGING_BASE}/taxonomies/import/`)) {
-        sent.push(`${request.method()} ${pathname}`);
+        requests.push(`${request.method()} ${pathname}`);
       }
-    });
-    return sent;
+    };
+    this.page.on('request', record);
+    return { requests, stop: () => this.page.off('request', record) };
   }
 
   private waitForImportResponse(): Promise<Response> {
@@ -184,4 +186,39 @@ export class ImportWizardBlock {
       { timeout: TIMEOUTS.taxonomyImport },
     );
   }
+}
+
+/**
+ * The id of the taxonomy a UI import created, read from its `POST import/` response.
+ * Throws an {@link ApiError} naming the status and a body preview when the import did not
+ * succeed or the body is not JSON (an HTML sign-in bounce, say).
+ */
+export async function importedTaxonomyId(response: Response): Promise<number> {
+  const status = response.status();
+  const url = response.url();
+  const text = await response.text();
+  if (!response.ok()) {
+    throw new ApiError(`Taxonomy import failed (HTTP ${status}): ${nonJsonPreview(text)}`, {
+      status,
+      url,
+      body: text,
+      retryable: status >= 500,
+    });
+  }
+  let parsed: { id?: unknown } | null;
+  try {
+    parsed = JSON.parse(text) as { id?: unknown } | null;
+  } catch {
+    throw new ApiError(
+      `Taxonomy import returned HTTP ${status} with a non-JSON body: ${nonJsonPreview(text)}`,
+      { status, url, body: text.slice(0, 500), retryable: true },
+    );
+  }
+  if (typeof parsed?.id !== 'number') {
+    throw new ApiError(
+      `Taxonomy import returned HTTP ${status} without a taxonomy id: ${nonJsonPreview(text)}`,
+      { status, url, body: text.slice(0, 500) },
+    );
+  }
+  return parsed.id;
 }

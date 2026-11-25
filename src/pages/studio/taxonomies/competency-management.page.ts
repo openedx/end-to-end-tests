@@ -163,8 +163,9 @@ export class CompetencyManagementPage {
 
   /**
    * Opens a taxonomy's page by URL and waits for the page's own `GET` of the taxonomy list,
-   * which decides whether the header's buttons render. Fails on a response that is not a
-   * success. Waits for no tree, so it suits a page whose outcome the spec asserts itself.
+   * which decides whether the header's buttons render. Waits for the complete response and
+   * fails on one that is not a success. Waits for no tree, so it suits a page whose outcome
+   * the spec asserts itself.
    */
   async openAwaitingTaxonomyList(id: number): Promise<void> {
     const listPath = `${TAGGING_BASE}/taxonomies/`;
@@ -178,6 +179,7 @@ export class CompetencyManagementPage {
     if (!response.ok()) {
       throw new Error(`Listing the taxonomies for taxonomy ${id} failed: ${response.status()}`);
     }
+    await response.finished();
   }
 
   /** Clicks the header's import button and waits for the wizard's Upload step. */

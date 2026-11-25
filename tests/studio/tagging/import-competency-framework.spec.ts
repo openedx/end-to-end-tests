@@ -1,11 +1,6 @@
-import {
-  fetchTaxonomy,
-  importedTaxonomyId,
-  listTaxonomies,
-  listTaxonomyTags,
-  taxonomiesNamed,
-} from '../../../src/api';
+import { fetchTaxonomy, listTaxonomies, listTaxonomyTags, taxonomiesNamed } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
+import { importedTaxonomyId } from '../../../src/pages/studio/taxonomies/import-wizard.block';
 import { TIMEOUTS, getRunId } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import {
@@ -74,11 +69,11 @@ test.describe(
       const { competency, page, request, seed } = competencyTaxonomyAdmin;
       const { wizard } = competency;
       const name = `E2E ${getRunId()} framework admin ${test.info().testId.slice(-6)}`;
+      const imports = wizard.recordImportRequests();
       try {
         const source = await seed({ type: 'competency', label: 'framework-admin-source' });
         const sourcePage = new RegExp(`/taxonomy/${source.id}/competencies$`);
         expect((await listTaxonomies(request, config)).canAddTaxonomy).toBe(true);
-        const imports = wizard.recordImportRequests();
 
         // Every step starts from a fresh load, because a reopened wizard that is given the
         // same file again leaves Continue doing nothing
@@ -169,7 +164,7 @@ test.describe(
           await wizard.descriptionInput.fill('E2E suite taxonomy');
           await expect(wizard.importButton).toHaveAttribute('aria-disabled', 'false');
           await expect(wizard.dialog).toBeVisible();
-          expect(imports).toHaveLength(0);
+          expect(imports.requests).toHaveLength(0);
 
           await wizard.nameInput.clear();
           await expect(wizard.importButton).toHaveAttribute('aria-disabled', 'true');
@@ -203,9 +198,10 @@ test.describe(
         }
 
         // No step submitted the form.
-        expect(imports).toHaveLength(0);
+        expect(imports.requests).toHaveLength(0);
         expect(await taxonomiesNamed(request, config, name)).toHaveLength(0);
       } finally {
+        imports.stop();
         await deleteTaxonomiesNamed(request, config, name);
       }
     });
@@ -235,7 +231,7 @@ test.describe(
 
       // The page renders nothing for an author from the taxonomy-list response (the title
       // and the tree come from other requests), so this check runs after that response
-      // has arrived and the title and tree have drawn. It cannot wait on a positive signal
+      // has fully loaded and the title and tree have drawn. It cannot wait on a positive signal
       // from the same render.
       await expect(competency.rootRow).toBeVisible();
       await expect(competency.title).toContainText(taxonomy.name);
@@ -280,20 +276,24 @@ test.describe(
         await test.step('sends one import request when Import is double-clicked', async () => {
           // Recording starts here, so the count covers this step's requests only.
           const imports = wizard.recordImportRequests();
-          await competency.goto(source.id);
-          await competency.openImportWizard();
-          await wizard.uploadToPopulate(taxonomyImportFile());
-          await wizard.fillPopulate(doubleName);
-          const response = await wizard.doubleClickImport();
-          const id = await importedTaxonomyId(response);
-          created.push(id);
+          try {
+            await competency.goto(source.id);
+            await competency.openImportWizard();
+            await wizard.uploadToPopulate(taxonomyImportFile());
+            await wizard.fillPopulate(doubleName);
+            const response = await wizard.doubleClickImport();
+            const id = await importedTaxonomyId(response);
+            created.push(id);
 
-          await expect(page).toHaveURL(new RegExp(`/taxonomy/${id}/competencies$`));
-          // A second request would have left by now: the first one has been answered and
-          // the page it led to has drawn.
-          await expect(competency.rootRow).toBeVisible();
-          expect(imports).toHaveLength(1);
-          expect(await taxonomiesNamed(request, config, doubleName)).toHaveLength(1);
+            await expect(page).toHaveURL(new RegExp(`/taxonomy/${id}/competencies$`));
+            // A second request would have left by now: the first one has been answered and
+            // the page it led to has drawn.
+            await expect(competency.rootRow).toBeVisible();
+            expect(imports.requests).toHaveLength(1);
+            expect(await taxonomiesNamed(request, config, doubleName)).toHaveLength(1);
+          } finally {
+            imports.stop();
+          }
         });
       } finally {
         await deleteTaxonomiesBestEffort(request, config, created);
@@ -363,8 +363,9 @@ test.describe(
         });
 
         await test.step('reopens the wizard from a clean state after a failed import', async () => {
-          // A fresh load clears the wizard's file cache, so the wrong-headers CSV the
-          // step above used is accepted again (https://github.com/openedx/openedx-core/issues/827).
+          // An earlier step in this test used the same wrong-headers CSV. A fresh load clears
+          // the wizard's file cache, so it is accepted again
+          // (https://github.com/openedx/openedx-core/issues/827).
           await competency.goto(source.id);
           const failed = await competency.importFramework(invalidWrongHeadersFile(), nameA, {
             type: 'tags',

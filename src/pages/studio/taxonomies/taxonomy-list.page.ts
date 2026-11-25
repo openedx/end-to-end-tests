@@ -1,8 +1,8 @@
 import type { Download, Locator, Page } from '@playwright/test';
 
 import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
-import { importedTaxonomyId, type ImportableTaxonomyType } from '../../../api';
-import { ImportWizardBlock, type ImportFile } from './import-wizard.block';
+import type { ImportableTaxonomyType } from '../../../api';
+import { ImportWizardBlock, importedTaxonomyId, type ImportFile } from './import-wizard.block';
 import { menuItemTestIds, waitForCompetencyRoute } from './menu';
 
 /**

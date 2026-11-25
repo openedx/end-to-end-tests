@@ -1,14 +1,8 @@
-import type { APIRequestContext, Response } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
 import { ApiError } from './errors';
-import {
-  nonJsonPreview,
-  studioJson,
-  studioOrigin,
-  studioWriteHeaders,
-  STUDIO_JSON_ACCEPT,
-} from './studio-origin';
+import { studioJson, studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from './studio-origin';
 
 /**
  * Content tagging: the CMS `content_tagging/v1/` API behind the authoring MFE's
@@ -168,42 +162,6 @@ export async function taxonomiesNamed(
     );
   }
   return taxonomies.filter((t) => t.name === name);
-}
-
-/**
- * The id of the taxonomy a UI import created, read from its `POST import/` response.
- * Throws an {@link ApiError} naming the
- * status and a body preview when the import did not succeed or the body is not JSON (an
- * HTML sign-in bounce, say).
- */
-export async function importedTaxonomyId(response: Response): Promise<number> {
-  const status = response.status();
-  const url = response.url();
-  const text = await response.text();
-  if (!response.ok()) {
-    throw new ApiError(`Taxonomy import failed (HTTP ${status}): ${nonJsonPreview(text)}`, {
-      status,
-      url,
-      body: text,
-      retryable: status >= 500,
-    });
-  }
-  let parsed: { id?: unknown };
-  try {
-    parsed = JSON.parse(text) as { id?: unknown };
-  } catch {
-    throw new ApiError(
-      `Taxonomy import returned HTTP ${status} with a non-JSON body: ${nonJsonPreview(text)}`,
-      { status, url, body: text.slice(0, 500), retryable: true },
-    );
-  }
-  if (typeof parsed.id !== 'number') {
-    throw new ApiError(
-      `Taxonomy import returned HTTP ${status} without a taxonomy id: ${nonJsonPreview(text)}`,
-      { status, url, body: text.slice(0, 500) },
-    );
-  }
-  return parsed.id;
 }
 
 /** Reads one taxonomy by id. */

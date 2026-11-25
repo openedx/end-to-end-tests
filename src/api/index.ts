@@ -66,7 +66,13 @@ export {
 } from './course-preflight';
 
 // Studio (CMS) — see `src/api/README.md`, "Studio clients".
-export { studioOrigin, studioWrite, studioWriteHeaders, STUDIO_JSON_ACCEPT } from './studio-origin';
+export {
+  nonJsonPreview,
+  studioOrigin,
+  studioWrite,
+  studioWriteHeaders,
+  STUDIO_JSON_ACCEPT,
+} from './studio-origin';
 export {
   XBLOCK_PATH,
   XBLOCK_OUTLINE_PATH,
@@ -415,7 +421,6 @@ export {
   fetchObjectTags,
   fetchTaxonomy,
   importTaxonomy,
-  importedTaxonomyId,
   listTaxonomies,
   listTaxonomyTags,
   setObjectTags,

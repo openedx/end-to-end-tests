@@ -1,11 +1,11 @@
 import {
   fetchTaxonomy,
-  importedTaxonomyId,
   importTaxonomy,
   listTaxonomyTags,
   type ImportableTaxonomyType,
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
+import { importedTaxonomyId } from '../../../src/pages/studio/taxonomies/import-wizard.block';
 import { TIMEOUTS, getRunId, type AppConfig } from '../../../src/config';
 import { expect, test, type TaxonomyAdmin } from '../../../src/fixtures';
 import {
