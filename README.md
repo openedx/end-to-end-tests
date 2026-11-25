@@ -410,8 +410,8 @@ CI's Tutor installs are ephemeral, so nothing accumulates there.
 npm run check         # typecheck + lint + format:check (run before pushing)
 
 npm run typecheck     # tsc --noEmit (strict; catches what Playwright's transpile won't)
-npm run lint          # ESLint
-npm run lint:fix      # ESLint with autofix
+npm run lint          # Oxlint (type-aware)
+npm run lint:fix      # Oxlint with autofix
 npm run format        # Prettier write
 npm run format:check  # Prettier check
 ```

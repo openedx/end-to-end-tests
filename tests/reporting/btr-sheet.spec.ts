@@ -479,7 +479,8 @@ test.describe('google', { tag: '@unit' }, () => {
     ]);
     expect(
       calls.every(
-        (c) => (c.init?.headers as Record<string, string>).authorization === 'Bearer tok',
+        (c) =>
+          (c.init?.headers as Record<string, string> | undefined)?.authorization === 'Bearer tok',
       ),
     ).toBe(true);
     const batchBody = calls[3]?.init?.body;

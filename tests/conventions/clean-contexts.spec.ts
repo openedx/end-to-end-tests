@@ -2,7 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { test, expect } from '@playwright/test';
-import ts from 'typescript';
+import { parseSync, Visitor } from 'oxc-parser';
+import type { CallExpression, StaticMemberExpression } from 'oxc-parser';
 
 /**
  * Guards the rule that every new context names its `storageState` (see
@@ -45,34 +46,42 @@ function scannedFiles(): string[] {
   return files;
 }
 
-/** Every `<receiver>.newContext(...)` call in a file. */
-function newContextCalls(file: string, source: string): ts.CallExpression[] {
-  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
-  const calls: ts.CallExpression[] = [];
-  const visit = (node: ts.Node): void => {
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.name.text === 'newContext'
-    ) {
-      calls.push(node);
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
+/** A `<receiver>.newContext(...)` call: the callee is a plain (not computed) member access. */
+type NewContextCall = CallExpression & { readonly callee: StaticMemberExpression };
+
+/** Every `<receiver>.newContext(...)` call in a file, in source order. */
+function newContextCalls(file: string, source: string): NewContextCall[] {
+  const calls: NewContextCall[] = [];
+  new Visitor({
+    CallExpression(node) {
+      const { callee } = node;
+      if (
+        callee.type === 'MemberExpression' &&
+        !callee.computed &&
+        callee.property.type === 'Identifier' &&
+        callee.property.name === 'newContext'
+      ) {
+        calls.push(node as NewContextCall);
+      }
+    },
+  }).visit(parseSync(file, source).program);
   return calls;
 }
 
 /** Why a call's options leave `storageState` to the project, or `undefined` when they name it. */
-function problemWith(call: ts.CallExpression): string | undefined {
+function problemWith(call: NewContextCall): string | undefined {
   const [options] = call.arguments;
   if (options === undefined) return 'no options';
-  if (!ts.isObjectLiteralExpression(options)) return 'options the scan cannot read';
+  if (options.type !== 'ObjectExpression') return 'options the scan cannot read';
   const named = options.properties.some(
     (property) =>
-      (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) &&
-      (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
-      property.name.text === 'storageState',
+      // A plain or shorthand property: not a spread, method, accessor or computed key.
+      property.type === 'Property' &&
+      property.kind === 'init' &&
+      !property.method &&
+      !property.computed &&
+      ((property.key.type === 'Identifier' && property.key.name === 'storageState') ||
+        (property.key.type === 'Literal' && property.key.value === 'storageState')),
   );
   return named ? undefined : 'options without a `storageState` key';
 }
@@ -82,10 +91,8 @@ function violationsIn(file: string, source: string): Violation[] {
     const problem = problemWith(call);
     if (problem === undefined) return [];
     // The line of `newContext` itself, not of the start of a chained receiver.
-    const { name } = call.expression as ts.PropertyAccessExpression;
-    const sourceFile = call.getSourceFile();
-    const { line } = sourceFile.getLineAndCharacterOfPosition(name.getStart(sourceFile));
-    return [{ line: line + 1, problem }];
+    const line = source.slice(0, call.callee.property.start).split('\n').length;
+    return [{ line, problem }];
   });
 }
 

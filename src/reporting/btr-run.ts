@@ -144,7 +144,7 @@ export const BTR_RUN_SCHEMA_VERSION = 1;
 /** How much of an error message the sheet shows. */
 const ERROR_SNIPPET_LENGTH = 200;
 
-// eslint-disable-next-line no-control-regex
+// oxlint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 
 /** Trims a Playwright error to its first meaningful line, without colour codes. */
