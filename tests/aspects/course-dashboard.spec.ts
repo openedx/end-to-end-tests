@@ -1,6 +1,6 @@
 import { expect, test } from '../../src/fixtures';
 import { COURSE_DASHBOARD_CHARTS as C, COURSE_DASHBOARD_TABS, TIMEOUTS } from '../../src/config';
-import { enrollInCourseViaApi, fetchCourseOutline } from '../../src/api';
+import { fetchCourseOutline } from '../../src/api';
 import { ProblemBlock } from '../../src/pages/lms/courseware/problem.block';
 import { VideoBlock } from '../../src/pages/lms/courseware/video.block';
 import { findChart, openCourseDashboard, waitForAnalytics } from '../../src/steps';
@@ -50,7 +50,7 @@ test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
   test(
     'a new enrollment raises the enrollment charts by one',
     { annotation: testId('TC-00545') },
-    async ({ config, analyticsCourse, reportsViewer, newLearner }) => {
+    async ({ config, analyticsCourse, reportsViewer, newLearner, enrollLearner }) => {
       const { member, reportsPage } = await reportsViewer(analyticsCourse.courseKey);
       const dashboard = await openCourseDashboard(
         reportsPage,
@@ -85,7 +85,7 @@ test.describe('Aspects Course Dashboard', { tag: [...TAGS] }, () => {
       );
 
       const learner = await newLearner();
-      await enrollInCourseViaApi(learner.request, config, analyticsCourse.courseKey);
+      await enrollLearner(learner.request, analyticsCourse.courseKey);
 
       const after = await waitForAnalytics(
         read,

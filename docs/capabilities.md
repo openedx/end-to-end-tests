@@ -135,6 +135,7 @@ profile. Each profile's column shows what that profile changes on top.
 | `support-url` | — | — | — | — | — | — | + |  |
 | `no-support-url` | default | default | default | default | default | default | − |  |
 | `course-creator-group` | default | default | default | default | default | default | |  |
+| `self-enrollment` | default | default | default | default | default | default | |  |
 | `multi-org-catalog` | — | — | — | — | — | — | + |  |
 | `course-intro-video` | — | — | — | — | — | — | + |  |
 | `codejail` | — | — | — | — | — | — | + verawood |  |
@@ -168,6 +169,7 @@ A target that differs from the stock setting declares the other half.
 | `authz-auto-migration` / `authz-manual-migration` | Whether saving a course or org AuthZ waffle override migrates that scope's roles by itself (`ENABLE_AUTOMATIC_AUTHZ_COURSE_AUTHORING_MIGRATION`, off on a stock install) or leaves migration to an operator. Checked by `authzMigrationMode`, which probes an org with no courses. | Auto: the migration and rollback cases in `tests/rbac/transition/` and `tests/rbac/studio-authz/` (TC-00587–00614 area). Manual: TC-00613 / 00614. | Both modes on `main` and `verawood` (rbac is absent earlier). CI's `default` declares auto; `extended` runs manual. |
 | `support-url` / `no-support-url` | Whether the MFE config (`/api/mfe_config/v1`) sets `SUPPORT_URL`. Set, the headers offer a Help link to it; unset (stock), they offer none. | The Help-link cases of TC-00020 / 00021 / 00023 in `tests/lms/chrome/header.spec.ts`. | Both on `main` and `verawood` (`extended` sets one). The learning header renders `href="null"` when unset (`LEARN-002`, an expected failure). |
 | `course-creator-group` | Studio's course-creator group (`ENABLE_CREATOR_GROUP`, on in a stock CMS): a new account must request course creation and staff grant it. An install where every account may create courses opts out. | TC-00310 (`tests/studio/home/course-creator.spec.ts`). | every release CI runs |
+| `self-enrollment` | A learner may enroll themselves: the enrollment API and the About page's Enroll button accept a learner's own request while enrollment is open (`COURSES_INVITE_ONLY` off, as on a stock install). An install where courses are invitation-only site-wide, and enrollments are created by staff or an external service, opts out. Opted out, every other spec's learner is enrolled by the administrator through the enrollment API with `force_enrollment`, so `ADMIN_USERNAME` and `ADMIN_PASSWORD` become required. Each of those enrollments takes the one admin-session lock shared by every worker, so learner setup queues behind it and a parallel run is slower than with the capability declared. | The cases about a learner enrolling themselves: TC-00008 (`tests/lms/catalog/enrollment.spec.ts`), the enrollment-window cases TC-00298 / 00299 (`tests/studio/settings/schedule-details.spec.ts`) and the invitation-only case TC-00271 (`tests/studio/settings/advanced.spec.ts`). | every release CI runs |
 
 ### Platform features and services
 

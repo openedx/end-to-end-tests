@@ -49,12 +49,27 @@ Rules:
   every sign-in (`PREVENT_CONCURRENT_LOGINS`), so a shared author would have
   workers logging each other out; `studioAuthorSession` normally completes Studio
   SSO silently off the loaded state and only re-logs-in through the UI to recover
-  a decayed session. The admin stays shared: `adminPage` and `newOrgCreator` hold
-  the `withAdminSession` lock for the whole test, and the default grant reuses
-  the `setup` admin session where it is still alive.
+  a decayed session. The admin stays shared: `adminPage`, `adminApi`,
+  `newOrgCreator` and `taxonomyAdmin` hold the `withAdminSession` lock for the
+  whole test, and the default grant reuses the `setup` admin session where it is
+  still alive.
+- **A whole-test admin hold is marked `forWholeTest`.** A fixture that holds
+  `withAdminSession` around its `use()` passes `{ forWholeTest: true }`. The lock
+  is not reentrant, and a fixture set up after another fixture's `use()` does
+  not run inside it, so without the mark a later fixture that needs the lock
+  briefly (`enrollLearner` without `self-enrollment`) waits on its own test's
+  hold until the stale-lock takeover, long past the test timeout. With the mark
+  it fails at once: list the brief fixture first in the test signature, as
+  TC-00045 lists `enrolledCourse` before `adminDashboardPage`. Brief holds need
+  no mark; nested calls inside `work` fail fast and concurrent ones
+  (`Promise.all`) wait their turn.
 - **Learners for the LMS half of a Studio case.** `newLearner()` provisions a
   fresh learner per call on a request context of its own (the author's `request`
-  must stay the author's), disposed when the test ends.
+  must stay the author's), disposed when the test ends. `enrollLearner` enrolls
+  one: on the learner's own session where learners may enroll themselves
+  (`self-enrollment`, on by default), otherwise through the admin with
+  `force_enrollment`. Only a spec about a learner enrolling themselves calls
+  `enrollInCourseViaApi` directly, and it carries the `@self-enrollment` tag.
 - **Two content courses per worker.** `contentCourse` (seeded past-start with
   subsection gating on) is where the authoring round-trip specs build content —
   each builds its own section (`ownSection` / `authorSection`) and never touches

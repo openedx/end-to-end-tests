@@ -470,6 +470,16 @@ export function loadConfig(env: Env = process.env): AppConfig {
   } else if (username !== undefined && password !== undefined) {
     admin = { username, password };
   }
+  // Without self-enrollment the suite's learners are enrolled by the
+  // administrator, so opting out with no admin account leaves no way to enroll
+  // anyone: a configuration error, not a skip (the `studio` rule above).
+  if (!capabilities.has('self-enrollment') && admin === undefined) {
+    issues.push(
+      'CAPABILITIES opts out of "self-enrollment", so learners are enrolled by the ' +
+        'administrator, but ADMIN_USERNAME and ADMIN_PASSWORD are not set. Set them to a ' +
+        'global staff account, or drop "-self-enrollment" if learners may enroll themselves.',
+    );
+  }
 
   const allowCrossSiteOrigins = raw.ALLOW_CROSS_SITE_ORIGINS ?? false;
 
