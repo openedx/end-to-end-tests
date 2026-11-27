@@ -942,13 +942,14 @@ export interface TestFixtures {
    */
   competencyTaxonomyAdmin: TaxonomyAdmin;
   /**
-   * {@link adminApi} for API-only cases tagged `@competencies`: the admin's API session,
-   * held under the admin lock for the whole test, with the same checks as
-   * {@link competencyTaxonomyAdmin} (refuses an untagged test, fails when the
-   * content-tagging API serves no `taxonomy_type`). Cases that drive the taxonomy pages
-   * use {@link competencyTaxonomyAdmin} instead.
+   * {@link adminApi} for API-only cases tagged `@competencies`: the admin's API session
+   * and the suite org, held under the admin lock for the whole test, with the same checks
+   * as {@link competencyTaxonomyAdmin} (skips like it without an admin or the `taxonomies`
+   * capability, refuses an untagged test, fails when the content-tagging API serves no
+   * `taxonomy_type`). Cases that drive the taxonomy pages use
+   * {@link competencyTaxonomyAdmin} instead.
    */
-  competencyAdminApi: APIRequestContext;
+  competencyAdminApi: CompetencyAdminApi;
   /**
    * The taxonomy pages on the worker author's own browser, for cases where a
    * user without staff rights drives the taxonomy screens (that user's taxonomy
@@ -1115,6 +1116,17 @@ export interface OraUnit {
 export interface UploadAgreements {
   readonly gating: AgreementGating;
   readonly types: readonly string[];
+}
+
+/**
+ * What {@link TestFixtures.competencyAdminApi} hands a spec: the admin's API session and
+ * the suite org.
+ */
+export interface CompetencyAdminApi {
+  /** The admin's API session, the same as {@link TestFixtures.adminApi}. */
+  readonly request: APIRequestContext;
+  /** The content org taxonomies are assigned to (whose courses' drawers list them). */
+  readonly org: string;
 }
 
 /** What {@link TestFixtures.taxonomyAdmin} hands a spec: the admin's taxonomy pages and API session. */
@@ -4607,8 +4619,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   competencyAdminApi: async ({ adminApi, config }, use, testInfo) => {
     requireCapabilityTag(testInfo, 'competencies');
+    const org = requireTaxonomyAdmin(config);
     await requireTaxonomyTypeServed(adminApi, config);
-    await use(adminApi);
+    await use({ request: adminApi, org });
   },
 
   authorTaxonomyPages: async ({ page, config, studioAuthorSession }, use) => {

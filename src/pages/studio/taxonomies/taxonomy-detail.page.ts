@@ -102,13 +102,19 @@ export class TaxonomyDetailPage {
 
   /**
    * Re-imports `file` through the wizard (export, upload, plan, confirm) and waits for
-   * the confirm `PUT tags/import/`.
+   * the confirm `PUT tags/import/`. A rejected plan or import throws with its status and
+   * body. `atPlan`, when given, runs on the Plan step before the wizard moves on, for the
+   * caller to read what the plan shows.
    */
-  async reimport(id: number, file: ImportFile): Promise<void> {
+  async reimport(id: number, file: ImportFile, atPlan?: () => Promise<void>): Promise<void> {
     await this.openReimport();
-    await this.wizard.chooseFileForPlan(id, file);
+    const plan = await this.wizard.chooseFileForPlan(id, file);
+    if (!plan.ok()) {
+      throw new Error(`Re-import plan failed: ${plan.status()} ${await plan.text()}`);
+    }
     await this.wizard.fileInfo.waitFor();
     await this.wizard.continueToPlan();
+    await atPlan?.();
     await this.wizard.continueToConfirm();
     const response = await this.wizard.confirmReimport(id);
     if (!response.ok()) {

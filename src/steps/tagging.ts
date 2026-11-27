@@ -423,36 +423,36 @@ export interface CompetencyRow {
  */
 export const COMPETENCY_SETS = {
   /** One tag to rename and three that stay as they are. */
-  A: [
+  oneToRename: [
     { id: 'COMP-A', value: 'Competency A' },
     { id: 'COMP-N1', value: 'Neutral Competency 1' },
     { id: 'COMP-N2', value: 'Neutral Competency 2' },
     { id: 'COMP-N3', value: 'Neutral Competency 3' },
   ],
   /** Two tags whose IDs can be exchanged or left alone. */
-  B: [
+  pair: [
     { id: 'COMP-A', value: 'Competency X' },
     { id: 'COMP-B', value: 'Competency Y' },
   ],
   /** Three tags whose IDs rotate. */
-  E: [
+  rotation: [
     { id: 'COMP-A', value: 'Competency X' },
     { id: 'COMP-B', value: 'Competency Y' },
     { id: 'COMP-C', value: 'Competency Z' },
   ],
   /** A tag (Y) that takes the ID of another (X) once the file no longer holds X. */
-  D: [
+  freedId: [
     { id: 'COMP-Z', value: 'Competency X' },
     { id: 'COMP-A', value: 'Competency Y' },
     { id: 'COMP-N1', value: 'Neutral Competency 1' },
   ],
   /** A parent with one child. */
-  F: [
+  parentWithChild: [
     { id: 'COMP-P', value: 'Parent P' },
     { id: 'COMP-C1', value: 'Child C', parentId: 'COMP-P' },
   ],
   /** Two parents, each with one child, parents first. */
-  G: [
+  twoParents: [
     { id: 'COMP-1', value: 'Parent One' },
     { id: 'COMP-3', value: 'Parent Three' },
     { id: 'COMP-1A', value: 'Child One', parentId: 'COMP-1' },
@@ -595,7 +595,7 @@ export interface ExportedTag {
 }
 
 interface RawExportedTag {
-  readonly id?: string;
+  readonly id?: unknown;
   readonly value?: string;
   readonly parent_id?: string | null;
 }
@@ -613,12 +613,19 @@ export function parseExportedIds(text: string, format: 'csv' | 'json'): Exported
     if (!Array.isArray(parsed?.tags)) {
       throw new Error('The exported JSON has no "tags" array.');
     }
-    return (parsed.tags as RawExportedTag[]).map((entry) => ({
-      id: entry.id ?? '',
-      value: entry.value ?? '',
-      parentId: entry.parent_id === undefined || entry.parent_id === '' ? null : entry.parent_id,
-      keys: Object.keys(entry),
-    }));
+    return (parsed.tags as RawExportedTag[]).map((entry) => {
+      if (typeof entry.id !== 'string') {
+        throw new Error(
+          `The exported JSON has a tag whose id is not a string: ${JSON.stringify(entry)}`,
+        );
+      }
+      return {
+        id: entry.id,
+        value: entry.value ?? '',
+        parentId: entry.parent_id === undefined || entry.parent_id === '' ? null : entry.parent_id,
+        keys: Object.keys(entry),
+      };
+    });
   }
   if (text.includes('"')) {
     throw new Error(

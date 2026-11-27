@@ -439,7 +439,6 @@ export {
   type Taxonomy,
   type TaxonomyList,
   type TagsImportFile,
-  type TagsImportOutcome,
   type TaxonomyTag,
 } from './tagging';
 export {

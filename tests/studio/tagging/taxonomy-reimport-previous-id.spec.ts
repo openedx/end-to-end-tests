@@ -1,7 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 
 import {
-  DEFAULT_COURSE_ORG,
   addTag,
   buildSection,
   fetchObjectTagCounts,
@@ -10,10 +9,9 @@ import {
   previewTagsImport,
   setObjectTags,
   tagCountFor,
-  type TagsImportOutcome,
 } from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
-import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../src/config';
+import { TAXONOMY_SELECTORS, TIMEOUTS, getRunId, type AppConfig } from '../../../src/config';
 import { expect, test, type TaxonomyAdmin } from '../../../src/fixtures';
 import {
   COMPETENCY_SETS,
@@ -43,11 +41,13 @@ import {
  * and deletes it in `finally`: an import changes the taxonomy, so a second case could not
  * reuse it.
  *
- * The cases that check a tag stays on a unit (a rename, a swap and a freed-ID rename) take
- * the worker's `contentCourse` and `studioAuthorSession` before the admin fixture, so the
- * author is ready before the admin lock is taken. The author builds its own section with
- * one unit and tags the unit; the admin seeds the taxonomy and assigns it to the suite org
- * only, which is what lets the author tag with it. The oracle is the tag's database id,
+ * The cases that check a tag stays on a unit (a rename, a swap and a freed-ID rename) list
+ * `contentCourse` and `studioAuthorSession` before the admin fixture, because provisioning
+ * the worker author and its course takes the admin lock itself. The section, the unit and
+ * the tags are built in the test body while the admin fixture holds the lock, which every
+ * case keeps to the end, the taxonomy delete included. The author builds its own section
+ * with one unit and tags the unit; the admin seeds the taxonomy and assigns it to the suite
+ * org only, which is what lets the author tag with it. The oracle is the tag's database id,
  * plus the unit's applied tags and their count read as the author. The other cases assign
  * no org, because the admin sees every taxonomy.
  *
@@ -56,7 +56,7 @@ import {
  * (https://github.com/openedx/openedx-core/issues/827, TAG-005 in docs/findings.md).
  *
  * Accessibility: the wizard's Plan step is scanned here, inside the dialog only: no other
- * spec opens a re-import Plan step, and the detail page's breadcrumb debt (TAG-004) sits
+ * spec scans the re-import Plan step, and the detail page's breadcrumb debt (TAG-004) sits
  * behind the dialog and out of the scan.
  *
  * Gated on `competencies`, which only `main` declares.
@@ -71,7 +71,7 @@ test.describe(
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
     const name = (variant: string): string =>
-      `E2E competency-id ${variant} ${test.info().testId.slice(-6)}`;
+      `E2E ${getRunId()} competency-id ${variant} ${test.info().testId.slice(-6)}`;
 
     /** The database id of the tag valued `value`; fails when the tag or its id is missing. */
     function internalIdOf(tags: Record<string, TagIds>, value: string): number {
@@ -81,8 +81,6 @@ test.describe(
       }
       return id;
     }
-
-    const suiteOrg = (config: AppConfig): string => config.org ?? DEFAULT_COURSE_ORG;
 
     /**
      * A section with one unit that the author builds in the worker's course; returns the
@@ -112,43 +110,20 @@ test.describe(
         .sort();
     }
 
-    /**
-     * Re-imports `file` into a taxonomy through the wizard from a fresh page load: opens the
-     * wizard, chooses the file, reaches the Plan step (where `atPlan` runs, when given),
-     * continues and confirms. The plan and confirm outcomes come back for the test to assert.
-     */
-    async function reimportThroughWizard(
-      detail: TaxonomyAdmin['detail'],
-      taxonomyId: number,
-      file: ReturnType<typeof competencyImportFile>,
-      atPlan?: () => Promise<void>,
-    ): Promise<{ planStatus: number; confirmedOk: boolean }> {
-      const { wizard } = detail;
-      await detail.goto(taxonomyId);
-      await detail.openReimport();
-      const plan = await wizard.chooseFileForPlan(taxonomyId, file);
-      await wizard.continueToPlan();
-      await atPlan?.();
-      await wizard.continueToConfirm();
-      const confirmed = await wizard.confirmReimport(taxonomyId);
-      return { planStatus: plan.status(), confirmedOk: confirmed.ok() };
-    }
-
     /** The plan, then the import, of `file` into a taxonomy, straight to the endpoints. */
     async function reimportThroughApi(
       request: APIRequestContext,
       config: AppConfig,
       taxonomyId: number,
       file: ReturnType<typeof competencyImportFile>,
-    ): Promise<{ plan: TagsImportOutcome; result: TagsImportOutcome }> {
-      const plan = await previewTagsImport(request, config, taxonomyId, file);
-      const result = await importTags(request, config, taxonomyId, file);
-      return { plan, result };
+    ): Promise<void> {
+      await previewTagsImport(request, config, taxonomyId, file);
+      await importTags(request, config, taxonomyId, file);
     }
 
     /**
      * Seeds a taxonomy of `rows`, re-imports `file` into it through the endpoints and reads
-     * every tag's ids before and after. The plan and the import must both be accepted.
+     * every tag's ids before and after. A rejected plan or import throws.
      */
     async function seedAndReimport(
       admin: APIRequestContext,
@@ -163,9 +138,7 @@ test.describe(
         rows,
       });
       created.push(taxonomy.id);
-      const { plan, result } = await reimportThroughApi(admin, config, taxonomy.id, file);
-      expect(plan.ok, 'plan').toBe(true);
-      expect(result.ok, 'import').toBe(true);
+      await reimportThroughApi(admin, config, taxonomy.id, file);
       return { before, after: await readTagIds(admin, config, taxonomy.id) };
     }
 
@@ -173,7 +146,7 @@ test.describe(
      * Renames Competency A to COMP-B through the re-import wizard in `format`, then exports
      * the taxonomy in the same format. The Plan step's single change and the optional
      * accessibility scan (`scan`) happen on that step, where they can be seen; the outcome
-     * comes back for the test to assert.
+     * comes back for the test to assert. A rejected plan or import throws.
      */
     async function renameThroughWizard(
       admin: TaxonomyAdmin,
@@ -181,8 +154,6 @@ test.describe(
       format: 'csv' | 'json',
       scan: boolean,
     ): Promise<{
-      planStatus: number;
-      confirmedOk: boolean;
       before: Record<string, TagIds>;
       after: Record<string, TagIds>;
       exported: ExportedTag[];
@@ -193,15 +164,15 @@ test.describe(
       try {
         const { taxonomy, tags: before } = await seedCompetencyTaxonomy(request, config, {
           name: name(`rename-${format}`),
-          rows: COMPETENCY_SETS.A,
+          rows: COMPETENCY_SETS.oneToRename,
         });
         created.push(taxonomy.id);
 
-        const run = await reimportThroughWizard(
-          detail,
+        await detail.goto(taxonomy.id);
+        await detail.reimport(
           taxonomy.id,
           competencyImportFile(
-            renameCompetencyIds(COMPETENCY_SETS.A, { 'COMP-A': { id: 'COMP-B' } }),
+            renameCompetencyIds(COMPETENCY_SETS.oneToRename, { 'COMP-A': { id: 'COMP-B' } }),
             { format },
           ),
           async () => {
@@ -223,13 +194,7 @@ test.describe(
           await downloadText(await detail.export(taxonomy.id, format)),
           format,
         );
-        return {
-          planStatus: run.planStatus,
-          confirmedOk: run.confirmedOk,
-          before,
-          after,
-          exported,
-        };
+        return { before, after, exported };
       } finally {
         await deleteTaxonomiesBestEffort(request, config, created);
       }
@@ -244,10 +209,12 @@ test.describe(
         config,
         competencyTaxonomyAdmin,
       }) => {
-        const run = await renameThroughWizard(competencyTaxonomyAdmin, config, format, scan);
-        const { before, after, exported } = run;
-        expect(run.planStatus, 'plan response').toBe(200);
-        expect(run.confirmedOk, 'confirm response ok').toBe(true);
+        const { before, after, exported } = await renameThroughWizard(
+          competencyTaxonomyAdmin,
+          config,
+          format,
+          scan,
+        );
         expect(Object.keys(after), 'tags after the import').toHaveLength(4);
         expect(after['Competency A']?.externalId, 'renamed Competency ID').toBe('COMP-B');
         expect(internalIdOf(after, 'Competency A'), 'renamed in place').toBe(
@@ -281,21 +248,20 @@ test.describe(
         const unit = await authorUnit(page.request, config, contentCourse.courseKey);
         const { taxonomy, tags: before } = await seedCompetencyTaxonomy(request, config, {
           name: name('tagged-rename'),
-          rows: COMPETENCY_SETS.A,
-          org: suiteOrg(config),
+          rows: COMPETENCY_SETS.oneToRename,
+          org: competencyTaxonomyAdmin.org,
         });
         created.push(taxonomy.id);
         await setObjectTags(page.request, config, unit, taxonomy.id, ['Competency A']);
 
-        const run = await reimportThroughWizard(
-          detail,
+        await detail.goto(taxonomy.id);
+        await detail.reimport(
           taxonomy.id,
           competencyImportFile(
-            renameCompetencyIds(COMPETENCY_SETS.A, { 'COMP-A': { id: 'COMP-B' } }),
+            renameCompetencyIds(COMPETENCY_SETS.oneToRename, { 'COMP-A': { id: 'COMP-B' } }),
             { format: 'csv' },
           ),
         );
-        expect(run.confirmedOk).toBe(true);
 
         const after = await readTagIds(request, config, taxonomy.id);
         expect(after['Competency A']?.externalId).toBe('COMP-B');
@@ -323,8 +289,8 @@ test.describe(
         const unit = await authorUnit(page.request, config, contentCourse.courseKey);
         const { taxonomy, tags: before } = await seedCompetencyTaxonomy(request, config, {
           name: name('tagged-swap'),
-          rows: COMPETENCY_SETS.B,
-          org: suiteOrg(config),
+          rows: COMPETENCY_SETS.pair,
+          org: competencyTaxonomyAdmin.org,
         });
         created.push(taxonomy.id);
         await setObjectTags(page.request, config, unit, taxonomy.id, [
@@ -332,23 +298,22 @@ test.describe(
           'Competency Y',
         ]);
 
-        const run = await reimportThroughWizard(
-          detail,
+        await detail.goto(taxonomy.id);
+        await detail.reimport(
           taxonomy.id,
           competencyImportFile(
-            renameCompetencyIds(COMPETENCY_SETS.B, {
+            renameCompetencyIds(COMPETENCY_SETS.pair, {
               'COMP-A': { id: 'COMP-B' },
               'COMP-B': { id: 'COMP-A' },
             }),
             { format: 'csv' },
           ),
-          // The plan holds more than one line (the exact number depends on the plan format).
+          // Two lines per tag: one that moves it off the ID the other tag takes, and one that
+          // renames it to its new ID.
           async () => {
-            await expect.poll(() => detail.wizard.planActions.count()).toBeGreaterThanOrEqual(2);
+            await expect(detail.wizard.planActions).toHaveCount(4);
           },
         );
-        expect(run.planStatus).toBe(200);
-        expect(run.confirmedOk).toBe(true);
 
         const after = await readTagIds(request, config, taxonomy.id);
         expect(Object.keys(after)).toHaveLength(2);
@@ -377,7 +342,7 @@ test.describe(
       try {
         const { taxonomy } = await seedCompetencyTaxonomy(request, config, {
           name: name('export-roundtrip'),
-          rows: COMPETENCY_SETS.A,
+          rows: COMPETENCY_SETS.oneToRename,
         });
         created.push(taxonomy.id);
         // Two tags without an ID: the backend generates theirs.
@@ -388,6 +353,12 @@ test.describe(
         });
         const before = await readTagIds(request, config, taxonomy.id);
         expect(Object.keys(before)).toHaveLength(6);
+        // The export falls back to the database id for a tag without a Competency ID, so the
+        // generated IDs are checked here, on the API, where a missing one is visible.
+        for (const value of ['Generated Root', 'Generated Child']) {
+          const externalId = before[value]?.externalId;
+          expect(typeof externalId === 'string' && externalId !== '', value).toBe(true);
+        }
 
         for (const format of ['csv', 'json'] as const) {
           await detail.goto(taxonomy.id);
@@ -428,18 +399,18 @@ test.describe(
       const created: number[] = [];
       try {
         const { before, after } = await seedAndReimport(
-          competencyAdminApi,
+          competencyAdminApi.request,
           config,
           created,
           'idempotent',
-          COMPETENCY_SETS.B,
-          competencyImportFile(renameCompetencyIds(COMPETENCY_SETS.B, { 'COMP-B': {} }), {
+          COMPETENCY_SETS.pair,
+          competencyImportFile(renameCompetencyIds(COMPETENCY_SETS.pair, { 'COMP-B': {} }), {
             format: 'json',
           }),
         );
         expect(after).toEqual(before);
       } finally {
-        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+        await deleteTaxonomiesBestEffort(competencyAdminApi.request, config, created);
       }
     });
 
@@ -450,14 +421,17 @@ test.describe(
       const created: number[] = [];
       try {
         const { before, after } = await seedAndReimport(
-          competencyAdminApi,
+          competencyAdminApi.request,
           config,
           created,
           'new-row',
-          COMPETENCY_SETS.A,
-          competencyImportFile([...COMPETENCY_SETS.A, { id: 'COMP-Z', value: 'Competency Z' }], {
-            format: 'csv',
-          }),
+          COMPETENCY_SETS.oneToRename,
+          competencyImportFile(
+            [...COMPETENCY_SETS.oneToRename, { id: 'COMP-Z', value: 'Competency Z' }],
+            {
+              format: 'csv',
+            },
+          ),
         );
         expect(Object.keys(after)).toHaveLength(5);
         expect(after['Competency Z']?.externalId).toBe('COMP-Z');
@@ -468,7 +442,7 @@ test.describe(
           expect(after[value]).toEqual(ids);
         }
       } finally {
-        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+        await deleteTaxonomiesBestEffort(competencyAdminApi.request, config, created);
       }
     });
 
@@ -476,13 +450,13 @@ test.describe(
       const created: number[] = [];
       try {
         const { before, after } = await seedAndReimport(
-          competencyAdminApi,
+          competencyAdminApi.request,
           config,
           created,
           'case-only',
-          COMPETENCY_SETS.A,
+          COMPETENCY_SETS.oneToRename,
           competencyImportFile(
-            renameCompetencyIds(COMPETENCY_SETS.A, { 'COMP-A': { id: 'comp-a' } }),
+            renameCompetencyIds(COMPETENCY_SETS.oneToRename, { 'COMP-A': { id: 'comp-a' } }),
             { format: 'csv' },
           ),
         );
@@ -490,7 +464,7 @@ test.describe(
         expect(after['Competency A']?.externalId).toBe('comp-a');
         expect(internalIdOf(after, 'Competency A')).toBe(internalIdOf(before, 'Competency A'));
       } finally {
-        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+        await deleteTaxonomiesBestEffort(competencyAdminApi.request, config, created);
       }
     });
 
@@ -499,7 +473,7 @@ test.describe(
       competencyAdminApi,
     }) => {
       const created: number[] = [];
-      const rotation = renameCompetencyIds(COMPETENCY_SETS.E, {
+      const rotation = renameCompetencyIds(COMPETENCY_SETS.rotation, {
         'COMP-A': { id: 'COMP-B' },
         'COMP-B': { id: 'COMP-C' },
         'COMP-C': { id: 'COMP-A' },
@@ -510,11 +484,11 @@ test.describe(
           ['zyx', [...rotation].reverse()],
         ] as const) {
           const { before, after } = await seedAndReimport(
-            competencyAdminApi,
+            competencyAdminApi.request,
             config,
             created,
             `rotation-${order}`,
-            COMPETENCY_SETS.E,
+            COMPETENCY_SETS.rotation,
             competencyImportFile(rows, { format: 'csv' }),
           );
           expect(Object.keys(after), `tags, order ${order}`).toHaveLength(3);
@@ -531,7 +505,7 @@ test.describe(
           }
         }
       } finally {
-        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+        await deleteTaxonomiesBestEffort(competencyAdminApi.request, config, created);
       }
     });
 
@@ -546,7 +520,7 @@ test.describe(
       const created: number[] = [];
       // Competency X is left out of the file, and Competency Y takes the ID X held.
       const renamed = renameCompetencyIds(
-        COMPETENCY_SETS.D.filter((row) => row.id !== 'COMP-Z'),
+        COMPETENCY_SETS.freedId.filter((row) => row.id !== 'COMP-Z'),
         { 'COMP-A': { id: 'COMP-Z' } },
       );
       try {
@@ -556,27 +530,25 @@ test.describe(
           ['last', [...renamed].reverse()],
         ] as const) {
           const { taxonomy, tags: before } = await seedCompetencyTaxonomy(
-            competencyAdminApi,
+            competencyAdminApi.request,
             config,
             {
               name: name(`vacate-${position}`),
-              rows: COMPETENCY_SETS.D,
-              org: suiteOrg(config),
+              rows: COMPETENCY_SETS.freedId,
+              org: competencyAdminApi.org,
             },
           );
           created.push(taxonomy.id);
           await setObjectTags(page.request, config, unit, taxonomy.id, ['Competency Y']);
 
-          const { plan, result } = await reimportThroughApi(
-            competencyAdminApi,
+          await reimportThroughApi(
+            competencyAdminApi.request,
             config,
             taxonomy.id,
             competencyImportFile(rows, { format: 'csv' }),
           );
-          expect(plan.ok, `plan, rename ${position}`).toBe(true);
-          expect(result.ok, `import, rename ${position}`).toBe(true);
 
-          const after = await readTagIds(competencyAdminApi, config, taxonomy.id);
+          const after = await readTagIds(competencyAdminApi.request, config, taxonomy.id);
           expect(Object.keys(after).sort(), `tags, rename ${position}`).toEqual([
             'Competency Y',
             'Neutral Competency 1',
@@ -594,7 +566,7 @@ test.describe(
           ).toEqual(['Competency Y']);
         }
       } finally {
-        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+        await deleteTaxonomiesBestEffort(competencyAdminApi.request, config, created);
       }
     });
 
@@ -602,13 +574,13 @@ test.describe(
       const created: number[] = [];
       try {
         const { before, after } = await seedAndReimport(
-          competencyAdminApi,
+          competencyAdminApi.request,
           config,
           created,
           'parent-renamed',
-          COMPETENCY_SETS.F,
+          COMPETENCY_SETS.parentWithChild,
           competencyImportFile(
-            renameCompetencyIds(COMPETENCY_SETS.F, { 'COMP-P': { id: 'COMP-P2' } }),
+            renameCompetencyIds(COMPETENCY_SETS.parentWithChild, { 'COMP-P': { id: 'COMP-P2' } }),
             { format: 'csv' },
           ),
         );
@@ -618,7 +590,7 @@ test.describe(
         expect(after['Child C']?.parentValue).toBe('Parent P');
         expect(internalIdOf(after, 'Child C')).toBe(internalIdOf(before, 'Child C'));
       } finally {
-        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+        await deleteTaxonomiesBestEffort(competencyAdminApi.request, config, created);
       }
     });
 
@@ -626,13 +598,13 @@ test.describe(
       const created: number[] = [];
       try {
         const { before, after } = await seedAndReimport(
-          competencyAdminApi,
+          competencyAdminApi.request,
           config,
           created,
           'parent-and-child',
-          COMPETENCY_SETS.F,
+          COMPETENCY_SETS.parentWithChild,
           competencyImportFile(
-            renameCompetencyIds(COMPETENCY_SETS.F, {
+            renameCompetencyIds(COMPETENCY_SETS.parentWithChild, {
               'COMP-P': { id: 'COMP-P2' },
               'COMP-C1': { id: 'COMP-C2' },
             }),
@@ -645,7 +617,7 @@ test.describe(
         expect(internalIdOf(after, 'Child C')).toBe(internalIdOf(before, 'Child C'));
         expect(after['Child C']?.parentValue).toBe('Parent P');
       } finally {
-        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+        await deleteTaxonomiesBestEffort(competencyAdminApi.request, config, created);
       }
     });
 
@@ -656,13 +628,13 @@ test.describe(
       const created: number[] = [];
       try {
         const { before, after } = await seedAndReimport(
-          competencyAdminApi,
+          competencyAdminApi.request,
           config,
           created,
           'id-and-value',
-          COMPETENCY_SETS.F,
+          COMPETENCY_SETS.parentWithChild,
           competencyImportFile(
-            renameCompetencyIds(COMPETENCY_SETS.F, {
+            renameCompetencyIds(COMPETENCY_SETS.parentWithChild, {
               'COMP-P': { id: 'COMP-P2', value: 'Parent P Renamed' },
             }),
             { format: 'csv' },
@@ -673,7 +645,7 @@ test.describe(
         expect(Object.keys(after)).not.toContain('Parent P');
         expect(after['Child C']?.parentValue).toBe('Parent P Renamed');
       } finally {
-        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+        await deleteTaxonomiesBestEffort(competencyAdminApi.request, config, created);
       }
     });
 
@@ -684,15 +656,15 @@ test.describe(
       const created: number[] = [];
       try {
         const { before, after } = await seedAndReimport(
-          competencyAdminApi,
+          competencyAdminApi.request,
           config,
           created,
           'parents-swap',
-          COMPETENCY_SETS.G,
+          COMPETENCY_SETS.twoParents,
           competencyImportFile(
             // The children's `parent_id` follows the new IDs: Child One under COMP-3, Child
             // Three under COMP-1.
-            renameCompetencyIds(COMPETENCY_SETS.G, {
+            renameCompetencyIds(COMPETENCY_SETS.twoParents, {
               'COMP-1': { id: 'COMP-3' },
               'COMP-3': { id: 'COMP-1' },
             }),
@@ -707,7 +679,7 @@ test.describe(
         expect(after['Child One']?.parentValue).toBe('Parent One');
         expect(after['Child Three']?.parentValue).toBe('Parent Three');
       } finally {
-        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+        await deleteTaxonomiesBestEffort(competencyAdminApi.request, config, created);
       }
     });
   },

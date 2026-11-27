@@ -12,7 +12,7 @@ import {
  * export they read back. Pure: no browser, no network.
  */
 
-const A = COMPETENCY_SETS.A;
+const A = COMPETENCY_SETS.oneToRename;
 
 test.describe('renameCompetencyIds', { tag: '@unit' }, () => {
   test('gives a renamed row its old ID as previousId and leaves the others alone', () => {
@@ -22,7 +22,7 @@ test.describe('renameCompetencyIds', { tag: '@unit' }, () => {
   });
 
   test('applies every rename to the original IDs, so two IDs can be exchanged', () => {
-    const rows = renameCompetencyIds(COMPETENCY_SETS.B, {
+    const rows = renameCompetencyIds(COMPETENCY_SETS.pair, {
       'COMP-A': { id: 'COMP-B' },
       'COMP-B': { id: 'COMP-A' },
     });
@@ -33,12 +33,12 @@ test.describe('renameCompetencyIds', { tag: '@unit' }, () => {
   });
 
   test('keeps the ID when the patch has none and sets previousId to it', () => {
-    const rows = renameCompetencyIds(COMPETENCY_SETS.B, { 'COMP-B': {} });
+    const rows = renameCompetencyIds(COMPETENCY_SETS.pair, { 'COMP-B': {} });
     expect(rows[1]).toEqual({ id: 'COMP-B', value: 'Competency Y', previousId: 'COMP-B' });
   });
 
   test('points a child at its renamed parent and applies a new value', () => {
-    const rows = renameCompetencyIds(COMPETENCY_SETS.F, {
+    const rows = renameCompetencyIds(COMPETENCY_SETS.parentWithChild, {
       'COMP-P': { id: 'COMP-P2', value: 'Parent P Renamed' },
     });
     expect(rows).toEqual([
@@ -50,7 +50,7 @@ test.describe('renameCompetencyIds', { tag: '@unit' }, () => {
 
 test.describe('renameCompetencyIds, parents with children', { tag: '@unit' }, () => {
   test('swapping two parents repoints each child at its parent new ID, parents first', () => {
-    const rows = renameCompetencyIds(COMPETENCY_SETS.G, {
+    const rows = renameCompetencyIds(COMPETENCY_SETS.twoParents, {
       'COMP-1': { id: 'COMP-3' },
       'COMP-3': { id: 'COMP-1' },
     });
@@ -93,7 +93,9 @@ test.describe('competencyImportFile', { tag: '@unit' }, () => {
   });
 
   test('writes JSON under a tags root with previous_id only on the rows that set it', () => {
-    const rows = renameCompetencyIds(COMPETENCY_SETS.F, { 'COMP-P': { id: 'COMP-P2' } });
+    const rows = renameCompetencyIds(COMPETENCY_SETS.parentWithChild, {
+      'COMP-P': { id: 'COMP-P2' },
+    });
     const file = competencyImportFile(rows, { format: 'json' });
     expect(file.name).toBe('e2e-competency-ids.json');
     expect(file.mimeType).toBe('application/json');
@@ -139,5 +141,10 @@ test.describe('parseExportedIds', { tag: '@unit' }, () => {
     expect(() => parseExportedIds('', 'csv')).toThrow('no header');
     expect(() => parseExportedIds('id,value,parent_id\nX,"a, b",', 'csv')).toThrow('quoted');
     expect(() => parseExportedIds('{"name":"T"}', 'json')).toThrow('"tags"');
+  });
+
+  test('rejects a JSON entry whose id is not a string, as when the export falls back to _id', () => {
+    const text = JSON.stringify({ tags: [{ id: 17, value: 'Root' }] });
+    expect(() => parseExportedIds(text, 'json')).toThrow('not a string');
   });
 });

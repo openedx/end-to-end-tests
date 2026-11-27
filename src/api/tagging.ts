@@ -2,13 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
 import { ApiError } from './errors';
-import {
-  nonJsonPreview,
-  studioJson,
-  studioOrigin,
-  studioWriteHeaders,
-  STUDIO_JSON_ACCEPT,
-} from './studio-origin';
+import { studioJson, studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from './studio-origin';
 
 /**
  * Content tagging: the CMS `content_tagging/v1/` API behind the authoring MFE's
@@ -340,73 +334,41 @@ export interface TagsImportFile {
 }
 
 /**
- * What an import endpoint answered. A rejected file is an answer, not an error: cases
- * that expect a 400 read `status` and look for their own IDs in `body`, the
- * response text as the server sent it.
- */
-export interface TagsImportOutcome {
-  readonly ok: boolean;
-  readonly status: number;
-  readonly body: string;
-}
-
-async function putTagsFile(
-  request: APIRequestContext,
-  config: AppConfig,
-  url: string,
-  file: TagsImportFile,
-  what: string,
-): Promise<TagsImportOutcome> {
-  const response = await request.put(url, {
-    headers: await studioWriteHeaders(request, config),
-    multipart: { file },
-  });
-  const body = await response.text();
-  const status = response.status();
-  // A 5xx or a redirect says nothing about the file: it is an environment fault.
-  if (status >= 500 || (status >= 300 && status < 400)) {
-    throw new ApiError(`${what} failed (HTTP ${status}): ${nonJsonPreview(body)}`, {
-      status,
-      url,
-      body,
-      retryable: status >= 500,
-    });
-  }
-  return { ok: response.ok(), status, body };
-}
-
-/**
  * Asks what re-importing `file` would change in a taxonomy (`PUT tags/import/plan/`),
- * changing nothing. Admin-only. Returns the outcome whatever the status below 500.
+ * changing nothing. Admin only: call it on an admin request context. A rejected file
+ * throws an {@link ApiError} carrying the status and the response body.
  */
 export async function previewTagsImport(
   request: APIRequestContext,
   config: AppConfig,
   taxonomyId: number,
   file: TagsImportFile,
-): Promise<TagsImportOutcome> {
+): Promise<void> {
   const url = `${studioOrigin(config)}${TAGGING_BASE}/taxonomies/${taxonomyId}/tags/import/plan/`;
-  return putTagsFile(
-    request,
-    config,
-    url,
-    file,
-    `Planning a tag import into taxonomy ${taxonomyId}`,
-  );
+  const response = await request.put(url, {
+    headers: await studioWriteHeaders(request, config),
+    multipart: { file },
+  });
+  await studioJson<unknown>(response, `Planning a tag import into taxonomy ${taxonomyId}`);
 }
 
 /**
  * Re-imports `file` into an existing taxonomy, replacing its tags (`PUT tags/import/`).
- * Admin-only. Returns the outcome whatever the status below 500.
+ * Admin only: call it on an admin request context. A rejected file throws an
+ * {@link ApiError} carrying the status and the response body.
  */
 export async function importTags(
   request: APIRequestContext,
   config: AppConfig,
   taxonomyId: number,
   file: TagsImportFile,
-): Promise<TagsImportOutcome> {
+): Promise<void> {
   const url = `${studioOrigin(config)}${TAGGING_BASE}/taxonomies/${taxonomyId}/tags/import/`;
-  return putTagsFile(request, config, url, file, `Importing tags into taxonomy ${taxonomyId}`);
+  const response = await request.put(url, {
+    headers: await studioWriteHeaders(request, config),
+    multipart: { file },
+  });
+  await studioJson<unknown>(response, `Importing tags into taxonomy ${taxonomyId}`);
 }
 
 /**
