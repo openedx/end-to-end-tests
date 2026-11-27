@@ -283,7 +283,10 @@ export async function deleteTaxonomy(
 export interface TaxonomyTag {
   readonly value: string;
   readonly externalId: string | null;
-  /** The tag's database id (`_id`), which stays the same when an import renames the tag in place. */
+  /**
+   * The tag's database id (`_id`), which stays the same when an import renames the tag in
+   * place.
+   */
   readonly internalId: number | null;
   readonly childCount: number;
   readonly depth: number;
@@ -337,8 +340,8 @@ export interface TagsImportFile {
 }
 
 /**
- * What an import endpoint answered. A rejected file is an answer here, not an error: the
- * cases that expect a 400 read `status` and look for their own IDs in `body`, the
+ * What an import endpoint answered. A rejected file is an answer, not an error: cases
+ * that expect a 400 read `status` and look for their own IDs in `body`, the
  * response text as the server sent it.
  */
 export interface TagsImportOutcome {
@@ -408,8 +411,9 @@ export async function importTags(
 
 /**
  * Creates one tag in a taxonomy (`POST tags/`), under `parentTagValue` when given. The
- * request carries no `external_id`, so the backend generates the tag's ID. Admin-only here.
- * Returns nothing: the caller reads the tag back with {@link listTaxonomyTags}.
+ * request carries no `external_id`, so the backend generates the tag's ID. Admin only:
+ * call it on an admin request context. Returns nothing: the caller reads the tag back
+ * with {@link listTaxonomyTags}.
  */
 export async function addTag(
   request: APIRequestContext,

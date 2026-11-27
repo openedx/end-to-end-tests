@@ -84,7 +84,10 @@ test.describe(
 
     const suiteOrg = (config: AppConfig): string => config.org ?? DEFAULT_COURSE_ORG;
 
-    /** A section with one unit that the author builds in the worker's course; returns the unit's key. */
+    /**
+     * A section with one unit that the author builds in the worker's course; returns the
+     * unit's key.
+     */
     async function authorUnit(
       author: APIRequestContext,
       config: AppConfig,

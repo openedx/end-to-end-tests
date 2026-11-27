@@ -184,11 +184,11 @@ export const TAXONOMY_SELECTORS = {
   planStep: '[data-testid="plan-step"]',
   confirmStep: '[data-testid="confirm-step"]',
   /**
-   * One change line of the re-import wizard's Plan step, stands in for the localized line
-   * of the plan ("Update the tag ..." and the like). The wizard shows a "No changes" line
-   * in the same list when the plan is empty, so the list's own `li` cannot tell a change
-   * from the placeholder, and nothing else about a change line is structural: the test id
-   * is the only anchor that counts zero changes correctly.
+   * One change line on the re-import wizard's Plan step. It stands in for the localized
+   * plan line ("Update the tag ..." and the like). An empty plan shows a "No changes" line
+   * in the same list, so a plain `li` cannot tell a change from that placeholder. Nothing
+   * else structural marks a change line, so the test id is the only anchor that counts
+   * zero changes correctly.
    */
   planAction: '[data-testid="plan-action"]',
   /** The dropzone; Paragon renders an `<input type="file">` within it. */

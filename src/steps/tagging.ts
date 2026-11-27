@@ -532,7 +532,7 @@ export function competencyImportFile(
   };
 }
 
-/** What a tag's identity is made of: the pair an in-place rename keeps or changes. */
+/** What identifies a tag before and after an import: its database id, external ID and parent. */
 export interface TagIds {
   readonly internalId: number | null;
   readonly externalId: string | null;
