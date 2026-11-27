@@ -1,6 +1,17 @@
 import type { APIRequestContext } from '@playwright/test';
 
-import { addTag, importTags, previewTagsImport, type TagsImportOutcome } from '../../../src/api';
+import {
+  DEFAULT_COURSE_ORG,
+  addTag,
+  buildSection,
+  fetchObjectTagCounts,
+  fetchObjectTags,
+  importTags,
+  previewTagsImport,
+  setObjectTags,
+  tagCountFor,
+  type TagsImportOutcome,
+} from '../../../src/api';
 import { checkA11y } from '../../../src/a11y';
 import { TAXONOMY_SELECTORS, TIMEOUTS, type AppConfig } from '../../../src/config';
 import { expect, test, type TaxonomyAdmin } from '../../../src/fixtures';
@@ -28,9 +39,17 @@ import {
  * wizard (the plan it draws, the export it feeds) use {@link competencyTaxonomyAdmin}
  * and seed on its own session; the cases that only vary the file send it straight to the
  * import endpoints under {@link competencyAdminApi}, because the wizard sends the same
- * file and adds nothing the file's variants could change. The admin sees every taxonomy,
- * so none is assigned to an org. Every case seeds its own taxonomy and deletes it in
- * `finally`: an import changes the taxonomy, so a second case could not reuse it.
+ * file and adds nothing the file's variants could change. Every case seeds its own taxonomy
+ * and deletes it in `finally`: an import changes the taxonomy, so a second case could not
+ * reuse it.
+ *
+ * The cases that check a tag stays on a unit (CI-03, CI-06, CI-08) take the worker's
+ * `contentCourse` and `studioAuthorSession` before the admin fixture, so the author is
+ * ready before the admin lock is taken. The author builds its own section with one unit
+ * and tags the unit; the admin seeds the taxonomy and assigns it to the suite org only,
+ * which is what lets the author tag with it. The oracle is the tag's database id, plus the
+ * unit's applied tags and their count read as the author. The other cases assign no org,
+ * because the admin sees every taxonomy.
  *
  * Every wizard run starts from a fresh page load, because choosing the same file again
  * in one page session leaves Continue doing nothing
@@ -61,6 +80,55 @@ test.describe(
         throw new Error(`Tag "${value}" has no database id: ${JSON.stringify(tags[value])}`);
       }
       return id;
+    }
+
+    const suiteOrg = (config: AppConfig): string => config.org ?? DEFAULT_COURSE_ORG;
+
+    /** A section with one unit that the author builds in the worker's course; returns the unit's key. */
+    async function authorUnit(
+      author: APIRequestContext,
+      config: AppConfig,
+      courseKey: string,
+    ): Promise<string> {
+      const section = await buildSection(author, config, courseKey, name('section'));
+      const unit = section.units[0]?.usageKey;
+      if (unit === undefined) throw new Error('The built section has no unit.');
+      return unit;
+    }
+
+    /** The values the unit carries from taxonomy `taxonomyId`, sorted, read by `reader`. */
+    async function appliedValues(
+      reader: APIRequestContext,
+      config: AppConfig,
+      unit: string,
+      taxonomyId: number,
+    ): Promise<string[]> {
+      const applied = await fetchObjectTags(reader, config, unit);
+      return (applied.find((t) => t.taxonomyId === taxonomyId)?.tags ?? [])
+        .map((t) => t.value)
+        .sort();
+    }
+
+    /**
+     * Re-imports `file` into a taxonomy through the wizard from a fresh page load: opens the
+     * wizard, chooses the file, reaches the Plan step (where `atPlan` runs, when given),
+     * continues and confirms. The plan and confirm outcomes come back for the test to assert.
+     */
+    async function reimportThroughWizard(
+      detail: TaxonomyAdmin['detail'],
+      taxonomyId: number,
+      file: ReturnType<typeof competencyImportFile>,
+      atPlan?: () => Promise<void>,
+    ): Promise<{ planStatus: number; confirmedOk: boolean }> {
+      const { wizard } = detail;
+      await detail.goto(taxonomyId);
+      await detail.openReimport();
+      const plan = await wizard.chooseFileForPlan(taxonomyId, file);
+      await wizard.continueToPlan();
+      await atPlan?.();
+      await wizard.continueToConfirm();
+      const confirmed = await wizard.confirmReimport(taxonomyId);
+      return { planStatus: plan.status(), confirmedOk: confirmed.ok() };
     }
 
     /** The plan, then the import, of `file` into a taxonomy, straight to the endpoints. */
@@ -103,28 +171,24 @@ test.describe(
         });
         created.push(taxonomy.id);
 
-        await detail.goto(taxonomy.id);
-        await detail.openReimport();
-        const plan = await wizard.chooseFileForPlan(
+        const run = await reimportThroughWizard(
+          detail,
           taxonomy.id,
           competencyImportFile(
             renameCompetencyIds(COMPETENCY_SETS.A, { 'COMP-A': { id: 'COMP-B' } }),
-            {
-              format,
-            },
+            { format },
           ),
+          async () => {
+            // One change; the three untouched tags are "no changes" lines the wizard drops.
+            await expect(wizard.planActions).toHaveCount(1);
+            if (scan) {
+              await checkA11y(page, {
+                label: 'studio-taxonomy-reimport-plan',
+                include: TAXONOMY_SELECTORS.dialog,
+              });
+            }
+          },
         );
-        await wizard.continueToPlan();
-        // One change; the three untouched tags are "no changes" lines the wizard drops.
-        await expect(wizard.planActions).toHaveCount(1);
-        if (scan) {
-          await checkA11y(page, {
-            label: 'studio-taxonomy-reimport-plan',
-            include: TAXONOMY_SELECTORS.dialog,
-          });
-        }
-        await wizard.continueToConfirm();
-        const confirmed = await wizard.confirmReimport(taxonomy.id);
 
         const after = await readTagIds(request, config, taxonomy.id);
         await expect(wizard.dialog).toHaveCount(0);
@@ -134,8 +198,8 @@ test.describe(
           format,
         );
         return {
-          planStatus: plan.status(),
-          confirmedOk: confirmed.ok(),
+          planStatus: run.planStatus,
+          confirmedOk: run.confirmedOk,
           before,
           after,
           exported,
@@ -325,6 +389,169 @@ test.describe(
         expect(after['Child C']?.externalId).toBe('COMP-C1');
         expect(after['Child C']?.parentValue).toBe('Parent P');
         expect(internalIdOf(after, 'Child C')).toBe(internalIdOf(before, 'Child C'));
+      } finally {
+        await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
+      }
+    });
+
+    test('keeps a unit tagged with a renamed Competency (CI-03)', async ({
+      contentCourse,
+      studioAuthorSession,
+      competencyTaxonomyAdmin,
+      page,
+      config,
+    }) => {
+      void studioAuthorSession;
+      const { detail, request } = competencyTaxonomyAdmin;
+      const created: number[] = [];
+      try {
+        const unit = await authorUnit(page.request, config, contentCourse.courseKey);
+        const { taxonomy, tags: before } = await seedCompetencyTaxonomy(request, config, {
+          name: name('tagged-rename'),
+          rows: COMPETENCY_SETS.A,
+          org: suiteOrg(config),
+        });
+        created.push(taxonomy.id);
+        await setObjectTags(page.request, config, unit, taxonomy.id, ['Competency A']);
+
+        const run = await reimportThroughWizard(
+          detail,
+          taxonomy.id,
+          competencyImportFile(
+            renameCompetencyIds(COMPETENCY_SETS.A, { 'COMP-A': { id: 'COMP-B' } }),
+            { format: 'csv' },
+          ),
+        );
+        expect(run.confirmedOk).toBe(true);
+
+        const after = await readTagIds(request, config, taxonomy.id);
+        expect(after['Competency A']?.externalId).toBe('COMP-B');
+        expect(internalIdOf(after, 'Competency A')).toBe(internalIdOf(before, 'Competency A'));
+        expect(await appliedValues(page.request, config, unit, taxonomy.id)).toEqual([
+          'Competency A',
+        ]);
+        expect(tagCountFor(await fetchObjectTagCounts(page.request, config, [unit]), unit)).toBe(1);
+      } finally {
+        await deleteTaxonomiesBestEffort(request, config, created);
+      }
+    });
+
+    test('keeps a unit tagged after two Competency IDs are exchanged in the wizard (CI-06)', async ({
+      contentCourse,
+      studioAuthorSession,
+      competencyTaxonomyAdmin,
+      page,
+      config,
+    }) => {
+      void studioAuthorSession;
+      const { detail, request } = competencyTaxonomyAdmin;
+      const created: number[] = [];
+      try {
+        const unit = await authorUnit(page.request, config, contentCourse.courseKey);
+        const { taxonomy, tags: before } = await seedCompetencyTaxonomy(request, config, {
+          name: name('tagged-swap'),
+          rows: COMPETENCY_SETS.B,
+          org: suiteOrg(config),
+        });
+        created.push(taxonomy.id);
+        await setObjectTags(page.request, config, unit, taxonomy.id, [
+          'Competency X',
+          'Competency Y',
+        ]);
+
+        const run = await reimportThroughWizard(
+          detail,
+          taxonomy.id,
+          competencyImportFile(
+            renameCompetencyIds(COMPETENCY_SETS.B, {
+              'COMP-A': { id: 'COMP-B' },
+              'COMP-B': { id: 'COMP-A' },
+            }),
+            { format: 'csv' },
+          ),
+          // The plan holds more than one line (the exact number depends on the plan format).
+          async () => {
+            await expect.poll(() => detail.wizard.planActions.count()).toBeGreaterThanOrEqual(2);
+          },
+        );
+        expect(run.planStatus).toBe(200);
+        expect(run.confirmedOk).toBe(true);
+
+        const after = await readTagIds(request, config, taxonomy.id);
+        expect(Object.keys(after)).toHaveLength(2);
+        expect(after['Competency X']?.externalId).toBe('COMP-B');
+        expect(after['Competency Y']?.externalId).toBe('COMP-A');
+        for (const value of ['Competency X', 'Competency Y']) {
+          expect(internalIdOf(after, value), value).toBe(internalIdOf(before, value));
+        }
+        expect(await appliedValues(page.request, config, unit, taxonomy.id)).toEqual([
+          'Competency X',
+          'Competency Y',
+        ]);
+        expect(tagCountFor(await fetchObjectTagCounts(page.request, config, [unit]), unit)).toBe(2);
+      } finally {
+        await deleteTaxonomiesBestEffort(request, config, created);
+      }
+    });
+
+    test('renames onto an ID the same import frees and keeps the unit tagged (CI-08)', async ({
+      contentCourse,
+      studioAuthorSession,
+      competencyAdminApi,
+      page,
+      config,
+    }) => {
+      void studioAuthorSession;
+      const created: number[] = [];
+      // Competency X is left out of the file, and Competency Y takes the ID X held.
+      const renamed = renameCompetencyIds(
+        COMPETENCY_SETS.D.filter((row) => row.id !== 'COMP-Z'),
+        { 'COMP-A': { id: 'COMP-Z' } },
+      );
+      try {
+        const unit = await authorUnit(page.request, config, contentCourse.courseKey);
+        for (const [position, rows] of [
+          ['first', renamed],
+          ['last', [...renamed].reverse()],
+        ] as const) {
+          const { taxonomy, tags: before } = await seedCompetencyTaxonomy(
+            competencyAdminApi,
+            config,
+            {
+              name: name(`vacate-${position}`),
+              rows: COMPETENCY_SETS.D,
+              org: suiteOrg(config),
+            },
+          );
+          created.push(taxonomy.id);
+          await setObjectTags(page.request, config, unit, taxonomy.id, ['Competency Y']);
+
+          const { plan, result } = await reimportThroughApi(
+            competencyAdminApi,
+            config,
+            taxonomy.id,
+            competencyImportFile(rows, { format: 'csv' }),
+          );
+          expect(plan.ok, `plan, rename ${position}`).toBe(true);
+          expect(result.ok, `import, rename ${position}`).toBe(true);
+
+          const after = await readTagIds(competencyAdminApi, config, taxonomy.id);
+          expect(Object.keys(after).sort(), `tags, rename ${position}`).toEqual([
+            'Competency Y',
+            'Neutral Competency 1',
+          ]);
+          expect(after['Competency Y']?.externalId, `Y's ID, rename ${position}`).toBe('COMP-Z');
+          expect(internalIdOf(after, 'Competency Y'), `Y, rename ${position}`).toBe(
+            internalIdOf(before, 'Competency Y'),
+          );
+          expect(after['Neutral Competency 1'], `N1, rename ${position}`).toEqual(
+            before['Neutral Competency 1'],
+          );
+          expect(
+            await appliedValues(page.request, config, unit, taxonomy.id),
+            `applied tags, rename ${position}`,
+          ).toEqual(['Competency Y']);
+        }
       } finally {
         await deleteTaxonomiesBestEffort(competencyAdminApi, config, created);
       }
