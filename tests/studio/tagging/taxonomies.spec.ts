@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import type { Download } from '@playwright/test';
 
 import { fetchTaxonomy, listTaxonomies, listTaxonomyTags } from '../../../src/api';
@@ -10,6 +8,7 @@ import { testId } from '../../../src/reporting';
 import {
   IMPORT_EXTRA_TAG,
   deleteTaxonomiesBestEffort,
+  downloadText,
   TAG,
   taxonomyImportFile,
   taxonomyImportFileCsv,
@@ -212,7 +211,5 @@ test.describe(
 
 /** Reads a download's first line of text (the export/template oracle). */
 async function readFirstLine(download: Download): Promise<string> {
-  const path = await download.path();
-  if (path === null) return '';
-  return readFileSync(path, 'utf8').split('\n')[0] ?? '';
+  return (await downloadText(download)).split('\n')[0] ?? '';
 }

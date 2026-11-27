@@ -416,13 +416,16 @@ export {
 export {
   TAGGING_BASE,
   CBE_BASE,
+  addTag,
   deleteTaxonomy,
   fetchObjectTagCounts,
   fetchObjectTags,
   fetchTaxonomy,
+  importTags,
   importTaxonomy,
   listTaxonomies,
   listTaxonomyTags,
+  previewTagsImport,
   setObjectTags,
   setTaxonomyEnabled,
   setTaxonomyOrgs,
@@ -435,6 +438,8 @@ export {
   type ObjectTaxonomyTags,
   type Taxonomy,
   type TaxonomyList,
+  type TagsImportFile,
+  type TagsImportOutcome,
   type TaxonomyTag,
 } from './tagging';
 export {

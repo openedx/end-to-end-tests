@@ -2,7 +2,13 @@ import type { APIRequestContext } from '@playwright/test';
 
 import type { AppConfig } from '../config';
 import { ApiError } from './errors';
-import { studioJson, studioOrigin, studioWriteHeaders, STUDIO_JSON_ACCEPT } from './studio-origin';
+import {
+  nonJsonPreview,
+  studioJson,
+  studioOrigin,
+  studioWriteHeaders,
+  STUDIO_JSON_ACCEPT,
+} from './studio-origin';
 
 /**
  * Content tagging: the CMS `content_tagging/v1/` API behind the authoring MFE's
@@ -277,6 +283,8 @@ export async function deleteTaxonomy(
 export interface TaxonomyTag {
   readonly value: string;
   readonly externalId: string | null;
+  /** The tag's database id (`_id`), which stays the same when an import renames the tag in place. */
+  readonly internalId: number | null;
   readonly childCount: number;
   readonly depth: number;
   readonly parentValue: string | null;
@@ -285,6 +293,7 @@ export interface TaxonomyTag {
 interface RawTaxonomyTag {
   readonly value: string;
   readonly external_id: string | null;
+  readonly _id?: number | null;
   readonly child_count: number;
   readonly depth: number;
   readonly parent_value: string | null;
@@ -313,10 +322,110 @@ export async function listTaxonomyTags(
   return raw.results.map((t) => ({
     value: t.value,
     externalId: t.external_id,
+    internalId: t._id ?? null,
     childCount: t.child_count,
     depth: t.depth,
     parentValue: t.parent_value,
   }));
+}
+
+/** The tag file an import endpoint receives (Playwright's multipart file payload shape). */
+export interface TagsImportFile {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly buffer: Buffer;
+}
+
+/**
+ * What an import endpoint answered. A rejected file is an answer here, not an error: the
+ * cases that expect a 400 read `status` and look for their own IDs in `body`, the
+ * response text as the server sent it.
+ */
+export interface TagsImportOutcome {
+  readonly ok: boolean;
+  readonly status: number;
+  readonly body: string;
+}
+
+async function putTagsFile(
+  request: APIRequestContext,
+  config: AppConfig,
+  url: string,
+  file: TagsImportFile,
+  what: string,
+): Promise<TagsImportOutcome> {
+  const response = await request.put(url, {
+    headers: await studioWriteHeaders(request, config),
+    multipart: { file },
+  });
+  const body = await response.text();
+  const status = response.status();
+  // A 5xx or a redirect says nothing about the file: it is an environment fault.
+  if (status >= 500 || (status >= 300 && status < 400)) {
+    throw new ApiError(`${what} failed (HTTP ${status}): ${nonJsonPreview(body)}`, {
+      status,
+      url,
+      body,
+      retryable: status >= 500,
+    });
+  }
+  return { ok: response.ok(), status, body };
+}
+
+/**
+ * Asks what re-importing `file` would change in a taxonomy (`PUT tags/import/plan/`),
+ * changing nothing. Admin-only. Returns the outcome whatever the status below 500.
+ */
+export async function previewTagsImport(
+  request: APIRequestContext,
+  config: AppConfig,
+  taxonomyId: number,
+  file: TagsImportFile,
+): Promise<TagsImportOutcome> {
+  const url = `${studioOrigin(config)}${TAGGING_BASE}/taxonomies/${taxonomyId}/tags/import/plan/`;
+  return putTagsFile(
+    request,
+    config,
+    url,
+    file,
+    `Planning a tag import into taxonomy ${taxonomyId}`,
+  );
+}
+
+/**
+ * Re-imports `file` into an existing taxonomy, replacing its tags (`PUT tags/import/`).
+ * Admin-only. Returns the outcome whatever the status below 500.
+ */
+export async function importTags(
+  request: APIRequestContext,
+  config: AppConfig,
+  taxonomyId: number,
+  file: TagsImportFile,
+): Promise<TagsImportOutcome> {
+  const url = `${studioOrigin(config)}${TAGGING_BASE}/taxonomies/${taxonomyId}/tags/import/`;
+  return putTagsFile(request, config, url, file, `Importing tags into taxonomy ${taxonomyId}`);
+}
+
+/**
+ * Creates one tag in a taxonomy (`POST tags/`), under `parentTagValue` when given. The
+ * request carries no `external_id`, so the backend generates the tag's ID. Admin-only here.
+ * Returns nothing: the caller reads the tag back with {@link listTaxonomyTags}.
+ */
+export async function addTag(
+  request: APIRequestContext,
+  config: AppConfig,
+  taxonomyId: number,
+  options: { readonly tag: string; readonly parentTagValue?: string },
+): Promise<void> {
+  const url = `${studioOrigin(config)}${TAGGING_BASE}/taxonomies/${taxonomyId}/tags/`;
+  const response = await request.post(url, {
+    headers: await studioWriteHeaders(request, config),
+    data: {
+      tag: options.tag,
+      ...(options.parentTagValue === undefined ? {} : { parent_tag_value: options.parentTagValue }),
+    },
+  });
+  await studioJson<unknown>(response, `Adding tag "${options.tag}" to taxonomy ${taxonomyId}`);
 }
 
 /** One applied tag on an object, with its full lineage (parents first). */

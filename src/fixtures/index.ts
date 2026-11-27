@@ -942,6 +942,14 @@ export interface TestFixtures {
    */
   competencyTaxonomyAdmin: TaxonomyAdmin;
   /**
+   * {@link adminApi} for API-only cases tagged `@competencies`: the admin's API session,
+   * held under the admin lock for the whole test, with the same checks as
+   * {@link competencyTaxonomyAdmin} (refuses an untagged test, fails when the
+   * content-tagging API serves no `taxonomy_type`). Cases that drive the taxonomy pages
+   * use {@link competencyTaxonomyAdmin} instead.
+   */
+  competencyAdminApi: APIRequestContext;
+  /**
    * The taxonomy pages on the worker author's own browser, for cases where a
    * user without staff rights drives the taxonomy screens (that user's taxonomy
    * list is empty, so there is no list page object). Takes the author's
@@ -2189,6 +2197,25 @@ async function authorCompetencyTree(
     );
   }
   return { taxonomy, competency, request };
+}
+
+/**
+ * Fails the test when the content-tagging API serves no `taxonomy_type`, where a
+ * `competencies` declaration against such a backend would otherwise surface as
+ * `storedType: undefined` after a poll timeout. An empty taxonomy list proves nothing
+ * either way and passes.
+ */
+async function requireTaxonomyTypeServed(
+  request: APIRequestContext,
+  config: AppConfig,
+): Promise<void> {
+  const { taxonomies } = await listTaxonomies(request, config);
+  if (taxonomies[0] !== undefined && taxonomies[0].taxonomyType === undefined) {
+    throw capabilityContradicted(
+      'competencies',
+      'the content-tagging API serves no `taxonomy_type`',
+    );
+  }
 }
 
 /**
@@ -4574,14 +4601,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   competencyTaxonomyAdmin: async ({ taxonomyAdmin, config }, use, testInfo) => {
     requireCapabilityTag(testInfo, 'competencies');
-    const { taxonomies } = await listTaxonomies(taxonomyAdmin.request, config);
-    if (taxonomies[0] !== undefined && taxonomies[0].taxonomyType === undefined) {
-      throw capabilityContradicted(
-        'competencies',
-        'the content-tagging API serves no `taxonomy_type`',
-      );
-    }
+    await requireTaxonomyTypeServed(taxonomyAdmin.request, config);
     await use(taxonomyAdmin);
+  },
+
+  competencyAdminApi: async ({ adminApi, config }, use, testInfo) => {
+    requireCapabilityTag(testInfo, 'competencies');
+    await requireTaxonomyTypeServed(adminApi, config);
+    await use(adminApi);
   },
 
   authorTaxonomyPages: async ({ page, config, studioAuthorSession }, use) => {
