@@ -113,7 +113,7 @@ measured, and issues are opened by hand from them.
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy pages' breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` and `studio-competency-management` scans only |
-| `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` and `import-competency-framework.spec.ts` (a page load before each wizard run, a different file on re-import or when the wizard is reopened without a reload) |
+| `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts`, `import-competency-framework.spec.ts` and `taxonomy-reimport-previous-id.spec.ts` (a page load before each wizard run, a different file on re-import or when the wizard is reopened without a reload) |
 | `TAG-006`   | `openedx/frontend-app-authoring` (taxonomy card fixed width) | open, not filed, not asserted — `competency-entry-points.spec.ts` asserts the #663 AC (menu items inside the width, footer button visible and clickable) |
 | `TAG-007`   | `openedx/openedx-core` (`tag_pre_delete` lineage filter not scoped to the taxonomy) | **filed** - [openedx-core#934](https://github.com/openedx/openedx-core/issues/934), not asserted — slows taxonomy deletes in fixture cleanup on a stack with leftover suite ObjectTags |
 | `STUDIO-010` | `openedx/frontend-app-authoring` (Textbooks list markup, unnamed card actions on verawood) | open, no `fixme` — `list` and `button-name` baselined on the `studio-textbooks` scan only |
@@ -1667,7 +1667,9 @@ import wizard has the same bug: every wizard run in
 `tests/studio/tagging/import-competency-framework.spec.ts` starts from
 `competency.goto()`, and the test "reopens the wizard from a clean state after a
 failed import" in the same file reopens the wizard without a reload with a different
-file (JSON after the CSV). The workaround comes out
+file (JSON after the CSV). Every wizard run in
+`tests/studio/tagging/taxonomy-reimport-previous-id.spec.ts` reloads with
+`detail.goto()` first. The workaround comes out
 once #827 is fixed.
 
 ### `TAG-006` — the taxonomy card is wider than a phone window

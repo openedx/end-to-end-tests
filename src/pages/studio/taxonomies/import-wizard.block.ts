@@ -1,14 +1,16 @@
 import type { Locator, Page, Request, Response } from '@playwright/test';
 
 import { TAXONOMY_SELECTORS, TIMEOUTS } from '../../../config';
-import { ApiError, TAGGING_BASE, nonJsonPreview, type ImportableTaxonomyType } from '../../../api';
+import {
+  ApiError,
+  TAGGING_BASE,
+  nonJsonPreview,
+  type ImportableTaxonomyType,
+  type TagsImportFile,
+} from '../../../api';
 
 /** A file the import wizard uploads (Playwright's `setInputFiles` payload shape). */
-export interface ImportFile {
-  readonly name: string;
-  readonly mimeType: string;
-  readonly buffer: Buffer;
-}
+export type ImportFile = TagsImportFile;
 
 /**
  * The new-taxonomy import wizard (a Paragon `Stepper` in a `ModalDialog`), which the
@@ -37,6 +39,8 @@ export class ImportWizardBlock {
   readonly importButton: Locator;
   /** The footer's Continue button (the plan step's), found by its test id. */
   readonly continueButton: Locator;
+  /** The Plan step's change lines; the "No changes" placeholder is not one of them. */
+  readonly planActions: Locator;
   readonly typeSelect: Locator;
   readonly typeOptions: Locator;
   readonly nameInput: Locator;
@@ -56,6 +60,7 @@ export class ImportWizardBlock {
     this.primaryButton = page.locator(this.s.wizardPrimaryButton);
     this.importButton = this.dialog.locator(this.s.wizardImport);
     this.continueButton = this.dialog.locator(this.s.wizardContinue);
+    this.planActions = this.planStep.locator(this.s.planAction);
     this.typeSelect = this.dialog.locator(this.s.typeSelect);
     this.typeOptions = this.typeSelect.locator('option');
     this.nameInput = this.dialog.locator(this.s.populateNameInput);
@@ -78,6 +83,58 @@ export class ImportWizardBlock {
       mimeType: file.mimeType,
       buffer: file.buffer,
     });
+  }
+
+  /**
+   * Hands `file` to the re-import Upload step and returns the `PUT tags/import/plan/`
+   * response for taxonomy `taxonomyId`. The wizard requests the plan as soon as a file
+   * is chosen, not on Continue, so the response is awaited around the file choice.
+   */
+  async chooseFileForPlan(taxonomyId: number, file: ImportFile): Promise<Response> {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (r) =>
+          r.url().includes(`${TAGGING_BASE}/taxonomies/${taxonomyId}/tags/import/plan/`) &&
+          r.request().method() === 'PUT',
+        { timeout: TIMEOUTS.taxonomyImport },
+      ),
+      this.chooseFile(file),
+    ]);
+    return response;
+  }
+
+  /**
+   * Clicks the Upload step's primary button (labelled Import in a re-import, though it
+   * leads to the Plan step) and waits for the Plan step. It has no test id, so it is the
+   * footer's primary button.
+   */
+  async continueToPlan(): Promise<void> {
+    await this.primaryButton.click();
+    await this.planStep.waitFor({ timeout: TIMEOUTS.taxonomyImport });
+  }
+
+  /** Clicks Continue on the Plan step and waits for the Confirm step. */
+  async continueToConfirm(): Promise<void> {
+    await this.continueButton.click();
+    await this.confirmStep.waitFor();
+  }
+
+  /**
+   * Clicks the Confirm step's primary button (no test id, so the footer's primary) and
+   * returns the `PUT tags/import/` response for taxonomy `taxonomyId`, whatever its status.
+   */
+  async confirmReimport(taxonomyId: number): Promise<Response> {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (r) =>
+          r.url().includes(`${TAGGING_BASE}/taxonomies/${taxonomyId}/tags/import/`) &&
+          !r.url().includes('/plan/') &&
+          r.request().method() === 'PUT',
+        { timeout: TIMEOUTS.taxonomyImport },
+      ),
+      this.primaryButton.click(),
+    ]);
+    return response;
   }
 
   /** Clicks Continue on the Upload step and waits for the Populate step. */

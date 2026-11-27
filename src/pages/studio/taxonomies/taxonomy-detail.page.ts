@@ -90,34 +90,33 @@ export class TaxonomyDetailPage {
   }
 
   /**
-   * Re-imports `file` into this taxonomy through the wizard: export → upload →
-   * plan → confirm. Waits for the confirm `PUT tags/import/`. The upload-step and
-   * confirm-step primary buttons have no test id, so they are the footer primary.
+   * Opens the re-import wizard from the Actions menu and waits for its Upload step. A
+   * re-import opens on the Export step, which this skips.
    */
-  async reimport(id: number, file: ImportFile): Promise<void> {
+  async openReimport(): Promise<void> {
     await this.openMenu();
     await this.page.locator(this.s.menuImport).click();
-    // Re-import opens on the export step; skip it.
     await this.page.locator(this.s.wizardNext).click();
     await this.wizard.waitForUpload();
-    await this.wizard.chooseFile(file);
+  }
+
+  /**
+   * Re-imports `file` through the wizard (export, upload, plan, confirm) and waits for
+   * the confirm `PUT tags/import/`. A rejected plan or import throws with its status and
+   * body. `atPlan`, when given, runs on the Plan step before the wizard moves on, for the
+   * caller to read what the plan shows.
+   */
+  async reimport(id: number, file: ImportFile, atPlan?: () => Promise<void>): Promise<void> {
+    await this.openReimport();
+    const plan = await this.wizard.chooseFileForPlan(id, file);
+    if (!plan.ok()) {
+      throw new Error(`Re-import plan failed: ${plan.status()} ${await plan.text()}`);
+    }
     await this.wizard.fileInfo.waitFor();
-    // Upload-step primary (generatePlan) → plan step.
-    await this.wizard.primaryButton.click();
-    await this.wizard.planStep.waitFor({ timeout: TIMEOUTS.taxonomyImport });
-    await this.wizard.continueButton.click();
-    await this.wizard.confirmStep.waitFor();
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (r) =>
-          r.url().includes(`${TAGGING_BASE}/taxonomies/${id}/tags/import/`) &&
-          !r.url().includes('/plan/') &&
-          r.request().method() === 'PUT',
-        { timeout: TIMEOUTS.taxonomyImport },
-      ),
-      // Confirm-step primary (confirmImportTags) has no test id.
-      this.wizard.primaryButton.click(),
-    ]);
+    await this.wizard.continueToPlan();
+    await atPlan?.();
+    await this.wizard.continueToConfirm();
+    const response = await this.wizard.confirmReimport(id);
     if (!response.ok()) {
       throw new Error(`Re-import failed: ${response.status()} ${await response.text()}`);
     }

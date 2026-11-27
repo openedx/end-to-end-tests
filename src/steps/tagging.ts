@@ -1,13 +1,17 @@
-import type { APIRequestContext, TestInfo } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+import type { APIRequestContext, Download, TestInfo } from '@playwright/test';
 
 import { getRunId, type AppConfig } from '../config';
 import {
   deleteTaxonomy,
   importTaxonomy,
   listTaxonomies,
+  listTaxonomyTags,
   setTaxonomyOrgs,
   taxonomiesNamed,
   type ImportableTaxonomyType,
+  type TagsImportFile,
   type Taxonomy,
 } from '../api';
 
@@ -399,4 +403,255 @@ export function expectedTaxonomyMenu(taxonomy: Taxonomy): string[] {
     ],
   ];
   return items.filter(([, shown]) => shown).map(([id]) => id);
+}
+
+/**
+ * One tag of a competency import file. `id` is the Competency ID (`external_id`),
+ * `parentId` the ID of the parent row, and `previousId` the ID the tag has now when the
+ * row renames it (`previous_id`, accepted by an import only).
+ */
+export interface CompetencyRow {
+  readonly id: string;
+  readonly value: string;
+  readonly parentId?: string;
+  readonly previousId?: string;
+}
+
+/**
+ * The taxonomies the re-import cases start from, as the rows imported first. A case
+ * builds its "after" file from the same rows with {@link renameCompetencyIds}.
+ */
+export const COMPETENCY_SETS = {
+  /** One tag to rename and three that stay as they are. */
+  oneToRename: [
+    { id: 'COMP-A', value: 'Competency A' },
+    { id: 'COMP-N1', value: 'Neutral Competency 1' },
+    { id: 'COMP-N2', value: 'Neutral Competency 2' },
+    { id: 'COMP-N3', value: 'Neutral Competency 3' },
+  ],
+  /** Two tags whose IDs can be exchanged or left alone. */
+  pair: [
+    { id: 'COMP-A', value: 'Competency X' },
+    { id: 'COMP-B', value: 'Competency Y' },
+  ],
+  /** Three tags whose IDs rotate. */
+  rotation: [
+    { id: 'COMP-A', value: 'Competency X' },
+    { id: 'COMP-B', value: 'Competency Y' },
+    { id: 'COMP-C', value: 'Competency Z' },
+  ],
+  /** A tag (Y) that takes the ID of another (X) once the file no longer holds X. */
+  freedId: [
+    { id: 'COMP-Z', value: 'Competency X' },
+    { id: 'COMP-A', value: 'Competency Y' },
+    { id: 'COMP-N1', value: 'Neutral Competency 1' },
+  ],
+  /** A parent with one child. */
+  parentWithChild: [
+    { id: 'COMP-P', value: 'Parent P' },
+    { id: 'COMP-C1', value: 'Child C', parentId: 'COMP-P' },
+  ],
+  /** Two parents, each with one child, parents first. */
+  twoParents: [
+    { id: 'COMP-1', value: 'Parent One' },
+    { id: 'COMP-3', value: 'Parent Three' },
+    { id: 'COMP-1A', value: 'Child One', parentId: 'COMP-1' },
+    { id: 'COMP-3A', value: 'Child Three', parentId: 'COMP-3' },
+  ],
+} as const satisfies Record<string, readonly CompetencyRow[]>;
+
+/**
+ * Rewrites `rows` as the file that renames tags: a row whose `id` is a key of `renames`
+ * takes the patch's new `id` and `value` (each kept when absent) and gets its old `id` as
+ * `previousId`. A child's `parentId` follows its parent's new ID, as a hand-written file
+ * would have it. Rows keep their order.
+ */
+export function renameCompetencyIds(
+  rows: readonly CompetencyRow[],
+  renames: Readonly<Record<string, { readonly id?: string; readonly value?: string }>>,
+): CompetencyRow[] {
+  return rows.map((row) => {
+    const patch = renames[row.id];
+    const parentPatch = row.parentId === undefined ? undefined : renames[row.parentId];
+    const renamed: CompetencyRow = {
+      ...row,
+      ...(parentPatch?.id === undefined ? {} : { parentId: parentPatch.id }),
+    };
+    return patch === undefined
+      ? renamed
+      : {
+          ...renamed,
+          id: patch.id ?? row.id,
+          value: patch.value ?? row.value,
+          previousId: row.id,
+        };
+  });
+}
+
+/** Quotes a CSV cell when it holds a comma, a quote or a line break. */
+function csvCell(cell: string): string {
+  return /[",\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell;
+}
+
+/**
+ * The import file for `rows`, as the wizard and the import endpoints take it. A CSV has
+ * the columns `id,value,parent_id` and adds `previous_id` only when some row sets it. A
+ * JSON file is `{ "tags": [...] }` and carries `previous_id` only on the rows that set it.
+ * The file name is fixed and carries the format's extension, which the wizard uses to
+ * tell CSV from JSON.
+ */
+export function competencyImportFile(
+  rows: readonly CompetencyRow[],
+  options: { readonly format: 'csv' | 'json' },
+): TagsImportFile {
+  const name = `e2e-competency-ids.${options.format}`;
+  if (options.format === 'json') {
+    const tags = rows.map((row) => ({
+      id: row.id,
+      value: row.value,
+      parent_id: row.parentId ?? '',
+      ...(row.previousId === undefined ? {} : { previous_id: row.previousId }),
+    }));
+    return {
+      name,
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify({ tags })),
+    };
+  }
+  const withPrevious = rows.some((row) => row.previousId !== undefined);
+  const header = ['id', 'value', 'parent_id', ...(withPrevious ? ['previous_id'] : [])];
+  const lines = rows.map((row) =>
+    [row.id, row.value, row.parentId ?? '', ...(withPrevious ? [row.previousId ?? ''] : [])]
+      .map(csvCell)
+      .join(','),
+  );
+  return {
+    name,
+    mimeType: 'text/csv',
+    buffer: Buffer.from([header.join(','), ...lines].join('\n')),
+  };
+}
+
+/** What identifies a tag before and after an import: its database id, external ID and parent. */
+export interface TagIds {
+  readonly internalId: number | null;
+  readonly externalId: string | null;
+  readonly parentValue: string | null;
+}
+
+/**
+ * Reads every tag of a taxonomy keyed by its value (unique within a taxonomy): its
+ * database id, Competency ID and parent. A case takes this before an import and again
+ * after it to show that tags were renamed in place or left untouched.
+ */
+export async function readTagIds(
+  request: APIRequestContext,
+  config: AppConfig,
+  taxonomyId: number,
+): Promise<Record<string, TagIds>> {
+  const tags = await listTaxonomyTags(request, config, taxonomyId);
+  return Object.fromEntries(
+    tags.map((tag) => [
+      tag.value,
+      { internalId: tag.internalId, externalId: tag.externalId, parentValue: tag.parentValue },
+    ]),
+  );
+}
+
+/**
+ * Imports a Competency taxonomy of `rows` (JSON) named `name`, assigns it to `org` when
+ * given, and returns it with the IDs of its tags as {@link readTagIds} reads them. Admin
+ * only: call it on an admin request context. The caller deletes the taxonomy.
+ */
+export async function seedCompetencyTaxonomy(
+  request: APIRequestContext,
+  config: AppConfig,
+  options: {
+    readonly name: string;
+    readonly rows: readonly CompetencyRow[];
+    readonly org?: string;
+  },
+): Promise<{ readonly taxonomy: Taxonomy; readonly tags: Record<string, TagIds> }> {
+  const taxonomy = await importTaxonomy(request, config, {
+    name: options.name,
+    description: 'E2E suite taxonomy',
+    file: competencyImportFile(options.rows, { format: 'json' }),
+    taxonomyType: 'competency',
+  });
+  if (options.org !== undefined) {
+    await setTaxonomyOrgs(request, config, taxonomy.id, [options.org]);
+  }
+  return { taxonomy, tags: await readTagIds(request, config, taxonomy.id) };
+}
+
+/** One tag of an exported file: the three columns of its row and the keys the row carries. */
+export interface ExportedTag {
+  readonly id: string;
+  readonly value: string;
+  /** `null` for a root tag, whether the file wrote an empty string or `null`. */
+  readonly parentId: string | null;
+  /** The column names (CSV, the same for every row) or keys of the entry (JSON). */
+  readonly keys: readonly string[];
+}
+
+interface RawExportedTag {
+  readonly id?: unknown;
+  readonly value?: string;
+  readonly parent_id?: string | null;
+}
+
+/**
+ * Parses a taxonomy export (the text of the downloaded CSV or JSON file) into its tags.
+ * It only reads: whether the IDs, parents and keys are right is the caller's assertion.
+ *
+ * @throws {Error} when the text is not the format's shape (no header, no `tags` array), or
+ * when a CSV holds a quoted cell.
+ */
+export function parseExportedIds(text: string, format: 'csv' | 'json'): ExportedTag[] {
+  if (format === 'json') {
+    const parsed = JSON.parse(text) as { tags?: unknown } | null;
+    if (!Array.isArray(parsed?.tags)) {
+      throw new Error('The exported JSON has no "tags" array.');
+    }
+    return (parsed.tags as RawExportedTag[]).map((entry) => {
+      if (typeof entry.id !== 'string') {
+        throw new Error(
+          `The exported JSON has a tag whose id is not a string: ${JSON.stringify(entry)}`,
+        );
+      }
+      return {
+        id: entry.id,
+        value: entry.value ?? '',
+        parentId: entry.parent_id === undefined || entry.parent_id === '' ? null : entry.parent_id,
+        keys: Object.keys(entry),
+      };
+    });
+  }
+  if (text.includes('"')) {
+    throw new Error(
+      "The exported CSV holds a quoted cell, which this parser does not read: the suite's " +
+        'own tag values and IDs contain no commas, quotes or line breaks.',
+    );
+  }
+  const [headerLine, ...lines] = text.split(/\r?\n/).filter((line) => line !== '');
+  if (headerLine === undefined) {
+    throw new Error('The exported CSV is empty: it has no header row.');
+  }
+  const header = headerLine.split(',');
+  const column = (cells: readonly string[], name: string): string =>
+    cells[header.indexOf(name)] ?? '';
+  return lines.map((line) => {
+    const cells = line.split(',');
+    return {
+      id: column(cells, 'id'),
+      value: column(cells, 'value'),
+      parentId: column(cells, 'parent_id') === '' ? null : column(cells, 'parent_id'),
+      keys: header,
+    };
+  });
+}
+
+/** Reads the text of a downloaded file (a taxonomy export or template). */
+export async function downloadText(download: Download): Promise<string> {
+  return readFile(await download.path(), 'utf8');
 }

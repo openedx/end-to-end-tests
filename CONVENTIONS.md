@@ -345,19 +345,20 @@ deployment-agnostic and stable.
   tag-drawer specs, and `taxonomyAdmin` signs the admin into Studio in its own
   browser and holds the lock for the whole test (its `page.request` is the same
   session, used for the content-tagging API and cleanup; `competencyTaxonomyAdmin`
-  wraps it). Other fixtures take the lock only briefly: `workerTaxonomy`,
-  `authoringTaxonomy` and `competencyTaxonomySeeder` for each seed and
-  teardown, and `staffTaxonomyColleague` through `adminLms` for each staff
-  grant and revoke.
+  wraps it). `competencyAdminApi` wraps `adminApi` for API-only `@competencies`
+  cases and likewise holds the lock for the whole test. Other fixtures take the
+  lock only briefly: `workerTaxonomy`, `authoringTaxonomy` and
+  `competencyTaxonomySeeder` for each seed and teardown, and
+  `staffTaxonomyColleague` through `adminLms` for each staff grant and revoke.
   A read-only check of a Competency taxonomy needs no admin in the test.
   `competencyTree` and `competencyScrollTree` hand it a taxonomy that the worker
   fixtures `seededCompetencyTree` and `seededCompetencyScrollTree` seeded once,
   holding the admin lock only for the seed and the teardown. The test opens it as
   the worker author, whose `authoredCourse` in the suite org gives the role that
   makes it visible.
-  Never combine `taxonomyAdmin` with any of them in one test — the lock is not
-  reentrant and the two deadlock; the taxonomy-page cases seed their own
-  taxonomies through the UI or through `taxonomyAdmin.seed`.
+  Never combine `taxonomyAdmin` or `competencyAdminApi` with any of them in one
+  test — the lock is not reentrant and the two deadlock; the taxonomy-page cases
+  seed their own taxonomies through the UI or through `taxonomyAdmin.seed`.
 
 - **`object_tags` is the tag oracle.** The UI drives the tag drawer; the
   `content_tagging/v1/object_tags/` API decides whether a tag stuck. A course is

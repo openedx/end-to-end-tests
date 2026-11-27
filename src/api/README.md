@@ -220,8 +220,9 @@ outcome").
   caller polls through — `isMigrationSettled`).
 - `tagging.ts` — the content-tagging API (`content_tagging/v1/`): taxonomy
   lifecycle (`listTaxonomies`, `importTaxonomy`, `setTaxonomyOrgs`,
-  `deleteTaxonomy`, `listTaxonomyTags`) and object tags (`fetchObjectTags`,
-  `setObjectTags`, `fetchObjectTagCounts`) — the tag drawer's oracle.
+  `deleteTaxonomy`, `listTaxonomyTags`), tag writes (`addTag`; `previewTagsImport`
+  and `importTags` re-import a file, and throw an `ApiError` for a rejected one) and object
+  tags (`fetchObjectTags`, `setObjectTags`, `fetchObjectTagCounts`) — the tag drawer's oracle.
 - `mfe-config.ts` — `fetchAuthoringMfeConfig`: the authoring MFE's `/api/mfe_config`
   (the normalized `AGREEMENT_GATING` map, tagging/assets flags); `agreementTypesIn`.
 - `agreements.ts` — the upload-agreement record API (`fetchAgreementRecord`,
