@@ -48,6 +48,21 @@ test.describe('renameCompetencyIds', { tag: '@unit' }, () => {
   });
 });
 
+test.describe('renameCompetencyIds, parents with children', { tag: '@unit' }, () => {
+  test('swapping two parents repoints each child at its parent new ID, parents first', () => {
+    const rows = renameCompetencyIds(COMPETENCY_SETS.G, {
+      'COMP-1': { id: 'COMP-3' },
+      'COMP-3': { id: 'COMP-1' },
+    });
+    expect(rows).toEqual([
+      { id: 'COMP-3', value: 'Parent One', previousId: 'COMP-1' },
+      { id: 'COMP-1', value: 'Parent Three', previousId: 'COMP-3' },
+      { id: 'COMP-1A', value: 'Child One', parentId: 'COMP-3' },
+      { id: 'COMP-3A', value: 'Child Three', parentId: 'COMP-1' },
+    ]);
+  });
+});
+
 test.describe('competencyImportFile', { tag: '@unit' }, () => {
   test('writes a CSV without a previous_id column when no row has one', () => {
     const file = competencyImportFile(A, { format: 'csv' });
