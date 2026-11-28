@@ -4,12 +4,13 @@ import {
   canI,
   fetchCourseIndex,
   listRoleUsers,
+  listStudioCourses,
   revokeRole,
   updateXBlock,
 } from '../../../src/api';
 import { STUDIO_OUTLINE_PAGE_SELECTORS, TIMEOUTS } from '../../../src/config';
 import { seedScopeAssignments } from '../../../src/steps';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { issue, testId } from '../../../src/reporting';
 import { STUDIO_AUTHZ_TAGS } from '../studio-authz/helpers';
 import { writableSection } from './helpers';
 
@@ -190,23 +191,33 @@ test.describe(
       },
     );
 
-    test.fixme(
+    test(
       'keeps a course out of the Studio home list of an account with no role',
       {
         annotation: [
           testId('TC-00578'),
           issue('https://github.com/openedx/wg-build-test-release/issues/613'),
-          knownGap(
-            'Studio Home lists a course to an account that holds no role in it; opening it is then ' +
-              'refused. The case asks for it to be absent from the list (wg#613).',
-          ),
         ],
       },
-      async ({ authzTarget, studioAuthorSession, rbacCast }) => {
+      async ({ page, config, authzTarget, studioAuthorSession, rbacCast }) => {
         void studioAuthorSession;
+        const courseKey = authzTarget.courseKey;
         const outsider = await rbacCast('outsider');
+
+        // The list the platform serves decides, searched by the course's own
+        // number so paging cannot hide it: its author is listed the course, the
+        // outsider is not. The page is read after, where an empty list and a
+        // list still loading look alike.
+        const search = courseKey.split('+')[1] ?? '';
+        const keysListedTo = async (request: typeof page.request) =>
+          (await listStudioCourses(request, config, { search })).courses.map(
+            (course) => course.courseKey,
+          );
+        expect(await keysListedTo(page.request)).toContain(courseKey);
+        expect(await keysListedTo(outsider.request)).not.toContain(courseKey);
+
         await outsider.studioHomePage.goto();
-        await expect(outsider.studioHomePage.courseCardLink(authzTarget.courseKey)).toHaveCount(0);
+        await expect(outsider.studioHomePage.courseCardLink(courseKey)).toHaveCount(0);
       },
     );
   },

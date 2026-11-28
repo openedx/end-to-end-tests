@@ -16,7 +16,7 @@ import {
   STUDIO_SHELL_SELECTORS,
   TIMEOUTS,
 } from '../../../src/config';
-import { issue, knownGap, testId } from '../../../src/reporting';
+import { issue, testId } from '../../../src/reporting';
 import { STUDIO_AUTHZ_TAGS } from './helpers';
 
 /**
@@ -282,17 +282,11 @@ test.describe(
       },
     );
 
-    test.fixme(
+    test(
       'removes a course-scope assignment from the console',
       {
         annotation: [
           testId('TC-00620'),
-          knownGap(
-            'The console offers no working removal for a **course**-scope assignment: the audit ' +
-              "view's delete control is disabled (absent in some renderings) even for a viewer that " +
-              'holds `courses.manage_course_team` and can remove the same assignment through ' +
-              "Studio's own endpoint (`RBAC-014`).",
-          ),
           issue('https://github.com/openedx/frontend-app-admin-console/issues/258'),
         ],
       },
@@ -305,6 +299,12 @@ test.describe(
         rbacCast,
         resyncStudioAuthor,
       }) => {
+        // Runs everywhere, and is an expected failure on the console that
+        // disables this control (`rbac-console-next` undeclared).
+        test.fail(
+          !config.capabilities.has('rbac-console-next'),
+          'RBAC-014: the console offers no working removal for a course-scope assignment',
+        );
         void studioAuthorSession;
         const courseKey = authzTarget.courseKey;
         const member = await rbacCast('newcomer');

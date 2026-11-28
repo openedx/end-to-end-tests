@@ -143,9 +143,9 @@ test.describe(
 
     // PLAT-008: completion-only gating (min score 0, min completion 100) is shown
     // as gated by Studio but not enforced by the LMS, so this is written against
-    // the intended behaviour and declared `fixme`. TC-00159 covers the working
+    // the intended behaviour and expected to fail. TC-00159 covers the working
     // (score) gating path.
-    test.fixme(
+    test(
       'gates a subsection by minimum completion of a prerequisite subsection (PLAT-008)',
       {
         annotation: [
@@ -165,6 +165,10 @@ test.describe(
         studioAuthorSession,
         roundTripLearner,
       }) => {
+        test.fail(
+          true,
+          'PLAT-008: completion-only subsection gating is shown by Studio but not enforced by the LMS',
+        );
         void studioAuthorSession;
         // The prerequisite is an HTML-only subsection so completion can reach
         // 100% (a subsection with a video never can — PLAT-003).

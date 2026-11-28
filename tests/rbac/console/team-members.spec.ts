@@ -149,7 +149,7 @@ test.describe(
         annotation: [
           testId('TC-00568'),
           knownGap(
-            'openedx-authz 1.23 exposes no assignment rows for superusers or global staff, so ' +
+            'RBAC-002: openedx-authz 1.23 exposes no assignment rows for superusers or global staff, so ' +
               'the console has no platform-level row to mark; re-check on a release that does.',
           ),
           issue('https://github.com/openedx/openedx-authz/issues/347'),

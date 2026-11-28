@@ -20,9 +20,9 @@ import { NOTIFICATION_TAGS } from './helpers';
  * digest arrive while it waits.
  */
 const DIGEST_GAP = knownGap(
-  'NOTIF-004: digest e-mails are sent by a Celery task scheduled for the configured clock time ' +
+  'Suite gap: digest e-mails are sent by a Celery task scheduled for the configured clock time ' +
     '(NOTIFICATION_DAILY/WEEKLY_DIGEST_DELIVERY_*); send_email_digest is a no-op since ' +
-    'verawood, so a run cannot trigger delivery.',
+    'verawood, so a run cannot trigger delivery (`NOTIF-004`, a behaviour change, not a defect).',
 );
 
 test.describe(

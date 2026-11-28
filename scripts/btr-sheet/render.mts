@@ -4,10 +4,14 @@
  *
  * Every publish writes the same content twice — to `Latest` and to a new
  * timestamped run tab — and one row to the `Runs` index. The layouts are fixed
- * here so the sheet stays comparable across runs.
+ * here so the sheet stays comparable across runs. A publish that replaces
+ * `Latest` also rewrites `Export`: the flat, one-row-per-case view that a BTR
+ * test-plan sheet pulls in with `IMPORTRANGE` and looks up by test id.
  */
 
 import type { BtrRun, RunCase, RunTest } from '../../src/reporting/btr-run.ts';
+
+import type { CoverageGap, CoverageGaps } from './coverage-gaps.mts';
 
 /** What the publisher knows that the run report does not. */
 export interface PublishContext {
@@ -31,6 +35,35 @@ export const TABLE_HEADER: readonly string[] = [
   'Attempts',
   'Project',
 ];
+
+/**
+ * Columns A:E of the `Export` tab: what a test-plan sheet imports. The order is
+ * a contract with the lookup formulas in that sheet, so append, never reorder.
+ */
+export const EXPORT_HEADER: readonly string[] = [
+  'BTR Test ID',
+  'E2E Result',
+  'E2E Manual Check',
+  'E2E Notes',
+  'E2E Test Run URL',
+];
+
+/** Width of the `Export` grid: A:E, a blank column, then the run-info label and value. */
+export const EXPORT_WIDTH = EXPORT_HEADER.length + 3;
+
+/** Labels of the run-info block in `Export!G:H`, top to bottom. The last is one line for display. */
+export const EXPORT_INFO_LABELS: readonly string[] = [
+  'Release',
+  'Run',
+  'Run URL',
+  'Started (UTC)',
+  'Commit',
+  'Coverage gaps reviewed against',
+  'Summary',
+];
+
+/** How much of the run's own notes one `Export` cell carries before pointing at the run. */
+const EXPORT_NOTES_MAX = 300;
 
 /** Columns of the `Runs` index tab. */
 export const RUNS_HEADER: readonly string[] = [
@@ -254,6 +287,192 @@ export function renderRunsRow(
     String(v.failed),
     hyperlink(`#gid=${tab.sheetId}`, tab.title),
   ];
+}
+
+/* -------------------------------------------------------------------- Export */
+
+// One capability or several (`a, b. Declare them …`), as the capability gate words it.
+const CAPABILITY_SKIP =
+  /skipped: Installation does not have: ([^.]+)\. Declare (?:it|them) in CAPABILITIES to run this spec\./g;
+
+/** A run note in a tester's terms: a capability skip is about the CI install, not the product. */
+function testerNote(note: string): string {
+  return note.replace(CAPABILITY_SKIP, 'not run in CI: needs $1');
+}
+
+/** Whether a test's note records a dispute with the sheet (possibly behind an `in <profile>: ` prefix). */
+function isDisputed(test: RunTest): boolean {
+  return /^(in [^:]+: )?(flaky: [^;]+; )?disputed: /.test(test.note);
+}
+
+/** A run note without the `in <profile>: ` prefix it gets when profiles disagree. */
+function bareNote(test: RunTest): string {
+  return test.note.replace(/^in [^:]+: /, '');
+}
+
+/**
+ * Whether a test is a `test.fail()` that duly failed: the product has a known
+ * defect on this case, and the run observed it.
+ */
+function isExpectedFailure(test: RunTest): boolean {
+  return bareNote(test).startsWith('expected failure (known defect)');
+}
+
+/**
+ * Whether a test is a `test.fixme()` held back for a product defect rather than
+ * for something the suite lacks. The run report gives the reason as text
+ * (`knownGap(...)`, then the `issue(...)` link), so the defect is recognised by
+ * what marks one: a finding id leading the reason (`PLAT-008: …`, see
+ * `docs/findings.md`). An issue link on its own does not: suite gaps cite
+ * issues too. A reason that opens "Suite gap" is the suite's own, whatever it
+ * goes on to cite.
+ */
+function isDefectFixme(test: RunTest): boolean {
+  const note = bareNote(test);
+  if (!note.startsWith('fixme: ')) {
+    return false;
+  }
+  const reason = note.slice('fixme: '.length);
+  if (/^suite gap\b/i.test(reason)) {
+    return false;
+  }
+  return /^[A-Z]{2,}-\d{3}\b/.test(reason);
+}
+
+/**
+ * Whether a test is a `test.fail()` that passed: the defect it was held for
+ * appears fixed, and the marker is stale. The run counts it as a failure so the
+ * marker gets removed.
+ */
+function isStaleExpectedFailure(test: RunTest): boolean {
+  return bareNote(test).startsWith('UNEXPECTED PASS');
+}
+
+/**
+ * A case's result as a tester should read it: the run's verdict, except that a
+ * known product defect is a failure of the case, not a gap in the suite's
+ * coverage. The run counts both kinds as held back so the build stays green.
+ * The other way round, a case that failed only because a `test.fail()` marker
+ * went stale is `unverified`: the product did not fail it, and the note says
+ * the defect appears fixed.
+ */
+function exportResult(c: RunCase): string {
+  if (c.tests.some((t) => isExpectedFailure(t) || isDefectFixme(t))) {
+    return 'failed';
+  }
+  const failures = c.tests.filter((t) => t.status === 'failed' || t.status === 'timedOut');
+  if (c.verdict === 'failed' && failures.length > 0 && failures.every(isStaleExpectedFailure)) {
+    return 'unverified';
+  }
+  return c.verdict;
+}
+
+/**
+ * The run's notes for a case, shortened for a test-plan sheet: the test's own
+ * name rather than its whole title path, one line per distinct note, and a
+ * pointer to the run once {@link EXPORT_NOTES_MAX} is reached.
+ */
+function exportRunNotes(tests: readonly RunTest[]): string {
+  const noted = tests.filter((t) => t.note);
+  const distinct = new Set(noted.map((t) => testerNote(t.note)));
+  const lines =
+    distinct.size === 1
+      ? [...distinct]
+      : noted.map((t) => `${t.title.split(' › ').at(-1) ?? t.title}: ${testerNote(t.note)}`);
+
+  const kept: string[] = [];
+  let length = 0;
+  for (const line of lines) {
+    if (kept.length > 0 && length + line.length > EXPORT_NOTES_MAX) {
+      break;
+    }
+    const cut =
+      line.length > EXPORT_NOTES_MAX ? `${line.slice(0, EXPORT_NOTES_MAX).trimEnd()}…` : line;
+    kept.push(cut);
+    length += cut.length;
+  }
+  const dropped = lines.length - kept.length;
+  return dropped > 0 ? [...kept, `(+${dropped} more, see run)`].join('\n') : kept.join('\n');
+}
+
+function gapNote(gap: CoverageGap): string {
+  return `manual check (${gap.reason}): ${gap.text}`;
+}
+
+/**
+ * Gap rows that no longer apply: `no test` rows for cases the run now has tests
+ * for. They are ignored when rendering; the publisher reports them so the
+ * table gets refreshed.
+ */
+export function staleGapRows(run: BtrRun, gaps: CoverageGaps | undefined): string[] {
+  const ran = new Set(run.cases.map((c) => c.testId));
+  return [...(gaps?.byTestId.values() ?? [])]
+    .filter((gap) => gap.reason === 'no test' && ran.has(gap.testId))
+    .map((gap) => gap.testId)
+    .sort();
+}
+
+function exportRunInfo(run: BtrRun, ctx: PublishContext, gaps: CoverageGaps | undefined): string[] {
+  const ci = run.run.ci;
+  const runLabel = ci ? ci.runId : 'local';
+  const commit = ci?.sha.slice(0, 7) ?? '';
+  const day = run.run.startedAt.slice(0, 10);
+  const summary = [`e2e on ${ctx.release}`, `run ${runLabel}`, day, commit]
+    .filter(Boolean)
+    .join(' · ');
+  return [
+    ctx.release,
+    runLabel,
+    ci?.runUrl ?? '',
+    run.run.startedAt,
+    commit,
+    gaps?.reviewedAgainst ?? '',
+    summary,
+  ];
+}
+
+/**
+ * The `Export` tab: one row per case in A:E, and the run it came from in G:H.
+ *
+ * - **E2E Result** is the run's verdict, except that a case held for a known
+ *   product defect (a `test.fail()`, or a `test.fixme()` citing a finding or
+ *   an issue) reads `failed`: on `Latest` it is `partial` or `unverified`,
+ *   which a tester would take for "nothing wrong found". The note names the
+ *   defect. A fixme for something the suite lacks stays as the run has it.
+ * - **E2E Manual Check** is `yes` unless the case is `verified`, disputes
+ *   nothing, and is not in the coverage-gaps table.
+ * - **E2E Notes** leads with the coverage-gaps reason, then the run's notes.
+ * - Cases the table lists as `no test` get a row of their own (`unverified`),
+ *   so the sheet can say why nothing ran. A case in neither the run nor the
+ *   table has no row; the importing sheet's lookup supplies the default.
+ */
+export function renderExport(run: BtrRun, ctx: PublishContext, gaps?: CoverageGaps): Grid {
+  const url = run.run.ci?.runUrl ?? '';
+  const ran = new Set(run.cases.map((c) => c.testId));
+
+  const rows = run.cases.map((c): string[] => {
+    const found = gaps?.byTestId.get(c.testId);
+    const gap = found && found.reason !== 'no test' ? found : undefined;
+    const manual = c.verdict !== 'verified' || gap !== undefined || c.tests.some(isDisputed);
+    const notes = [gap ? gapNote(gap) : '', exportRunNotes(c.tests)].filter(Boolean).join('\n');
+    return [c.testId, exportResult(c), manual ? 'yes' : 'no', plainCell(notes), url];
+  });
+  for (const gap of gaps?.byTestId.values() ?? []) {
+    if (gap.reason === 'no test' && !ran.has(gap.testId)) {
+      rows.push([gap.testId, 'unverified', 'yes', plainCell(gapNote(gap)), url]);
+    }
+  }
+  rows.sort((a, b) => (a[0] ?? '').localeCompare(b[0] ?? ''));
+
+  const info = exportRunInfo(run, ctx, gaps);
+  const table: (readonly string[])[] = [EXPORT_HEADER, ...rows];
+  const height = Math.max(table.length, EXPORT_INFO_LABELS.length);
+  return Array.from({ length: height }, (_, i) => [
+    ...(table[i] ?? EXPORT_HEADER.map(() => '')),
+    '',
+    EXPORT_INFO_LABELS[i] ?? '',
+    plainCell(info[i] ?? ''),
+  ]);
 }
 
 /** Rows of the hidden `_meta` tab. Read back by `plan.mts` before every publish. */
