@@ -39,6 +39,20 @@ export class PreviewChangesDialog {
     this.root = page.locator(this.s.previewModal);
   }
 
+  /**
+   * The update button on a course-outline unit card (given as `unitCard`) —
+   * shown only while the unit's library item has a newer published version.
+   */
+  outlineSyncButton(unitCard: Locator): Locator {
+    return unitCard.locator(this.s.outlineUnitSyncButton);
+  }
+
+  /** Opens this modal from a course-outline unit card's update button. */
+  async openFromOutlineCard(unitCard: Locator): Promise<void> {
+    await this.outlineSyncButton(unitCard).click();
+    await this.root.waitFor();
+  }
+
   compareTab(key: 'old' | 'new'): Locator {
     return this.page.locator(this.s.compareTab(key));
   }

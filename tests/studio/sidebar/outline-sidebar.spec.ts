@@ -1,8 +1,9 @@
 import { checkA11y } from '../../../src/a11y';
-import { buildSection } from '../../../src/api';
-import { TIMEOUTS } from '../../../src/config';
+import { buildSection, courseUsageKey, fetchXBlockOutline } from '../../../src/api';
+import { STUDIO_SIDEBAR_SELECTORS as S, TIMEOUTS, VIEWPORTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
+import { horizontalOverflow } from '../../../src/steps';
 import { SIDEBAR_A11Y_BASELINE } from './helpers';
 
 /**
@@ -57,20 +58,87 @@ test.describe(
         await authoringSidebar.expand();
         expect(await authoringSidebar.isOpen()).toBe(true);
 
-        // The panel offers a resize affordance (the drag itself is not asserted —
-        // a synthetic drag on the react-resizable handle does not fire its
-        // listeners reliably).
-        await expect(authoringSidebar.resizeHandle).toBeVisible();
+        // The panel sits beside the outline rather than over it.
+        const outline = studioCourseOutlinePage.sectionCards.first();
+        const boxes = async () => {
+          const [panel, card] = await Promise.all([
+            authoringSidebar.panel.boundingBox(),
+            outline.boundingBox(),
+          ]);
+          if (panel === null || card === null) {
+            throw new Error('The sidebar panel or the outline is not rendered.');
+          }
+          return { panel, card };
+        };
+        const beside = await boxes();
+        expect(beside.card.x + beside.card.width).toBeLessThanOrEqual(beside.panel.x);
+
+        // Its left edge is a resize handle: the cursor says so, dragging it left
+        // widens the panel and narrows the outline, and dragging it right stops
+        // at a minimum width instead of squeezing the panel away.
+        await expect(authoringSidebar.resizeHandle).toHaveCSS('cursor', 'ew-resize');
+        const initial = await authoringSidebar.width();
+        // Retried: the panel starts over at its initial width if it is drawn
+        // again while the outline beside it is still settling.
+        let widened = initial;
+        await expect
+          .poll(async () => {
+            widened = await authoringSidebar.dragEdge(-120);
+            return widened;
+          })
+          .toBeGreaterThan(initial);
+        expect((await boxes()).card.width).toBeLessThan(beside.card.width);
+        const minimum = await authoringSidebar.dragEdge(600);
+        expect(minimum).toBeLessThan(widened);
+        expect(await authoringSidebar.dragEdge(200)).toBe(minimum);
+        await expect(authoringSidebar.panel).toBeVisible();
+        expect((await boxes()).card.width).toBeGreaterThan(0);
 
         await checkA11y(page, {
           label: 'studio-sidebar-outline',
           additionalBaseline: SIDEBAR_A11Y_BASELINE,
         });
+
+        // A narrower window: the panel and the outline are both still there,
+        // neither over the other.
+        await page.setViewportSize(VIEWPORTS.smallDesktop.viewport);
+        await expect(authoringSidebar.panel).toBeVisible();
+        await expect(outline).toBeVisible();
+        const narrow = await boxes();
+        const apart =
+          narrow.card.x + narrow.card.width <= narrow.panel.x ||
+          narrow.panel.y + narrow.panel.height <= narrow.card.y ||
+          narrow.card.y + narrow.card.height <= narrow.panel.y;
+        expect(apart).toBe(true);
+      },
+    );
+
+    // `main` caps the panel's width to the window and stacks the rail above it
+    // when there is no room; on `verawood` the panel keeps its minimum width
+    // and pushes the rail past the right edge of a narrower window.
+    test(
+      'fits a narrower window without scrolling sideways',
+      { tag: '@studio-sidebar-narrow-layout', annotation: testId('TC-00482') },
+      async ({
+        page,
+        authoringCourse,
+        authoringSidebar,
+        studioCourseOutlinePage,
+        studioAuthorSession,
+      }) => {
+        void studioAuthorSession;
+        await studioCourseOutlinePage.goto(authoringCourse.courseKey);
+        await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
+        await expect(authoringSidebar.panel).toBeVisible();
+
+        await page.setViewportSize(VIEWPORTS.smallDesktop.viewport);
+        await expect(authoringSidebar.panel).toBeVisible();
+        await expect.poll(() => horizontalOverflow(page)).toBe(0);
       },
     );
 
     test(
-      'updates for the selected section and subsection without breaking',
+      'updates for the selected section, subsection and unit without breaking',
       { annotation: testId('TC-00483') },
       async ({
         page,
@@ -95,9 +163,11 @@ test.describe(
         await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
 
+        const unit = section.units.at(0);
+        if (unit === undefined) throw new Error('buildSection produced no unit to select.');
+
         // Selecting a level re-titles the panel with that item's name and keeps the
         // Info tabs rendered — the structure does not break as the selection moves.
-        // (Selecting a unit *from the outline* is exercised by TC-00489.)
         await studioCourseOutlinePage.select(
           studioCourseOutlinePage.sectionCards.first(),
           'section',
@@ -110,6 +180,21 @@ test.describe(
           'subsection',
         );
         await expect(authoringSidebar.title).toHaveText(subsection.displayName);
+        await expect(page.locator('#add-content-tabs-tab-info')).toBeVisible();
+
+        // A unit has a tab set of its own (Preview, Details, Settings); the panel
+        // swaps to it, titled with the unit's name. What those tabs hold is
+        // TC-00489.
+        await studioCourseOutlinePage.select(studioCourseOutlinePage.unit(unit.usageKey), 'unit');
+        await expect(authoringSidebar.title).toHaveText(unit.displayName);
+        await expect(authoringSidebar.tab(S.outlineUnitInfoTab('info'))).toBeVisible();
+
+        // And back up to the section: the section's tabs return.
+        await studioCourseOutlinePage.select(
+          studioCourseOutlinePage.sectionCards.first(),
+          'section',
+        );
+        await expect(authoringSidebar.title).toHaveText(section.displayName);
         await expect(page.locator('#add-content-tabs-tab-info')).toBeVisible();
       },
     );
@@ -126,12 +211,20 @@ test.describe(
         studioAuthorSession,
       }) => {
         void studioAuthorSession;
-        await buildSection(
+        const section = await buildSection(
           page.request,
           config,
           authoringCourse.courseKey,
           `E2E overflow ${test.info().testId.slice(-6)}`,
         );
+        const sections = async () =>
+          (
+            await fetchXBlockOutline(
+              page.request,
+              config,
+              courseUsageKey(authoringCourse.courseKey),
+            )
+          ).child_info?.children.map((child) => child.id) ?? [];
         await studioCourseOutlinePage.goto(authoringCourse.courseKey);
         await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
 
@@ -147,6 +240,13 @@ test.describe(
         // Dismissing without choosing closes the menu and triggers nothing.
         await page.keyboard.press('Escape');
         await expect(items.first()).toBeHidden();
+        expect(await sections()).toEqual([section.usageKey]);
+
+        // Choosing an action triggers that action: Duplicate adds a copy of the
+        // section after it. (Each action's own outcome is TC-00485.)
+        await (await authoringSidebar.itemMenuAction('outline', 'duplicate')).click();
+        await expect.poll(sections, { timeout: TIMEOUTS.contentPublish }).toHaveLength(2);
+        expect((await sections())[0]).toBe(section.usageKey);
       },
     );
 

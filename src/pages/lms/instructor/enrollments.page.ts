@@ -100,6 +100,17 @@ export class InstructorEnrollmentsPage extends InstructorDashboardPage {
   }
 
   /**
+   * Narrows the table to the enrollments matching `term` (a username or
+   * e-mail), so a learner's row is on the page however many are enrolled.
+   */
+  async searchEnrollments(term: string): Promise<void> {
+    // The term is in the listing request's query, whatever its parameter is named.
+    await this.waitForApi({ method: 'GET', urlIncludes: encodeURIComponent(term) }, () =>
+      this.main.locator(this.s.enrollmentSearchInput).fill(term),
+    );
+  }
+
+  /**
    * The row's overflow menu has one item — "Grant Beta Tester Role" or "Remove
    * Beta Tester Role" depending on the row. Granting posts at once; removing
    * asks for confirmation first, so the dialog is given `optionalOverlay` to

@@ -1,6 +1,5 @@
 import { checkA11y } from '../../../src/a11y';
 import {
-  createCustomPage,
   deleteCustomPage,
   fetchCourseMetadata,
   fetchCustomPages,
@@ -12,11 +11,12 @@ import { testId } from '../../../src/reporting';
 /**
  * Custom Pages (authoring MFE), on the worker's own course.
  *
- * The drag-reorder is the thing under test; the pages are seeded and cleaned up
- * through the tabs API (creating one is not what TC-00237 covers). Two pages are
- * given distinct names so their order can be read the same way from Studio's tabs
- * API and from the LMS course-home tabs. The card at index 0 is dragged past its
- * neighbour with the keyboard sensor, and both APIs must show the new order.
+ * TC-00237 creates pages, then reorders them. Both pages are created with the
+ * page's own "New page" button; the tabs API then gives them distinct names
+ * (naming a page is the text editor's job, not this case's) so their order can
+ * be read the same way from Studio's tabs API and from the LMS course-home
+ * tabs. The card at index 0 is dragged past its neighbour with the keyboard
+ * sensor, and both APIs must show the new order.
  */
 test.describe('Custom Pages', { tag: ['@studio', '@author', '@mfe-authoring'] }, () => {
   const NAME_A = 'E2E Custom Page A';
@@ -37,13 +37,9 @@ test.describe('Custom Pages', { tag: ['@studio', '@author', '@mfe-authoring'] },
       // `studio-browser-session-decays` findings.
       const api = page.request;
 
-      // Clean slate, then two named pages in a known order [A, B].
+      // Clean slate.
       const existing = await fetchCustomPages(api, config, courseKey);
       await Promise.all(existing.map((p) => deleteCustomPage(api, config, p.id)));
-      const idA = await createCustomPage(api, config, courseKey);
-      await setCustomPageName(api, config, idA, NAME_A);
-      const idB = await createCustomPage(api, config, courseKey);
-      await setCustomPageName(api, config, idB, NAME_B);
 
       const apiOrder = async () =>
         (await fetchCustomPages(api, config, courseKey)).map((p) => p.name);
@@ -53,6 +49,22 @@ test.describe('Custom Pages', { tag: ['@studio', '@author', '@mfe-authoring'] },
           .map((tab) => tab.title);
 
       try {
+        // "New page", twice: each click creates a page the platform lists and
+        // the page draws a card for.
+        await customPagesPage.goto(courseKey);
+        await expect(customPagesPage.cardTitles).toHaveCount(0);
+        for (const count of [1, 2]) {
+          expect((await customPagesPage.addPage()).ok()).toBe(true);
+          await expect(customPagesPage.cardTitles).toHaveCount(count);
+          await expect
+            .poll(async () => (await fetchCustomPages(api, config, courseKey)).length)
+            .toBe(count);
+        }
+
+        // Named apart, in the order they were created: [A, B].
+        const [first, second] = await fetchCustomPages(api, config, courseKey);
+        await setCustomPageName(api, config, first!.id, NAME_A);
+        await setCustomPageName(api, config, second!.id, NAME_B);
         expect(await apiOrder()).toEqual([NAME_A, NAME_B]);
 
         await customPagesPage.goto(courseKey);

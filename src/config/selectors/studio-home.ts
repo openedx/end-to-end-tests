@@ -76,6 +76,16 @@ export const STUDIO_HOME_SELECTORS = {
   courseOrderItem: (kind: 'az' | 'za' | 'newest' | 'oldest') =>
     `[data-testid="item-menu-${kind}-courses"]`,
 
+  /**
+   * The notice shown in place of the cards when the search and filter match no
+   * course ("We could not find any result … There are no courses with the
+   * current filters."), and its one action, "Clear filters". Measured on Tutor
+   * `main` (2026-11-24).
+   */
+  coursesNotFoundAlert: '[role="alert"]:has([data-testid="courses-not-found-alert"])',
+  coursesNotFoundClearButton:
+    '[role="alert"]:has([data-testid="courses-not-found-alert"]) button.btn-primary',
+
   /** The open card / sort / filter dropdown menu. */
   openMenu: '.dropdown-menu.show',
 

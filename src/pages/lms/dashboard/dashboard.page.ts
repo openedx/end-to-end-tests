@@ -2,6 +2,13 @@ import { errors, type Locator, type Page, type Response } from '@playwright/test
 
 import { DASHBOARD_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 
+/** The Refine form's "Course Status" filters, by the checkbox's `value`. */
+export type DashboardStatusFilter =
+  'inProgress' | 'notStarted' | 'done' | 'notEnrolled' | 'upgraded';
+
+/** The Refine form's sort orders, by the radio's `value`. */
+export type DashboardSort = 'enrolled' | 'title';
+
 /**
  * The learner dashboard (`frontend-app-learner-dashboard`). Locators and
  * navigation only — specs own the assertions.
@@ -50,6 +57,11 @@ export class DashboardPage {
     return this.courseCard(courseKey).locator(DASHBOARD_SELECTORS.courseCardTitle);
   }
 
+  /** A card's primary call to action: the sheet's Begin / Resume / View Course button. */
+  courseCardCta(courseKey: string): Locator {
+    return this.courseCard(courseKey).locator(DASHBOARD_SELECTORS.courseCardCta);
+  }
+
   /**
    * Follows the card's primary call to action into the course.
    *
@@ -60,6 +72,34 @@ export class DashboardPage {
   async beginCourse(courseKey: string): Promise<void> {
     await this.courseCard(courseKey).locator(DASHBOARD_SELECTORS.courseCardCta).click();
     await this.page.waitForURL((url) => url.pathname.includes(courseKey));
+  }
+
+  /** Opens the "Refine" form (status filters and sort) above the course list. */
+  async openRefine(): Promise<void> {
+    await this.page.locator(DASHBOARD_SELECTORS.refineButton).click();
+    await this.page.locator(DASHBOARD_SELECTORS.sortOption).first().waitFor();
+  }
+
+  /** One "Course Status" checkbox of the open Refine form. */
+  statusFilter(status: DashboardStatusFilter): Locator {
+    return this.page.locator(`${DASHBOARD_SELECTORS.statusFilter}[value="${status}"]`);
+  }
+
+  /** One "Sort" radio of the open Refine form. */
+  sortOption(sort: DashboardSort): Locator {
+    return this.page.locator(`${DASHBOARD_SELECTORS.sortOption}[value="${sort}"]`);
+  }
+
+  /**
+   * The course keys of the cards shown, in order, read from each card's title
+   * link. Filtering and sorting happen in the page, with no request to wait
+   * on, so callers poll this.
+   */
+  async shownCourseKeys(): Promise<readonly string[]> {
+    const hrefs = await this.courseCards
+      .locator(DASHBOARD_SELECTORS.courseCardTitle)
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+    return hrefs.map((href) => /\/course\/([^/?#]+)/.exec(decodeURIComponent(href))?.[1] ?? href);
   }
 
   /** Opens a course card's kebab menu. */

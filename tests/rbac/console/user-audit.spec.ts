@@ -1,12 +1,10 @@
 import { expect, test } from '../../../src/fixtures';
-import { TIMEOUTS } from '../../../src/config';
+import { TIMEOUTS, escapeRegExp } from '../../../src/config';
 import { LIBRARY_ROLES, listUserAssignments, revokeRole } from '../../../src/api';
 import { seedScopeAssignments } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
 import { issue, testId } from '../../../src/reporting';
 import { RBAC_TAGS, ADMIN_CONSOLE_A11Y_BASELINE } from '../helpers';
-
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * The console's **user audit view**: every role one account holds, what each

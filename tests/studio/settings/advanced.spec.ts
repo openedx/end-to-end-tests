@@ -7,13 +7,19 @@ import {
   fetchCourseEnrollmentDetails,
   fetchCourseMetadata,
   fetchCoursewareCourse,
+  fetchLearnerHome,
   isCourseHiddenFromCatalog,
   isEnrolled,
+  learnerHomeCourse,
   updateAdvancedSettings,
 } from '../../../src/api';
+import { newCleanBrowserContext } from '../../../src/auth';
 import { getRunId, TIMEOUTS } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
+import { CatalogPage } from '../../../src/pages/lms/catalog/catalog.page';
+import { CourseAboutPage } from '../../../src/pages/lms/catalog/course-about.page';
 import { testId } from '../../../src/reporting';
+import { isCourseListedInCatalog } from '../../../src/steps';
 
 /**
  * Advanced Settings (authoring MFE), on the worker's own course.
@@ -89,43 +95,89 @@ test.describe('Advanced Settings', { tag: ['@studio', '@author', '@mfe-authoring
     { tag: '@regression', annotation: testId('TC-00269') },
     async ({
       page,
+      browser,
       config,
       authoredCourse,
       advancedSettingsPage,
       studioAuthorSession,
       newLearner,
     }) => {
+      test.setTimeout(TIMEOUTS.contentTest);
       void studioAuthorSession;
       // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
       const api = page.request;
       const { courseKey } = authoredCourse;
       await updateAdvancedSettings(api, config, courseKey, { catalog_visibility: 'both' });
 
-      // "none" hides the course from the catalog: the Course Detail API answers
-      // a learner (signed in but not staff — staff bypass the visibility, as the
-      // case notes) that it is hidden. "both" makes it discoverable again.
-      const learner = await newLearner();
-      const hidden = (): Promise<boolean> =>
-        isCourseHiddenFromCatalog(learner.request, config, courseKey, learner.identity.username);
-      await advancedSettingsPage.goto(courseKey);
-      await advancedSettingsPage.setField('catalogVisibility', 'none');
-      expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
-      await expect
-        .poll(async () => ({
-          studio: await settingValue(api, config, courseKey, 'catalog_visibility'),
-          hidden: await hidden(),
-        }))
-        .toEqual({ studio: 'none', hidden: true });
+      // Two learners, neither staff (staff bypass the visibility, as the case
+      // notes): one enrolled while the course is visible, and a newcomer who
+      // browses the catalog and the About page in a browser of their own.
+      const enrolled = await newLearner();
+      await enrollInCourseViaApi(enrolled.request, config, courseKey);
+      const newcomer = await newLearner();
+      const context = await newCleanBrowserContext(browser);
+      await context.addCookies((await newcomer.request.storageState()).cookies);
+      const newcomerPage = await context.newPage();
+      const catalog = new CatalogPage(newcomerPage, config);
+      const about = new CourseAboutPage(newcomerPage, config);
 
-      await advancedSettingsPage.goto(courseKey);
-      await advancedSettingsPage.setField('catalogVisibility', 'both');
-      expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
-      await expect
-        .poll(async () => ({
-          studio: await settingValue(api, config, courseKey, 'catalog_visibility'),
-          hidden: await hidden(),
-        }))
-        .toEqual({ studio: 'both', hidden: false });
+      const setVisibility = async (value: 'none' | 'about' | 'both') => {
+        await advancedSettingsPage.goto(courseKey);
+        await advancedSettingsPage.setField('catalogVisibility', value);
+        expect((await advancedSettingsPage.save(courseKey)).status).toBe(200);
+      };
+      // What the newcomer finds: the course in the catalog or not, and how the
+      // Course Detail API answers them. One reading, so it can be polled while
+      // the catalog's index catches up with the setting.
+      const found = async () => ({
+        studio: await settingValue(api, config, courseKey, 'catalog_visibility'),
+        listed: await isCourseListedInCatalog(catalog, config, courseKey, authoredCourse.number),
+        hidden: await isCourseHiddenFromCatalog(
+          newcomer.request,
+          config,
+          courseKey,
+          newcomer.identity.username,
+        ),
+      });
+      const catchUp = { timeout: TIMEOUTS.contentPublish };
+
+      try {
+        // "none": not in the catalog, and the About page has no course to show
+        // the newcomer — while the enrolled learner keeps the course on their
+        // dashboard.
+        await setVisibility('none');
+        await expect.poll(found, catchUp).toEqual({ studio: 'none', listed: false, hidden: true });
+        expect(await about.gotoReadingCourse(courseKey)).not.toBe(200);
+        await expect(about.enrollButton).toHaveCount(0);
+        const dashboard = await fetchLearnerHome(enrolled.request, config);
+        expect('courses' in dashboard && learnerHomeCourse(dashboard, courseKey)).toBeTruthy();
+
+        // "about": still not in the catalog, but the About page serves anyone
+        // who has its address, with its enroll call to action.
+        await setVisibility('about');
+        await expect
+          .poll(async () => ({
+            studio: await settingValue(api, config, courseKey, 'catalog_visibility'),
+            listed: await isCourseListedInCatalog(
+              catalog,
+              config,
+              courseKey,
+              authoredCourse.number,
+            ),
+          }))
+          .toEqual({ studio: 'about', listed: false });
+        await about.gotoRendered(courseKey);
+        await expect(about.enrollButton).toBeVisible();
+
+        // "both": listed in the catalog, and its card leads to the About page.
+        await setVisibility('both');
+        await expect.poll(found, catchUp).toEqual({ studio: 'both', listed: true, hidden: false });
+        await catalog.openCourseAbout(courseKey);
+        await expect(about.enrollButton).toBeVisible();
+      } finally {
+        await context.close();
+        await updateAdvancedSettings(api, config, courseKey, { catalog_visibility: 'both' });
+      }
     },
   );
 

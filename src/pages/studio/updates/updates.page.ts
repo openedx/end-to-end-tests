@@ -1,6 +1,11 @@
 import type { Page } from '@playwright/test';
 
-import { STUDIO_UPDATES_SELECTORS as S, TIMEOUTS, type AppConfig } from '../../../config';
+import {
+  STUDIO_EDITOR_SELECTORS as E,
+  STUDIO_UPDATES_SELECTORS as S,
+  TIMEOUTS,
+  type AppConfig,
+} from '../../../config';
 import { authoringCourseBaseUrl } from '../authoring-base';
 import { waitForWrite } from '../wait-for-write';
 
@@ -77,6 +82,40 @@ export class UpdatesPage {
       { method: 'POST', urlIncludes: '/course_info_update/', timeout: TIMEOUTS.contentWrite },
       () => this.page.locator(S.postOrSave).first().click(),
     );
+  }
+
+  /**
+   * Creates a new update carrying `text` as a level-2 heading in italics,
+   * followed by an emoji picked from the emoticons dialog — the editor's block
+   * format (Alt+Shift+2), a toolbar button and a toolbar dialog, each addressed
+   * by TinyMCE's own command name. Waits for the create write.
+   */
+  async newDecoratedUpdate(text: string, emoji: string): Promise<void> {
+    await this.openUpdateEditor();
+    await this.focusEditor();
+    await this.page.keyboard.press('ControlOrMeta+a');
+    await this.page.keyboard.type(text);
+    await this.page.keyboard.press('Alt+Shift+2');
+    await this.page.keyboard.press('ControlOrMeta+a');
+    await this.toolbar('italic');
+    await this.page.keyboard.press('End');
+    await this.toolbar('emoticons');
+    await this.page.locator(E.tinyMceEmoji(emoji)).click();
+    await this.page.locator(E.tinyMceDialog).waitFor({ state: 'hidden' });
+    await waitForWrite(
+      this.page,
+      { method: 'POST', urlIncludes: '/course_info_update/', timeout: TIMEOUTS.contentWrite },
+      () => this.page.locator(S.postOrSave).first().click(),
+    );
+  }
+
+  /** Clicks a TinyMCE toolbar button, opening the toolbar's overflow first if it sits there. */
+  private async toolbar(name: string): Promise<void> {
+    const button = this.page.locator(E.tinyMceToolbarButton(name)).first();
+    if (!(await button.isVisible())) {
+      await this.page.locator(E.tinyMceToolbarButton('overflow-button')).first().click();
+    }
+    await button.click();
   }
 
   /** Edits the handouts with `text`, waiting for the handouts xblock write. */

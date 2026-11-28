@@ -120,17 +120,30 @@ export const LIBRARY_SELECTORS = {
 
   /** The search box (Paragon `SearchField`) inside the library page and its clear ("×") button. */
   searchInput: '.library-authoring-page input[name="searchfield-input"][role="searchbox"]',
+  /** The search box's clear ("×") control (Paragon `SearchField.ClearButton`, a `type="reset"` button). */
+  searchResetButton: '.library-authoring-page button.pgn__searchfield__iconbutton-reset',
+  /**
+   * A keyword match highlighted inside a card (the MFE's `Highlight` wraps each
+   * match of the search term in a `<mark>`, which the browser paints yellow).
+   */
+  cardHighlight: 'mark',
   /** The "Sort" dropdown toggle and its open menu's items. */
   sortToggle: '#search-sort-toggle',
   sortMenuItem: '.dropdown-menu.show[aria-labelledby="search-sort-toggle"] .dropdown-item',
-  /** Order of {@link sortMenuItem} (labels localized). */
+  /**
+   * Order of {@link sortMenuItem} (labels localized) counted **from the end**
+   * of the menu, because the menu grows at the front: while a search term is
+   * typed, "Most Relevant" is added as the first item (and becomes the
+   * default), shifting every other option down by one.
+   */
   sortOption: {
-    recentlyModified: 0, // "Recently Modified"
-    recentlyPublished: 1, // "Recently Published"
-    titleAZ: 2, // "Title, A-Z"
+    mostRelevant: 7, // "Most Relevant" — only with a search term
+    recentlyModified: 6, // "Recently Modified"
+    recentlyPublished: 5, // "Recently Published"
+    titleAZ: 4, // "Title, A-Z"
     titleZA: 3, // "Title, Z-A"
-    newest: 4, // "Newest"
-    oldest: 5, // "Oldest"
+    newest: 2, // "Newest"
+    oldest: 1, // "Oldest"
   },
   /**
    * The refinement toggles in the filter row, in order: "Tags", "Type",
@@ -155,6 +168,20 @@ export const LIBRARY_SELECTORS = {
    */
   tagFilterCheckbox: (tagValue: string): string =>
     `.tag-toggle-item input[id^="${tagValue.replace(/\W/g, '_')}"]`,
+  /**
+   * One tag-filter row by its full path in the facet tree — the taxonomy name,
+   * then each tag down to the one wanted (all our own data). The MFE joins the
+   * path with " > " before building the checkbox `id` described above, so a
+   * nested tag's id starts with its ancestors'; the `:not(...)` keeps the match
+   * to the node itself rather than its descendants.
+   */
+  tagFilterRowByPath: (path: readonly string[]): string => {
+    const id = path.join(' > ').replace(/\W/g, '_');
+    return `.tag-toggle-item:has(> input[id^="${id}"]:not([id^="${id}___"]))`;
+  },
+  /** Relative to a tag-filter row: its checkbox, and its expand / collapse control ("Expand to show child tags of …"). */
+  tagFilterRowCheckbox: 'input[type="checkbox"]',
+  tagFilterRowExpandButton: 'button.btn-icon',
   /** "Clear Filter" — the link-styled button **inside** an open refinement menu. */
   clearFiltersButton: 'button.clear-filter-button',
 
@@ -292,6 +319,21 @@ export const LIBRARY_SELECTORS = {
     '[role="dialog"].pgn__modal-xl .pgn__modal-footer button.btn-primary, [role="dialog"].pgn__modal-xl button.btn-primary:not(.btn-outline-primary)',
 
   /**
+   * The editor's "Cancel" (the footer's tertiary button) and the "Exit the
+   * editor?" prompt it opens — a dialog of its own over the editor, the only
+   * one with a `btn-outline-brand` button: "Discard Changes and Exit" (that
+   * button) and "Keep Editing" (the primary beside it).
+   */
+  editorCancelButton: '[role="dialog"].pgn__modal-xl .pgn__modal-footer button.btn-tertiary',
+  editorExitDiscardButton: '[role="dialog"] .pgn__modal-footer button.btn-outline-brand',
+  editorExitKeepEditingButton:
+    '[role="dialog"] .pgn__modal-footer:has(button.btn-outline-brand) button.btn-primary',
+  /** The editor's text fields (the video editor's "Video ID" / "Video URL" …), relative to the dialog. */
+  editorTextInput: 'input.form-control',
+  /** The PDF editor's hidden file input ("Upload a file"); choosing a file uploads it as an asset of the block. */
+  editorPdfFileInput: '[role="dialog"].pgn__modal-xl input#pdf-url[type="file"]',
+
+  /**
    * A Paragon modal dialog and, scoped *inside* one (`dialog.locator(...)`),
    * its controls: the "name your new …" text field and its submit, and a
    * confirmation's confirm (primary / danger) and cancel (default / tertiary).
@@ -303,6 +345,15 @@ export const LIBRARY_SELECTORS = {
     '.pgn__modal-footer button.btn-primary, .pgn__modal-footer button.btn-danger',
   dialogCancelButton:
     '.pgn__modal-footer button.btn-default, .pgn__modal-footer button.btn-tertiary',
+
+  /**
+   * Inside a delete confirmation (`ComponentDeleter` / `ContainerDeleter`): the
+   * element that carries the downstream warning ("This unit is used N times in
+   * courses, and will stop receiving updates there…"). It is always rendered
+   * and stays empty for an item no course reuses, so "has content" is the
+   * state; the sentence itself is localized.
+   */
+  deleteDialogDownstreamWarning: '.pgn__modal-body-content .text-danger-900',
 
   /** Inline title editor (`ContainerEditableTitle` / card titles): label, pencil, input. */
   inplaceTitleLabel: '.inplace-text-editor-label',
@@ -394,6 +445,19 @@ export const COURSE_LIBRARY_SYNC_SELECTORS = {
   iframeUpdateAvailableButton: 'button.library-sync-button.action-button',
   /** A block's "Edit" action in the iframe header — opens the MFE editor dialog for that block. */
   iframeEditButton: 'button.edit-button',
+
+  /**
+   * On a course-outline unit card (`main` only, `outline-library-sync`): the
+   * "Update available - click to sync" icon button a library-linked unit shows
+   * once its library item has a newer published version — a test id the MFE
+   * ships; its label is localized. Relative to the unit's card.
+   */
+  outlineUnitSyncButton: '[data-testid="unit-sync-button"]',
+  /**
+   * The Review tab's count of items with updates: the notification bubble
+   * Paragon renders inside the tab ("Review Content Updates" + a red number).
+   */
+  reviewTabCount: '#course-library-tabs-tab-review .pgn__tab-notification',
 
   /** The preview-changes modal (`PreviewLibraryXBlockChanges`) and its old / new tabs. */
   previewModal: '[role="dialog"].lib-preview-xblock-changes-modal',

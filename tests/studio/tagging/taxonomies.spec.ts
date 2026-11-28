@@ -6,6 +6,7 @@ import { fetchTaxonomy, listTaxonomies, listTaxonomyTags } from '../../../src/ap
 import { TIMEOUTS } from '../../../src/config';
 import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
+import { importedTaxonomyId } from '../../../src/pages/studio/taxonomies/import-wizard.block';
 import { testId } from '../../../src/reporting';
 import {
   IMPORT_EXTRA_TAG,
@@ -42,15 +43,56 @@ test.describe(
       async ({ config, taxonomyAdmin }) => {
         const created: number[] = [];
         try {
+          const jsonName = `E2E import JSON ${test.info().testId.slice(-6)}`;
+          const jsonDescription = `${jsonName} description`;
           await taxonomyAdmin.list.goto();
-          const jsonId = await taxonomyAdmin.list.importNewTaxonomy(
-            taxonomyImportFile(),
-            `E2E import JSON ${test.info().testId.slice(-6)}`,
-          );
+          await taxonomyAdmin.list.openImportToPopulate(taxonomyImportFile());
+          await taxonomyAdmin.list.wizard.fillPopulate(jsonName, {
+            description: jsonDescription,
+          });
+          const jsonId = await importedTaxonomyId(await taxonomyAdmin.list.wizard.submitImport());
           created.push(jsonId);
           const jsonTags = await listTaxonomyTags(taxonomyAdmin.request, config, jsonId);
           expect(jsonTags.map((t) => t.value)).toContain(TAG.parentOne);
           expect(jsonTags).toHaveLength(8);
+
+          // The new taxonomy has a tile on the list; opening it shows the
+          // top-level tags, and expanding them the children nested underneath.
+          await expect(taxonomyAdmin.list.card(jsonId)).toBeVisible();
+          await taxonomyAdmin.list.openCard(jsonId);
+          const topLevel = jsonTags.filter((t) => t.depth === 0).map((t) => t.value);
+          expect(topLevel).toHaveLength(3);
+          // (The rows render once the tags have loaded, and each parent loads
+          // its children when it opens, so both readings are polled.)
+          await expect
+            .poll(async () => [...(await taxonomyAdmin.detail.tagNames())].sort())
+            .toEqual([...topLevel].sort());
+          await taxonomyAdmin.detail.expandAllTags();
+          await expect
+            .poll(async () => [...(await taxonomyAdmin.detail.tagNames())].sort())
+            .toEqual(jsonTags.map((t) => t.value).sort());
+          const shown = await taxonomyAdmin.detail.tagNames();
+          // Nested: reading down the tree, each child's nearest top-level tag
+          // above it is its own parent.
+          const parentAbove = (name: string) =>
+            shown
+              .slice(0, shown.indexOf(name))
+              .reverse()
+              .find((above) => topLevel.includes(above));
+          const children = jsonTags.filter((t) => t.depth === 1);
+          expect(children.map((t) => parentAbove(t.value))).toEqual(
+            children.map((t) => t.parentValue),
+          );
+
+          // The details widget carries the title and description that were
+          // typed and the export id the platform gave the taxonomy.
+          const stored = await fetchTaxonomy(taxonomyAdmin.request, config, jsonId);
+          expect(stored.exportId).not.toBe('');
+          expect(await taxonomyAdmin.detail.detailsValues()).toEqual([
+            jsonName,
+            jsonDescription,
+            stored.exportId,
+          ]);
 
           await taxonomyAdmin.list.goto();
           const csvId = await taxonomyAdmin.list.importNewTaxonomy(

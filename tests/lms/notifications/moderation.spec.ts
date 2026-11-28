@@ -94,6 +94,7 @@ test.describe(
         const moderator = await forumCast('moderator');
         const courseKey = forumCourse.courseKey;
         const threads: { id: string; by: typeof poster }[] = [];
+        const delivered: number[] = [];
         try {
           // My response, endorsed by a moderator → `response_endorsed`.
           const theirs = await createThread(poster.request, config, {
@@ -139,6 +140,15 @@ test.describe(
               found,
               `${type}: rows seen ${JSON.stringify(rows.map((row) => row.notification_type))}`,
             ).toBeDefined();
+            delivered.push(found!.id);
+          }
+
+          // Both are listed where the case looks for them: the tray's
+          // Discussions tab.
+          await gotoTrayHost(recipient.page, config, courseKey);
+          await recipient.notificationTray.open('discussion');
+          for (const id of delivered) {
+            await expect(recipient.notificationTray.row(id)).toBeVisible();
           }
         } finally {
           for (const thread of threads) {

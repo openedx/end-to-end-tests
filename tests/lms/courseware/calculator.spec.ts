@@ -14,7 +14,10 @@ test(
   'evaluates an expression on a unit page once the author turns it on',
   {
     tag: ['@regression', '@studio', '@author', '@mfe-learning'],
-    annotation: testId('TC-00039'),
+    // TC-00273's learner half: the author's switch (its Advanced Settings form
+    // is driven in `tests/studio/settings/advanced.spec.ts`) puts a working
+    // calculator on the learner's unit pages.
+    annotation: [testId('TC-00039'), testId('TC-00273')],
   },
   async ({ request, config, studio, contentCourse, ownSection, roundTripLearner }) => {
     test.setTimeout(TIMEOUTS.contentTest);

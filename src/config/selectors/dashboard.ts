@@ -38,6 +38,18 @@ export const DASHBOARD_SELECTORS = {
    */
   courseCardCta: 'a.btn-primary:is([role="button"], [href*="/course/"])',
 
+  /**
+   * The "Refine" button above the course list, which opens the filter and
+   * sort form. Anchored by its container's id; the label is localized.
+   */
+  refineButton: '#course-filter-controls > button',
+
+  /** The Refine form's "Course Status" checkboxes, each keyed by its `value`. */
+  statusFilter: 'input[name="course-status-filters"]',
+
+  /** The Refine form's "Sort" radios: `enrolled` ("Last enrolled") and `title` ("Title (A-Z)"). */
+  sortOption: 'input[name="sort"]',
+
   /** A card's kebab — "Course actions dropdown" — whose id carries the card's index. */
   cardActions: 'button[id^="course-actions-dropdown-"]',
 

@@ -1,19 +1,26 @@
 import { checkA11y } from '../../../src/a11y';
 import {
   ApiError,
+  createCertificate,
   enrollInCourseViaApi,
+  fetchCourseDates,
   fetchCourseDetail,
   fetchCourseDetails,
   fetchCourseMetadata,
   fetchCoursewareCourse,
   isEnrolled,
   listStudioCourses,
+  resetCertificates,
+  setCertificateActive,
   updateCourseDetails,
   uploadAsset,
   type CourseDetails,
 } from '../../../src/api';
-import { COURSE_ABOUT_SELECTORS, getRunId } from '../../../src/config';
+import { newCleanBrowserContext } from '../../../src/auth';
+import { COURSE_ABOUT_SELECTORS, getRunId, escapeRegExp } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
+import { CourseAboutPage } from '../../../src/pages/lms/catalog/course-about.page';
+import { DatesPage } from '../../../src/pages/lms/course-home/dates.page';
 import { toDateTimeFields } from '../../../src/pages/studio/settings/schedule-details.page';
 import { knownGap, testId } from '../../../src/reporting';
 
@@ -141,6 +148,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
     { tag: '@smoke', annotation: testId('TC-00295') },
     async ({
       page,
+      browser,
       config,
       authoredCourse,
       scheduleDetailsPage,
@@ -156,6 +164,33 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       // An enrolled learner, kept out only by the schedule.
       const learner = await newLearner();
       await enrollInCourseViaApi(learner.request, config, courseKey);
+      // The learner's own browser, for the two places the case reads the dates:
+      // the course's Dates tab and its About page. A context of its own, never
+      // the author's page.
+      const learnerContext = await newCleanBrowserContext(browser);
+      await learnerContext.addCookies((await learner.request.storageState()).cookies);
+      const learnerPage = await learnerContext.newPage();
+      const datesPage = new DatesPage(learnerPage, config);
+      const aboutPage = new CourseAboutPage(learnerPage, config);
+      /** The course's start and end as the learner's dates API (what the tab renders) lists them. */
+      const learnerDates = async () => {
+        const blocks = (await fetchCourseDates(learner.request, config, courseKey))
+          .course_date_blocks;
+        return ['course-start-date', 'course-end-date'].map((type) => {
+          const date = blocks.find((block) => block.date_type === type)?.date;
+          return date === undefined ? undefined : iso(new Date(date));
+        });
+      };
+      /** How many days of the Dates tab are headed with this instant's date. */
+      const daysOn = async (instant: Date) =>
+        datesPage.dayOn(await datesPage.formatDay(iso(instant))).count();
+      /** How many of the About page's details show this instant's date ("Classes start"). */
+      const aboutShows = async (instant: Date) => {
+        await aboutPage.gotoRendered(courseKey);
+        return aboutPage.detailsItemValues
+          .filter({ hasText: await aboutPage.formatShortDate(iso(instant)) })
+          .count();
+      };
       expect(
         (await fetchCourseMetadata(learner.request, config, courseKey)).course_access,
       ).toMatchObject({
@@ -185,6 +220,12 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
           lms: [iso(PAST), iso(FAR_FUTURE)],
           hasAccess: true,
         });
+      // The learner reads the same two dates on the Dates tab, each heading a
+      // day of the timeline, and the start on the About page.
+      await expect.poll(learnerDates).toEqual([iso(PAST), iso(FAR_FUTURE)]);
+      await datesPage.goto(courseKey);
+      expect([await daysOn(PAST), await daysOn(FAR_FUTURE)]).toEqual([1, 1]);
+      expect(await aboutShows(PAST)).toBe(1);
 
       // Start in the future: the learner is kept out again.
       await scheduleDetailsPage.setCourseStart(toDateTimeFields(FUTURE));
@@ -197,6 +238,8 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
           return { start: lms.start, hasAccess: access.has_access, why: access.error_code };
         })
         .toEqual({ start: iso(FUTURE), hasAccess: false, why: 'course_not_started' });
+      // Kept out of the courseware, the learner still reads the new start on the About page.
+      expect(await aboutShows(FUTURE)).toBe(1);
 
       // End in the past: the course is archived, and Studio Home files it so.
       await scheduleDetailsPage.setCourseStart(toDateTimeFields(PAST));
@@ -218,7 +261,13 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
           };
         })
         .toEqual({ end: iso(PAST_END), archived: true });
+      // The archived course's dates, as the learner now reads them.
+      await expect.poll(learnerDates).toEqual([iso(PAST), iso(PAST_END)]);
+      await datesPage.goto(courseKey);
+      expect([await daysOn(PAST), await daysOn(PAST_END)]).toEqual([1, 1]);
+      expect(await aboutShows(PAST)).toBe(1);
 
+      await learnerContext.close();
       await updateCourseDetails(api, config, courseKey, SCHEDULE_BASELINE);
     },
   );
@@ -231,6 +280,7 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
       config,
       authoredCourse,
       scheduleDetailsPage,
+      studioCourseOutlinePage,
       studioAuthorSession,
       newLearner,
     }) => {
@@ -268,6 +318,15 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
           return { start: lms.start, hasAccess: access.has_access };
         })
         .toEqual({ start: iso(earlierToday), hasAccess: true });
+
+      // Part 2: the course outline's status bar shows that start. It shows the
+      // date in the author's own time zone and no time of day, so the day is
+      // what is compared; the time is checked against the APIs above.
+      await studioCourseOutlinePage.goto(courseKey);
+      await expect(studioCourseOutlinePage.startDateLink).toContainText(
+        await studioCourseOutlinePage.formatStatusDate(iso(earlierToday)),
+      );
+      await scheduleDetailsPage.goto(courseKey);
 
       // Ended an hour ago: archived.
       const justEnded = hoursFromNow(-1);
@@ -331,6 +390,73 @@ test.describe('Schedule & Details', { tag: ['@studio', '@author', '@mfe-authorin
         )
         .toBe(iso(available));
 
+      await updateCourseDetails(api, config, courseKey, {
+        ...SCHEDULE_BASELINE,
+        certificate_available_date: null,
+      });
+    },
+  );
+
+  test(
+    'a learner reads the certificates-available date on the Dates tab',
+    { tag: '@regression', annotation: testId('TC-00297') },
+    async ({
+      page,
+      browser,
+      config,
+      authoredCourse,
+      studioAuthorSession,
+      certificateAvailableDateField,
+      certificateCourseMode,
+      newLearner,
+    }) => {
+      void studioAuthorSession;
+      void certificateAvailableDateField;
+      void certificateCourseMode;
+      // Author Studio API off the browser's own session — see course-lifecycle.spec.ts / studio-browser-session-decays.
+      const api = page.request;
+      const { courseKey } = authoredCourse;
+      const available = new Date('2039-07-01T00:00:00Z');
+      // The platform lists the date for learners only on a course that can
+      // issue certificates: a certificate-bearing mode (the fixture's) and an
+      // active certificate. The date itself is entered in Studio by the case
+      // above; here it is set through the API and read as the learner.
+      await resetCertificates(api, config, courseKey);
+      await createCertificate(api, config, courseKey, {
+        name: `E2E ${getRunId()}`,
+        signatories: [{ name: 'Ada Lovelace', title: 'Chair', organization: 'Open edX' }],
+      });
+      await setCertificateActive(api, config, courseKey, true);
+      await updateCourseDetails(api, config, courseKey, {
+        ...SCHEDULE_BASELINE,
+        start_date: iso(PAST),
+        end_date: iso(FUTURE),
+        certificates_display_behavior: 'end_with_date',
+        certificate_available_date: iso(available),
+      });
+
+      const learner = await newLearner();
+      await enrollInCourseViaApi(learner.request, config, courseKey);
+      await expect
+        .poll(async () => {
+          const date = (
+            await fetchCourseDates(learner.request, config, courseKey)
+          ).course_date_blocks.find(
+            (block) => block.date_type === 'certificate-available-date',
+          )?.date;
+          return date === undefined ? undefined : iso(new Date(date));
+        })
+        .toBe(iso(available));
+
+      // The Dates tab heads a day of its timeline with that date.
+      const learnerContext = await newCleanBrowserContext(browser);
+      await learnerContext.addCookies((await learner.request.storageState()).cookies);
+      const datesPage = new DatesPage(await learnerContext.newPage(), config);
+      await datesPage.goto(courseKey);
+      await expect(datesPage.dayOn(await datesPage.formatDay(iso(available)))).toHaveCount(1);
+      await learnerContext.close();
+
+      await resetCertificates(api, config, courseKey).catch(() => {});
       await updateCourseDetails(api, config, courseKey, {
         ...SCHEDULE_BASELINE,
         certificate_available_date: null,
@@ -686,5 +812,3 @@ const ONE_PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   'base64',
 );
-
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

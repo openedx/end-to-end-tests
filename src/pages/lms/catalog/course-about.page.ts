@@ -13,6 +13,8 @@ import {
  */
 export class CourseAboutPage {
   readonly enrollButton: Locator;
+  /** The intro card's status message, shown in place of the enroll button. */
+  readonly enrollmentStatus: Locator;
   readonly detailsItemLabels: Locator;
   readonly detailsItemValues: Locator;
   readonly shareTwitter: Locator;
@@ -29,6 +31,7 @@ export class CourseAboutPage {
     private readonly config: AppConfig,
   ) {
     this.enrollButton = page.locator(COURSE_ABOUT_SELECTORS.enrollButton);
+    this.enrollmentStatus = page.locator(COURSE_ABOUT_SELECTORS.enrollmentStatus);
     this.detailsItemLabels = page.locator(COURSE_ABOUT_SELECTORS.detailsItemLabel);
     this.detailsItemValues = page.locator(COURSE_ABOUT_SELECTORS.detailsItemValue);
     this.shareTwitter = page.locator(COURSE_ABOUT_SELECTORS.shareTwitter);
@@ -61,6 +64,20 @@ export class CourseAboutPage {
     await this.goto(courseKey);
     await loaded;
     await this.detailsItemValues.first().waitFor();
+  }
+
+  /**
+   * Opens the page and returns the status of the course-data request it makes
+   * (`GET /api/courseware/course/<key>`), whatever the answer: for a case about
+   * a course the visitor may not see, where the page has nothing to render
+   * (the LMS redirects the request, or answers 404 on older releases).
+   */
+  async gotoReadingCourse(courseKey: string): Promise<number> {
+    const answered = this.page.waitForResponse((response) =>
+      response.url().startsWith(`${this.config.baseUrls.lms}/api/courseware/course/`),
+    );
+    await this.goto(courseKey);
+    return (await answered).status();
   }
 
   /**

@@ -2,8 +2,10 @@ import { checkA11y } from '../../../src/a11y';
 import { expect, test } from '../../../src/fixtures';
 import { LEGACY_EDITOR_SELECTORS, TIMEOUTS } from '../../../src/config';
 import {
+  availableComponentTypes,
   buildSection,
   createXBlock,
+  fetchContainer,
   fetchPollResults,
   fetchSurveyResults,
   publishXBlock,
@@ -12,7 +14,8 @@ import { testId } from '../../../src/reporting';
 
 /**
  * Using a poll and a survey (xblock-poll): the author writes a poll in the
- * block's own Studio editor, and a learner votes in the courseware. The block's
+ * block's own Studio editor — and adds a survey from the Advanced tile and
+ * rewrites a question there — and a learner votes in the courseware. The block's
  * `get_results` handler, read as the learner, decides whether the vote was
  * recorded against the answer they chose. Answers are identified by their keys
  * (R/B/G/O for a poll, Y/N/M for a survey) — course content, not copy.
@@ -84,10 +87,10 @@ test.describe(
     );
 
     test(
-      'a learner answers every question of a survey',
+      'an author adds and edits a survey and a learner answers every question',
       { tag: '@smoke', annotation: testId('TC-00130') },
       async (
-        { page, config, contentCourse, studioAuthorSession, roundTripLearnerLater },
+        { page, config, contentCourse, studioAuthorSession, studioUnitPage, roundTripLearnerLater },
         testInfo,
       ) => {
         void studioAuthorSession;
@@ -101,11 +104,29 @@ test.describe(
           { subsections: [{ units: [{ blocks: [] }] }] },
         );
         const unit = section.units[0]!;
-        const surveyKey = await createXBlock(request, config, {
-          parentLocator: unit.usageKey,
-          category: 'survey',
-          displayName: 'E2E survey',
+
+        // The author adds the survey from the unit page's Advanced tile…
+        await studioUnitPage.goto(unit.usageKey);
+        const tiles = availableComponentTypes(await fetchContainer(request, config, unit.usageKey));
+        const surveyKey = await studioUnitPage.addAdvancedComponent(
+          tiles.indexOf('advanced'),
+          'survey',
+        );
+        expect(surveyKey).toContain('type@survey+');
+
+        // …and rewrites one of its default questions in the block's own editor.
+        const question = `E2E survey question ${Math.random().toString(36).slice(2, 8)}?`;
+        const editor = await studioUnitPage.openLegacyEditor(surveyKey);
+        await checkA11y(page, {
+          label: 'studio-survey-editor',
+          include: LEGACY_EDITOR_SELECTORS.frame,
         });
+        await editor.locator(LEGACY_EDITOR_SELECTORS.surveyQuestionLabel('enjoy')).fill(question);
+        const saved = await studioUnitPage.saveLegacyEditor(
+          editor,
+          LEGACY_EDITOR_SELECTORS.pollSave,
+        );
+        expect(saved.ok()).toBe(true);
         await publishXBlock(request, config, unit.usageKey);
         // The survey's default questions and answers, by key.
         const answers = { enjoy: 'Y', recommend: 'N', learn: 'M' } as const;
@@ -119,13 +140,15 @@ test.describe(
         await learner.prime(unit.sequentialUsageKey);
         await learner.unitPage.goto(courseKey, unit.sequentialUsageKey, unit.usageKey);
         const survey = learner.unitPage.pollBlock(surveyKey, 'survey');
-        for (const [question, answer] of Object.entries(answers)) {
-          await survey.answer(question, answer);
+        for (const [key, answer] of Object.entries(answers)) {
+          await survey.answer(key, answer);
         }
         const vote = await survey.submit();
         expect(await vote.json()).toMatchObject({ success: true });
 
+        // The learner's survey is the edited one, with their answers recorded.
         const results = await fetchSurveyResults(learner.request, config, courseKey, surveyKey);
+        expect(results.find((q) => q.key === 'enjoy')?.label).toContain(question);
         expect(
           Object.fromEntries(
             results.map((q) => [q.key, q.answers.filter((a) => a.count > 0).map((a) => a.key)]),

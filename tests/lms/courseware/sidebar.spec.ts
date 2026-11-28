@@ -1,8 +1,8 @@
 import { expect, test } from '../../../src/fixtures';
 import { TIMEOUTS } from '../../../src/config';
-import { fetchCourseNavigation, navigationSections } from '../../../src/api';
+import { fetchCourseNavigation, navigationSections, publishXBlock } from '../../../src/api';
 import { testId } from '../../../src/reporting';
-import { completeUnit } from '../../../src/steps';
+import { completeUnit, waitForLearnerBlock } from '../../../src/steps';
 
 /**
  * The in-course outline sidebar (the learning MFE's navigation tray).
@@ -116,6 +116,57 @@ test.describe('Courseware outline sidebar', () => {
       // element, so no assertion on colour is needed.
       await unitPage.goto(enrolledCourse.courseKey, sequentialId, units[0]?.id ?? '');
       await expect(unitPage.subsectionCompletedIcon(units[0]?.id ?? '')).toBeVisible();
+    },
+  );
+
+  test(
+    'marks a section complete once every subsection in it is complete',
+    {
+      tag: ['@regression', '@studio', '@author', '@mfe-learning', '@courseware-navigation-sidebar'],
+      annotation: testId('TC-00055'),
+    },
+    async ({ request, config, studio, authorSection, roundTripLearner }) => {
+      void studio;
+      // The configured course's sections all hold a video or an ORA somewhere,
+      // so no section of it can be finished. This one is the suite's own: one
+      // subsection, one unit, one text block, complete once it has been seen.
+      const section = await authorSection({ subsections: [{ units: [{ blocks: ['html'] }] }] });
+      const authored = section.units[0]!;
+      await publishXBlock(request, config, section.usageKey);
+
+      const learner = roundTripLearner;
+      expect((await waitForLearnerBlock(learner.outline, authored.usageKey)).satisfied).toBe(true);
+      const unit = (await learner.outline()).units.find((u) => u.id === authored.usageKey)!;
+      const sectionRow = learner.unitPage.sidebarSection(section.displayName);
+      const sectionDone = learner.unitPage.sectionCompletedIcon(section.displayName);
+
+      // Before: the section's row in the course outline view is not marked.
+      await learner.prime(unit.sequentialId);
+      await learner.unitPage.goto(learner.courseKey, unit.sequentialId, unit.id);
+      await learner.unitPage.backToOutline();
+      await expect(sectionRow).toHaveCount(1);
+      await expect(sectionDone).toHaveCount(0);
+
+      const unfinished = await completeUnit(
+        learner.page,
+        learner.unitPage,
+        learner.courseKey,
+        unit,
+      );
+      expect(unfinished, 'the unit registered completion').toEqual([]);
+      // The platform's record first: the section itself is complete.
+      await expect
+        .poll(async () => (await learner.outline()).blocks[section.usageKey]?.completion, {
+          timeout: TIMEOUTS.contentPublish,
+        })
+        .toBe(1);
+
+      // Then the rendering: the section's circle is replaced by the completed
+      // icon in the course outline view, as its subsection's is in the section view.
+      await learner.unitPage.goto(learner.courseKey, unit.sequentialId, unit.id);
+      await expect(learner.unitPage.subsectionCompletedIcon(unit.id)).toBeVisible();
+      await learner.unitPage.backToOutline();
+      await expect(sectionDone).toBeVisible();
     },
   );
 

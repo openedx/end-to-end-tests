@@ -42,12 +42,14 @@ measured, and issues are opened by hand from them.
 | `RBAC-011`  | `openedx/frontend-app-authoring`                         | **filed** - [frontend-app-authoring#3310](https://github.com/openedx/frontend-app-authoring/issues/3310) (tracked here as [#132](https://github.com/openedx/end-to-end-tests/issues/132)), asserted as a 403 on the offered action (TC-00572) |
 | `RBAC-012`  | sheet vs platform (`openedx-authz` roles)                | open, platform's model asserted on TC-00571                                    |
 | `RBAC-013`  | `openedx/frontend-app-authoring`                         | **filed** - [frontend-app-authoring#3311](https://github.com/openedx/frontend-app-authoring/issues/3311) (tracked here as [#133](https://github.com/openedx/end-to-end-tests/issues/133)), `test.fail` sibling on TC-00575 |
-| `RBAC-014`  | `openedx/frontend-app-admin-console`                     | **filed** - [frontend-app-admin-console#258](https://github.com/openedx/frontend-app-admin-console/issues/258) (tracked here as [#136](https://github.com/openedx/end-to-end-tests/issues/136)), **does not reproduce on the local `main` sandbox** (2026-11-24): the removal control is enabled and removes the assignment; TC-00620's sibling is a plain test again, `verawood` and CI `main` still to confirm |
+| `RBAC-014`  | `openedx/frontend-app-admin-console`                     | **fixed on `main`** (2026-11-24) - [frontend-app-admin-console#258](https://github.com/openedx/frontend-app-admin-console/issues/258) closed (tracked here as [#136](https://github.com/openedx/end-to-end-tests/issues/136)); still present on `verawood`, where TC-00620's console removal runs as an expected failure and TC-00577's skips (`rbac-console-next`) |
 | `RBAC-015`  | `openedx/edx-platform` / `openedx-authz`                 | **filed** - [authz#521](https://github.com/openedx/openedx-authz/issues/521) (tracked here as [#118](https://github.com/openedx/end-to-end-tests/issues/118)), `test.fail` on TC-00640 |
 | `RBAC-016`  | BTR test plan (TC-00632 expectation)                     | **resolved** — by design: re-runs never copied the team; [wg#617](https://github.com/openedx/wg-build-test-release/issues/617) (tracked here as [#119](https://github.com/openedx/end-to-end-tests/issues/119)), TC-00632 marked `disputed` |
 | `RBAC-017`  | `openedx/frontend-app-admin-console` (`verawood`)        | **filed** — [wg#609](https://github.com/openedx/wg-build-test-release/issues/609), fixed on `main`; gates `rbac-console-next` |
 | `AUTH-004`  | `openedx/frontend-app-authoring`                         | open, not asserted — Help topics are, their doc links are not                  |
 | `AUTH-005`  | `openedx/frontend-app-authoring` (outline card selection is mouse-only) | open, not asserted — **narrowed** (2026-11-23): a card's row is focusable and selects on Enter, but has no role or name |
+| `AUTH-006`  | `openedx/frontend-app-authoring` (outline sidebar menu, `verawood` only) | open, not filed — worked around: TC-00485 reloads the outline before Move Up; not present on `main` |
+| `AUTH-007`  | `openedx/frontend-app-authoring` (sidebar at narrow widths, `verawood` only) | open, not filed — TC-00482's no-sideways-scroll case runs on `main` only (`studio-sidebar-narrow-layout`); not present on `main` |
 | `BASE-002`  | `openedx/frontend-base` (shell header)                   | open, no `fixme` — worked around by selector                                   |
 | `PLAT-004`  | `openedx/edx-platform` (`login_session`)                 | open, no `fixme` — the suite no longer makes the call                          |
 | `TUTOR-001` | `overhangio/tutor` (+ any plugin setting the old key)    | open, no `fixme` — handled by the `catalog-search` capability                  |
@@ -109,8 +111,9 @@ measured, and issues are opened by hand from them.
 | `TAG-001`   | `openedx/edx-platform` (author tagging its own course)        | **resolved** — no defect; the earlier 403 was a pre-migration course
 | `TAG-002`   | `openedx/frontend-app-authoring` (outline tag counts, wg-build-test-release#592) | **filed** (card badge) - [frontend-app-authoring#3308](https://github.com/openedx/frontend-app-authoring/issues/3308) (tracked here as [#130](https://github.com/openedx/end-to-end-tests/issues/130)); course-level field **by design**; no `fixme` — the drawer cases assert the API, never the badge
 | `FILES-001` | `openedx/frontend-app-authoring` (TC-00137, frontend-app-authoring#3096) | **not reproduced** — case committed green on both targets
-| `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; copy asserted by URL resolution
+| `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; the copied text is read through a recording stand-in for `navigator.clipboard`
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
+| `FILES-004` | `openedx/frontend-app-authoring` (Files search, TC-00136)      | open, not filed — sheet wording: TC-00136's separate-words test asserts the substring search and is marked `disputed`; a term with a space that is one substring of the name is verified |
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy pages' breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` and `studio-competency-management` scans only |
 | `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` and `import-competency-framework.spec.ts` (a page load before each wizard run, a different file on re-import or when the wizard is reopened without a reload) |
@@ -1561,10 +1564,33 @@ the badge is ever asserted, it must be polled after a reload.
 denies to a page served over `http` (the local and CI targets), so a test
 cannot read back what was copied.
 
-**Coverage impact:** open, no `fixme`. TC-00140 asserts the two copy items are
-*offered* and that the asset's own URL *resolves* (a `GET` of
-`assetStudioUrl(...)` returns `200`), rather than reading the clipboard — the
-copy source is correct even though the copy itself is unobservable here.
+**Coverage impact:** open, no `fixme`. TC-00140 replaces `navigator.clipboard`
+with a recording stand-in before the page loads, so the text each copy action
+writes is compared with the asset's own URLs (`portable_url`, and the absolute
+URL, which must serve the uploaded bytes). What the system clipboard would
+hold is still unobservable here.
+
+### `FILES-004` — the Files search does not match words typed apart
+
+**Where:** the Studio Files page's search field, `main` (Tutor, 2026-11-24).
+Not checked on `verawood`.
+
+**What happens:** the search matches the typed text as one substring of the
+file name. For `FirstCourseImage.jpg`, "First Image" and "First .jpg" (the
+terms TC-00136 gives) find nothing; a term whose words appear together in the
+name, space included, finds the file.
+
+**Expected by the sheet:** each word narrows the list.
+
+**Coverage impact:** open, not filed, and treated as a sheet wording question
+rather than a defect. TC-00136's "searches by separate words of a file name"
+asserts what the search does (each part alone finds its file, the parts typed
+apart find nothing) and is marked `disputed`, so its passing row says the sheet
+is out of step; the substring search with a space is asserted in the case's
+other test.
+
+**Sheet should say:** search terms that appear in the file name as typed
+("First", "Image", ".jpg"), not parts of the name separated by a space.
 
 ### `FILES-001` — sort/filter under a search: not reproduced on this target
 
@@ -2089,6 +2115,14 @@ hook's loading state (everything `false`) and not re-rendered. The held case's
 body is complete; it was run once as a plain `test` to measure this and still
 fails at `toBeEnabled()`.
 
+**Fixed on `main` (2026-11-24).** frontend-app-admin-console#258 was closed on
+2026-10-22, and the audit view's delete control now removes a course-scope
+assignment: TC-00620's console removal runs as a plain test and TC-00577
+removes a member the same way. `verawood`'s console still renders the control
+disabled (the CI run of 2026-11-24 timed out waiting for it), so TC-00620's
+removal runs there as an expected failure (`rbac-console-next` undeclared) and
+TC-00577's carries `@rbac-console-next` and skips.
+
 ### `RBAC-015` — an organization-level override blocks course creation for legacy creators
 
 **Corrected (2026-10-09), filed as
@@ -2215,6 +2249,41 @@ row (the `Row` around it) does carry `tabindex="0"` and selects the card on
 Enter or Space — TC-00489 selects a unit that way on `main`. What remains is
 that the row has no role, no accessible name and no selected state, so a
 screen-reader user is not told it is a control or what it selects.
+
+
+### `AUTH-006` — on `verawood` the sidebar's Move Up stays disabled after a Move Down
+
+**Where:** the course outline's Info sidebar, item menu, `verawood` (CI run of
+2026-11-24). Not present on `main`.
+
+**What happens:** a section moved down with the sidebar menu's Move Down is
+shown second in the outline, but selecting it again offers Move Up disabled and
+Move Down enabled, as if it were still first: the panel keeps the position the
+item had before the move.
+
+**Expected:** the menu follows the item's current position, as on `main`.
+
+**Coverage impact:** open, not filed (fixed on `main`, so it would be a
+backport request). TC-00485 loads the outline afresh before Move Up, which
+both releases accept. The reload as a cure was inferred from the stale state;
+the `verawood` CI run of 2026-11-25 passed with it.
+
+### `AUTH-007` — on `verawood` the authoring sidebar pushes its rail off a narrower window
+
+**Where:** the course outline with its sidebar open, at 1024 px wide,
+`verawood` (CI run of 2026-11-24). Not present on `main`.
+
+**What happens:** the panel keeps its 440 px minimum width beside the outline,
+and the rail of page buttons to its right ends up past the window's right edge:
+the page scrolls sideways.
+
+**Expected:** the page fits the window, as on `main`, which caps the panel's
+width to the window and stacks the rail above the panel when there is no room.
+
+**Coverage impact:** open, not filed (fixed on `main`, so it would be a
+backport request). TC-00482's "fits a narrower window without scrolling
+sideways" carries `@studio-sidebar-narrow-layout` and skips on `verawood`; the
+panel and outline not overlapping at that width is asserted on both.
 
 ### `NOTIF-001` — a cadence change without a channel answers 500
 

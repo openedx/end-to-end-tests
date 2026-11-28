@@ -25,7 +25,7 @@ test.describe(
     test.describe.configure({ timeout: TIMEOUTS.contentTest });
 
     test(
-      'adds a YouTube video and sets an advanced download option',
+      'adds a YouTube video and sets its download and start/stop time options',
       { tag: '@smoke', annotation: [testId('TC-00213'), testId('TC-00215')] },
       async ({
         page,
@@ -46,6 +46,7 @@ test.describe(
 
         await studioVideoEditor.setVideoUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
         await studioVideoEditor.setAllowDownloads(true);
+        await studioVideoEditor.setStartAndStopTimes('00:00:05', '00:00:20');
         await studioVideoEditor.save();
 
         // The unit now has a video block whose source is the YouTube id.
@@ -55,6 +56,9 @@ test.describe(
         const metadata = (await fetchXBlock(page.request, config, video?.block_id ?? '')).metadata;
         expect(metadata['youtube_id_1_0']).toBe('dQw4w9WgXcQ');
         expect(metadata['download_video']).toBe(true);
+        // The Duration widget's times, as the block stores them (`h:mm:ss`).
+        expect(String(metadata['start_time'])).toMatch(/^0?0:00:05$/);
+        expect(String(metadata['end_time'])).toMatch(/^0?0:00:20$/);
       },
     );
 

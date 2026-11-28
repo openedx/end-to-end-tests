@@ -1,14 +1,66 @@
 import { checkA11y } from '../../../src/a11y';
-import { buildSection, courseUsageKey, fetchXBlockOutline } from '../../../src/api';
+import type { APIRequestContext } from '@playwright/test';
+
+import {
+  buildSection,
+  courseUsageKey,
+  fetchContainerChildren,
+  fetchObjectTags,
+  fetchXBlockOutline,
+  setObjectTags,
+  updateXBlock,
+} from '../../../src/api';
 import {
   TIMEOUTS,
   VIEWPORTS,
   viewportUse,
   STUDIO_SIDEBAR_SELECTORS as S,
+  type AppConfig,
+  escapeRegExp,
 } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
+import { TAG } from '../../../src/steps';
 import { SIDEBAR_A11Y_BASELINE } from './helpers';
+
+/**
+ * The course Settings tab's links, as the path each leads to under the course's
+ * authoring URL: Schedule & details, Grading, Course team, Group configurations
+ * and Advanced settings. (Proctored exam settings joins them only where
+ * proctoring is configured.)
+ */
+const COURSE_SETTINGS_PAGES = [
+  'settings/details',
+  'settings/grading',
+  'course_team',
+  'group_configurations',
+  'settings/advanced',
+] as const;
+
+/** A subsection's Settings toggles: grading, then visibility (`settingsToggleGroup`). */
+const GRADING_TOGGLE = 0;
+const VISIBILITY_TOGGLE = 1;
+
+/** An ISO date as the Settings tab's date picker writes it (`MM/DD/YYYY`, UTC). */
+function pickerDate(iso: string | null): string {
+  if (iso === null) return '';
+  const date = new Date(iso);
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${two(date.getUTCMonth() + 1)}/${two(date.getUTCDate())}/${date.getUTCFullYear()}`;
+}
+
+/** How many sections, subsections and units the platform holds for a course. */
+async function outlineCounts(
+  request: APIRequestContext,
+  config: AppConfig,
+  courseKey: string,
+): Promise<{ sections: number; subsections: number; units: number }> {
+  const course = await fetchXBlockOutline(request, config, courseUsageKey(courseKey));
+  const sections = course.child_info?.children ?? [];
+  const subsections = sections.flatMap((section) => section.child_info?.children ?? []);
+  const units = subsections.flatMap((subsection) => subsection.child_info?.children ?? []);
+  return { sections: sections.length, subsections: subsections.length, units: units.length };
+}
 
 /**
  * The Verawood outline Info panel: the course / section / subsection / unit
@@ -38,14 +90,21 @@ test.describe(
         studioAuthorSession,
       }) => {
         void studioAuthorSession;
+        const { courseKey } = authoringCourse;
         await buildSection(
           page.request,
           config,
-          authoringCourse.courseKey,
+          courseKey,
           `E2E course info ${test.info().testId.slice(-6)}`,
+          {
+            subsections: [
+              { units: [{ blocks: ['html'] }, { blocks: ['html'] }] },
+              { units: [{ blocks: ['html'] }] },
+            ],
+          },
         );
-        await studioCourseOutlinePage.goto(authoringCourse.courseKey);
-        await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
+        await studioCourseOutlinePage.goto(courseKey);
+        await studioCourseOutlinePage.waitForCourse(courseKey);
 
         // The course Info panel offers a Details (default) and a Settings tab, and
         // a Taxonomy Alignments section with its Manage-tags control.
@@ -53,9 +112,46 @@ test.describe(
         await expect(authoringSidebar.tab(S.courseInfoTab('settings'))).toBeVisible();
         await expect(authoringSidebar.taxonomySectionMenu).toBeVisible();
 
-        // The Settings tab lists links into the course settings pages.
+        // The Details tab's content summary counts the course's sections,
+        // subsections and units as the platform has them.
+        await expect
+          .poll(async () => ({
+            shown: {
+              sections: await authoringSidebar.contentSummaryCount('chapter'),
+              subsections: await authoringSidebar.contentSummaryCount('sequential'),
+              units: await authoringSidebar.contentSummaryCount('vertical'),
+            },
+            stored: await outlineCounts(page.request, config, courseKey),
+          }))
+          .toEqual({
+            shown: { sections: 1, subsections: 2, units: 3 },
+            stored: { sections: 1, subsections: 2, units: 3 },
+          });
+
+        // The Settings tab lists links into the course settings pages: schedule
+        // and details, grading, the course team, group configurations and
+        // advanced settings, each for this course.
         await authoringSidebar.openTab(S.courseInfoTab('settings'));
-        expect((await authoringSidebar.panelLinkHrefs()).length).toBeGreaterThan(0);
+        const hrefs = await authoringSidebar.panelLinkHrefs();
+        const settingsUrl = (path: string) =>
+          new RegExp(`/course/${escapeRegExp(courseKey)}/${path}/?$`);
+        expect(hrefs).toEqual(
+          expect.arrayContaining(
+            COURSE_SETTINGS_PAGES.map((path) => expect.stringMatching(settingsUrl(path))),
+          ),
+        );
+
+        // And each link leads where it says.
+        for (const path of COURSE_SETTINGS_PAGES) {
+          await studioCourseOutlinePage.goto(courseKey);
+          await studioCourseOutlinePage.waitForCourse(courseKey);
+          await authoringSidebar.openTab(S.courseInfoTab('settings'));
+          await authoringSidebar.settingsLinks.and(page.locator(`[href$="/${path}"]`)).click();
+          await expect(page).toHaveURL(settingsUrl(path));
+          await expect(studioCourseOutlinePage.sectionCards).toHaveCount(0);
+        }
+        await studioCourseOutlinePage.goto(courseKey);
+        await studioCourseOutlinePage.waitForCourse(courseKey);
 
         await checkA11y(page, {
           label: 'studio-sidebar-outline-info',
@@ -98,7 +194,7 @@ test.describe(
     );
 
     test(
-      'shows a selected subsection its grading and visibility settings',
+      'shows a selected subsection its units, dates, grading and visibility',
       { annotation: testId('TC-00488') },
       async ({
         page,
@@ -109,27 +205,107 @@ test.describe(
         studioAuthorSession,
       }) => {
         void studioAuthorSession;
-        // A graded subsection, so the Settings tab shows the grading-type control.
-        await buildSection(
-          page.request,
-          config,
-          authoringCourse.courseKey,
-          `E2E subsection info ${test.info().testId.slice(-6)}`,
-          { subsections: [{ gradedAs: 'Homework', units: [{ blocks: ['html'] }] }] },
-        );
+        // A graded subsection of two units with a release and a due date, and a
+        // second, plain one to switch to.
+        const label = `E2E subsection info ${test.info().testId.slice(-6)}`;
+        const section = await buildSection(page.request, config, authoringCourse.courseKey, label, {
+          subsections: [
+            { gradedAs: 'Homework', units: [{ blocks: ['html'] }, { blocks: ['html'] }] },
+            { units: [{ blocks: ['html'] }] },
+          ],
+        });
+        const [graded, plain] = section.subsections;
+        if (graded === undefined || plain === undefined) {
+          throw new Error('buildSection produced fewer than two subsections.');
+        }
+        await updateXBlock(page.request, config, graded.usageKey, {
+          metadata: { start: '2031-02-03T00:00:00Z', due: '2031-04-05T00:00:00Z' },
+        });
+        const stored = () => fetchXBlockOutline(page.request, config, graded.usageKey);
+
         await studioCourseOutlinePage.goto(authoringCourse.courseKey);
         await studioCourseOutlinePage.waitForCourse(authoringCourse.courseKey);
         await studioCourseOutlinePage.setAllExpanded(true);
         await studioCourseOutlinePage.select(
-          studioCourseOutlinePage.subsectionCards.first(),
+          studioCourseOutlinePage.subsectionTitled(graded.displayName),
           'subsection',
         );
+        await expect(authoringSidebar.title).toHaveText(graded.displayName);
 
-        // Details and Settings tabs render; the Settings tab exposes the grading
-        // type control (its non-localized test id) for the graded subsection.
+        // Details (the default tab): the content summary counts the subsection's
+        // units as the platform has them.
         await expect(authoringSidebar.tab(S.outlineItemInfoTab('info'))).toBeVisible();
+        await authoringSidebar.openTab(S.outlineItemInfoTab('info'));
+        await expect
+          .poll(async () => ({
+            shown: await authoringSidebar.contentSummaryCount('vertical'),
+            stored: (await stored()).child_info?.children.length,
+          }))
+          .toEqual({ shown: 2, stored: 2 });
+
+        // Settings: the release and due dates, the grading type and the
+        // visibility are the subsection's own.
+        const expected = {
+          release: '02/03/2031',
+          due: '04/05/2031',
+          gradedAs: 'Homework',
+          staffOnly: false,
+        };
         await authoringSidebar.openTab(S.outlineItemInfoTab('settings'));
-        await expect(page.locator('[data-testid="grader-type-select"]')).toBeVisible();
+        await expect
+          .poll(async () => {
+            const block = await stored();
+            return {
+              shown: {
+                release: await authoringSidebar.settingsDateInputs.nth(0).inputValue(),
+                due: await authoringSidebar.settingsDateInputs.nth(1).inputValue(),
+                gradedAs: await page.locator('[data-testid="grader-type-select"]').inputValue(),
+                staffOnly: (await authoringSidebar.settingsToggleChoice(VISIBILITY_TOGGLE)) === 1,
+              },
+              stored: {
+                release: pickerDate(block.start),
+                due: pickerDate(block.due),
+                gradedAs: block.format,
+                staffOnly: block.has_explicit_staff_lock,
+              },
+            };
+          })
+          .toEqual({ shown: expected, stored: expected });
+
+        // A change made here reaches the platform, and the panel shows it.
+        await authoringSidebar.chooseSettingsToggle(VISIBILITY_TOGGLE, 1);
+        await expect
+          .poll(async () => ({
+            shown: (await authoringSidebar.settingsToggleChoice(VISIBILITY_TOGGLE)) === 1,
+            stored: (await stored()).has_explicit_staff_lock,
+          }))
+          .toEqual({ shown: true, stored: true });
+
+        // Selecting the other subsection moves the highlight (`select` waits for
+        // it) and the panel to that one: its name, and its own settings.
+        await studioCourseOutlinePage.select(
+          studioCourseOutlinePage.subsectionTitled(plain.displayName),
+          'subsection',
+        );
+        await expect(authoringSidebar.title).toHaveText(plain.displayName);
+        await authoringSidebar.openTab(S.outlineItemInfoTab('settings'));
+        await expect
+          .poll(async () => {
+            const shown = await authoringSidebar.settingsDateInputs.nth(0).inputValue();
+            const block = await fetchXBlockOutline(page.request, config, plain.usageKey);
+            return {
+              releaseAsStored: shown === pickerDate(block.start),
+              releaseOfTheOther: shown === expected.release,
+              graded: (await authoringSidebar.settingsToggleChoice(GRADING_TOGGLE)) === 1,
+              gradedAsStored: block.graded,
+            };
+          })
+          .toEqual({
+            releaseAsStored: true,
+            releaseOfTheOther: false,
+            graded: false,
+            gradedAsStored: false,
+          });
       },
     );
 
@@ -156,6 +332,7 @@ test.describe(
             config,
             authoringCourse.courseKey,
             `E2E unit outline info ${test.info().testId.slice(-6)}`,
+            { subsections: [{ units: [{ blocks: ['html', 'html'] }] }] },
           );
           const unit = section.units.at(0);
           if (unit === undefined) throw new Error('buildSection produced no unit.');
@@ -177,6 +354,27 @@ test.describe(
             'true',
           );
           await expect(authoringSidebar.tab(S.outlineUnitInfoTab('settings'))).toBeVisible();
+
+          // Details counts the unit's components as the platform has them.
+          await expect
+            .poll(async () => ({
+              shown: await authoringSidebar.contentSummaryCount('html'),
+              stored: (await fetchContainerChildren(page.request, config, unit.usageKey)).filter(
+                (child) => child.block_type === 'html',
+              ).length,
+            }))
+            .toEqual({ shown: 2, stored: 2 });
+
+          // The Preview tab renders this unit, with its components, in the panel.
+          await authoringSidebar.openTab(S.outlineUnitInfoTab('preview'));
+          await expect(authoringSidebar.unitPreviewFrame).toHaveAttribute(
+            'src',
+            new RegExp(`${escapeRegExp(unit.usageKey)}$`),
+          );
+          const preview = authoringSidebar.unitPreviewFrame.contentFrame();
+          for (const block of unit.blocks) {
+            await expect(preview.locator(S.previewBlock(block.usageKey))).toBeVisible();
+          }
         },
       );
     });
@@ -292,6 +490,92 @@ test.describe(
         await expect
           .poll(() => children(course), { timeout: TIMEOUTS.contentPublish })
           .toEqual([copy, original]);
+
+        // Move Up, on the original where it now sits (second of the course's
+        // two sections), puts it back in front. The outline is loaded afresh
+        // first: on `verawood` the panel keeps the position an item had before
+        // its last move, so Move Up stays disabled for a section just moved
+        // down until the page is reloaded (`AUTH-006`; `main` does not).
+        await studioCourseOutlinePage.goto(courseKey);
+        await studioCourseOutlinePage.waitForCourse(courseKey);
+        await studioCourseOutlinePage.select(
+          studioCourseOutlinePage.sectionCards.nth(1),
+          'section',
+        );
+        await (await authoringSidebar.itemMenuAction('outline', 'moveUp')).click();
+        await expect
+          .poll(() => children(course), { timeout: TIMEOUTS.contentPublish })
+          .toEqual([original, copy]);
+      },
+    );
+
+    test(
+      'lists the tags applied to the course, a subsection and a unit under Taxonomy Alignments',
+      {
+        tag: '@taxonomies',
+        annotation: [testId('TC-00486'), testId('TC-00488'), testId('TC-00489')],
+      },
+      async ({
+        page,
+        config,
+        workerTaxonomy,
+        authoringCourse,
+        authoringSidebar,
+        studioCourseOutlinePage,
+        studioAuthorSession,
+      }) => {
+        void studioAuthorSession;
+        const { courseKey } = authoringCourse;
+        const section = await buildSection(
+          page.request,
+          config,
+          courseKey,
+          `E2E tagged info ${test.info().testId.slice(-6)}`,
+        );
+        const subsection = section.subsections[0];
+        const unit = section.units[0];
+        if (subsection === undefined || unit === undefined) {
+          throw new Error('buildSection produced no subsection with a unit.');
+        }
+        // One tag on the course, two on the subsection, a different one on the unit.
+        const applied: readonly (readonly [string, readonly string[]])[] = [
+          [courseKey, [TAG.parentOne]],
+          [subsection.usageKey, [TAG.parentOne, TAG.parentTwo]],
+          [unit.usageKey, [TAG.parentThree]],
+        ];
+        for (const [objectId, tags] of applied) {
+          await setObjectTags(page.request, config, objectId, workerTaxonomy.taxonomy.id, tags);
+        }
+        const tagsOf = async (objectId: string) => ({
+          shown: [...(await authoringSidebar.appliedTags())].sort(),
+          stored: (await fetchObjectTags(page.request, config, objectId))
+            .flatMap((entry) => entry.tags.map((tag) => tag.value))
+            .sort(),
+        });
+        const both = (tags: readonly string[]) => ({
+          shown: [...tags].sort(),
+          stored: [...tags].sort(),
+        });
+
+        await studioCourseOutlinePage.goto(courseKey);
+        await studioCourseOutlinePage.waitForCourse(courseKey);
+        await studioCourseOutlinePage.setAllExpanded(true);
+
+        // Nothing selected: the course's own tags.
+        await expect.poll(() => tagsOf(courseKey)).toEqual(both([TAG.parentOne]));
+
+        await studioCourseOutlinePage.select(
+          studioCourseOutlinePage.subsectionTitled(subsection.displayName),
+          'subsection',
+        );
+        await expect(authoringSidebar.title).toHaveText(subsection.displayName);
+        await expect
+          .poll(() => tagsOf(subsection.usageKey))
+          .toEqual(both([TAG.parentOne, TAG.parentTwo]));
+
+        await studioCourseOutlinePage.select(studioCourseOutlinePage.unit(unit.usageKey), 'unit');
+        await expect(authoringSidebar.title).toHaveText(unit.displayName);
+        await expect.poll(() => tagsOf(unit.usageKey)).toEqual(both([TAG.parentThree]));
       },
     );
   },

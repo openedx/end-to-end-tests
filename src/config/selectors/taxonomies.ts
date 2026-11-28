@@ -30,9 +30,11 @@ export const TAXONOMY_SELECTORS = {
   /**
    * A taxonomy's card on the list page, reached by its link rather than its
    * localized title. The `$=` match with a leading slash keeps id 5 from matching
-   * `/taxonomy/15`.
+   * `/taxonomy/15`. `verawood` links to `/taxonomy/<id>/`, `main` without the
+   * trailing slash.
    */
-  card: (id: number): string => `a.taxonomy-card[href$="/taxonomy/${id}"]`,
+  card: (id: number): string =>
+    `a.taxonomy-card[href$="/taxonomy/${id}"], a.taxonomy-card[href$="/taxonomy/${id}/"]`,
   /**
    * A card's type icon, whose screen-reader text is "Competency taxonomy" for
    * `competency` and "Tags taxonomy" for `tags`. A card without a known type
@@ -262,6 +264,26 @@ export const TAXONOMY_SELECTORS = {
   deleteConfirmWord: '.taxonomy-delete-dialog label b',
   deleteConfirmInput: '.taxonomy-delete-dialog .pgn__form-group input',
   deleteButton: '[data-testid="delete-button"]',
+
+  /**
+   * The taxonomy page's tag tree (`TagListTable`, measured on Tutor `main`
+   * 2026-11-24): one table row per visible tag, top-level tags first, each
+   * followed by its children once expanded. A tag with children carries a
+   * disclosure button ("Show Subtags" / "Hide Subtags") whose state is its
+   * `aria-expanded`; the row's other button is its actions menu
+   * (`aria-haspopup`). The tag's name is the text beside the disclosure; a
+   * child row wraps both in an indent element (`.tree-table-indent`).
+   */
+  tagRow: '.tag-list-card table tbody tr',
+  tagRowName: 'td:first-child span.d-flex > span',
+  tagRowCollapsedToggle: 'td:first-child button[aria-expanded="false"]:not([aria-haspopup])',
+  /**
+   * The "Taxonomy details" widget in the page's right column: the card beside
+   * the tag list, one section per field ("Title", "Description", "Export ID"),
+   * each a localized section title followed by the value.
+   */
+  detailsWidget: '.row > [class*="col-"]:not(:has(.tag-list-card)) > .pgn__card',
+  detailsWidgetSection: '.pgn__card-section:has(.pgn__card-section-title)',
 
   /** Manage-orgs modal: the "assign to all orgs" checkbox and the Save button. */
   manageOrgsModal: '.manage-orgs',

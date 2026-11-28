@@ -9,6 +9,7 @@ import {
 import { waitForInstructorTask, waitForLearnerProgress } from '../../../src/steps';
 import { checkA11y } from '../../../src/a11y';
 import { ProgressPage } from '../../../src/pages/lms/course-home/progress.page';
+import { GradebookPage } from '../../../src/pages/lms/instructor/gradebook.page';
 import { testId } from '../../../src/reporting';
 import { INSTRUCTOR_A11Y_BASELINE, INSTRUCTOR_TAGS } from './helpers';
 
@@ -73,6 +74,20 @@ test.describe(
         await expect(new ProgressPage(page, config).totalGrade).toBeVisible({
           timeout: TIMEOUTS.navigation,
         });
+
+        // And the gradebook, from the Grading tab's own link: searched for the
+        // learner, it lists them, and only them, with the grade the wrong
+        // answer earned.
+        await instructorGrading.gotoTab(contentCourse.courseKey);
+        const gradebook = new GradebookPage(await instructorGrading.viewGradebook());
+        const listing = (await (
+          await gradebook.searchLearner(learner.identity.username)
+        ).json()) as { results: { username: string; percent: number }[] };
+        expect(listing.results).toMatchObject([
+          { username: learner.identity.username, percent: 0 },
+        ]);
+        await expect(gradebook.rowFor(learner.identity.username)).toHaveCount(1);
+        await expect(gradebook.rows).toHaveCount(1);
       },
     );
 

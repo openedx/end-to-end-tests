@@ -3,12 +3,17 @@ import { checkA11y } from '../../../src/a11y';
 import { TIMEOUTS } from '../../../src/config';
 import {
   addContainerChildren,
+  commitLibrary,
+  courseUsageKey,
   createLibraryContainer,
+  createXBlock,
   fetchContainerHierarchy,
+  fetchDownstream,
   fetchLibraryBlock,
   fetchLibraryBlockOlx,
   fetchLibraryContainer,
   fetchLibraryContainerChildren,
+  importLibraryContent,
   listLibraryBlocks,
   type LibraryBlock,
   type LibraryContainer,
@@ -300,6 +305,21 @@ test.describe('Content library units', { tag: ['@regression', ...LIBRARY_TAGS] }
       );
 
       await libraryContainerPage.goto(authoringLibrary.id, 'unit', unit.id);
+
+      // Cancelling the confirmation deletes nothing: the component is still in
+      // the unit and in the library.
+      await libraryContainerPage.openChildDelete(block.display_name);
+      await libraryContainerPage.cancelDialog();
+      expect(
+        (await fetchLibraryContainerChildren(page.request, config, unit.id)).map((c) => c.id),
+      ).toEqual([block.id]);
+      expect(
+        (await listLibraryBlocks(page.request, config, authoringLibrary.id)).results.map(
+          (b) => b.id,
+        ),
+      ).toEqual([block.id]);
+      await expect(libraryContainerPage.childFor(block.display_name)).toHaveCount(1);
+
       const deleted = await libraryContainerPage.deleteChild(block.display_name);
       expect(deleted.status()).toBe(200);
 
@@ -325,6 +345,15 @@ test.describe('Content library units', { tag: ['@regression', ...LIBRARY_TAGS] }
         .cardFor(unit.display_name)
         .first()
         .waitFor({ timeout: TIMEOUTS.librarySearch });
+
+      // No course reuses this unit, so the confirmation carries no downstream
+      // warning; cancelling it leaves the unit in the library.
+      await libraryPage.openCardDelete(unit.display_name);
+      await expect(libraryPage.deleteDownstreamWarning).toBeEmpty();
+      await libraryPage.cancelDialog();
+      expect((await fetchLibraryContainer(page.request, config, unit.id)).id).toBe(unit.id);
+      await expect(libraryPage.cardFor(unit.display_name)).toHaveCount(1);
+
       const deleted = await libraryPage.deleteCard(unit.display_name);
       expect(deleted.status()).toBe(204);
 
@@ -332,6 +361,84 @@ test.describe('Content library units', { tag: ['@regression', ...LIBRARY_TAGS] }
         status: 404,
       });
       await expect(libraryPage.cardFor(unit.display_name)).toHaveCount(0);
+    },
+  );
+
+  test(
+    'warns before deleting a unit that a course reuses',
+    { annotation: testId('TC-00343') },
+    async (
+      {
+        page,
+        config,
+        studioAuthorSession,
+        resyncStudioAuthor,
+        authoringLibrary,
+        authoringCourse,
+        libraryPage,
+      },
+      testInfo,
+    ) => {
+      void studioAuthorSession;
+      await resyncStudioAuthor();
+      const block = await authorTextBlock(
+        page.request,
+        config,
+        authoringLibrary.id,
+        label('child', testInfo.testId),
+      );
+      const unit = await unitWith(
+        page.request,
+        config,
+        authoringLibrary.id,
+        label('unit', testInfo.testId),
+        [block.id],
+      );
+      await commitLibrary(page.request, config, authoringLibrary.id);
+      const chapter = await createXBlock(page.request, config, {
+        parentLocator: courseUsageKey(authoringCourse.courseKey),
+        category: 'chapter',
+        displayName: label('uses-unit', testInfo.testId),
+      });
+      const sequential = await createXBlock(page.request, config, {
+        parentLocator: chapter,
+        category: 'sequential',
+        displayName: 'Subsection',
+      });
+      const imported = await importLibraryContent(page.request, config, {
+        parentLocator: sequential,
+        category: 'vertical',
+        libraryContentKey: unit.id,
+      });
+      expect((await fetchDownstream(page.request, config, imported.locator)).upstream_ref).toBe(
+        unit.id,
+      );
+
+      await libraryPage.goto(authoringLibrary.id, 'units');
+      await libraryPage
+        .cardFor(unit.display_name)
+        .first()
+        .waitFor({ timeout: TIMEOUTS.librarySearch });
+
+      // The confirmation now warns that a course uses the unit. The count behind
+      // the warning comes from the course's entity links, which a Celery task
+      // writes after the import, so the dialog is reopened until it shows.
+      await expect(async () => {
+        await libraryPage.openCardDelete(unit.display_name);
+        try {
+          await expect(libraryPage.deleteDownstreamWarning).not.toBeEmpty({
+            timeout: TIMEOUTS.optionalOverlay,
+          });
+        } finally {
+          await libraryPage.cancelDialog();
+        }
+      }).toPass({ timeout: TIMEOUTS.libraryReviewIndex });
+
+      // Cancelled every time: the unit and the course's copy are untouched.
+      expect((await fetchLibraryContainer(page.request, config, unit.id)).id).toBe(unit.id);
+      expect((await fetchDownstream(page.request, config, imported.locator)).upstream_ref).toBe(
+        unit.id,
+      );
     },
   );
 

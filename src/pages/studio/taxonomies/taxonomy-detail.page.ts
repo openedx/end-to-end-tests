@@ -51,6 +51,55 @@ export class TaxonomyDetailPage {
     });
   }
 
+  /** The rows of the tag tree that are currently shown. */
+  get tagRows(): Locator {
+    return this.page.locator(this.s.tagRow);
+  }
+
+  /** The names of the tags currently shown in the tree, in order. */
+  async tagNames(): Promise<string[]> {
+    return (await this.tagRows.locator(this.s.tagRowName).allTextContents()).map((name) =>
+      name.trim(),
+    );
+  }
+
+  /**
+   * Expands every collapsed tag, one at a time, until none is left: a parent's
+   * children are fetched and rendered when it opens, and may be collapsed
+   * themselves.
+   */
+  async expandAllTags(): Promise<void> {
+    const collapsed = this.tagRows.locator(this.s.tagRowCollapsedToggle);
+    await this.tagRows.first().waitFor();
+    for (let guard = 0; guard < 100 && (await collapsed.count()) > 0; guard += 1) {
+      const before = await this.tagRows.count();
+      await collapsed.first().click();
+      await this.page.waitForFunction(
+        ({ selector, count }) => document.querySelectorAll(selector).length > count,
+        { selector: this.s.tagRow, count: before },
+        { timeout: TIMEOUTS.action },
+      );
+    }
+  }
+
+  /**
+   * The "Taxonomy details" widget's values, in order (title, description,
+   * export id): each section's text with its localized heading removed.
+   */
+  async detailsValues(): Promise<string[]> {
+    const sections = this.page.locator(this.s.detailsWidget).locator(this.s.detailsWidgetSection);
+    await sections.first().waitFor();
+    return sections.evaluateAll((nodes) =>
+      nodes.map((node) =>
+        Array.from(node.childNodes)
+          .filter((child) => child.nodeType === Node.TEXT_NODE)
+          .map((child) => child.textContent ?? '')
+          .join('')
+          .trim(),
+      ),
+    );
+  }
+
   /** Opens the Actions menu; an already open menu stays open, because the toggle would close it. */
   private async openMenu(): Promise<void> {
     if ((await this.menuButton.getAttribute('aria-expanded')) !== 'true') {

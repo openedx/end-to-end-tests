@@ -130,6 +130,9 @@ profile. Each profile's column shows what that profile changes on top.
 | `certificate-web-view` | — | declared | declared | declared | declared | declared | |  |
 | `recommender-studio-settings` | declared | — | — | — | — | — | |  |
 | `outline-unhide-draft` | declared | — | — | — | — | — | |  |
+| `outline-library-sync` | declared | — | — | — | — | — | |  |
+| `editor-toolbar-names` | declared | — | — | — | — | — | |  |
+| `studio-sidebar-narrow-layout` | declared | — | — | — | — | — | |  |
 | `authz-auto-migration` | declared | declared | — | — | — | — | − |  |
 | `authz-manual-migration` | replaced | replaced | default | default | default | default | + |  |
 | `support-url` | — | — | — | — | — | — | + |  |
@@ -242,6 +245,9 @@ permanently red case. Declare one where the behaviour is right.
 | `certificate-web-view` | The certificate web view renders on an install with no marketing site. On `main` it answers 500 (`CERT-002`). | The render half of TC-00033. | `verawood`, `ulmo`, `teak`, `sumac`, `redwood` |
 | `recommender-studio-settings` | The recommender's Studio editor shows the settings it saved (recommender-xblock ≥ 5.1.0). `verawood` pins 5.0.0 (`XBLOCK-002`). | TC-00132. | `main` |
 | `outline-unhide-draft` | Un-hiding a unit in the outline's Configure dialog saves a draft; only hiding auto-publishes (frontend-app-authoring#3284). `verawood` auto-publishes every save. | TC-00161's draft case. | `main` |
+| `outline-library-sync` | A unit reused from a library shows an update button on its course-outline card once the library publishes a newer version. `verawood` offers the update on the course Libraries page and the unit page only. | TC-00348's outline-card case. | `main` |
+| `editor-toolbar-names` | The Studio rich-text editors' toolbar buttons carry TinyMCE's command name in `data-mce-name` (TinyMCE 7.1 and later; `main` ships 8). `verawood` ships TinyMCE 5, whose buttons have only a localized label, so nothing non-localized tells them apart. | The toolbar halves of TC-00217, TC-00218 and TC-00247; formatting by keyboard shortcut is not gated. | `main` |
+| `studio-sidebar-narrow-layout` | The authoring sidebar fits a narrower window: the panel's width is capped to the window and its rail stacks above it when there is no room. On `verawood` the panel keeps its minimum width and pushes the rail past the right edge, so the page scrolls sideways (`AUTH-007`). | TC-00482's no-sideways-scroll case; the rest of the case is not gated. | `main` |
 | `analytics-in-context-cards` | The outline cards' Analytics buttons open the element's own in-context analytics. frontend-plugin-aspects 3.0.1 reads the selection from the authoring MFE's `currentItemData`, which `master` removed, so on `main` they show the course's view (`ASPECTS-009`). Requires `analytics-in-context`. | TC-00314's card-opens-element case. | `verawood` (not yet run there) |
 | `analytics-staff-video-counts` | Course Comparison's video-count charts answer course staff. Superset 6.0.0 (tutor-contrib-aspects 4.x) aliases each table its row-level security filters as `schema.table`, so the charts' `dim_course_blocks.<column>` references fail for every RLS-limited user (`ASPECTS-011`); 6.1.0 (5.1+ and 6.x) does not. Requires `analytics`. | TC-00554's video-count case. | Superset 6.1 targets: tutor-contrib-aspects 5.1+ and 6.x (`main` and `verawood`); not the 4.x line |
 

@@ -7,6 +7,7 @@ import {
   commitLibrary,
   fetchContainer,
   fetchDownstream,
+  fetchXBlock,
   libraryOlx,
   publishLibraryBlock,
   publishXBlock,
@@ -15,7 +16,7 @@ import {
 } from '../../../src/api';
 import { testId } from '../../../src/reporting';
 import { waitForLearnerBlock, waitForSyncAvailable } from '../../../src/steps';
-import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, label } from './helpers';
+import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, authorTextBlock, label } from './helpers';
 
 /**
  * Reusing a published library component in a course unit (TC-00345) and
@@ -202,6 +203,95 @@ test.describe(
         await publishXBlock(page.request, config, unitKey);
         await learner.unitPage.goto(contentCourse.courseKey, subsectionKey, unitKey);
         await expect(learner.unitPage.block(imported.locator)).toContainText(v2);
+      },
+    );
+
+    test(
+      'library updates to a component are reviewed, accepted and ignored from the course Libraries page',
+      { annotation: testId('TC-00346') },
+      async (
+        {
+          page,
+          config,
+          studioAuthorSession,
+          resyncStudioAuthor,
+          authoringLibrary,
+          authoringCourse,
+          courseLibrariesPage,
+          previewChangesDialog,
+        },
+        testInfo,
+      ) => {
+        void studioAuthorSession;
+        await resyncStudioAuthor();
+        // A library and a course of this test's own: the Review tab is fed by
+        // the course's search index, which stays small (and so prompt) here.
+        const title = label('reviewed', testInfo.testId);
+        const version = (n: number) => `${title} v${n}`;
+        const block = await authorTextBlock(
+          page.request,
+          config,
+          authoringLibrary.id,
+          title,
+          version(1),
+        );
+        await commitLibrary(page.request, config, authoringLibrary.id);
+        const section = await buildSection(
+          page.request,
+          config,
+          authoringCourse.courseKey,
+          label('review', testInfo.testId),
+          { subsections: [{ units: [{ blocks: [] }] }] },
+        );
+        const unitKey = section.units[0]?.usageKey ?? '';
+        const imported = await importLibraryContent(page.request, config, {
+          parentLocator: unitKey,
+          category: 'html',
+          libraryContentKey: block.id,
+        });
+        await publishXBlock(page.request, config, unitKey);
+        const publishVersion = async (n: number) => {
+          await setLibraryBlockOlx(
+            page.request,
+            config,
+            block.id,
+            libraryOlx.html(title, version(n)),
+          );
+          await publishLibraryBlock(page.request, config, block.id);
+          const sync = await waitForSyncAvailable(page.request, config, imported.locator);
+          expect(sync.satisfied, JSON.stringify(sync.last)).toBe(true);
+        };
+
+        // A published library edit is listed under "Review Content Updates";
+        // "Review Updates" opens the old / new comparison, and accepting applies it.
+        await publishVersion(2);
+        await courseLibrariesPage.waitForReviewCard(authoringCourse.courseKey, title);
+        // The tab counts what awaits review: this one component.
+        await expect
+          .poll(async () => Number(await courseLibrariesPage.reviewCount.textContent()))
+          .toBe(1);
+        await courseLibrariesPage.reviewUpdates(title);
+        await previewChangesDialog.showVersion('old');
+        await previewChangesDialog.showVersion('new');
+        expect((await previewChangesDialog.accept()).status()).toBe(200);
+        const accepted = await fetchDownstream(page.request, config, imported.locator);
+        expect(accepted.ready_to_sync).toBe(false);
+        expect(accepted.version_synced).toBe(accepted.version_available);
+        expect((await fetchXBlock(page.request, config, imported.locator)).data).toContain(
+          version(2),
+        );
+
+        // The next edit is ignored from the same comparison: the course keeps v2.
+        await publishVersion(3);
+        await courseLibrariesPage.waitForReviewCard(authoringCourse.courseKey, title);
+        await courseLibrariesPage.reviewUpdates(title);
+        expect((await previewChangesDialog.ignore()).status()).toBe(204);
+        const declined = await fetchDownstream(page.request, config, imported.locator);
+        expect(declined.ready_to_sync).toBe(false);
+        expect(declined.version_declined).toBe(declined.version_available);
+        expect((await fetchXBlock(page.request, config, imported.locator)).data).toContain(
+          version(2),
+        );
       },
     );
   },

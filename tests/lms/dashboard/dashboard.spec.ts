@@ -1,5 +1,10 @@
 import { checkA11y } from '../../../src/a11y';
-import { isEnrolled } from '../../../src/api';
+import {
+  enrollInCourseViaApi,
+  fetchLearnerHome,
+  isEnrolled,
+  type LearnerHome,
+} from '../../../src/api';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -37,6 +42,62 @@ test.describe('Learner dashboard', () => {
       );
 
       await checkA11y(page, { label: 'dashboard' });
+    },
+  );
+
+  test(
+    'filters the courses by status and sorts them by enrollment or title',
+    {
+      tag: ['@regression', '@studio', '@author', '@mfe-learner-dashboard'],
+      annotation: testId('TC-00041'),
+    },
+    async ({ config, contentCourse, courseKey, roundTripLearner }) => {
+      // A learner of the suite's own with two enrollments, so that an order is
+      // observable: the worker course first, then the configured course.
+      const learner = roundTripLearner;
+      const dashboard = learner.dashboardPage;
+      await enrollInCourseViaApi(learner.request, config, courseKey);
+      const home = (await fetchLearnerHome(learner.request, config)) as LearnerHome;
+      const keys = (courses: LearnerHome['courses']) => courses.map((c) => c.courseRun.courseId);
+      expect(keys(home.courses)).toEqual(
+        expect.arrayContaining([contentCourse.courseKey, courseKey]),
+      );
+
+      await dashboard.goto();
+      // Every card offers the way into its course (Begin, Resume or View).
+      for (const key of keys(home.courses)) {
+        await expect(dashboard.courseCardCta(key)).toBeVisible();
+      }
+
+      // What each control should leave on the page is worked out from the
+      // dashboard's own data, never from the labels.
+      const byEnrollment = [...home.courses].sort(
+        (a, b) => Date.parse(b.enrollment.lastEnrolled) - Date.parse(a.enrollment.lastEnrolled),
+      );
+      const byTitle = [...home.courses].sort((a, b) =>
+        a.course.courseName.toLowerCase().localeCompare(b.course.courseName.toLowerCase()),
+      );
+
+      await dashboard.openRefine();
+      await expect(dashboard.sortOption('enrolled')).toBeChecked();
+      await expect.poll(() => dashboard.shownCourseKeys()).toEqual(keys(byEnrollment));
+
+      await dashboard.sortOption('title').check();
+      await expect.poll(() => dashboard.shownCourseKeys()).toEqual(keys(byTitle));
+
+      // Status: the two filters split the list by whether the course was opened.
+      const started = byTitle.filter((c) => c.enrollment.hasStarted);
+      const notStarted = byTitle.filter((c) => !c.enrollment.hasStarted);
+      await dashboard.statusFilter('notStarted').check();
+      await expect.poll(() => dashboard.shownCourseKeys()).toEqual(keys(notStarted));
+
+      await dashboard.statusFilter('notStarted').uncheck();
+      await dashboard.statusFilter('inProgress').check();
+      await expect.poll(() => dashboard.shownCourseKeys()).toEqual(keys(started));
+
+      // With no filter left the whole list is back.
+      await dashboard.statusFilter('inProgress').uncheck();
+      await expect.poll(() => dashboard.shownCourseKeys()).toEqual(keys(byTitle));
     },
   );
 

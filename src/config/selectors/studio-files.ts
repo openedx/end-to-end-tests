@@ -31,6 +31,24 @@ export const STUDIO_FILES_SELECTORS = {
   /** List-view rows (asserted by count; rows expose no per-asset attribute). */
   rows: '[data-testid="data-table-container"] tbody tr.pgn__data-table-row',
 
+  /**
+   * A list row's cells, in column order: 0 selection box, 1 thumbnail, 2 file
+   * name, 3 file size, 4 type, 5 "active" (a mark when course content uses the
+   * file, otherwise empty), 6 access (the locked / unlocked icon), 7 the 3-dot
+   * menu. Measured on Tutor `main` (2026-11-24); the cells carry no per-column
+   * attribute, so {@link FILES_ROW_CELL} names them by position.
+   */
+  rowCell: 'td[role="cell"]',
+
+  /**
+   * A list row's 3-dot menu, both inside the row's last cell: the toggle, and
+   * the items of the popup it opens. Unlike a card's menu (`itemMenu`,
+   * `openMenuLink`) the toggle carries no asset id and the items are buttons
+   * in a popper, in the same order ({@link FILES_ROW_MENU}).
+   */
+  rowMenuToggle: ':scope > button',
+  rowMenuItem: '[data-popper-placement] button',
+
   /** Selection checkboxes: the header "select all" and the per-row cell boxes. */
   selectAllCheckbox: '[data-testid="datatable-select-column-checkbox-header"]',
   rowCheckbox: '[data-testid="datatable-select-column-checkbox-cell"]',
@@ -46,6 +64,14 @@ export const STUDIO_FILES_SELECTORS = {
    * acceptance they disappear and the input is enabled.
    */
   agreementAlert: '[role="alert"].alert-warning',
+  /**
+   * The same banner on a page that shows other warnings too (the course
+   * outline): a warning alert whose actions hold a primary **button**, "Agree".
+   * The outline asks for every upload agreement at once (the shared one, the
+   * Files page's and the Videos page's), one banner per type not yet accepted.
+   * Measured on Tutor `main` (2026-11-24).
+   */
+  agreementBanner: '[role="alert"].alert-warning:has(.pgn__alert-actions button.btn-primary)',
   /** A banner's "Agree" — the alert's one primary action (beside "Learn more", a link). */
   agreementAgreeButton: '.pgn__alert-actions button.btn-primary',
   /** The file input inside the dropzone, which gating disables. */
@@ -78,8 +104,33 @@ export const STUDIO_FILES_SELECTORS = {
   deleteConfirmButton: '.pgn__alert-modal .pgn__modal-footer button.btn-primary',
   deleteCancelButton: '.pgn__alert-modal .pgn__modal-footer button.btn-tertiary',
 
-  /** The file Info sidebar's URL display (present only while the info panel is open). */
+  /**
+   * The file Info modal: its two URL displays, in order "Studio URL" (the
+   * portable `/static/…` path) then "Web URL" (the absolute asset URL); present
+   * only while the modal is open.
+   */
   infoUrlDisplay: '.files-page-url-truncate',
+  /** The Info modal's body ("Usage", "Date added", "File size", the URLs, "Lock file"). */
+  infoBody: '.pgn__modal .pgn__modal-body',
+  /** The Info modal's "Lock file" checkbox, its only form control. */
+  infoLockCheckbox: '.pgn__modal .pgn__modal-body input[type="checkbox"]',
+  /**
+   * The Info modal's "Usage" entries: one link per component that uses the
+   * file, to its unit (`…/container/<unit key>#<block key>`). With no usage the
+   * modal shows a sentence and no link.
+   */
+  infoUsageLink: '.pgn__modal .pgn__modal-body a[href*="/container/"]',
+  /** The Info modal's close button. */
+  infoCloseButton: '.pgn__modal .pgn__modal-close-button',
+} as const;
+
+/** List-row cell positions (see `rowCell`). */
+export const FILES_ROW_CELL = {
+  name: 2,
+  size: 3,
+  type: 4,
+  active: 5,
+  access: 6,
 } as const;
 
 /** Row 3-dot menu link indices (only Delete is test-id'd; the rest go by order). */

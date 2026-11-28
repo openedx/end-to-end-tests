@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { STUDIO_EDITOR_SELECTORS, TIMEOUTS, type AppConfig } from '../../../config';
 import { XBLOCK_PATH } from '../../../api';
@@ -82,9 +82,80 @@ export class StudioTextEditor {
     await this.page.keyboard.press(`Alt+Shift+${level}`);
   }
 
+  /**
+   * Clicks a toolbar button by TinyMCE's command name (`aligncenter`,
+   * `bullist`, `blockquote`, `forecolor`, …), opening the toolbar's overflow
+   * first when the button sits there. The click leaves the caret where it was,
+   * so typing continues with the format applied.
+   */
+  async toolbar(name: string): Promise<void> {
+    const button = this.page.locator(this.s.tinyMceToolbarButton(name)).first();
+    if (!(await button.isVisible())) {
+      await this.page.locator(this.s.tinyMceToolbarButton('overflow-button')).first().click();
+    }
+    await button.click();
+  }
+
+  /**
+   * Inserts a link at the caret through the toolbar's link dialog: its URL and
+   * the text to display.
+   */
+  async insertLink(url: string, text: string): Promise<void> {
+    await this.toolbar('link');
+    await this.page.locator(this.s.tinyMceLinkUrl).fill(url);
+    await this.page.locator(this.s.tinyMceLinkText).fill(text);
+    await this.page.locator(this.s.tinyMceDialogPrimary).click();
+    await this.page.locator(this.s.tinyMceDialog).waitFor({ state: 'hidden' });
+  }
+
+  /** Inserts an emoji at the caret from the toolbar's emoticons dialog. */
+  async insertEmoji(emoji: string): Promise<void> {
+    await this.toolbar('emoticons');
+    await this.page.locator(this.s.tinyMceEmoji(emoji)).click();
+    await this.page.locator(this.s.tinyMceDialog).waitFor({ state: 'hidden' });
+  }
+
+  /** Moves the caret one character back (into what was just typed or inserted). */
+  async caretLeft(): Promise<void> {
+    await this.page.keyboard.press('ArrowLeft');
+  }
+
   /** Starts a new block at the caret (Enter). */
   async newParagraph(): Promise<void> {
     await this.page.keyboard.press('Enter');
+  }
+
+  /** The editor dialog itself. */
+  get dialog(): Locator {
+    return this.page.locator(this.s.editorDialog);
+  }
+
+  /** The editable body, for reading back what the editor holds. */
+  get content(): Locator {
+    return this.body();
+  }
+
+  /** The "Exit the editor?" prompt the editor's Cancel raises. */
+  get exitPrompt(): Locator {
+    return this.page.locator(this.s.exitPrompt);
+  }
+
+  /** Clicks the editor's Cancel, which asks before discarding. */
+  async cancel(): Promise<void> {
+    await this.page.locator(this.s.editorCancel).click();
+    await this.exitPrompt.waitFor();
+  }
+
+  /** Answers the exit prompt with "Keep Editing". */
+  async keepEditing(): Promise<void> {
+    await this.page.locator(this.s.exitPromptKeepEditing).click();
+    await this.exitPrompt.waitFor({ state: 'hidden' });
+  }
+
+  /** Answers the exit prompt with "Discard Changes and Exit", closing the editor. */
+  async discard(): Promise<void> {
+    await this.page.locator(this.s.exitPromptDiscard).click();
+    await this.dialog.waitFor({ state: 'hidden' });
   }
 
   /** Saves the editor, waiting for the `POST /xblock/<html>` carrying the content. */

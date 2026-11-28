@@ -25,4 +25,21 @@ export const STUDIO_PAGES_RESOURCES_SELECTORS = {
   enableToggle: (appId: string) => `#enable-${appId}-toggle`,
   /** The app-settings modal's "Save" — the primary action; Cancel/close is tertiary. */
   modalSaveButton: '[role="dialog"] button.btn-primary',
+  /**
+   * "Hide discussion tab": the switch at the top of the Discussion app's
+   * provider dialog (`…/pages-and-resources/discussion`). The Discussion app
+   * has no `#enable-<appId>-toggle` of its own; this is its on/off control.
+   * Switching it on first asks "Hide the discussion tab?" in a confirmation
+   * modal whose primary button ("Ok") saves; switching it off saves at once.
+   * Measured on Tutor `main` (2026-11-24).
+   */
+  hideDiscussionSwitch: '[role="dialog"] [data-testid="hide-discussion"]',
+  hideDiscussionConfirmButton: '.hide-discussion-modal .pgn__modal-footer button.btn-primary',
+  /**
+   * "Flex Peer Grading": the one switch of the ORA settings modal ("Configure
+   * Flexible Peer Grading", `…/pages-and-resources/ora_settings/settings`),
+   * which the course offers once it holds an open response assessment. Saved
+   * with the modal's `modalSaveButton`. Measured on Tutor `main` (2026-11-24).
+   */
+  flexiblePeerGradingSwitch: '[role="dialog"] #enable-flexible-peer-grade',
 } as const;

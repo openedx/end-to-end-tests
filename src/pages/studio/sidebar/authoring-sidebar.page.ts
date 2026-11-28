@@ -139,6 +139,32 @@ export class AuthoringSidebar {
   }
 
   /**
+   * Ticks (or unticks) one library in the "Add Existing" pane's library filter,
+   * finding it by searching the filter for `libraryTitle`, since the filter
+   * lists every library the author may reuse from. The pane then lists the
+   * content of the ticked libraries only (of all of them when none is ticked).
+   */
+  async setAddExistingLibrary(
+    libraryKey: string,
+    libraryTitle: string,
+    ticked: boolean,
+  ): Promise<void> {
+    await this.addExistingPane.locator(this.s.addExistingLibraryFilter).click();
+    await this.page.locator(this.s.addExistingLibrarySearch).fill(libraryTitle);
+    const option = this.page.locator(this.s.addExistingLibraryOption(libraryKey));
+    // A just-seeded library can lag in the search index the filter reads.
+    await option.waitFor({ timeout: TIMEOUTS.librarySearch });
+    await option.setChecked(ticked);
+    await this.page.keyboard.press('Escape');
+    await this.page.locator(this.s.addExistingLibrarySearch).waitFor({ state: 'hidden' });
+  }
+
+  /** The content cards the "Add Existing" pane lists. */
+  get addExistingCards(): Locator {
+    return this.addExistingPane.locator(this.s.addExistingCard);
+  }
+
+  /**
    * Adds a library item from the "Add Existing" pane into the course: narrows the
    * pane to `libraryKey` with its library filter (searching the filter for
    * `libraryTitle`, since it lists every reusable library), searches the content
@@ -152,14 +178,7 @@ export class AuthoringSidebar {
     itemTitle: string,
   ): Promise<Response> {
     const pane = this.addExistingPane;
-    await pane.locator(this.s.addExistingLibraryFilter).click();
-    await this.page.locator(this.s.addExistingLibrarySearch).fill(libraryTitle);
-    const option = this.page.locator(this.s.addExistingLibraryOption(libraryKey));
-    // A just-seeded library can lag in the search index the filter reads.
-    await option.waitFor({ timeout: TIMEOUTS.librarySearch });
-    await option.check();
-    await this.page.keyboard.press('Escape');
-    await this.page.locator(this.s.addExistingLibrarySearch).waitFor({ state: 'hidden' });
+    await this.setAddExistingLibrary(libraryKey, libraryTitle, true);
     const search = pane.locator(this.s.addExistingSearch);
     await search.fill(itemTitle);
     await search.press('Enter');
@@ -173,6 +192,198 @@ export class AuthoringSidebar {
         timeout: TIMEOUTS.contentWrite,
       },
       () => card.locator(this.s.addExistingCardAdd).first().click(),
+    );
+  }
+
+  /** The panel's width in CSS pixels, as the resizable wrapper sets it. */
+  async width(): Promise<number> {
+    const box = await this.page.locator(this.s.resizable).boundingBox();
+    if (box === null) throw new Error('The sidebar panel is not resizable here (no wrapper).');
+    return box.width;
+  }
+
+  /**
+   * Drags the panel's left edge `dx` pixels with the mouse (negative widens the
+   * panel, positive narrows it) and returns the width it settles at. A real
+   * press, move and release: the handle listens for mouse events on the
+   * document, which a synthetic `dragTo` does not produce.
+   */
+  async dragEdge(dx: number): Promise<number> {
+    // The handle is two pixels wide and moves when the outline beside it
+    // settles: aim again until the pointer is really over it before pressing.
+    let x = 0;
+    let y = 0;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const box = await this.resizeHandle.boundingBox();
+      if (box === null) throw new Error('The sidebar has no resize handle to drag.');
+      x = box.x + box.width / 2;
+      y = box.y + Math.min(box.height / 2, 200);
+      await this.page.mouse.move(x, y);
+      const onHandle = await this.resizeHandle.evaluate(
+        (handle, point) => document.elementFromPoint(point.x, point.y) === handle,
+        { x, y },
+      );
+      if (onHandle) break;
+    }
+    await this.page.mouse.down();
+    await this.page.mouse.move(x + dx, y, { steps: 10 });
+    await this.page.mouse.up();
+    // The handle sets the width in React state: read it once the browser has
+    // painted the frame after the release, not the one the release landed in.
+    await this.page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }),
+    );
+    return this.width();
+  }
+
+  /**
+   * The Details tab's content-summary count for a block category, or `0` where
+   * the summary has no chip for it.
+   */
+  async contentSummaryCount(category: string): Promise<number> {
+    const chip = this.page.locator(this.s.contentSummaryCount(category));
+    if ((await chip.count()) === 0) return 0;
+    return Number((await chip.first().textContent())?.trim());
+  }
+
+  /** The tag values the Details tab lists under Taxonomy Alignments. */
+  async appliedTags(): Promise<string[]> {
+    const labels = await this.page.locator(this.s.appliedTagChip).allTextContents();
+    return labels.map((label) => label.trim());
+  }
+
+  /** The course Settings tab's links into the settings pages. */
+  get settingsLinks(): Locator {
+    return this.page.locator(this.s.settingsLink);
+  }
+
+  /** The open Settings tab's date fields, in order (a subsection: release, due). */
+  get settingsDateInputs(): Locator {
+    return this.page.locator(this.s.settingsDateInput);
+  }
+
+  /**
+   * The option (0 or 1) a Settings-tab toggle group currently shows as chosen.
+   * Waits for the group's buttons first, so a group that is not rendered times
+   * out here instead of reading as "no option chosen" (-1).
+   */
+  async settingsToggleChoice(group: number): Promise<number> {
+    const buttons = this.page.locator(this.s.settingsToggleGroup).nth(group).locator('button');
+    await buttons.first().waitFor({ state: 'attached' });
+    const classes: string[] = await buttons.evaluateAll((all: Element[]) =>
+      all.map((button) => button.getAttribute('class') ?? ''),
+    );
+    return classes.findIndex((cls) => cls.split(/\s+/).includes(this.s.settingsToggleChosenClass));
+  }
+
+  /**
+   * Chooses an option of a Settings-tab toggle group, waiting for the write to
+   * the selected block that it fires.
+   */
+  async chooseSettingsToggle(group: number, option: number): Promise<Response> {
+    const button = this.page
+      .locator(this.s.settingsToggleGroup)
+      .nth(group)
+      .locator('button')
+      .nth(option);
+    return waitForWrite(
+      this.page,
+      {
+        method: ['POST', 'PATCH'],
+        urlIncludes: `${XBLOCK_PATH}block-v1:`,
+        timeout: TIMEOUTS.contentWrite,
+      },
+      () => button.click(),
+    );
+  }
+
+  /** The unit rendered in the outline panel's Preview tab. */
+  get unitPreviewFrame(): Locator {
+    return this.page.locator(this.s.outlineUnitPreviewFrame);
+  }
+
+  /**
+   * Adds a new section, subsection or unit from the outline Add sidebar's "Add
+   * New" tab, waiting for the `POST /xblock/` that creates it. Returns that
+   * response: its body carries the new block's `locator`.
+   */
+  async addNewOutlineItem(kind: 'section' | 'subsection' | 'unit'): Promise<Response> {
+    return waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => new URL(r.url()).pathname === XBLOCK_PATH,
+        timeout: TIMEOUTS.contentWrite,
+      },
+      () => this.page.locator(this.s.outlineAddNewButton(kind)).click(),
+    );
+  }
+
+  /** A component type's entry on the unit page's Add sidebar ("Add New"). */
+  unitAddNewType(type: string): Locator {
+    return this.page.locator(this.s.unitAddNewType(type));
+  }
+
+  /**
+   * Adds a new component to the unit from the Add sidebar's "Add New" tab,
+   * waiting for the `POST /xblock/` that creates it and returning that response
+   * (its body carries the new block's `locator`). A type with templates (Text,
+   * Problem, Open Response) is expanded and its first, plain template chosen.
+   * Text, Video and Problem then open their editor over the page.
+   */
+  async addNewComponent(type: string): Promise<Response> {
+    const templated = (['html', 'problem', 'openassessment'] as const).find((t) => t === type);
+    const entry = this.unitAddNewType(type);
+    let trigger = entry;
+    if (templated !== undefined) {
+      if ((await entry.getAttribute('aria-expanded')) !== 'true') await entry.click();
+      trigger = this.page.locator(this.s.unitAddNewTemplate(templated)).first();
+    }
+    return waitForWrite(
+      this.page,
+      {
+        method: 'POST',
+        predicate: (r) => new URL(r.url()).pathname === XBLOCK_PATH,
+        timeout: TIMEOUTS.contentWrite,
+      },
+      () => trigger.click(),
+    );
+  }
+
+  /**
+   * Moves the selected component to another unit through its item menu's
+   * "Move": drills down the dialog by each ancestor's name (section, subsection,
+   * then the target unit — the test's own data) and confirms, waiting for the
+   * `PATCH /xblock/` that moves it.
+   */
+  async moveSelectedComponentTo(path: readonly string[]): Promise<Response> {
+    await (await this.itemMenuAction('component', 'move')).click();
+    await this.page.locator(this.s.moveDialog).waitFor();
+    // The dialog can redraw its list while the course tree is still loading,
+    // which takes the entry being clicked away and returns to the top level:
+    // start the drill-down over when that happens rather than fail on it.
+    const drill = async (): Promise<void> => {
+      for (const name of path) {
+        await this.page
+          .locator(this.s.moveDialogItem)
+          .filter({ has: this.page.getByText(name, { exact: true }) })
+          .first()
+          .click({ timeout: TIMEOUTS.optionalOverlay });
+      }
+    };
+    await drill().catch(() => drill());
+    const confirm = this.page.locator(this.s.moveDialogConfirm);
+    return waitForWrite(
+      this.page,
+      {
+        method: 'PATCH',
+        predicate: (r) => new URL(r.url()).pathname === XBLOCK_PATH,
+        timeout: TIMEOUTS.contentWrite,
+      },
+      () => confirm.click(),
     );
   }
 

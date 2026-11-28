@@ -28,11 +28,60 @@ export const STUDIO_EDITOR_SELECTORS = {
   /** The text component template picker (radios `name="Text"`, e.g. `value="html"`). */
   textTemplateRadio: (value: string) => `.pgn__modal input[name="Text"][value="${value}"]`,
   textTemplateSelect: '.pgn__modal button.btn-primary',
+  /**
+   * The editor dialog's own "Cancel" (the footer's tertiary button), and the
+   * "Exit the editor?" prompt it raises over the editor: a large modal whose
+   * footer offers "Discard Changes and Exit" (the outline button) and "Keep
+   * Editing" (the primary one).
+   */
+  editorCancel: '[role="dialog"].pgn__modal-xl .pgn__modal-footer button.btn-tertiary',
+  exitPrompt: '[role="dialog"].pgn__modal-lg',
+  exitPromptDiscard: '[role="dialog"].pgn__modal-lg .pgn__modal-footer button.btn-outline-brand',
+  exitPromptKeepEditing: '[role="dialog"].pgn__modal-lg .pgn__modal-footer button.btn-primary',
+  /**
+   * A TinyMCE toolbar button, by the command name TinyMCE itself stamps on it
+   * (`data-mce-name`: `aligncenter`, `bullist`, `blockquote`, `forecolor`, …).
+   * Its `aria-label` is localized; this attribute is not.
+   */
+  tinyMceToolbarButton: (name: string) => `button.tox-tbtn[data-mce-name="${name}"]`,
+  /**
+   * TinyMCE's own dialogs (link, emoticons, special characters): the link
+   * dialog's URL and "Text to display" fields, and a dialog's primary footer
+   * button ("Save" — the secondary one is "Cancel").
+   */
+  tinyMceDialog: '.tox-dialog',
+  tinyMceLinkUrl: '.tox-dialog input[type="url"]',
+  tinyMceLinkText: '.tox-dialog input[data-mce-name="text"]',
+  tinyMceDialogPrimary: '.tox-dialog__footer button.tox-button:not(.tox-button--secondary)',
+  /** The emoticons dialog's tile for an emoji: its value is the character itself. */
+  tinyMceEmoji: (emoji: string) =>
+    `.tox-dialog .tox-collection__item[data-collection-item-value="${emoji}"]`,
   /** TinyMCE's editable body iframe (the text editor, and each problem editor field). */
   tinyMceFrame: 'iframe.tox-edit-area__iframe',
 
   /** The problem type picker radios (`value="multiplechoiceresponse"`, …). */
   problemTypeRadio: (value: string) => `.pgn__modal input[type="radio"][value="${value}"]`,
+  /**
+   * The picker's clickable box for a type: the radio itself is `hidden`, so the
+   * author clicks the box that wraps it. Then the picker's "Select".
+   */
+  problemTypeOption: (value: string) =>
+    `.pgn__modal [role="button"]:has(> input[type="radio"][value="${value}"])`,
+  problemTypeSelect: '.pgn__modal-footer button.btn-primary',
+  /** The visual problem editor's "Question" field (a TinyMCE instance). */
+  problemQuestionFrame: 'iframe#question_ifr',
+  /** One row per answer under "Answers". */
+  problemAnswerRow: '.answers-container .answer-option',
+  /**
+   * An answer's "correct" control, by the answer's key (`A`, `B`, …): a radio
+   * for single select and dropdown, a checkbox for the other types.
+   */
+  problemAnswerCorrect: (key: string) => `.answers-container .answer-option input[value="${key}"]`,
+  /** A single- or multi-select answer's text: a TinyMCE instance per answer key. */
+  problemAnswerFrame: (key: string) => `iframe#answer-${key}_ifr`,
+  /** A dropdown, numerical or text-input answer's text: a plain field in its row. */
+  problemAnswerInput: (key: string) =>
+    `.answers-container .answer-option:has(input[value="${key}"]) textarea.form-control`,
 
   /**
    * The video editor's "Video source" URL field. The editor shows a "Video ID"
@@ -96,6 +145,8 @@ export const LEGACY_EDITOR_SELECTORS = {
   /** xblock-poll `poll`: the question, one label per answer key, and "Save". */
   pollQuestion: '#poll-question-editor',
   pollAnswerLabel: (key: string) => `#answer-label-${key}`,
+  /** xblock-poll `survey`: one label per question key (answers as for a poll). */
+  surveyQuestionLabel: (key: string) => `#question-label-${key}`,
   pollSave: '#poll-submit-options',
   /**
    * recommender-xblock: the "entries per page" setting and "Set configurations"

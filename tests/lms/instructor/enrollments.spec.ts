@@ -234,6 +234,23 @@ test.describe(
             await listEnrollments(page.request, config, courseKey, { isBetaTester: true })
           ).results.some((row) => row.username === beta.identity.username),
         ).toBe(false);
+
+        // Granted again from the same row menu, now that the row is an ordinary
+        // enrollment: the role and the early access both come back.
+        await instructorEnrollments.filterBetaTesters('');
+        await instructorEnrollments.searchEnrollments(beta.identity.username);
+        const regranted = (await (
+          await instructorEnrollments.toggleBetaTester(beta.identity.username)
+        ).json()) as {
+          action: string;
+        };
+        expect(regranted.action).toBe('add');
+        expect(
+          (
+            await listEnrollments(page.request, config, courseKey, { isBetaTester: true })
+          ).results.some((row) => row.username === beta.identity.username),
+        ).toBe(true);
+        await expect.poll(() => sees(beta), { timeout: TIMEOUTS.contentPublish }).toBe(true);
       },
     );
   },

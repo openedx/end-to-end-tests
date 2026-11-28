@@ -1,7 +1,12 @@
 import type { Locator, Page, Response } from '@playwright/test';
 
 import { LIBRARIES_V2_PATH } from '../../../api';
-import { LIBRARY_SELECTORS, TIMEOUTS } from '../../../config';
+import {
+  ADVANCED_BLOCK_SELECTORS,
+  LIBRARY_SELECTORS,
+  TIMEOUTS,
+  advancedBlockRoot,
+} from '../../../config';
 import { waitForWrite } from '../wait-for-write';
 
 /**
@@ -34,6 +39,8 @@ export class LibrarySidebar {
   readonly hierarchyRows: Locator;
   readonly hierarchySelectedRow: Locator;
   readonly blockPreview: Locator;
+  /** Inside a PDF component's preview: the viewer frame the block points at its file. */
+  readonly previewPdfFrame: Locator;
 
   constructor(private readonly page: Page) {
     this.root = page.locator(this.s.sidebar);
@@ -48,6 +55,9 @@ export class LibrarySidebar {
     this.hierarchyRows = page.locator(this.s.hierarchyRow);
     this.hierarchySelectedRow = page.locator(this.s.hierarchySelectedRow);
     this.blockPreview = this.root.locator(this.s.blockPreview);
+    this.previewPdfFrame = this.root
+      .frameLocator(this.s.blockPreview)
+      .locator(`${advancedBlockRoot('pdf')} ${ADVANCED_BLOCK_SELECTORS.embedFrame}`);
   }
 
   /** Closes the sidebar (its title row's last inline icon button — the row may also hold a rename pencil). */
@@ -132,6 +142,30 @@ export class LibrarySidebar {
       },
       () => this.publishAllButton.click(),
     );
+  }
+
+  /**
+   * Starts recording whether the public-read switch is ever disabled from now
+   * on, and returns a reader for that. The switch is disabled only while its
+   * save is in flight — too briefly to poll for — so the panel is observed
+   * from before the click; nothing is intercepted or delayed.
+   */
+  async recordPublicReadDisabled(): Promise<() => Promise<boolean>> {
+    await this.publicReadSwitch.waitFor();
+    const seen = await this.root.evaluateHandle((panel, selector) => {
+      const record = { disabled: false };
+      const read = () => {
+        const input = document.querySelector(selector);
+        if (input instanceof HTMLInputElement && input.disabled) record.disabled = true;
+      };
+      new MutationObserver(read).observe(panel, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+      });
+      return record;
+    }, this.s.publicReadSwitch);
+    return () => seen.evaluate((record) => record.disabled);
   }
 
   /** Flips the public-read switch, waiting for the `PATCH <lib>/` it fires. */

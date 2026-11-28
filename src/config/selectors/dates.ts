@@ -18,6 +18,11 @@ export const DATES_SELECTORS = {
    * can only be read from the localized label.
    */
   dayBadge: '.badge',
+  /**
+   * A day's heading: its date as the tab formats it ("Mon, Nov 30, 2026"),
+   * followed by the day's badge if it has one.
+   */
+  dayHeader: '[data-testid="dates-header"]',
 } as const;
 
 /**

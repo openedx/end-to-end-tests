@@ -17,6 +17,9 @@ import {
 import { testId } from '../../../src/reporting';
 import { LIBRARY_A11Y_BASELINE, LIBRARY_TAGS, authorTextBlock, label } from './helpers';
 
+/** A minimal PDF document: the bytes are the test's own. */
+const minimalPdf = () => Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
+
 /**
  * Components in a content library: authoring text (TC-00322) and video
  * (TC-00323, transcript TC-00324, start/stop TC-00325) through the editors,
@@ -94,11 +97,25 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
       studioVideoEditor,
     }) => {
       void studioAuthorSession;
+      const url = `https://www.youtube.com/watch?v=${SAMPLE_YOUTUBE_ID}`;
       await libraryPage.goto(authoringLibrary.id);
       await libraryPage.openAddContent();
       await libraryPage.addComponent('video');
 
-      await studioVideoEditor.setVideoUrl(`https://www.youtube.com/watch?v=${SAMPLE_YOUTUBE_ID}`);
+      // Cancel asks first. "Keep editing" returns to the editor with what was
+      // typed; "Discard changes and exit" closes it and creates nothing.
+      await studioVideoEditor.setVideoUrl(url);
+      await libraryPage.cancelEditor();
+      await libraryPage.keepEditing();
+      await expect(libraryPage.editorDialog).toBeVisible();
+      expect(await libraryPage.editorFieldValues()).toContain(url);
+      await libraryPage.cancelEditor();
+      await libraryPage.discardEditor();
+      await expect(libraryPage.root).toBeVisible();
+      expect((await listLibraryBlocks(page.request, config, authoringLibrary.id)).count).toBe(0);
+
+      await libraryPage.addComponent('video');
+      await studioVideoEditor.setVideoUrl(url);
       const created = (await (await libraryPage.saveNewComponent()).json()) as LibraryBlock;
       expect(created.block_type).toBe('video');
       await expect
@@ -106,6 +123,36 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
           timeout: TIMEOUTS.contentWrite,
         })
         .toContain(`youtube_id_1_0="${SAMPLE_YOUTUBE_ID}"`);
+      expect((await listLibraryBlocks(page.request, config, authoringLibrary.id)).count).toBe(1);
+    },
+  );
+
+  test(
+    'cancelling the text editor asks to keep editing or discard',
+    { annotation: testId('TC-00322') },
+    async (
+      { page, config, studioAuthorSession, authoringLibrary, libraryPage, studioTextEditor },
+      testInfo,
+    ) => {
+      void studioAuthorSession;
+      const text = label('kept', testInfo.testId);
+      await libraryPage.goto(authoringLibrary.id);
+      await libraryPage.openAddContent();
+      await libraryPage.addComponent('html');
+      await studioTextEditor.focus();
+      await studioTextEditor.type(text);
+
+      // "Keep editing": the editor is still there, with what was typed.
+      await libraryPage.cancelEditor();
+      await libraryPage.keepEditing();
+      await expect(libraryPage.editorDialog).toBeVisible();
+      await expect(libraryPage.editorTextBody).toContainText(text);
+
+      // "Discard changes and exit": back on the library, nothing created.
+      await libraryPage.cancelEditor();
+      await libraryPage.discardEditor();
+      await expect(libraryPage.root).toBeVisible();
+      expect((await listLibraryBlocks(page.request, config, authoringLibrary.id)).count).toBe(0);
     },
   );
 
@@ -296,7 +343,7 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
   test(
     'adds a PDF block from the Advanced / Other list',
     { tag: '@pdf-xblock', annotation: testId('TC-00510') },
-    async ({ page, config, studioAuthorSession, authoringLibrary, libraryPage }) => {
+    async ({ page, config, studioAuthorSession, authoringLibrary, libraryPage }, testInfo) => {
       void studioAuthorSession;
       // The MFE labels each advanced type with the API's own `display_name`.
       const types = await fetchLibraryBlockTypes(page.request, config, authoringLibrary.id);
@@ -313,6 +360,40 @@ test.describe('Content library components', { tag: ['@regression', ...LIBRARY_TA
           (b) => b.block_type,
         ),
       ).toEqual(['pdf']);
+
+      // Reopened for editing, the block takes a PDF: the file becomes an asset
+      // of the block and the block points at it.
+      const fileName = `e2e-${testInfo.testId.slice(-6)}.pdf`;
+      await libraryPage.goto(authoringLibrary.id, 'components');
+      await libraryPage.cards.first().waitFor({ timeout: TIMEOUTS.librarySearch });
+      await libraryPage.cards.first().click();
+      await libraryPage.sidebar.editComponent();
+      const uploaded = await libraryPage.uploadPdfInEditor({
+        name: fileName,
+        buffer: minimalPdf(),
+      });
+      expect(uploaded.ok()).toBe(true);
+      await libraryPage.saveEditor();
+      await expect
+        .poll(
+          async () =>
+            (await fetchLibraryBlockAssets(page.request, config, created.id)).map((a) => a.path),
+          { timeout: TIMEOUTS.contentWrite },
+        )
+        .toEqual([expect.stringContaining(fileName)]);
+      await expect
+        .poll(() => fetchLibraryBlockOlx(page.request, config, created.id), {
+          timeout: TIMEOUTS.contentWrite,
+        })
+        .toContain(fileName);
+
+      // And the component's preview shows that PDF: the block's viewer frame
+      // is pointed at the uploaded file.
+      await expect(libraryPage.sidebar.previewPdfFrame).toHaveAttribute(
+        'src',
+        new RegExp(fileName.replace('.', '\\.')),
+        { timeout: TIMEOUTS.contentWrite },
+      );
     },
   );
 });

@@ -30,6 +30,7 @@ export {
   isAccountBackendName,
 } from './account-backends';
 export { registrableDomain } from './domain';
+export { escapeRegExp } from './regexp';
 export { importPluginModule, instantiatePluginExport } from './plugin-module';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';
@@ -117,6 +118,7 @@ export {
   encodedTagValue,
   TAXONOMY_SELECTORS,
   STUDIO_FILES_SELECTORS,
+  FILES_ROW_CELL,
   FILES_ROW_MENU,
   STUDIO_TEXTBOOKS_SELECTORS,
   STUDIO_UPDATES_SELECTORS,

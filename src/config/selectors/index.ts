@@ -51,7 +51,7 @@ export {
 } from './studio-sidebar';
 export { TAG_DRAWER_SELECTORS, encodedTagValue } from './tag-drawer';
 export { TAXONOMY_SELECTORS } from './taxonomies';
-export { STUDIO_FILES_SELECTORS, FILES_ROW_MENU } from './studio-files';
+export { STUDIO_FILES_SELECTORS, FILES_ROW_CELL, FILES_ROW_MENU } from './studio-files';
 export { STUDIO_TEXTBOOKS_SELECTORS } from './studio-textbooks';
 export {
   STUDIO_GRADING_SELECTORS,

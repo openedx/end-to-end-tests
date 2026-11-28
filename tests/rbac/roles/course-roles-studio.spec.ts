@@ -2,13 +2,25 @@ import { expect, test } from '../../../src/fixtures';
 import {
   assignRole,
   canI,
+  deleteAsset,
+  fetchAdvancedSettings,
+  fetchAllAssets,
+  fetchCertificateConfiguration,
+  fetchCourseDetails,
   fetchCourseIndex,
+  fetchCustomPages,
+  fetchGradingPolicy,
+  fetchStudioUsername,
+  fetchXBlockOutline,
   listRoleUsers,
   listStudioCourses,
-  revokeRole,
+  publishXBlock,
+  updateCourseDetails,
+  uploadAsset,
   updateXBlock,
 } from '../../../src/api';
 import { STUDIO_OUTLINE_PAGE_SELECTORS, TIMEOUTS } from '../../../src/config';
+import { AssignRoleWizard } from '../../../src/pages/admin-console';
 import { seedScopeAssignments } from '../../../src/steps';
 import { issue, testId } from '../../../src/reporting';
 import { STUDIO_AUTHZ_TAGS } from '../studio-authz/helpers';
@@ -79,6 +91,46 @@ test.describe(
           staff.page.locator(STUDIO_OUTLINE_PAGE_SELECTORS.sectionCard).first(),
         ).toBeVisible({ timeout: TIMEOUTS.navigation });
 
+        // Publishing: the section it renamed goes live as the role's own act.
+        await publishXBlock(staff.request, config, writableBlock);
+        await expect
+          .poll(
+            async () => (await fetchXBlockOutline(page.request, config, writableBlock)).published,
+          )
+          .toBe(true);
+
+        // The settings pages the case lists, each opened as the role through
+        // the endpoint its page reads — and Schedule & Details edited, with the
+        // edit read back by the course's author.
+        await expect(fetchGradingPolicy(staff.request, config, courseKey)).resolves.toBeDefined();
+        await expect(
+          fetchAdvancedSettings(staff.request, config, courseKey),
+        ).resolves.toBeDefined();
+        await expect(fetchCustomPages(staff.request, config, courseKey)).resolves.toBeDefined();
+        await expect(
+          fetchCertificateConfiguration(staff.request, config, courseKey),
+        ).resolves.toBeDefined();
+        const enrollmentEnd = '2090-04-05T00:00:00Z';
+        await updateCourseDetails(staff.request, config, courseKey, {
+          enrollment_end: enrollmentEnd,
+        });
+        expect(
+          (await fetchCourseDetails(page.request, config, courseKey)).enrollment_end,
+        ).toContain('2090-04-05');
+
+        // Files: uploaded, listed and deleted by the role.
+        const fileName = `e2e-staff-${testInfo.testId.slice(-6)}.txt`;
+        const asset = await uploadAsset(staff.request, config, courseKey, {
+          name: fileName,
+          mimeType: 'text/plain',
+          buffer: Buffer.from('e2e course staff upload'),
+        });
+        const names = async () =>
+          (await fetchAllAssets(staff.request, config, courseKey)).map((row) => row.display_name);
+        expect(await names()).toContain(fileName);
+        await deleteAsset(staff.request, config, courseKey, asset);
+        expect(await names()).not.toContain(fileName);
+
         // Team management: not offered, and refused both as a right and as a write.
         expect(await canI(staff.request, config, 'courses.manage_course_team', courseKey)).toBe(
           false,
@@ -86,6 +138,13 @@ test.describe(
         const staffConsole = adminConsole.consoleFor(staff.page);
         await staffConsole.goto(courseKey);
         await expect(staffConsole.assignRoleButton).toHaveCount(0);
+        // The team list is shown to it, but as a list only: another member's
+        // audit view offers no live control to remove an assignment.
+        await expect(adminConsole.teamMembersFor(staff.page).rows).not.toHaveCount(0);
+        const audit = adminConsole.auditFor(staff.page);
+        await audit.goto(await fetchStudioUsername(page.request, config));
+        await expect(audit.rows).not.toHaveCount(0);
+        await expect(audit.deleteControls).toHaveCount(0);
         const other = await rbacCast('outsider');
         await expect(
           assignRole(staff.request, config, {
@@ -124,16 +183,22 @@ test.describe(
           true,
         );
 
-        // …plus the console's Assign Role, and adding somebody, as the admin itself.
+        // …plus the console's Assign Role: the admin's own wizard, giving a new
+        // account Course Staff on this course.
         const adminView = adminConsole.consoleFor(admin.page);
         await adminView.goto(courseKey);
         await expect(adminView.assignRoleButton).toBeVisible();
-        const assigned = await assignRole(admin.request, config, {
-          role: 'course_staff',
-          scopes: [courseKey],
-          users: [newcomer.identity.username],
-        });
-        expect(assigned.errors).toEqual([]);
+        const wizard = new AssignRoleWizard(admin.page, config, adminConsole.origin);
+        await wizard.open();
+        await wizard.fillWhoAndRole(newcomer.identity.username, 'course_staff');
+        await wizard.validateAndAdvance();
+        await wizard.chooseScope(courseKey);
+        const saved = (await (await wizard.save()).json()) as { errors: unknown[] };
+        expect(saved.errors).toEqual([]);
+
+        // The save is acknowledged (a message whose wording is localized), the
+        // platform holds the role, and the team table lists the new member.
+        await expect(wizard.toast).toBeVisible();
         await expect
           .poll(
             async () =>
@@ -143,16 +208,48 @@ test.describe(
             { timeout: TIMEOUTS.rbacMigration },
           )
           .toEqual(['course_staff']);
+        await adminView.goto(courseKey);
+        await expect(
+          adminConsole.teamMembersFor(admin.page).rowsFor(newcomer.identity.email),
+        ).toHaveCount(1);
+        expect(await fetchCourseIndex(newcomer.request, config, courseKey)).toBeDefined();
+      },
+    );
+
+    // The removal is the newer console's: `verawood`'s audit view offers no
+    // working delete control for a course-scope assignment (`RBAC-014`).
+    test(
+      'lets a course admin remove a member from the audit view',
+      { tag: '@rbac-console-next', annotation: testId('TC-00577') },
+      async ({ page, config, adminConsole, authzTarget, studioAuthorSession, rbacCast }) => {
+        void studioAuthorSession;
+        const courseKey = authzTarget.courseKey;
+        const admin = await rbacCast('courseAdmin');
+        const newcomer = await rbacCast('newcomer');
+        await seedScopeAssignments(
+          page.request,
+          config,
+          courseKey,
+          [admin.identity.username],
+          ['course_admin'],
+        );
+        await seedScopeAssignments(
+          page.request,
+          config,
+          courseKey,
+          [newcomer.identity.username],
+          ['course_staff'],
+        );
         expect(await fetchCourseIndex(newcomer.request, config, courseKey)).toBeDefined();
 
-        // …and taking it away again. (The console's own removal control is
-        // disabled for a course scope — `RBAC-014`, held in `team-sync.spec.ts` —
-        // so the outcome is driven through the API the console would call.)
-        await revokeRole(admin.request, config, {
-          role: 'course_staff',
-          scope: courseKey,
-          users: [newcomer.identity.username],
-        });
+        // From that member's audit view: the delete control asks for
+        // confirmation, and confirming removes the assignment.
+        const audit = adminConsole.auditFor(admin.page);
+        await audit.goto(newcomer.identity.username);
+        await expect(audit.rows).toHaveCount(1);
+        await audit.openRemove(audit.row(0));
+        await expect(audit.confirmDialog).toBeVisible();
+        expect((await audit.confirmRemove()).ok()).toBe(true);
         await expect
           .poll(
             async () =>
