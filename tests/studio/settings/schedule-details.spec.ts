@@ -17,7 +17,7 @@ import {
   type CourseDetails,
 } from '../../../src/api';
 import { newCleanBrowserContext } from '../../../src/auth';
-import { COURSE_ABOUT_SELECTORS, getRunId } from '../../../src/config';
+import { COURSE_ABOUT_SELECTORS, getRunId, escapeRegExp } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { CourseAboutPage } from '../../../src/pages/lms/catalog/course-about.page';
 import { DatesPage } from '../../../src/pages/lms/course-home/dates.page';
@@ -812,5 +812,3 @@ const ONE_PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   'base64',
 );
-
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

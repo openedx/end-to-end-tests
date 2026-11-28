@@ -4,6 +4,7 @@ import {
   LEGACY_EDITOR_SELECTORS,
   TIMEOUTS,
   advancedBlockRoot,
+  escapeRegExp,
 } from '../../../src/config';
 import {
   authorHtml,
@@ -225,8 +226,6 @@ const ROWS: readonly Row[] = [
     },
   }),
 ];
-
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 test.describe(
   'Advanced component configuration',

@@ -5,7 +5,7 @@ import {
   fetchCourseHomeOutline,
   fetchCourseMetadata,
 } from '../../../src/api';
-import { TIMEOUTS } from '../../../src/config';
+import { TIMEOUTS, escapeRegExp } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
 
@@ -108,14 +108,29 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
       const refreshed = { timeout: TIMEOUTS.contentPublish };
       const hasTab = async () =>
         tabIds(await fetchCourseMetadata(api, config, courseKey)).includes('discussion');
-      // A new course has the tab.
-      expect(await hasTab()).toBe(true);
+      // The course is shared and outlives a worker, so the starting state is
+      // read, not assumed, and the tab is shown again whatever happens after a
+      // toggle: a failure must not leave it hidden for the retry. `hidden`
+      // follows the writes (the LMS's tabs lag behind them).
+      const before = await hasTab();
+      let hidden = !before;
+      try {
+        expect(await pagesResourcesPage.setDiscussionTabHidden(courseKey, before)).toBeLessThan(
+          300,
+        );
+        hidden = before;
+        await expect.poll(hasTab, refreshed).toBe(!before);
 
-      expect(await pagesResourcesPage.setDiscussionTabHidden(courseKey, true)).toBeLessThan(300);
-      await expect.poll(hasTab, refreshed).toBe(false);
-
-      expect(await pagesResourcesPage.setDiscussionTabHidden(courseKey, false)).toBeLessThan(300);
-      await expect.poll(hasTab, refreshed).toBe(true);
+        expect(await pagesResourcesPage.setDiscussionTabHidden(courseKey, !before)).toBeLessThan(
+          300,
+        );
+        hidden = !before;
+        await expect.poll(hasTab, refreshed).toBe(before);
+      } finally {
+        if (hidden) {
+          await pagesResourcesPage.setDiscussionTabHidden(courseKey, false);
+        }
+      }
     },
   );
 
@@ -224,5 +239,3 @@ test.describe('Pages & Resources', { tag: ['@studio', '@author', '@mfe-authoring
     },
   );
 });
-
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

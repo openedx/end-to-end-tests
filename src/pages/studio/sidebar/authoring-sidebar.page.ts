@@ -265,9 +265,14 @@ export class AuthoringSidebar {
     return this.page.locator(this.s.settingsDateInput);
   }
 
-  /** The option (0 or 1) a Settings-tab toggle group currently shows as chosen. */
+  /**
+   * The option (0 or 1) a Settings-tab toggle group currently shows as chosen.
+   * Waits for the group's buttons first, so a group that is not rendered times
+   * out here instead of reading as "no option chosen" (-1).
+   */
   async settingsToggleChoice(group: number): Promise<number> {
     const buttons = this.page.locator(this.s.settingsToggleGroup).nth(group).locator('button');
+    await buttons.first().waitFor({ state: 'attached' });
     const classes: string[] = await buttons.evaluateAll((all: Element[]) =>
       all.map((button) => button.getAttribute('class') ?? ''),
     );

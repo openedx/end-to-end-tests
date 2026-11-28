@@ -1,7 +1,12 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from '../../../src/fixtures';
-import { STUDIO_OUTLINE_PAGE_SELECTORS, TIMEOUTS, type AppConfig } from '../../../src/config';
+import {
+  STUDIO_OUTLINE_PAGE_SELECTORS,
+  TIMEOUTS,
+  type AppConfig,
+  escapeRegExp,
+} from '../../../src/config';
 import { courseUsageKey, fetchCourseMetadata, fetchXBlockOutline } from '../../../src/api';
 import { CatalogPage } from '../../../src/pages/lms/catalog/catalog.page';
 import { CourseAboutPage } from '../../../src/pages/lms/catalog/course-about.page';
@@ -107,10 +112,6 @@ test.describe(
   },
 );
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 interface Named {
   readonly key: string;
   readonly name: string;
@@ -189,12 +190,14 @@ async function expectCourseNotStarted(
 
   // What the learner has instead is the About page, from the catalog's card for
   // the course (found by its number, an identifier): it renders the course's
-  // description and, enrolled though they are, no link into the course.
+  // description and, enrolled though they are, no link into the course. The
+  // link would sit beside the enrolled status, so that is waited for first.
   const catalog = new CatalogPage(learner.page, config);
   const about = new CourseAboutPage(learner.page, config);
   const number = learner.courseKey.split('+')[1] ?? learner.courseKey;
   await locateCourseInCatalog(catalog, config, learner.courseKey, number);
   await catalog.openCourseAbout(learner.courseKey);
   await expect(about.overview).toBeVisible();
+  await expect(about.enrollmentStatus).toBeVisible();
   await expect(about.coursewareLink(learner.courseKey)).toHaveCount(0);
 }

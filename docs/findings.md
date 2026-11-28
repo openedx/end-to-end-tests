@@ -113,7 +113,7 @@ measured, and issues are opened by hand from them.
 | `FILES-001` | `openedx/frontend-app-authoring` (TC-00137, frontend-app-authoring#3096) | **not reproduced** — case committed green on both targets
 | `FILES-002` | browser policy, not a product defect                          | open, no `fixme` — clipboard unreadable on `http`; the copied text is read through a recording stand-in for `navigator.clipboard`
 | `FILES-003` | `openedx/frontend-app-authoring` (Files table ARIA)           | open, no `fixme` — `aria-allowed-attr` baselined on the `studio-files` scan only |
-| `FILES-004` | `openedx/frontend-app-authoring` (Files search, TC-00136)      | open, not filed — `test.fail` on TC-00136's separate-words search; a term with a space that is one substring of the name is verified |
+| `FILES-004` | `openedx/frontend-app-authoring` (Files search, TC-00136)      | open, not filed — sheet wording: TC-00136's separate-words test asserts the substring search and is marked `disputed`; a term with a space that is one substring of the name is verified |
 | `TAG-003`   | `openedx/frontend-app-authoring` (tag drawer a11y)           | open, no `fixme` — three rules baselined on the `studio-tag-drawer` scan only |
 | `TAG-004`   | `openedx/frontend-app-authoring` (taxonomy pages' breadcrumb a11y) | open, no `fixme` — `list` baselined on the `studio-taxonomy-detail` and `studio-competency-management` scans only |
 | `TAG-005`   | `openedx/frontend-app-authoring` (taxonomy import wizard, filed as openedx-core#827) | **filed** - [openedx-core#827](https://github.com/openedx/openedx-core/issues/827), no `fixme` — worked around in `taxonomy-type.spec.ts` and `import-competency-framework.spec.ts` (a page load before each wizard run, a different file on re-import or when the wizard is reopened without a reload) |
@@ -1580,12 +1580,17 @@ file name. For `FirstCourseImage.jpg`, "First Image" and "First .jpg" (the
 terms TC-00136 gives) find nothing; a term whose words appear together in the
 name, space included, finds the file.
 
-**Expected:** each word narrows the list, as the case describes.
+**Expected by the sheet:** each word narrows the list.
 
-**Coverage impact:** open, not filed. `test.fail` on TC-00136's
-"searches by separate words of a file name"; the substring search with a space
-is asserted in the case's other test. It may turn out to be a sheet wording
-question rather than a defect.
+**Coverage impact:** open, not filed, and treated as a sheet wording question
+rather than a defect. TC-00136's "searches by separate words of a file name"
+asserts what the search does (each part alone finds its file, the parts typed
+apart find nothing) and is marked `disputed`, so its passing row says the sheet
+is out of step; the substring search with a space is asserted in the case's
+other test.
+
+**Sheet should say:** search terms that appear in the file name as typed
+("First", "Image", ".jpg"), not parts of the name separated by a space.
 
 ### `FILES-001` — sort/filter under a search: not reproduced on this target
 
@@ -2260,8 +2265,8 @@ item had before the move.
 
 **Coverage impact:** open, not filed (fixed on `main`, so it would be a
 backport request). TC-00485 loads the outline afresh before Move Up, which
-both releases accept. The reload as a cure is inferred from the stale state
-and was not run against `verawood` before this entry was written.
+both releases accept. The reload as a cure was inferred from the stale state;
+the `verawood` CI run of 2026-11-25 passed with it.
 
 ### `AUTH-007` — on `verawood` the authoring sidebar pushes its rail off a narrower window
 

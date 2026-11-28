@@ -30,6 +30,7 @@ export {
   isAccountBackendName,
 } from './account-backends';
 export { registrableDomain } from './domain';
+export { escapeRegExp } from './regexp';
 export { importPluginModule, instantiatePluginExport } from './plugin-module';
 export { ENV_KEYS } from './schema';
 export { TIMEOUTS } from './timeouts';

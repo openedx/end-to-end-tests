@@ -21,6 +21,14 @@ export const COURSE_ABOUT_SELECTORS = {
   enrollButton: 'main button.pgn__stateful-btn',
 
   /**
+   * The status message that replaces the enroll call to action in the intro
+   * card (enrolled, or enrollment closed). The courseware link, when the
+   * learner may enter the course, is rendered beside it, so a check that the
+   * link is absent waits for this first.
+   */
+  enrollmentStatus: 'main .course-about-intro [role="status"]',
+
+  /**
    * The share links — the sheet's Facebook, Twitter and e-mail "share" icons.
    * Paragon hyperlinks with only an icon and screen-reader text, so each is
    * anchored by the share service its `href` targets; the links are never

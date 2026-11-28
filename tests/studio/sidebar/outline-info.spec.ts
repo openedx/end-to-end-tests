@@ -16,6 +16,7 @@ import {
   viewportUse,
   STUDIO_SIDEBAR_SELECTORS as S,
   type AppConfig,
+  escapeRegExp,
 } from '../../../src/config';
 import { expect, test } from '../../../src/fixtures';
 import { testId } from '../../../src/reporting';
@@ -39,10 +40,6 @@ const COURSE_SETTINGS_PAGES = [
 /** A subsection's Settings toggles: grading, then visibility (`settingsToggleGroup`). */
 const GRADING_TOGGLE = 0;
 const VISIBILITY_TOGGLE = 1;
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 /** An ISO date as the Settings tab's date picker writes it (`MM/DD/YYYY`, UTC). */
 function pickerDate(iso: string | null): string {

@@ -13,6 +13,8 @@ import {
  */
 export class CourseAboutPage {
   readonly enrollButton: Locator;
+  /** The intro card's status message, shown in place of the enroll button. */
+  readonly enrollmentStatus: Locator;
   readonly detailsItemLabels: Locator;
   readonly detailsItemValues: Locator;
   readonly shareTwitter: Locator;
@@ -29,6 +31,7 @@ export class CourseAboutPage {
     private readonly config: AppConfig,
   ) {
     this.enrollButton = page.locator(COURSE_ABOUT_SELECTORS.enrollButton);
+    this.enrollmentStatus = page.locator(COURSE_ABOUT_SELECTORS.enrollmentStatus);
     this.detailsItemLabels = page.locator(COURSE_ABOUT_SELECTORS.detailsItemLabel);
     this.detailsItemValues = page.locator(COURSE_ABOUT_SELECTORS.detailsItemValue);
     this.shareTwitter = page.locator(COURSE_ABOUT_SELECTORS.shareTwitter);

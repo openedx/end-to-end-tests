@@ -1,6 +1,6 @@
 import { newCleanRequestContext } from '../../../src/auth';
 import { expect, test } from '../../../src/fixtures';
-import { TIMEOUTS } from '../../../src/config';
+import { TIMEOUTS, escapeRegExp } from '../../../src/config';
 import {
   addToCohort,
   buildSection,
@@ -16,10 +16,6 @@ import {
   updateXBlock,
 } from '../../../src/api';
 import { knownGap, testId } from '../../../src/reporting';
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 /**
  * Learner-sidebar cases that need authored content: unit-type icons (TC-00054),
