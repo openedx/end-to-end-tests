@@ -294,7 +294,11 @@ export function planPublish(input: PlanInput): PublishPlan {
       const [only] = state.sheets;
       if (only && !FIXED_TABS.includes(only.title)) {
         structure.push({ deleteSheet: { sheetId: only.sheetId } });
-        order.splice(order.indexOf(only), 1);
+        // `order` holds copies, so the tab is found by its id.
+        const at = order.findIndex((o) => o.sheetId === only.sheetId);
+        if (at !== -1) {
+          order.splice(at, 1);
+        }
       }
     }
   }

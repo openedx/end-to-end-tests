@@ -190,9 +190,11 @@ column order is a contract with those formulas: append, never reorder.
   those as held back so the build stays green, which a tester would read as
   "nothing wrong found". Held for a defect means a `test.fail()` that duly
   failed, or a `test.fixme()` whose reason leads with a finding id
-  (`knownGap('PLAT-008: …')`) or carries an `issue(...)` link. A fixme for
-  something the suite lacks stays `partial` / `unverified`: start its reason
-  with "Suite gap" if it has to cite a finding or an issue.
+  (`knownGap('PLAT-008: …')`). An `issue(...)` link does not decide it. A fixme
+  for something the suite lacks stays `partial` / `unverified`: start its
+  reason with "Suite gap" if it has to lead with a finding. A case that failed
+  only because a `test.fail()` unexpectedly passed reads `unverified`, with the
+  stale-marker note.
 - **E2E Manual Check** is `yes` unless the case is `verified`, disputes nothing
   and is not listed in the "Cases needing a manual check" table of
   [`docs/coverage_gaps.md`](../../docs/coverage_gaps.md), which the publisher

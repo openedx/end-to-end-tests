@@ -291,8 +291,9 @@ export function renderRunsRow(
 
 /* -------------------------------------------------------------------- Export */
 
+// One capability or several (`a, b. Declare them …`), as the capability gate words it.
 const CAPABILITY_SKIP =
-  /skipped: Installation does not have: ([^.\s]+)\. Declare it in CAPABILITIES to run this spec\./g;
+  /skipped: Installation does not have: ([^.]+)\. Declare (?:it|them) in CAPABILITIES to run this spec\./g;
 
 /** A run note in a tester's terms: a capability skip is about the CI install, not the product. */
 function testerNote(note: string): string {
@@ -322,8 +323,9 @@ function isExpectedFailure(test: RunTest): boolean {
  * for something the suite lacks. The run report gives the reason as text
  * (`knownGap(...)`, then the `issue(...)` link), so the defect is recognised by
  * what marks one: a finding id leading the reason (`PLAT-008: …`, see
- * `docs/findings.md`) or an issue link. A reason that opens "Suite gap" is the
- * suite's own, whatever it goes on to cite.
+ * `docs/findings.md`). An issue link on its own does not: suite gaps cite
+ * issues too. A reason that opens "Suite gap" is the suite's own, whatever it
+ * goes on to cite.
  */
 function isDefectFixme(test: RunTest): boolean {
   const note = bareNote(test);
@@ -334,16 +336,35 @@ function isDefectFixme(test: RunTest): boolean {
   if (/^suite gap\b/i.test(reason)) {
     return false;
   }
-  return /^[A-Z]{2,}-\d{3}\b/.test(reason) || / — https?:\/\/\S+$/.test(reason);
+  return /^[A-Z]{2,}-\d{3}\b/.test(reason);
+}
+
+/**
+ * Whether a test is a `test.fail()` that passed: the defect it was held for
+ * appears fixed, and the marker is stale. The run counts it as a failure so the
+ * marker gets removed.
+ */
+function isStaleExpectedFailure(test: RunTest): boolean {
+  return bareNote(test).startsWith('UNEXPECTED PASS');
 }
 
 /**
  * A case's result as a tester should read it: the run's verdict, except that a
  * known product defect is a failure of the case, not a gap in the suite's
  * coverage. The run counts both kinds as held back so the build stays green.
+ * The other way round, a case that failed only because a `test.fail()` marker
+ * went stale is `unverified`: the product did not fail it, and the note says
+ * the defect appears fixed.
  */
 function exportResult(c: RunCase): string {
-  return c.tests.some((t) => isExpectedFailure(t) || isDefectFixme(t)) ? 'failed' : c.verdict;
+  if (c.tests.some((t) => isExpectedFailure(t) || isDefectFixme(t))) {
+    return 'failed';
+  }
+  const failures = c.tests.filter((t) => t.status === 'failed' || t.status === 'timedOut');
+  if (c.verdict === 'failed' && failures.length > 0 && failures.every(isStaleExpectedFailure)) {
+    return 'unverified';
+  }
+  return c.verdict;
 }
 
 /**

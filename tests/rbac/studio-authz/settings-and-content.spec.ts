@@ -295,7 +295,7 @@ test.describe(
           testId('TC-00637'),
           issue('https://github.com/openedx/wg-build-test-release/issues/614'),
           knownGap(
-            'Proctored exam settings need a proctoring provider configured on the installation, ' +
+            'Suite gap: proctored exam settings need a proctoring provider configured on the installation, ' +
               'which the suite does not provision and CI does not run; the case is also a failed ' +
               'row on the sheet (wg#614).',
           ),

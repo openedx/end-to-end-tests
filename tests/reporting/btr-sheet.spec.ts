@@ -371,7 +371,7 @@ const EXPORT_RUN: BtrRun = {
         note: 'in default: expected failure (known defect): BASE-004: logos differ',
       }),
     ]),
-    // Fixmes held for a product defect: a finding id, or an issue link.
+    // Fixmes held for a product defect: a finding id leads the reason.
     exportCase('TC-00160', 'unverified', [
       runTest({ status: 'skipped', note: 'fixme: PLAT-008: gating is not enforced' }),
     ]),
@@ -379,7 +379,36 @@ const EXPORT_RUN: BtrRun = {
       runTest(),
       runTest({
         status: 'skipped',
-        note: 'in default: fixme: no rows for superusers — https://github.com/openedx/openedx-authz/issues/347',
+        note: 'in default: fixme: RBAC-002: no rows for superusers — https://github.com/openedx/openedx-authz/issues/347',
+      }),
+    ]),
+    // An issue link alone does not make a fixme a defect.
+    exportCase('TC-00637', 'unverified', [
+      runTest({
+        status: 'skipped',
+        note: 'fixme: needs a proctoring provider — https://github.com/openedx/wg-build-test-release/issues/614',
+      }),
+    ]),
+    // Several missing capabilities in one skip.
+    exportCase('TC-00018', 'unverified', [
+      runTest({
+        status: 'skipped',
+        note: 'skipped: Installation does not have: wiki, teams. Declare them in CAPABILITIES to run this spec.',
+      }),
+    ]),
+    // A stale test.fail marker: alone, and beside a real failure.
+    exportCase('TC-00620', 'failed', [
+      runTest(),
+      runTest({
+        status: 'failed',
+        note: 'UNEXPECTED PASS — stale test.fail marker; the known defect appears fixed',
+      }),
+    ]),
+    exportCase('TC-00621', 'failed', [
+      runTest({ status: 'failed', note: 'failed: expect(received).toBe(expected)' }),
+      runTest({
+        status: 'failed',
+        note: 'in default: UNEXPECTED PASS — stale test.fail marker; the known defect appears fixed',
       }),
     ]),
     // Fixmes that are the suite's own gap, even when they cite a finding.
@@ -413,6 +442,7 @@ test.describe('renderExport', { tag: '@unit' }, () => {
       'TC-00005',
       'TC-00016',
       'TC-00017',
+      'TC-00018',
       'TC-00020',
       'TC-00021',
       'TC-00038',
@@ -424,6 +454,9 @@ test.describe('renderExport', { tag: '@unit' }, () => {
       'TC-00311',
       'TC-00423',
       'TC-00568',
+      'TC-00620',
+      'TC-00621',
+      'TC-00637',
     ]);
   });
 
@@ -463,10 +496,24 @@ test.describe('renderExport', { tag: '@unit' }, () => {
 
   test('a fixme held for a product defect reads failed; a suite-gap fixme does not', () => {
     expect(byId.get('TC-00160')?.slice(0, 2)).toEqual(['failed', 'yes']); // finding id
-    expect(byId.get('TC-00568')?.slice(0, 2)).toEqual(['failed', 'yes']); // issue link
+    expect(byId.get('TC-00568')?.slice(0, 2)).toEqual(['failed', 'yes']); // finding id, then a link
+    expect(byId.get('TC-00637')?.slice(0, 2)).toEqual(['unverified', 'yes']); // issue link alone
     expect(byId.get('TC-00214')?.slice(0, 2)).toEqual(['unverified', 'yes']); // "Suite gap"
     expect(byId.get('TC-00287')?.slice(0, 2)).toEqual(['partial', 'yes']); // no defect cited
     expect(byId.get('TC-00311')?.slice(0, 2)).toEqual(['unverified', 'yes']); // no reason at all
+  });
+
+  test('a stale test.fail marker reads unverified unless something else failed', () => {
+    expect(byId.get('TC-00620')?.slice(0, 3)).toEqual([
+      'unverified',
+      'yes',
+      'UNEXPECTED PASS — stale test.fail marker; the known defect appears fixed',
+    ]);
+    expect(byId.get('TC-00621')?.slice(0, 2)).toEqual(['failed', 'yes']);
+  });
+
+  test('a skip for several capabilities is reworded too', () => {
+    expect(byId.get('TC-00018')?.[2]).toBe('not run in CI: needs wiki, teams');
   });
 
   test('a capability skip is reworded for testers and said once', () => {
@@ -551,9 +598,9 @@ test.describe('renderExport', { tag: '@unit' }, () => {
       ],
       ['', 'Summary', 'e2e on verawood · run 123456 · 2026-09-15 · abcdef1'],
     ]);
-    // Rows past the block (header + 15 cases = 16 rows, 7 labels) are blank there.
+    // Rows past the block (header + 19 cases = 20 rows, 7 labels) are blank there.
     expect(grid.slice(EXPORT_INFO_LABELS.length).map((row) => row.slice(5))).toEqual(
-      Array.from({ length: 9 }, () => ['', '', '']),
+      Array.from({ length: 13 }, () => ['', '', '']),
     );
   });
 
